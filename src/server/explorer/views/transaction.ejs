@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title><%= title %></title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Transaction Details</h1>
+    
+    <div class="card">
+      <h2>Transaction Hash</h2>
+      <p class="hash"><%= transaction.hash %></p>
+    </div>
+
+    <div class="card">
+      <h2>Status</h2>
+      <p class="status <%= receipt.status ? 'success' : 'failed' %>">
+        <%= receipt.status ? 'Success' : 'Failed' %>
+      </p>
+    </div>
+
+    <div class="card">
+      <h2>From</h2>
+      <p class="address"><%= transaction.from %></p>
+    </div>
+
+    <div class="card">
+      <h2>To</h2>
+      <p class="address"><%= transaction.to %></p>
+    </div>
+
+    <div class="card">
+      <h2>Value</h2>
+      <p class="amount"><%= ethers.utils.formatEther(transaction.value) %> ETH</p>
+    </div>
+
+    <% if (paymentDetails) { %>
+      <div class="card">
+        <h2>Payment Details</h2>
+        <p>Privacy: <%= paymentDetails.privacy ? 'Enabled' : 'Disabled' %></p>
+        <p>Staking: <%= paymentDetails.staking ? 'Enabled' : 'Disabled' %></p>
+        <% if (paymentDetails.staking) { %>
+          <p>Stake Amount: <%= ethers.utils.formatEther(paymentDetails.stakeAmount) %> OMN</p>
+        <% } %>
+      </div>
+    <% } %>
+
+    <div class="card">
+      <h2>Block</h2>
+      <p>Block Number: <%= receipt.blockNumber %></p>
+      <p>Block Hash: <%= receipt.blockHash %></p>
+    </div>
+
+    <div class="card">
+      <h2>Gas</h2>
+      <p>Gas Used: <%= receipt.gasUsed.toString() %></p>
+      <p>Gas Price: <%= ethers.utils.formatUnits(transaction.gasPrice, 'gwei') %> Gwei</p>
+    </div>
+  </div>
+</body>
+</html> 

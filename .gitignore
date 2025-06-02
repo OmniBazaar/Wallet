@@ -1,3 +1,58 @@
+# Dependencies
+node_modules/
+/.pnp
+.pnp.js
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Testing
+/coverage
+.nyc_output
+
+# Production
+/build
+/dist
+/.next/
+/out/
+/bin/
+**/bin/
+*.bin
+
+# Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.dbg.json
+*.tsbuildinfo
+debug.log
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*.sublime-workspace
+*.sublime-project
+.project
+.classpath
+.settings/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
 # Remix compiler artifacts
 **/artifacts/
 **/artifacts/**
@@ -6,10 +61,90 @@
 deps/
 states/
 
-# Debug info
-*.dbg.json
+# Temporary files
+*.log
+*.tmp
+*.temp
+*.bak
+*.swp
+*~
+
+# Cache directories
+.cache/
+.npm/
+.eslintcache
+.stylelintcache
+.parcel-cache/
+
+# Build output
+*.min.js
+*.min.css
+*.bundle.js
+*.chunk.js
+
+# Coverage directory used by tools like istanbul
+coverage/
+*.lcov
+
+# TypeScript cache
 *.tsbuildinfo
 
-# Optional
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Optional stylelint cache
+.stylelintcache
+
+# Yarn Integrity file
+.yarn-integrity
+
+# dotenv environment variable files
 .env
+.env.development.local
+.env.test.local
+.env.production.local
 .env.local
+
+# parcel-bundler cache
+.cache
+.parcel-cache
+
+# Next.js build output
+.next
+out
+
+# Nuxt.js build / generate output
+.nuxt
+dist
+
+# Gatsby files
+.cache/
+public
+
+# vuepress build output
+.vuepress/dist
+
+# Serverless directories
+.serverless/
+
+# FuseBox cache
+.fusebox/
+
+# DynamoDB Local files
+.dynamodb/
+
+# TernJS port file
+.tern-port
+
+# Stores VSCode versions used for testing VSCode extensions
+.vscode-test
+
+# yarn v2
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
