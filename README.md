@@ -1,29 +1,44 @@
-# OmniWallet
+# OmniBazaar Wallet
 
-A modern, feature-rich cryptocurrency wallet built for the OmniBazaar ecosystem, powered by OmniCoin.
+A modern, secure, and user-friendly wallet implementation for the OmniBazaar ecosystem, built on the COTI platform.
 
 ## Features
 
-### Secure Wallet Management
+- **OmniCoin Integration**: Native support for OmniCoin transactions and balance management
+- **Secure Transactions**: Built-in security features and transaction validation
+- **Cross-Chain Support**: Ready for multi-chain operations
+- **Privacy-Focused**: Integration with COTI's privacy features
+- **Developer-Friendly**: Well-documented API and TypeScript support
 
-- Multi-chain support
-- Hardware wallet integration
-- Secure key management
-- Transaction signing
+## Project Structure
 
-### OmniCoin Integration
-
-- Native OmniCoin support
-- Privacy features
-- Staking capabilities
-- Account abstraction
-
-### Payment Processing
-
-- Smart payment routing
-- Cross-chain transactions
-- Privacy-enhanced payments
-- Staking rewards
+```plaintext
+Wallet/
+├── src/
+│   ├── core/                    # Core wallet functionality
+│   │   ├── blockchain/         # Blockchain interactions
+│   │   │   └── OmniCoin.ts
+│   │   ├── wallet/            # Wallet management
+│   │   │   ├── Wallet.ts
+│   │   │   ├── Transaction.ts
+│   │   │   └── assets.ts
+│   │   └── payment/           # Payment processing
+│   │       └── Payment.ts
+│   ├── ui/                     # User interface components
+│   │   ├── components/        # React components
+│   │   ├── hooks/            # Custom React hooks
+│   │   └── contexts/         # React contexts
+│   ├── services/              # Backend services
+│   │   ├── api/              # API endpoints
+│   │   └── server/           # Server implementation
+│   ├── utils/                 # Utility functions
+│   │   ├── config/           # Configuration
+│   │   └── types/            # TypeScript types
+│   └── assets/               # Static assets
+├── tests/                     # Test files
+├── docs/                      # Documentation
+└── examples/                  # Example implementations
+```
 
 ## Getting Started
 
@@ -31,125 +46,64 @@ A modern, feature-rich cryptocurrency wallet built for the OmniBazaar ecosystem,
 
 - Node.js (v16 or higher)
 - npm or yarn
-- Git
+- TypeScript
 
 ### Installation
 
-1. Clone the repository:
-
 ```bash
-git clone https://github.com/omnibazaar/omniwallet.git
-cd omniwallet
-```
+# Clone the repository
+git clone https://github.com/yourusername/OmniBazaar.git
 
-1. Install dependencies:
+# Navigate to the Wallet directory
+cd OmniBazaar/Wallet
 
-```bash
+# Install dependencies
 npm install
 ```
 
-1. Set up environment variables:
+### Development
 
 ```bash
-cp .env.example .env
-```
-
-Edit `.env` with your configuration:
-
-- `OMNICOIN_ADDRESS`: Your OmniCoin contract address
-- `RPC_URL`: Your Ethereum node RPC URL
-- Other configuration variables as needed
-
-1. Start the development server:
-
-```bash
+# Start development server
 npm run dev
-```
 
-## Project Structure
-
-```text
-omniwallet/
-├── src/
-│   ├── components/     # React components
-│   ├── contexts/       # React contexts
-│   ├── lib/           # Core library code
-│   │   ├── payments/  # Payment processing
-│   │   └── wallet/    # Wallet functionality
-│   ├── pages/         # Next.js pages
-│   └── ui/            # UI components and styles
-├── contracts/         # Smart contracts
-└── server/           # Backend services
-    ├── api/          # API server
-    └── explorer/     # Blockchain explorer
-```
-
-## Smart Contracts
-
-The project includes several smart contracts:
-
-- `OmniCoinPayment.sol`: Handles payment processing
-- `OmniCoinAccount.sol`: Account abstraction implementation
-- `OmniCoinPrivacy.sol`: Privacy features
-- `OmniCoinStaking.sol`: Staking functionality
-
-## API Endpoints
-
-The wallet interacts with two main API services:
-
-- `api.omnibazaar.com`: Payment routing and transaction processing
-- `scan.omnibazaar.com`: Blockchain explorer and transaction tracking
-
-## Development
-
-### Running Tests
-
-```bash
+# Run tests
 npm test
-```
 
-### Building for Production
-
-```bash
+# Build the project
 npm run build
 ```
 
-### Code Style
+## Architecture
 
-We use ESLint and Prettier for code formatting. Run:
+The wallet implementation follows a modular architecture:
 
-```bash
-npm run lint
-npm run format
-```
+- **Core Module**: Handles blockchain interactions, wallet management, and payment processing
+- **UI Module**: Provides user interface components and React integration
+- **Services Module**: Manages backend services and API endpoints
+- **Utils Module**: Contains shared utilities and helper functions
+
+### Key Components
+
+1. **Wallet**: Core wallet functionality including account management and transaction handling
+2. **Transaction**: Transaction creation and management
+3. **Payment**: Payment processing and status tracking
+4. **OmniCoin**: OmniCoin-specific functionality and contract interactions
 
 ## Contributing
 
 1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
-
-## Security
-
-- All smart contracts are audited
-- Security best practices are followed
-- Regular security updates
-- Bug bounty program available
 
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Support
-
-- Documentation: [docs.omnibazaar.com](https://docs.omnibazaar.com)
-- Support: [support.omnibazaar.com](https://support.omnibazaar.com)
-- Discord: [discord.omnibazaar.com](https://discord.omnibazaar.com)
-
 ## Acknowledgments
 
-- Built on the foundation of DePay's payment routing system
-- Enhanced with OmniCoin's privacy and staking features
-- Powered by the OmniBazaar ecosystem
+- COTI Platform
+- DePay (for reference implementation)
+- All contributors and supporters of the OmniBazaar project
