@@ -4,7 +4,11 @@
   "description": "Web3 wallet for OmniBazaar/OmniCoin",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "test": "jest",
+    "lint": "eslint . --ext .ts,.tsx"
   },
   "repository": {
     "type": "git",
