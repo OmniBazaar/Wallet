@@ -4,7 +4,8 @@ import type { Provider, Signer } from 'ethers';
 export const OmniCoinMetadata = {
   symbol: 'OMNI',
   decimals: 18,
-  contractAddress: '0x0000000000000000000000000000000000000000', // Replace with actual contract address
+  // TODO: Update this placeholder with the actual deployed OmniCoin contract address.
+  contractAddress: '0x0000000000000000000000000000000000000000',
   name: 'OmniCoin',
 };
 
