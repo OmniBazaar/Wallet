@@ -1,51 +1,44 @@
-import ClosableProvider from './providers/ClosableProvider'
-import ConfigurationProvider from './providers/ConfigurationProvider'
-import ensureDocument from './helpers/ensureDocument'
-import ErrorProvider from './providers/ErrorProvider'
-import LoadingStack from './stacks/LoadingStack'
-import mount from './helpers/mount'
-import NavigateProvider from './providers/NavigateProvider'
-import PoweredBy from './components/PoweredBy'
 import React from 'react'
-import requireReactVersion from './helpers/requireReactVersion'
-import UpdatableProvider from './providers/UpdatableProvider'
+import styled from 'styled-components'
+import { ReactDialog } from '@omnicoin/react-dialog'
+import { ReactDialogStack } from '@omnicoin/react-dialog-stack'
+import { NavigateStackContext } from '@omnicoin/react-dialog-stack'
+import { useContext } from 'react'
 
-let Loading = async ({
-  text,
-  style,
-  error,
-  critical,
-  container,
-  before,
-  document
-}) => {
-  requireReactVersion()
-  try {
-    let unmount = mount({ style, container, document: ensureDocument(document), closed }, (unmount)=> {
-      return (container)=>
-        <ErrorProvider errorCallback={ error } container={ container } unmount={ unmount }>
-          <UpdatableProvider>
-            <ClosableProvider unmount={ unmount } closable={ false }>
-                <NavigateProvider>
-                  <PoweredBy/>
-                  <LoadingStack
-                    text={ text }
-                    document={ document }
-                    container={ container }
-                  />
-                </NavigateProvider>
-            </ClosableProvider>
-          </UpdatableProvider>
-        </ErrorProvider>
-    })
-    window._depayUnmountLoading = unmount
-    return { unmount }
-  } catch (error) {
-    console.log('critical error', error)
-    if(critical != undefined) {
-      critical(error)
-    }
+const LoadingContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+`
+
+const LoadingMessage = styled.p`
+  margin: 16px 0 0 0;
+  font-size: 16px;
+  color: ${props => props.theme.text};
+`
+
+export default function Loading({ container, message }) {
+  const { navigate } = useContext(NavigateStackContext)
+
+  const unmount = () => {
+    navigate('back')
   }
-}
 
-export default Loading
+  if (typeof window !== 'undefined') {
+    window._omnicoinUnmountLoading = unmount
+  }
+
+  return (
+    <ReactDialog>
+      <ReactDialogStack>
+        <LoadingContainer>
+          <div className="LoadingSpinner" />
+          {message && <LoadingMessage>{message}</LoadingMessage>}
+        </LoadingContainer>
+      </ReactDialogStack>
+    </ReactDialog>
+  )
+}

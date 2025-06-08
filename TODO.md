@@ -186,3 +186,58 @@ OmniWallet is being developed as a fork of the DePay wallet, with significant mo
 - Maintain high test coverage
 - Regular security audits
 - Performance optimization throughout development
+
+## Immediate Tasks
+
+- [ ] **OmniCoin Contract Address:**  
+  Update the placeholder contract address in `src/core/blockchain/OmniCoin.ts` with the actual deployed address.
+
+- [ ] **Advanced OmniCoin Features:**  
+  Implement the following features as contracts and APIs are finalized:
+  - [ ] Staking/unstaking OmniCoin
+  - [ ] Privacy account management
+  - [ ] Governance proposals and voting
+
+- [ ] **UI Updates:**  
+  - [ ] Expose advanced OmniCoin features in the wallet UI.
+  - [ ] Add OmniCoin logo and metadata.
+
+- [ ] **Testing:**  
+  - [ ] Add tests for OmniCoin wallet operations.
+  - [ ] Ensure compatibility with EVM-based wallets (e.g., MetaMask).
+
+## Future Tasks
+
+- [ ] **Cross-Chain Support:**  
+  Implement multi-chain operations for OmniCoin.
+
+- [ ] **Security Enhancements:**  
+  Review and enhance security features for transactions and privacy.
+
+- [ ] **Documentation:**  
+  - [ ] Update `README.md` and `DOCUMENTATION.md` as features are implemented.
+  - [ ] Add developer guides for extending the wallet.
+
+- [ ] **Performance Optimization:**  
+  Optimize wallet performance for large transaction volumes.
+
+- [ ] **User Experience:**  
+  Improve UI/UX for advanced features and cross-chain operations.
+
+## Current Status
+- ✅ Created `OmniCoinTokenManagement` component for managing token approvals and balances.
+- ✅ Created `OmniCoinTokenTransfer` component for transferring tokens.
+- ✅ Created `useOmniCoinToken` hook for token operations.
+- ✅ Updated `index.js` to export new components.
+
+## Next Steps
+- [ ] Integrate `OmniCoinTokenTransfer` into the main UI (e.g., `OmniCoinWidget.jsx` or a navigation system).
+- [ ] Implement actual token approval and transfer logic in the `useOmniCoinToken` hook.
+- [ ] Add error handling and loading states for token operations.
+- [ ] Write tests for the new components and hooks.
+- [ ] Update documentation as needed.
+
+## Future Enhancements
+- [ ] Add support for batch token transfers.
+- [ ] Implement token swap functionality.
+- [ ] Add support for token metadata (e.g., icons, descriptions).

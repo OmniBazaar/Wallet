@@ -1,109 +1,72 @@
 # OmniBazaar Wallet
 
-A modern, secure, and user-friendly wallet implementation for the OmniBazaar ecosystem, built on the COTI platform.
+This module provides a wallet interface for managing OmniCoin and other assets.
 
 ## Features
 
-- **OmniCoin Integration**: Native support for OmniCoin transactions and balance management
-- **Secure Transactions**: Built-in security features and transaction validation
-- **Cross-Chain Support**: Ready for multi-chain operations
-- **Privacy-Focused**: Integration with COTI's privacy features
-- **Developer-Friendly**: Well-documented API and TypeScript support
+- **OmniCoin Integration:**  
+  OmniCoin is the default asset. The wallet supports basic operations (send/receive) and advanced features (staking, privacy, governance).
 
-## Project Structure
+- **Advanced Features:**  
+  - Staking/unstaking OmniCoin
+  - Privacy account management
+  - Governance proposals and voting
 
-```plaintext
-Wallet/
-├── src/
-│   ├── core/                    # Core wallet functionality
-│   │   ├── blockchain/         # Blockchain interactions
-│   │   │   └── OmniCoin.ts
-│   │   ├── wallet/            # Wallet management
-│   │   │   ├── Wallet.ts
-│   │   │   ├── Transaction.ts
-│   │   │   └── assets.ts
-│   │   └── payment/           # Payment processing
-│   │       └── Payment.ts
-│   ├── ui/                     # User interface components
-│   │   ├── components/        # React components
-│   │   ├── hooks/            # Custom React hooks
-│   │   └── contexts/         # React contexts
-│   ├── services/              # Backend services
-│   │   ├── api/              # API endpoints
-│   │   └── server/           # Server implementation
-│   ├── utils/                 # Utility functions
-│   │   ├── config/           # Configuration
-│   │   └── types/            # TypeScript types
-│   └── assets/               # Static assets
-├── tests/                     # Test files
-├── docs/                      # Documentation
-└── examples/                  # Example implementations
-```
+- **EVM Compatibility:**  
+  The wallet is compatible with EVM-based wallets (e.g., MetaMask).
 
-## Getting Started
+## Setup
 
-### Prerequisites
+1. **Install Dependencies:**  
+   ```bash
+   npm install
+   ```
 
-- Node.js (v16 or higher)
-- npm or yarn
-- TypeScript
+2. **Update OmniCoin Contract Address:**  
+   In `src/core/blockchain/OmniCoin.ts`, update the `contractAddress` in `OmniCoinMetadata` with the actual deployed contract address.
 
-### Installation
+3. **Run Development Server:**  
+   ```bash
+   npm run dev
+   ```
 
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/OmniBazaar.git
+## Documentation
 
-# Navigate to the Wallet directory
-cd OmniBazaar/Wallet
+- **Core Wallet Logic:**  
+  Located in `src/core/wallet/Wallet.ts`.
 
-# Install dependencies
-npm install
-```
+- **OmniCoin Integration:**  
+  Located in `src/core/blockchain/OmniCoin.ts`.
 
-### Development
+- **Advanced Features:**  
+  Advanced features (staking, privacy, governance) are currently placeholders and will be implemented as the contracts and APIs are finalized.
 
-```bash
-# Start development server
-npm run dev
+## TODO
 
-# Run tests
-npm test
-
-# Build the project
-npm run build
-```
-
-## Architecture
-
-The wallet implementation follows a modular architecture:
-
-- **Core Module**: Handles blockchain interactions, wallet management, and payment processing
-- **UI Module**: Provides user interface components and React integration
-- **Services Module**: Manages backend services and API endpoints
-- **Utils Module**: Contains shared utilities and helper functions
-
-### Key Components
-
-1. **Wallet**: Core wallet functionality including account management and transaction handling
-2. **Transaction**: Transaction creation and management
-3. **Payment**: Payment processing and status tracking
-4. **OmniCoin**: OmniCoin-specific functionality and contract interactions
-
-## Contributing
-
-1. Fork the repository
-1. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-1. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-1. Push to the branch (`git push origin feature/AmazingFeature`)
-1. Open a Pull Request
+- Implement advanced OmniCoin features (staking, privacy, governance).
+- Update UI to expose advanced features.
+- Add tests for OmniCoin wallet operations.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT
 
-## Acknowledgments
+# OmniCoin Integration
 
-- COTI Platform
-- DePay (for reference implementation)
-- All contributors and supporters of the OmniBazaar project
+## Overview
+This module integrates OmniCoin functionality into the wallet application. It includes components for token management, transaction history, and token transfers.
+
+## Components
+- **OmniCoinTokenManagement**: Manages token approvals and displays token balances and allowances.
+- **OmniCoinTokenTransfer**: Allows users to transfer tokens to another address.
+- **OmniCoinTransactionHistory**: Displays a history of transactions.
+
+## Hooks
+- **useOmniCoinToken**: Provides functions for token operations such as approval, transfer, balance, and allowance checks.
+
+## Usage
+Import the components and hooks from `src/ui/widgets/omnicoin` to use them in your application.
+
+## Development
+- Ensure you have the necessary dependencies installed.
+- Run the development server using `npm start` or `yarn start`.

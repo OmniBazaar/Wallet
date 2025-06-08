@@ -1,19 +1,21 @@
-import allWallets from './helpers/allWallets'
 import Connect from './Connect'
-import Loading from './Loading'
 import Login from './Login'
 import Payment from './Payment'
 import Sale from './Sale'
 import Select from './Select'
+import Loading from './Loading'
 
-let DePayWidgets = {
+let OmniCoinWidgets = {
   Connect,
   Login,
   Payment,
   Sale,
   Select,
-  Loading,
-  allWallets,
+  Loading
 }
 
-export default DePayWidgets
+if (typeof window !== 'undefined') {
+  window.OmniCoinWidgets = OmniCoinWidgets
+}
+
+export default OmniCoinWidgets
