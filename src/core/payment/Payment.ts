@@ -35,7 +35,7 @@ export class Payment {
     try {
       // Convert amount to wei
       const amount = ethers.utils.parseUnits(request.amount, OmniCoinMetadata.decimals);
-      
+
       // Create and send transaction
       const tx = Transaction.createTokenTransfer(
         OmniCoinMetadata.contractAddress,
@@ -44,15 +44,16 @@ export class Payment {
       );
 
       const response = await this.wallet.sendTransaction(tx);
-      
+
       return {
         transactionHash: response.hash,
         status: 'pending',
         confirmations: 0
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       throw new PaymentError(
-        `Payment failed: ${error.message || 'Unknown error'}`,
+        `Payment failed: ${errorMessage}`,
         'PAYMENT_FAILED'
       );
     }
@@ -73,9 +74,10 @@ export class Payment {
         blockNumber: receipt.blockNumber,
         confirmations: receipt.confirmations
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       throw new PaymentError(
-        `Failed to get payment status: ${error.message || 'Unknown error'}`,
+        `Failed to get payment status: ${errorMessage}`,
         'STATUS_CHECK_FAILED'
       );
     }
@@ -92,9 +94,10 @@ export class Payment {
 
       const provider = this.wallet.getProvider();
       return provider.estimateGas(tx.toEthersTransaction());
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       throw new PaymentError(
-        `Failed to estimate gas: ${error.message || 'Unknown error'}`,
+        `Failed to estimate gas: ${errorMessage}`,
         'GAS_ESTIMATE_FAILED'
       );
     }
