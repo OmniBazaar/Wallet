@@ -153,3 +153,6 @@ public
 DePay/* */
 clone-depay.ps1
 cursor_*.md
+
+# Deprecated DePay directory
+DePay/
