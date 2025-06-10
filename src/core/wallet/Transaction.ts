@@ -4,20 +4,20 @@ export interface TransactionData {
   to?: string;
   from?: string;
   nonce?: number;
-  gasLimit?: ethers.BigNumber;
-  gasPrice?: ethers.BigNumber;
+  gasLimit?: bigint;
+  gasPrice?: bigint;
   data?: string;
-  value?: ethers.BigNumber;
+  value?: bigint;
   chainId?: number;
 }
 
 export interface TransactionOptions {
   confirmations?: number;
   timeout?: number;
-  gasLimit?: ethers.BigNumber;
-  gasPrice?: ethers.BigNumber;
-  maxFeePerGas?: ethers.BigNumber;
-  maxPriorityFeePerGas?: ethers.BigNumber;
+  gasLimit?: bigint;
+  gasPrice?: bigint;
+  maxFeePerGas?: bigint;
+  maxPriorityFeePerGas?: bigint;
 }
 
 export class Transaction {
@@ -41,7 +41,7 @@ export class Transaction {
     return { ...this.options };
   }
 
-  toEthersTransaction(): ethers.providers.TransactionRequest {
+  toEthersTransaction(): ethers.TransactionRequest {
     return {
       ...this.data,
       gasLimit: this.options.gasLimit || this.data.gasLimit,
@@ -52,7 +52,7 @@ export class Transaction {
   }
 
   // Helper methods for common transaction types
-  static createTransfer(to: string, value: ethers.BigNumber): Transaction {
+  static createTransfer(to: string, value: bigint): Transaction {
     return new Transaction({
       to,
       value,
@@ -63,7 +63,7 @@ export class Transaction {
   static createContractCall(
     to: string,
     data: string,
-    value: ethers.BigNumber = ethers.BigNumber.from(0)
+    value: bigint = 0n
   ): Transaction {
     return new Transaction({
       to,
@@ -75,15 +75,15 @@ export class Transaction {
   static createTokenTransfer(
     tokenAddress: string,
     to: string,
-    amount: ethers.BigNumber
+    amount: bigint
   ): Transaction {
-    const data = ethers.utils.defaultAbiCoder.encode(
+    const data = ethers.AbiCoder.defaultAbiCoder().encode(
       ['address', 'uint256'],
       [to, amount]
     );
     return new Transaction({
       to: tokenAddress,
-      data: ethers.utils.hexConcat([
+      data: ethers.concat([
         '0xa9059cbb', // transfer(address,uint256)
         data
       ])

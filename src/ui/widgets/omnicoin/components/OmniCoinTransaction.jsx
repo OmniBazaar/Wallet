@@ -46,6 +46,57 @@ const ErrorMessage = styled.p`
   ${OmniCoinErrorMessage}
 `;
 
+const TransactionContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  background: ${props => props.theme.colors.backgroundAlt};
+  border-radius: 8px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+`;
+
+const TransactionHeader = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+`;
+
+const TransactionType = styled.span`
+  color: ${props => props.theme.colors.text.primary};
+  font-weight: bold;
+  font-size: 16px;
+`;
+
+const TransactionAmount = styled.span`
+  color: ${props => props.theme.colors.primary};
+  font-weight: bold;
+  font-size: 16px;
+`;
+
+const TransactionDetails = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+`;
+
+const TransactionDetail = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+`;
+
+const DetailLabel = styled.span`
+  color: ${props => props.theme.colors.text.secondary};
+  font-size: 14px;
+`;
+
+const DetailValue = styled.span`
+  color: ${props => props.theme.colors.text.primary};
+  font-size: 14px;
+`;
+
 export function OmniCoinTransaction() {
     const { isConnected } = useOmniCoin();
     const { sendTransaction, isLoading, error, transaction } = useOmniCoinTransaction();
@@ -100,7 +151,26 @@ export function OmniCoinTransaction() {
                     />
                     {error && <ErrorMessage>{error}</ErrorMessage>}
                     {transaction && (
-                        <p>Transaction {transaction.status === 'completed' ? 'completed' : 'pending'}...</p>
+                        <TransactionContainer>
+                            <TransactionHeader>
+                                <TransactionType>{transaction.type}</TransactionType>
+                                <TransactionAmount>{transaction.amount} OC</TransactionAmount>
+                            </TransactionHeader>
+                            <TransactionDetails>
+                                <TransactionDetail>
+                                    <DetailLabel>Date</DetailLabel>
+                                    <DetailValue>{new Date(transaction.timestamp).toLocaleString()}</DetailValue>
+                                </TransactionDetail>
+                                <TransactionDetail>
+                                    <DetailLabel>Transaction Hash</DetailLabel>
+                                    <DetailValue>{transaction.hash}</DetailValue>
+                                </TransactionDetail>
+                                <TransactionDetail>
+                                    <DetailLabel>Status</DetailLabel>
+                                    <DetailValue>{transaction.status}</DetailValue>
+                                </TransactionDetail>
+                            </TransactionDetails>
+                        </TransactionContainer>
                     )}
                     <Button type="submit" disabled={isLoading}>
                         {isLoading ? 'Sending...' : 'Send Transaction'}

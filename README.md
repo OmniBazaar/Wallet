@@ -70,3 +70,44 @@ Import the components and hooks from `src/ui/widgets/omnicoin` to use them in yo
 ## Development
 - Ensure you have the necessary dependencies installed.
 - Run the development server using `npm start` or `yarn start`.
+
+## OmniCoin Wallet Integration
+
+This module provides a fully integrated Web3 wallet for OmniBazaar, supporting MetaMask, WalletConnect, and Coinbase Wallet. It allows users to connect, view balances, approve, and transfer tokens on multiple EVM-compatible networks.
+
+### Features
+- Connect to MetaMask, WalletConnect, or Coinbase Wallet
+- View ERC-20 token balances
+- Approve and transfer tokens
+- Responsive and accessible UI
+- Toast notifications for transaction feedback
+- Error boundaries and loading states
+
+### Usage
+
+Wrap your app or widget in the `WalletProvider`:
+
+```jsx
+import { WalletProvider } from './contexts/WalletContext';
+
+<WalletProvider>
+  <YourApp />
+</WalletProvider>
+```
+
+Use the main widget:
+
+```jsx
+import { OmniCoinWidget } from './ui/widgets/omnicoin/OmniCoinWidget';
+
+<OmniCoinWidget />
+```
+
+### Accessibility
+- All forms and buttons have ARIA labels for screen readers.
+- Responsive design for mobile and desktop.
+
+### Testing
+- Unit and E2E test stubs are provided. Run `npm test` and `npx cypress open` to execute tests.
+
+---

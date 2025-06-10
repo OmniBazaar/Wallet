@@ -7,4 +7,6 @@ export { OmniCoinTokenManagement } from './components/OmniCoinTokenManagement';
 export { OmniCoinTokenTransfer } from './components/OmniCoinTokenTransfer';
 export { useOmniCoinTransaction } from './hooks/useOmniCoinTransaction';
 export { default as OmniCoinContext } from './contexts/OmniCoinContext';
-export * from './styles/OmniCoinStyle'; 
+export * from './styles/OmniCoinStyle';
+export { default as OmniCoinStandaloneWallet } from './components/OmniCoinStandaloneWallet';
+export { default as OmniCoinIntegratedWallet } from './components/OmniCoinIntegratedWallet'; 
