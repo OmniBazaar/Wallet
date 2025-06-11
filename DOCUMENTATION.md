@@ -7,6 +7,7 @@ The OmniBazaar Wallet module provides a wallet interface for managing OmniCoin a
 ## Core Components
 
 ### 1. **Wallet Core (`src/core/wallet/Wallet.ts`)**
+
 - **Purpose:**  
   Manages wallet state, transactions, and interactions with the blockchain.
 - **Key Features:**  
@@ -17,6 +18,7 @@ The OmniBazaar Wallet module provides a wallet interface for managing OmniCoin a
   - Advanced OmniCoin features (staking, privacy, governance)
 
 ### 2. **OmniCoin Integration (`src/core/blockchain/OmniCoin.ts`)**
+
 - **Purpose:**  
   Provides OmniCoin contract metadata and helper functions.
 - **Key Features:**  
@@ -25,12 +27,14 @@ The OmniBazaar Wallet module provides a wallet interface for managing OmniCoin a
   - Transfer functionality
 
 ### 3. **Supported Assets (`src/core/wallet/assets.ts`)**
+
 - **Purpose:**  
   Defines the list of supported assets, with OmniCoin as the default.
 
 ## Advanced Features
 
 ### Staking
+
 - **Methods:**  
   - `stakeOmniCoin(amount)`
   - `unstakeOmniCoin(amount)`
@@ -39,6 +43,7 @@ The OmniBazaar Wallet module provides a wallet interface for managing OmniCoin a
   Placeholder implementation. Logic to be added as contracts are finalized.
 
 ### Privacy
+
 - **Methods:**  
   - `createPrivacyAccount()`
   - `closePrivacyAccount()`
@@ -47,6 +52,7 @@ The OmniBazaar Wallet module provides a wallet interface for managing OmniCoin a
   Placeholder implementation. Logic to be added as contracts are finalized.
 
 ### Governance
+
 - **Methods:**  
   - `proposeGovernanceAction(description, actions)`
   - `voteOnProposal(proposalId, support)`
@@ -63,22 +69,27 @@ The wallet implementation is inspired by the DePay reference implementation. Key
 - Update UI to expose advanced features.
 - Add tests for OmniCoin wallet operations.
 
-# OmniCoin Integration Documentation
+## OmniCoin Integration
 
-## Overview
+### Overview
+
 This document outlines the integration of OmniCoin functionality into the wallet application. It includes components for token management, transaction history, and token transfers.
 
-## Components
+### Components
+
 - **OmniCoinTokenManagement**: Manages token approvals and displays token balances and allowances.
 - **OmniCoinTokenTransfer**: Allows users to transfer tokens to another address.
 - **OmniCoinTransactionHistory**: Displays a history of transactions.
 
-## Hooks
+### Hooks
+
 - **useOmniCoinToken**: Provides functions for token operations such as approval, transfer, balance, and allowance checks.
 
-## Usage
+### Usage
+
 Import the components and hooks from `src/ui/widgets/omnicoin` to use them in your application.
 
-## Development
+### Development
+
 - Ensure you have the necessary dependencies installed.
 - Run the development server using `npm start` or `yarn start`. 

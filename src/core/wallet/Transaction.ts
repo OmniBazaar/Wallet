@@ -1,4 +1,4 @@
-import { ethers } from 'ethers';
+import { TransactionRequest, AbiCoder, concat } from 'ethers';
 
 export interface TransactionData {
   to?: string;
@@ -41,13 +41,16 @@ export class Transaction {
     return { ...this.options };
   }
 
-  toEthersTransaction(): ethers.TransactionRequest {
+  toEthersTransaction(): TransactionRequest {
     return {
-      ...this.data,
+      to: this.data.to,
+      value: this.data.value,
+      data: this.data.data,
       gasLimit: this.options.gasLimit || this.data.gasLimit,
-      gasPrice: this.options.gasPrice || this.data.gasPrice,
       maxFeePerGas: this.options.maxFeePerGas,
-      maxPriorityFeePerGas: this.options.maxPriorityFeePerGas
+      maxPriorityFeePerGas: this.options.maxPriorityFeePerGas,
+      nonce: this.data.nonce,
+      chainId: this.data.chainId
     };
   }
 
@@ -77,13 +80,14 @@ export class Transaction {
     to: string,
     amount: bigint
   ): Transaction {
-    const data = ethers.AbiCoder.defaultAbiCoder().encode(
+    const abiCoder = new AbiCoder();
+    const data = abiCoder.encode(
       ['address', 'uint256'],
       [to, amount]
     );
     return new Transaction({
       to: tokenAddress,
-      data: ethers.concat([
+      data: concat([
         '0xa9059cbb', // transfer(address,uint256)
         data
       ])

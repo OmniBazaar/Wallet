@@ -1,4 +1,4 @@
-import { ethers } from 'ethers';
+import { BrowserProvider, TransactionResponse } from 'ethers';
 import { Transaction } from './Transaction';
 import { SupportedAssets } from './assets';
 import { getOmniCoinBalance, OmniCoinMetadata } from '../blockchain/OmniCoin';
@@ -27,16 +27,16 @@ export interface Wallet {
   getAddress(): Promise<string>;
   getBalance(assetSymbol?: string): Promise<bigint | string>;
   getChainId(): Promise<number>;
-  getProvider(): ethers.BrowserProvider;
+  getProvider(): BrowserProvider;
 
   // Transaction Management
-  sendTransaction(transaction: Transaction): Promise<ethers.TransactionResponse>;
+  sendTransaction(transaction: Transaction): Promise<TransactionResponse>;
   signTransaction(transaction: Transaction): Promise<string>;
   signMessage(message: string): Promise<string>;
 
   // Token Management
   getTokenBalance(tokenAddress: string): Promise<bigint>;
-  approveToken(tokenAddress: string, spender: string, amount: bigint): Promise<ethers.TransactionResponse>;
+  approveToken(tokenAddress: string, spender: string, amount: bigint): Promise<TransactionResponse>;
 
   // Network Management
   switchNetwork(chainId: number): Promise<void>;
@@ -53,14 +53,14 @@ export interface Wallet {
   disconnect(): Promise<void>;
 
   // Advanced OmniCoin Features
-  stakeOmniCoin(amount: bigint): Promise<ethers.TransactionResponse>;
-  unstakeOmniCoin(amount: bigint): Promise<ethers.TransactionResponse>;
+  stakeOmniCoin(amount: bigint): Promise<TransactionResponse>;
+  unstakeOmniCoin(amount: bigint): Promise<TransactionResponse>;
   getStakedBalance(): Promise<bigint>;
-  createPrivacyAccount(): Promise<ethers.TransactionResponse>;
-  closePrivacyAccount(): Promise<ethers.TransactionResponse>;
+  createPrivacyAccount(): Promise<TransactionResponse>;
+  closePrivacyAccount(): Promise<TransactionResponse>;
   getPrivacyBalance(): Promise<bigint>;
-  proposeGovernanceAction(description: string, actions: GovernanceAction[]): Promise<ethers.TransactionResponse>;
-  voteOnProposal(proposalId: number, support: boolean): Promise<ethers.TransactionResponse>;
+  proposeGovernanceAction(description: string, actions: GovernanceAction[]): Promise<TransactionResponse>;
+  voteOnProposal(proposalId: number, support: boolean): Promise<TransactionResponse>;
 }
 
 export class WalletError extends Error {
@@ -71,16 +71,15 @@ export class WalletError extends Error {
 }
 
 export class WalletImpl implements Wallet {
-  private provider: ethers.BrowserProvider;
-  private signer: ethers.Signer;
+  private provider: BrowserProvider;
+  private signer: any; // TODO: Replace with proper type
   private state: WalletState | null = null;
   private accountChangeCallbacks: ((address: string) => void)[] = [];
   private networkChangeCallbacks: ((chainId: number) => void)[] = [];
   private balanceChangeCallbacks: ((balance: bigint) => void)[] = [];
 
-  constructor(provider: ethers.BrowserProvider) {
+  constructor(provider: BrowserProvider) {
     this.provider = provider;
-    this.signer = provider.getSigner();
   }
 
   async connect(): Promise<void> {
@@ -132,11 +131,11 @@ export class WalletImpl implements Wallet {
     return this.state.chainId;
   }
 
-  getProvider(): ethers.BrowserProvider {
+  getProvider(): BrowserProvider {
     return this.provider;
   }
 
-  async sendTransaction(transaction: Transaction): Promise<ethers.TransactionResponse> {
+  async sendTransaction(transaction: Transaction): Promise<TransactionResponse> {
     if (!this.state) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
 
     try {
@@ -171,7 +170,7 @@ export class WalletImpl implements Wallet {
     return contract.balanceOf(this.state.address);
   }
 
-  async approveToken(tokenAddress: string, spender: string, amount: bigint): Promise<ethers.TransactionResponse> {
+  async approveToken(tokenAddress: string, spender: string, amount: bigint): Promise<TransactionResponse> {
     if (!this.state) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
 
     const contract = new ethers.Contract(tokenAddress, ['function approve(address,uint256)'], this.signer);
@@ -235,13 +234,13 @@ export class WalletImpl implements Wallet {
     this.networkChangeCallbacks.forEach(callback => callback(newChainId));
   }
 
-  async stakeOmniCoin(amount: bigint): Promise<ethers.TransactionResponse> {
+  async stakeOmniCoin(amount: bigint): Promise<TransactionResponse> {
     if (!this.state) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
     // Implementation for staking OmniCoin
     throw new Error('Not implemented');
   }
 
-  async unstakeOmniCoin(amount: bigint): Promise<ethers.TransactionResponse> {
+  async unstakeOmniCoin(amount: bigint): Promise<TransactionResponse> {
     if (!this.state) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
     // Implementation for unstaking OmniCoin
     throw new Error('Not implemented');
@@ -253,13 +252,13 @@ export class WalletImpl implements Wallet {
     throw new Error('Not implemented');
   }
 
-  async createPrivacyAccount(): Promise<ethers.TransactionResponse> {
+  async createPrivacyAccount(): Promise<TransactionResponse> {
     if (!this.state) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
     // Implementation for creating privacy account
     throw new Error('Not implemented');
   }
 
-  async closePrivacyAccount(): Promise<ethers.TransactionResponse> {
+  async closePrivacyAccount(): Promise<TransactionResponse> {
     if (!this.state) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
     // Implementation for closing privacy account
     throw new Error('Not implemented');
@@ -271,20 +270,20 @@ export class WalletImpl implements Wallet {
     throw new Error('Not implemented');
   }
 
-  async proposeGovernanceAction(description: string, actions: GovernanceAction[]): Promise<ethers.TransactionResponse> {
+  async proposeGovernanceAction(description: string, actions: GovernanceAction[]): Promise<TransactionResponse> {
     if (!this.state) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
     // Implementation for proposing governance action
     throw new Error('Not implemented');
   }
 
-  async voteOnProposal(proposalId: number, support: boolean): Promise<ethers.TransactionResponse> {
+  async voteOnProposal(proposalId: number, support: boolean): Promise<TransactionResponse> {
     if (!this.state) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
     // Implementation for voting on proposal
     throw new Error('Not implemented');
   }
 }
 
-export async function sendOmniCoin(wallet: Wallet, to: string, amount: string): Promise<ethers.TransactionResponse> {
+export async function sendOmniCoin(wallet: Wallet, to: string, amount: string): Promise<TransactionResponse> {
   const transaction = new Transaction({
     to: OmniCoinMetadata.contractAddress,
     value: 0n,

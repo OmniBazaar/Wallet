@@ -1,4 +1,4 @@
-import { ethers } from 'ethers';
+import { BrowserProvider, Contract, ZeroAddress } from 'ethers';
 import axios from 'axios';
 
 // ERC-721 ABI for NFT operations
@@ -37,20 +37,20 @@ export interface NFT {
     balance?: string;
 }
 
-export const isERC721 = async (provider: ethers.providers.Provider, address: string): Promise<boolean> => {
+export const isERC721 = async (provider: BrowserProvider, address: string): Promise<boolean> => {
     try {
-        const contract = new ethers.Contract(address, ERC721_ABI, provider);
-        await contract.balanceOf(ethers.constants.AddressZero);
+        const contract = new Contract(address, ERC721_ABI, provider);
+        await contract.balanceOf(ZeroAddress);
         return true;
     } catch {
         return false;
     }
 };
 
-export const isERC1155 = async (provider: ethers.providers.Provider, address: string): Promise<boolean> => {
+export const isERC1155 = async (provider: BrowserProvider, address: string): Promise<boolean> => {
     try {
-        const contract = new ethers.Contract(address, ERC1155_ABI, provider);
-        await contract.balanceOf(ethers.constants.AddressZero, 0);
+        const contract = new Contract(address, ERC1155_ABI, provider);
+        await contract.balanceOf(ZeroAddress, 0);
         return true;
     } catch {
         return false;
@@ -77,12 +77,12 @@ export const getNFTMetadata = async (tokenURI: string): Promise<NFTMetadata> => 
 };
 
 export const getNFTTokenURI = async (
-    provider: ethers.providers.Provider,
+    provider: BrowserProvider,
     contractAddress: string,
     tokenId: string,
     tokenType: 'ERC721' | 'ERC1155'
 ): Promise<string> => {
-    const contract = new ethers.Contract(
+    const contract = new Contract(
         contractAddress,
         tokenType === 'ERC721' ? ERC721_ABI : ERC1155_ABI,
         provider
@@ -101,7 +101,7 @@ export const getNFTTokenURI = async (
 };
 
 export const getOwnedNFTs = async (
-    provider: ethers.providers.Provider,
+    provider: BrowserProvider,
     ownerAddress: string,
     contractAddress: string
 ): Promise<NFT[]> => {
@@ -110,10 +110,10 @@ export const getOwnedNFTs = async (
     try {
         // Check if contract is ERC721
         if (await isERC721(provider, contractAddress)) {
-            const contract = new ethers.Contract(contractAddress, ERC721_ABI, provider);
+            const contract = new Contract(contractAddress, ERC721_ABI, provider);
             const balance = await contract.balanceOf(ownerAddress);
 
-            for (let i = 0; i < balance.toNumber(); i++) {
+            for (let i = 0; i < Number(balance); i++) {
                 const tokenId = await contract.tokenOfOwnerByIndex(ownerAddress, i);
                 const tokenURI = await contract.tokenURI(tokenId);
                 const metadata = await getNFTMetadata(tokenURI);
@@ -129,13 +129,13 @@ export const getOwnedNFTs = async (
 
         // Check if contract is ERC1155
         if (await isERC1155(provider, contractAddress)) {
-            const contract = new ethers.Contract(contractAddress, ERC1155_ABI, provider);
+            const contract = new Contract(contractAddress, ERC1155_ABI, provider);
             // Note: ERC1155 requires additional logic to get all token IDs
             // This is a simplified version
             const tokenId = '0'; // You'll need to implement logic to get all token IDs
             const balance = await contract.balanceOf(ownerAddress, tokenId);
 
-            if (balance.gt(0)) {
+            if (balance > 0n) {
                 const tokenURI = await contract.uri(tokenId);
                 const metadata = await getNFTMetadata(tokenURI);
 
