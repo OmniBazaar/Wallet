@@ -19,4 +19,4 @@
 
 - [ ] Add support for batch token transfers.
 - [ ] Implement token swap functionality.
-- [ ] Add support for token metadata (e.g., icons, descriptions). 
+- [ ] Add support for token metadata (e.g., icons, descriptions).
