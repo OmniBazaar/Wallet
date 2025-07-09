@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OmniBazaar Wallet - Home</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .wallet-app {
+            width: 100%;
+            max-width: 400px;
+            height: 600px;
+            display: flex;
+            flex-direction: column;
+            background: #f9f9f9;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Navigation Header */
+        .nav-header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 12px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .nav-brand {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .logo img {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+        }
+
+        .brand-text {
+            font-weight: 600;
+            font-size: 16px;
+            color: #333;
+        }
+
+        .nav-button {
+            background: none;
+            border: none;
+            padding: 8px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.2s;
+        }
+
+        .nav-button:hover {
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            overflow-y: auto;
+            background: white;
+            padding: 16px;
+        }
+
+        .home-page {
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        .account-section {
+            margin-bottom: 24px;
+        }
+
+        .account-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .account-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            color: white;
+        }
+
+        .account-info {
+            flex: 1;
+        }
+
+        .account-name {
+            font-size: 18px;
+            font-weight: 600;
+            margin: 0;
+            color: #333;
+        }
+
+        .account-address {
+            font-size: 14px;
+            color: #666;
+            margin: 2px 0 0 0;
+            font-family: monospace;
+        }
+
+        .copy-button {
+            background: none;
+            border: none;
+            padding: 8px;
+            cursor: pointer;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: background-color 0.2s;
+        }
+
+        .copy-button:hover {
+            background: rgba(0, 0, 0, 0.05);
+        }
+
+        .balance-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 16px;
+            padding: 24px;
+            text-align: center;
+            color: white;
+        }
+
+        .balance-label {
+            font-size: 14px;
+            opacity: 0.9;
+            margin-bottom: 8px;
+        }
+
+        .balance-amount {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .balance-usd {
+            font-size: 16px;
+            opacity: 0.8;
+        }
+
+        .actions-section {
+            margin-bottom: 24px;
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin: 0 0 16px 0;
+            color: #333;
+        }
+
+        .action-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+
+        .action-button {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .action-button:hover {
+            border-color: #667eea;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+        }
+
+        .action-icon {
+            font-size: 24px;
+        }
+
+        .action-label {
+            font-size: 14px;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .transactions-section {
+            margin-bottom: 24px;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .view-all-button {
+            background: none;
+            border: none;
+            color: #667eea;
+            font-size: 14px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        .transaction-item {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+
+        .transaction-item:hover {
+            border-color: #667eea;
+            transform: translateY(-1px);
+        }
+
+        .tx-icon {
+            font-size: 20px;
+        }
+
+        .tx-details {
+            flex: 1;
+        }
+
+        .tx-type {
+            font-size: 14px;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .tx-time {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .tx-amount {
+            font-size: 14px;
+            font-weight: 500;
+            color: #059669;
+        }
+
+        .tx-status {
+            font-size: 12px;
+            padding: 2px 8px;
+            border-radius: 8px;
+            background: #dcfce7;
+            color: #059669;
+        }
+
+        /* Bottom Navigation */
+        .bottom-nav {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-top: 1px solid rgba(0, 0, 0, 0.1);
+            padding: 8px 0;
+            display: flex;
+            justify-content: space-around;
+        }
+
+        .nav-tab {
+            background: none;
+            border: none;
+            padding: 8px 4px;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            min-width: 60px;
+            transition: all 0.2s;
+            border-radius: 8px;
+        }
+
+        .nav-tab.active {
+            background: rgba(102, 126, 234, 0.1);
+            color: #667eea;
+        }
+
+        .nav-icon {
+            font-size: 18px;
+        }
+
+        .nav-label {
+            font-size: 11px;
+            font-weight: 500;
+        }
+
+        .network-section {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 8px;
+            background: rgba(102, 126, 234, 0.1);
+            border-radius: 8px;
+            margin-top: 16px;
+        }
+
+        .network-indicator {
+            width: 8px;
+            height: 8px;
+            background: #059669;
+            border-radius: 50%;
+        }
+
+        .network-name {
+            font-size: 14px;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .switch-network {
+            background: none;
+            border: 1px solid #667eea;
+            color: #667eea;
+            border-radius: 4px;
+            padding: 4px 8px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="wallet-app">
+        <!-- Navigation Header -->
+        <nav class="nav-header">
+            <div class="nav-brand">
+                <div class="logo">
+                    <img src="Globe-Clear_Background-64x64.png" alt="OmniBazaar Logo">
+                </div>
+                <span class="brand-text">OmniBazaar</span>
+            </div>
+            
+            <div class="nav-actions">
+                <button class="nav-button">⚙️</button>
+            </div>
+        </nav>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <div class="home-page">
+                <!-- Account Overview -->
+                <div class="account-section">
+                    <div class="account-header">
+                        <div class="account-avatar">👤</div>
+                        <div class="account-info">
+                            <h2 class="account-name">Account 1</h2>
+                            <p class="account-address">0x1234...5678</p>
+                        </div>
+                        <button class="copy-button">📋</button>
+                    </div>
+                    
+                    <div class="balance-card">
+                        <div class="balance-label">Total Balance</div>
+                        <div class="balance-amount">2.4567 ETH</div>
+                        <div class="balance-usd">≈ $4,913.40</div>
+                    </div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="actions-section">
+                    <h3 class="section-title">Quick Actions</h3>
+                    <div class="action-grid">
+                        <button class="action-button">
+                            <div class="action-icon">📤</div>
+                            <span class="action-label">Send</span>
+                        </button>
+                        
+                        <button class="action-button">
+                            <div class="action-icon">📥</div>
+                            <span class="action-label">Receive</span>
+                        </button>
+                        
+                        <button class="action-button">
+                            <div class="action-icon">🎨</div>
+                            <span class="action-label">Mint NFT</span>
+                        </button>
+                        
+                        <button class="action-button">
+                            <div class="action-icon">🏪</div>
+                            <span class="action-label">Market</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Recent Transactions -->
+                <div class="transactions-section">
+                    <div class="section-header">
+                        <h3 class="section-title">Recent Activity</h3>
+                        <button class="view-all-button">View All</button>
+                    </div>
+                    
+                    <div class="transaction-item">
+                        <div class="tx-icon">📥</div>
+                        <div class="tx-details">
+                            <div class="tx-type">Received</div>
+                            <div class="tx-time">2h ago</div>
+                        </div>
+                        <div class="tx-amount">+0.5 ETH</div>
+                        <div class="tx-status">confirmed</div>
+                    </div>
+
+                    <div class="transaction-item">
+                        <div class="tx-icon">🎨</div>
+                        <div class="tx-details">
+                            <div class="tx-type">Minted NFT</div>
+                            <div class="tx-time">1d ago</div>
+                        </div>
+                        <div class="tx-amount">-0.02 ETH</div>
+                        <div class="tx-status">confirmed</div>
+                    </div>
+
+                    <div class="transaction-item">
+                        <div class="tx-icon">📤</div>
+                        <div class="tx-details">
+                            <div class="tx-type">Sent</div>
+                            <div class="tx-time">3d ago</div>
+                        </div>
+                        <div class="tx-amount">-1.0 ETH</div>
+                        <div class="tx-status">confirmed</div>
+                    </div>
+                </div>
+
+                <!-- Network Status -->
+                <div class="network-section">
+                    <div class="network-indicator"></div>
+                    <span class="network-name">Ethereum</span>
+                    <button class="switch-network">Switch</button>
+                </div>
+            </div>
+        </main>
+
+        <!-- Bottom Navigation -->
+        <nav class="bottom-nav">
+            <button class="nav-tab active">
+                <div class="nav-icon">🏠</div>
+                <span class="nav-label">Home</span>
+            </button>
+            
+            <button class="nav-tab">
+                <div class="nav-icon">📤</div>
+                <span class="nav-label">Send</span>
+            </button>
+            
+            <button class="nav-tab">
+                <div class="nav-icon">📥</div>
+                <span class="nav-label">Receive</span>
+            </button>
+            
+            <button class="nav-tab">
+                <div class="nav-icon">🏪</div>
+                <span class="nav-label">Market</span>
+            </button>
+            
+            <button class="nav-tab">
+                <div class="nav-icon">🎨</div>
+                <span class="nav-label">Mint</span>
+            </button>
+        </nav>
+    </div>
+</body>
+</html> 

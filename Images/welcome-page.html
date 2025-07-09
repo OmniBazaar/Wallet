@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OmniBazaar Wallet - Welcome</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .welcome-page {
+            width: 100%;
+            max-width: 400px;
+            background: transparent;
+        }
+
+        .welcome-content {
+            padding: 24px;
+        }
+
+        .hero-section {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .logo-large {
+            margin-bottom: 16px;
+            display: block;
+            text-align: center;
+        }
+
+        .logo-large img {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+        }
+
+        .welcome-title {
+            font-size: 28px;
+            font-weight: 700;
+            margin: 0 0 8px 0;
+        }
+
+        .welcome-subtitle {
+            font-size: 16px;
+            opacity: 0.9;
+            margin: 0;
+            line-height: 1.4;
+        }
+
+        .features-section {
+            margin-bottom: 32px;
+        }
+
+        .feature-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .feature-icon {
+            font-size: 32px;
+            margin-bottom: 8px;
+        }
+
+        .feature-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin: 0 0 4px 0;
+        }
+
+        .feature-description {
+            font-size: 14px;
+            opacity: 0.9;
+            margin: 0;
+            line-height: 1.4;
+        }
+
+        .actions-section {
+            margin-bottom: 24px;
+        }
+
+        .primary-button {
+            width: 100%;
+            background: white;
+            color: #667eea;
+            border: none;
+            border-radius: 12px;
+            padding: 16px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: 12px;
+        }
+
+        .primary-button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 25px rgba(255, 255, 255, 0.2);
+        }
+
+        .secondary-button {
+            width: 100%;
+            background: transparent;
+            color: white;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 12px;
+            padding: 14px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: 12px;
+        }
+
+        .secondary-button:hover {
+            border-color: white;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .divider {
+            text-align: center;
+            margin: 16px 0;
+            position: relative;
+        }
+
+        .divider::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .divider span {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 0 16px;
+            font-size: 14px;
+            opacity: 0.8;
+        }
+
+        .link-button {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            text-decoration: underline;
+            width: 100%;
+            padding: 8px;
+        }
+
+        .legal-section {
+            text-align: center;
+            margin-top: 24px;
+        }
+
+        .legal-text {
+            font-size: 12px;
+            opacity: 0.8;
+            line-height: 1.4;
+        }
+
+        .legal-text a {
+            color: white;
+            text-decoration: underline;
+        }
+
+        .legal-text a:hover {
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body>
+    <div class="welcome-page">
+        <div class="welcome-content">
+            <!-- Logo and Title -->
+            <div class="hero-section">
+                <div class="logo-large">
+                    <img src="Globe-Clear_Background-64x64.png" alt="OmniBazaar Logo">
+                </div>
+                <h1 class="welcome-title">Welcome to OmniBazaar</h1>
+                <p class="welcome-subtitle">
+                    Your gateway to the decentralized marketplace universe
+                </p>
+            </div>
+
+            <!-- Feature Cards -->
+            <div class="features-section">
+                <div class="feature-card">
+                    <div class="feature-icon">🔐</div>
+                    <h3 class="feature-title">Secure & Private</h3>
+                    <p class="feature-description">
+                        Your keys, your coins. Full control with enterprise-grade security.
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🌐</div>
+                    <h3 class="feature-title">Multi-Chain Support</h3>
+                    <p class="feature-description">
+                        Support for 70+ blockchains including Ethereum, Bitcoin, Solana, and more.
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🎨</div>
+                    <h3 class="feature-title">NFT Marketplace</h3>
+                    <p class="feature-description">
+                        Mint, buy, sell, and trade NFTs across multiple chains seamlessly.
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🏪</div>
+                    <h3 class="feature-title">Decentralized Commerce</h3>
+                    <p class="feature-description">
+                        Shop in the first truly decentralized marketplace with IPFS storage.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="actions-section">
+                <button class="primary-button">
+                    Create New Wallet
+                </button>
+                
+                <button class="secondary-button">
+                    Import Existing Wallet
+                </button>
+                
+                <div class="divider">
+                    <span>or</span>
+                </div>
+                
+                <button class="link-button">
+                    Connect Hardware Wallet
+                </button>
+            </div>
+
+            <!-- Legal Notice -->
+            <div class="legal-section">
+                <p class="legal-text">
+                    By continuing, you agree to our 
+                    <a href="#">Terms of Service</a> and 
+                    <a href="#">Privacy Policy</a>
+                </p>
+            </div>
+        </div>
+    </div>
+</body>
+</html> 

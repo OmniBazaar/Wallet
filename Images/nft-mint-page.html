@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OmniBazaar Wallet - Mint NFT</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .wallet-app {
+            width: 100%;
+            max-width: 400px;
+            height: 600px;
+            display: flex;
+            flex-direction: column;
+            background: #f9f9f9;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Navigation Header */
+        .nav-header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 12px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .nav-brand {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .logo img {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+        }
+
+        .brand-text {
+            font-weight: 600;
+            font-size: 16px;
+            color: #333;
+        }
+
+        .nav-button {
+            background: none;
+            border: none;
+            padding: 8px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.2s;
+        }
+
+        .nav-button:hover {
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            overflow-y: auto;
+            background: white;
+            padding: 16px;
+        }
+
+        .mint-header {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+
+        .page-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .page-subtitle {
+            font-size: 14px;
+            color: #666;
+            line-height: 1.4;
+        }
+
+        .form-section {
+            margin-bottom: 24px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 14px;
+            font-weight: 500;
+            color: #333;
+            margin-bottom: 6px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 14px;
+            resize: vertical;
+            min-height: 80px;
+            transition: border-color 0.2s;
+        }
+
+        .form-textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 14px;
+            background: white;
+            transition: border-color 0.2s;
+        }
+
+        .form-select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .image-upload {
+            border: 2px dashed #e5e7eb;
+            border-radius: 8px;
+            padding: 24px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .image-upload:hover {
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.05);
+        }
+
+        .upload-icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+            color: #667eea;
+        }
+
+        .upload-text {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 4px;
+        }
+
+        .upload-hint {
+            font-size: 12px;
+            color: #999;
+        }
+
+        .preview-section {
+            background: rgba(102, 126, 234, 0.05);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 24px;
+        }
+
+        .preview-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 12px;
+            text-align: center;
+        }
+
+        .nft-preview {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            overflow: hidden;
+            max-width: 200px;
+            margin: 0 auto;
+        }
+
+        .preview-image {
+            width: 100%;
+            height: 150px;
+            background: linear-gradient(45deg, #f0f0f0, #e0e0e0);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 48px;
+        }
+
+        .preview-info {
+            padding: 12px;
+        }
+
+        .preview-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 4px;
+        }
+
+        .preview-description {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 8px;
+            line-height: 1.4;
+        }
+
+        .preview-price {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .price-amount {
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .price-currency {
+            font-size: 12px;
+            color: #667eea;
+            background: rgba(102, 126, 234, 0.1);
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+
+        .cost-breakdown {
+            background: rgba(255, 193, 7, 0.1);
+            border: 1px solid rgba(255, 193, 7, 0.3);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 16px;
+        }
+
+        .cost-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .cost-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 4px;
+            font-size: 12px;
+        }
+
+        .cost-label {
+            color: #666;
+        }
+
+        .cost-value {
+            color: #333;
+            font-weight: 500;
+        }
+
+        .cost-total {
+            border-top: 1px solid rgba(255, 193, 7, 0.3);
+            padding-top: 8px;
+            margin-top: 8px;
+            font-weight: 600;
+        }
+
+        .mint-button {
+            width: 100%;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            padding: 16px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: 16px;
+        }
+
+        .mint-button:hover {
+            background: #5a67d8;
+            transform: translateY(-1px);
+        }
+
+        .mint-button:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .checkbox {
+            margin-top: 2px;
+        }
+
+        .checkbox-label {
+            font-size: 12px;
+            color: #666;
+            line-height: 1.4;
+        }
+
+        /* Bottom Navigation */
+        .bottom-nav {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-top: 1px solid rgba(0, 0, 0, 0.1);
+            padding: 8px 0;
+            display: flex;
+            justify-content: space-around;
+        }
+
+        .nav-tab {
+            background: none;
+            border: none;
+            padding: 8px 4px;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            min-width: 60px;
+            transition: all 0.2s;
+            border-radius: 8px;
+        }
+
+        .nav-tab.active {
+            background: rgba(102, 126, 234, 0.1);
+            color: #667eea;
+        }
+
+        .nav-icon {
+            font-size: 18px;
+        }
+
+        .nav-label {
+            font-size: 11px;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+    <div class="wallet-app">
+        <!-- Navigation Header -->
+        <nav class="nav-header">
+            <div class="nav-brand">
+                <div class="logo">
+                    <img src="Globe-Clear_Background-64x64.png" alt="OmniBazaar Logo">
+                </div>
+                <span class="brand-text">OmniBazaar</span>
+            </div>
+            
+            <div class="nav-actions">
+                <button class="nav-button">⚙️</button>
+            </div>
+        </nav>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <div class="mint-header">
+                <h1 class="page-title">🎨 Mint NFT</h1>
+                <p class="page-subtitle">Create and list your product or service as an NFT on OmniCoin</p>
+            </div>
+
+            <!-- NFT Form -->
+            <div class="form-section">
+                <div class="form-group">
+                    <label class="form-label">Product/Service Name *</label>
+                    <input type="text" class="form-input" placeholder="Vintage Leather Jacket" value="Vintage Leather Jacket">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Description *</label>
+                    <textarea class="form-textarea" placeholder="Describe your product or service...">High-quality vintage leather jacket in excellent condition. Perfect for fashion enthusiasts.</textarea>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Category *</label>
+                    <select class="form-select">
+                        <option value="">Select category</option>
+                        <option value="fashion" selected>Fashion</option>
+                        <option value="electronics">Electronics</option>
+                        <option value="books">Books</option>
+                        <option value="home">Home & Garden</option>
+                        <option value="services">Services</option>
+                        <option value="art">Art</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Price (XOM) *</label>
+                    <input type="number" class="form-input" placeholder="25.50" value="25.50" step="0.01" min="0">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Location (Optional)</label>
+                    <input type="text" class="form-input" placeholder="New York, NY" value="New York, NY">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Upload Image *</label>
+                    <div class="image-upload">
+                        <div class="upload-icon">📸</div>
+                        <div class="upload-text">Click to upload image</div>
+                        <div class="upload-hint">PNG, JPG up to 10MB</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- NFT Preview -->
+            <div class="preview-section">
+                <h3 class="preview-title">NFT Preview</h3>
+                <div class="nft-preview">
+                    <div class="preview-image">🧥</div>
+                    <div class="preview-info">
+                        <div class="preview-name">Vintage Leather Jacket</div>
+                        <div class="preview-description">High-quality vintage leather jacket in excellent condition...</div>
+                        <div class="preview-price">
+                            <div class="price-amount">25.50 XOM</div>
+                            <div class="price-currency">OmniCoin</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Cost Breakdown -->
+            <div class="cost-breakdown">
+                <div class="cost-title">Minting Costs</div>
+                <div class="cost-item">
+                    <span class="cost-label">NFT Minting Fee:</span>
+                    <span class="cost-value">0.02 XOM</span>
+                </div>
+                <div class="cost-item">
+                    <span class="cost-label">IPFS Storage:</span>
+                    <span class="cost-value">0.01 XOM</span>
+                </div>
+                <div class="cost-item">
+                    <span class="cost-label">Marketplace Listing:</span>
+                    <span class="cost-value">0.005 XOM</span>
+                </div>
+                <div class="cost-item cost-total">
+                    <span class="cost-label">Total Cost:</span>
+                    <span class="cost-value">0.035 XOM</span>
+                </div>
+            </div>
+
+            <!-- Terms Checkbox -->
+            <div class="checkbox-group">
+                <input type="checkbox" id="terms" class="checkbox" checked>
+                <label for="terms" class="checkbox-label">
+                    I agree to list this NFT immediately on OmniBazaar marketplace and understand that minting costs are non-refundable.
+                </label>
+            </div>
+
+            <!-- Mint Button -->
+            <button class="mint-button">
+                🚀 Mint & List NFT
+            </button>
+        </main>
+
+        <!-- Bottom Navigation -->
+        <nav class="bottom-nav">
+            <button class="nav-tab">
+                <div class="nav-icon">🏠</div>
+                <span class="nav-label">Home</span>
+            </button>
+            
+            <button class="nav-tab">
+                <div class="nav-icon">📤</div>
+                <span class="nav-label">Send</span>
+            </button>
+            
+            <button class="nav-tab">
+                <div class="nav-icon">📥</div>
+                <span class="nav-label">Receive</span>
+            </button>
+            
+            <button class="nav-tab">
+                <div class="nav-icon">🏪</div>
+                <span class="nav-label">Market</span>
+            </button>
+            
+            <button class="nav-tab active">
+                <div class="nav-icon">🎨</div>
+                <span class="nav-label">Mint</span>
+            </button>
+        </nav>
+    </div>
+</body>
+</html> 

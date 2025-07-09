@@ -144,7 +144,7 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
       case 'eth_getBalance': {
         if (params[0]) {
           const balance = await this.provider.getBalance(params[0], 'latest');
-          return '0x' + balance.toString(16);
+          return ethers.utils.hexlify(balance);
         }
         throw new Error('Missing address parameter');
       }
@@ -196,7 +196,7 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
       case 'eth_estimateGas': {
         if (params[0]) {
           const gasEstimate = await this.provider.estimateGas(params[0]);
-          return '0x' + gasEstimate.toString(16);
+          return ethers.utils.hexlify(gasEstimate);
         }
         throw new Error('Missing transaction object');
       }
@@ -204,7 +204,7 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
       case 'eth_gasPrice': {
         try {
           const gasPrice = await this.provider.getGasPrice();
-          return '0x' + gasPrice.toString(16);
+          return ethers.utils.hexlify(gasPrice);
         } catch (error) {
           // Fallback for older ethers versions
           return '0x' + (20 * 1e9).toString(16); // 20 gwei fallback
@@ -213,7 +213,7 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
 
       case 'eth_blockNumber': {
         const blockNumber = await this.provider.getBlockNumber();
-        return '0x' + blockNumber.toString(16);
+        return ethers.utils.hexlify(blockNumber);
       }
 
       case 'eth_getBlockByNumber': {
@@ -269,7 +269,7 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
         this.provider.on('block', (blockNumber: number) => {
           this.sendNotification(JSON.stringify({
             subscription: subscriptionId,
-            result: { number: '0x' + blockNumber.toString(16) }
+            result: { number: ethers.utils.hexlify(blockNumber) }
           }));
         });
         break;
