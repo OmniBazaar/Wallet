@@ -49,6 +49,7 @@ The OmniCoin Wallet is designed to work in two modes:
 ## Usage
 
 ### Standalone Mode
+
 ```jsx
 import { OmniCoinStandaloneWallet } from '@omnicoin/wallet';
 
@@ -62,6 +63,7 @@ function App() {
 ```
 
 ### Integrated Mode
+
 ```jsx
 import { OmniCoinIntegratedWallet } from '@omnicoin/wallet';
 
@@ -84,16 +86,19 @@ function OmniBazaarWalletTab() {
 
 ### Setup
 1. Install dependencies:
+
    ```bash
    npm install
    ```
 
 2. Start development server:
+
    ```bash
    npm run dev
    ```
 
 ### Building
+
 ```bash
 npm run build
 ```
@@ -102,4 +107,4 @@ npm run build
 Please read our [Contributing Guide](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
 
 ## License
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details. 
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

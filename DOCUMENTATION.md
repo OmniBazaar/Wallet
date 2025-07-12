@@ -92,4 +92,4 @@ Import the components and hooks from `src/ui/widgets/omnicoin` to use them in yo
 ### Development
 
 - Ensure you have the necessary dependencies installed.
-- Run the development server using `npm start` or `yarn start`. 
+- Run the development server using `npm start` or `yarn start`.
