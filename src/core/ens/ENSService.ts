@@ -1,0 +1,260 @@
+/**
+ * ENS Service for resolving .eth domains and omnicoin.omnibazaar.eth addresses
+ */
+
+import { ethers } from 'ethers';
+import { ContractManager, ENS_CONFIG } from '../contracts/ContractConfig';
+
+export class ENSService {
+  private static instance: ENSService;
+  private contractManager: ContractManager;
+  private ensResolver: ethers.Contract;
+  private ensRegistry: ethers.Contract;
+
+  private constructor() {
+    this.contractManager = ContractManager.getInstance();
+    
+    // ENS Registry ABI (minimal)
+    const ENS_REGISTRY_ABI = [
+      "function resolver(bytes32 node) external view returns (address)",
+      "function owner(bytes32 node) external view returns (address)"
+    ];
+    
+    // ENS Resolver ABI (minimal)
+    const ENS_RESOLVER_ABI = [
+      "function addr(bytes32 node) external view returns (address)",
+      "function addr(bytes32 node, uint256 coinType) external view returns (bytes memory)"
+    ];
+    
+    this.ensRegistry = new ethers.Contract(
+      ENS_CONFIG.registryAddress,
+      ENS_REGISTRY_ABI,
+      this.contractManager.getEthereumProvider()
+    );
+  }
+
+  public static getInstance(): ENSService {
+    if (!ENSService.instance) {
+      ENSService.instance = new ENSService();
+    }
+    return ENSService.instance;
+  }
+
+  /**
+   * Resolve any ENS name to an address
+   * Supports both .eth domains and .omnicoin addresses
+   */
+  public async resolveAddress(name: string): Promise<string | null> {
+    try {
+      // Check if it's a .omnicoin address
+      if (name.endsWith('.omnicoin')) {
+        return await this.resolveOmnicoinAddress(name);
+      }
+      
+      // Check if it's a .eth address
+      if (name.endsWith('.eth')) {
+        return await this.resolveEthAddress(name);
+      }
+      
+      // Check if it's already a valid address
+      if (ethers.isAddress(name)) {
+        return name;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error resolving address:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Resolve .omnicoin addresses via our stateless resolver
+   */
+  private async resolveOmnicoinAddress(name: string): Promise<string | null> {
+    try {
+      // Extract username from alice.omnicoin
+      const username = name.replace('.omnicoin', '');
+      
+      // Use our stateless resolver
+      const resolverContract = this.contractManager.getResolverContract();
+      const address = await resolverContract.resolve(username);
+      
+      return address !== ethers.ZeroAddress ? address : null;
+    } catch (error) {
+      console.error('Error resolving .omnicoin address:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Resolve standard .eth addresses via ENS
+   */
+  private async resolveEthAddress(name: string): Promise<string | null> {
+    try {
+      // Calculate namehash for ENS
+      const namehash = ethers.namehash(name);
+      
+      // Get resolver address from ENS registry
+      const resolverAddress = await this.ensRegistry.resolver(namehash);
+      
+      if (resolverAddress === ethers.ZeroAddress) {
+        return null;
+      }
+      
+      // Create resolver contract instance
+      const ENS_RESOLVER_ABI = [
+        "function addr(bytes32 node) external view returns (address)"
+      ];
+      
+      const resolver = new ethers.Contract(
+        resolverAddress,
+        ENS_RESOLVER_ABI,
+        this.contractManager.getEthereumProvider()
+      );
+      
+      // Get address from resolver
+      const address = await resolver.addr(namehash);
+      
+      return address !== ethers.ZeroAddress ? address : null;
+    } catch (error) {
+      console.error('Error resolving .eth address:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Resolve address for specific cryptocurrency
+   * Used for multi-chain transactions
+   */
+  public async resolveAddressForCoin(name: string, coinType: number): Promise<string | null> {
+    try {
+      // For .omnicoin addresses, always return the same address (EVM compatible)
+      if (name.endsWith('.omnicoin')) {
+        return await this.resolveOmnicoinAddress(name);
+      }
+      
+      // For .eth addresses, use ENS multicoin support
+      if (name.endsWith('.eth')) {
+        const namehash = ethers.namehash(name);
+        const resolverAddress = await this.ensRegistry.resolver(namehash);
+        
+        if (resolverAddress === ethers.ZeroAddress) {
+          return null;
+        }
+        
+        const ENS_RESOLVER_ABI = [
+          "function addr(bytes32 node, uint256 coinType) external view returns (bytes memory)"
+        ];
+        
+        const resolver = new ethers.Contract(
+          resolverAddress,
+          ENS_RESOLVER_ABI,
+          this.contractManager.getEthereumProvider()
+        );
+        
+        const addressBytes = await resolver.addr(namehash, coinType);
+        
+        if (addressBytes === '0x' || addressBytes.length === 0) {
+          return null;
+        }
+        
+        // Convert bytes to address format based on coin type
+        return this.formatAddressForCoinType(addressBytes, coinType);
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error resolving address for coin type:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Format address bytes for specific coin type
+   */
+  private formatAddressForCoinType(addressBytes: string, coinType: number): string {
+    // Coin type constants
+    const COIN_TYPES = {
+      ETH: 60,
+      BTC: 0,
+      POL: 966, // Polygon
+      ARB: 60,  // Arbitrum (uses ETH format)
+      OPT: 60   // Optimism (uses ETH format)
+    };
+    
+    // For EVM-compatible chains, treat as Ethereum address
+    if (coinType === COIN_TYPES.ETH || coinType === COIN_TYPES.ARB || coinType === COIN_TYPES.OPT) {
+      // Remove 0x prefix if present and ensure proper length
+      const cleanBytes = addressBytes.replace('0x', '');
+      if (cleanBytes.length === 40) {
+        return '0x' + cleanBytes;
+      }
+      // If it's encoded differently, extract the address
+      if (cleanBytes.length > 40) {
+        return '0x' + cleanBytes.slice(-40);
+      }
+    }
+    
+    // For Polygon, also use ETH format
+    if (coinType === COIN_TYPES.POL) {
+      const cleanBytes = addressBytes.replace('0x', '');
+      if (cleanBytes.length === 40) {
+        return '0x' + cleanBytes;
+      }
+      if (cleanBytes.length > 40) {
+        return '0x' + cleanBytes.slice(-40);
+      }
+    }
+    
+    // For other coin types, return as-is (would need specific formatting)
+    return addressBytes;
+  }
+
+  /**
+   * Check if a name is a valid ENS name
+   */
+  public isValidENSName(name: string): boolean {
+    return name.endsWith('.eth') || name.endsWith('.omnicoin');
+  }
+
+  /**
+   * Reverse resolve address to ENS name
+   */
+  public async reverseResolve(address: string): Promise<string | null> {
+    try {
+      // Check if it resolves to a .omnicoin address
+      const keyringManager = await import('../keyring/KeyringManager');
+      const username = await keyringManager.KeyringManager.getInstance().reverseResolve(address);
+      
+      if (username) {
+        return `${username}.omnicoin`;
+      }
+      
+      // Try ENS reverse resolution
+      const reverseName = `${address.slice(2).toLowerCase()}.addr.reverse`;
+      const namehash = ethers.namehash(reverseName);
+      const resolverAddress = await this.ensRegistry.resolver(namehash);
+      
+      if (resolverAddress === ethers.ZeroAddress) {
+        return null;
+      }
+      
+      const ENS_RESOLVER_ABI = [
+        "function name(bytes32 node) external view returns (string memory)"
+      ];
+      
+      const resolver = new ethers.Contract(
+        resolverAddress,
+        ENS_RESOLVER_ABI,
+        this.contractManager.getEthereumProvider()
+      );
+      
+      const name = await resolver.name(namehash);
+      return name || null;
+    } catch (error) {
+      console.error('Error reverse resolving address:', error);
+      return null;
+    }
+  }
+}

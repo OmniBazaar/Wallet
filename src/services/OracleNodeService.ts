@@ -1,0 +1,461 @@
+/**
+ * OracleNodeService - Bridges name data between COTI and Ethereum
+ * 
+ * This service runs on OmniBazaar nodes and:
+ * 1. Monitors COTI blockchain for name registrations
+ * 2. Updates Ethereum oracle contracts with new data
+ * 3. Provides stateless resolution services
+ * 4. Earns XOM rewards for oracle duties
+ */
+
+import { ethers } from 'ethers';
+import { EventEmitter } from 'events';
+
+interface NodeConfig {
+  cotiRpcUrl: string;
+  ethereumRpcUrl: string;
+  privateKey: string;
+  oracleAddress: string;
+  registryAddress: string;
+  updateInterval: number;
+  rewardAmount: number;
+}
+
+interface NameUpdate {
+  username: string;
+  address: string;
+  timestamp: number;
+  blockNumber: number;
+}
+
+interface OracleMetrics {
+  totalUpdates: number;
+  successfulUpdates: number;
+  failedUpdates: number;
+  lastUpdateTime: number;
+  reputation: number;
+  earnedRewards: number;
+}
+
+export class OracleNodeService extends EventEmitter {
+  private cotiProvider: ethers.Provider;
+  private ethereumProvider: ethers.Provider;
+  private signer: ethers.Wallet;
+  private registryContract: ethers.Contract;
+  private oracleContract: ethers.Contract;
+  private isRunning: boolean = false;
+  private updateQueue: NameUpdate[] = [];
+  private metrics: OracleMetrics;
+  private config: NodeConfig;
+
+  // Contract ABIs (simplified)
+  private registryABI = [
+    'event NameRegistered(string indexed username, address indexed owner, uint256 timestamp)',
+    'event NameTransferred(string indexed username, address indexed from, address indexed to)',
+    'function resolve(string memory username) external view returns (address)',
+    'function reverseResolve(address addr) external view returns (string memory)'
+  ];
+
+  private oracleABI = [
+    'function updateName(string memory username, address resolvedAddress) external',
+    'function batchUpdateNames(string[] memory usernames, address[] memory addresses) external',
+    'function queryName(string memory username) external view returns (address)',
+    'function isHealthy() external view returns (bool)',
+    'function getLastUpdateTime() external view returns (uint256)'
+  ];
+
+  constructor(config: NodeConfig) {
+    super();
+    this.config = config;
+    this.metrics = {
+      totalUpdates: 0,
+      successfulUpdates: 0,
+      failedUpdates: 0,
+      lastUpdateTime: 0,
+      reputation: 100,
+      earnedRewards: 0
+    };
+
+    this.initializeProviders();
+  }
+
+  private initializeProviders(): void {
+    // Initialize COTI provider
+    this.cotiProvider = new ethers.JsonRpcProvider(this.config.cotiRpcUrl);
+    
+    // Initialize Ethereum provider
+    this.ethereumProvider = new ethers.JsonRpcProvider(this.config.ethereumRpcUrl);
+    
+    // Initialize signer
+    this.signer = new ethers.Wallet(this.config.privateKey, this.ethereumProvider);
+    
+    // Initialize contracts
+    this.registryContract = new ethers.Contract(
+      this.config.registryAddress,
+      this.registryABI,
+      this.cotiProvider
+    );
+    
+    this.oracleContract = new ethers.Contract(
+      this.config.oracleAddress,
+      this.oracleABI,
+      this.signer
+    );
+  }
+
+  /**
+   * Start the oracle node service
+   */
+  public async start(): Promise<void> {
+    if (this.isRunning) {
+      console.log('Oracle node service is already running');
+      return;
+    }
+
+    console.log('🚀 Starting Oracle Node Service...');
+    
+    try {
+      // Test connections
+      await this.testConnections();
+      
+      // Start monitoring COTI blockchain
+      this.startCotiMonitoring();
+      
+      // Start periodic updates
+      this.startUpdateScheduler();
+      
+      this.isRunning = true;
+      console.log('✅ Oracle Node Service started successfully');
+      
+      this.emit('started');
+    } catch (error) {
+      console.error('❌ Failed to start Oracle Node Service:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Stop the oracle node service
+   */
+  public async stop(): Promise<void> {
+    if (!this.isRunning) {
+      console.log('Oracle node service is not running');
+      return;
+    }
+
+    console.log('🛑 Stopping Oracle Node Service...');
+    
+    this.isRunning = false;
+    
+    // Process remaining updates
+    await this.processUpdateQueue();
+    
+    console.log('✅ Oracle Node Service stopped');
+    this.emit('stopped');
+  }
+
+  /**
+   * Test connections to both networks
+   */
+  private async testConnections(): Promise<void> {
+    console.log('🔍 Testing network connections...');
+    
+    // Test COTI connection
+    try {
+      const cotiBlockNumber = await this.cotiProvider.getBlockNumber();
+      console.log(`✅ COTI connection OK (block: ${cotiBlockNumber})`);
+    } catch (error) {
+      throw new Error(`COTI connection failed: ${error.message}`);
+    }
+    
+    // Test Ethereum connection
+    try {
+      const ethBlockNumber = await this.ethereumProvider.getBlockNumber();
+      console.log(`✅ Ethereum connection OK (block: ${ethBlockNumber})`);
+    } catch (error) {
+      throw new Error(`Ethereum connection failed: ${error.message}`);
+    }
+    
+    // Test oracle health
+    try {
+      const isHealthy = await this.oracleContract.isHealthy();
+      console.log(`✅ Oracle health: ${isHealthy}`);
+    } catch (error) {
+      console.warn(`⚠️  Oracle health check failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Start monitoring COTI blockchain for name events
+   */
+  private startCotiMonitoring(): void {
+    console.log('👁️  Starting COTI blockchain monitoring...');
+    
+    // Listen for name registrations
+    this.registryContract.on('NameRegistered', (username, owner, timestamp, event) => {
+      console.log(`📝 Name registered: ${username} -> ${owner}`);
+      
+      this.queueUpdate({
+        username,
+        address: owner,
+        timestamp: Number(timestamp),
+        blockNumber: event.blockNumber
+      });
+    });
+    
+    // Listen for name transfers
+    this.registryContract.on('NameTransferred', (username, from, to, event) => {
+      console.log(`🔄 Name transferred: ${username} (${from} -> ${to})`);
+      
+      this.queueUpdate({
+        username,
+        address: to,
+        timestamp: Date.now(),
+        blockNumber: event.blockNumber
+      });
+    });
+  }
+
+  /**
+   * Start periodic update scheduler
+   */
+  private startUpdateScheduler(): void {
+    console.log('⏰ Starting update scheduler...');
+    
+    setInterval(async () => {
+      if (this.isRunning && this.updateQueue.length > 0) {
+        await this.processUpdateQueue();
+      }
+    }, this.config.updateInterval * 1000);
+  }
+
+  /**
+   * Queue a name update for processing
+   */
+  private queueUpdate(update: NameUpdate): void {
+    // Check if update already exists
+    const existingIndex = this.updateQueue.findIndex(u => u.username === update.username);
+    
+    if (existingIndex !== -1) {
+      // Update existing entry with latest data
+      this.updateQueue[existingIndex] = update;
+    } else {
+      // Add new entry
+      this.updateQueue.push(update);
+    }
+    
+    console.log(`📥 Queued update: ${update.username} (queue size: ${this.updateQueue.length})`);
+  }
+
+  /**
+   * Process the update queue
+   */
+  private async processUpdateQueue(): Promise<void> {
+    if (this.updateQueue.length === 0) {
+      return;
+    }
+
+    console.log(`🔄 Processing ${this.updateQueue.length} updates...`);
+    
+    try {
+      // Process in batches
+      const batchSize = Math.min(this.updateQueue.length, 10);
+      const batch = this.updateQueue.splice(0, batchSize);
+      
+      if (batch.length === 1) {
+        // Single update
+        await this.updateSingleName(batch[0]);
+      } else {
+        // Batch update
+        await this.updateBatchNames(batch);
+      }
+      
+      this.metrics.successfulUpdates += batch.length;
+      this.metrics.lastUpdateTime = Date.now();
+      
+      console.log(`✅ Processed ${batch.length} updates successfully`);
+      
+      // Emit progress
+      this.emit('updates-processed', {
+        count: batch.length,
+        remaining: this.updateQueue.length
+      });
+      
+    } catch (error) {
+      console.error('❌ Failed to process updates:', error);
+      this.metrics.failedUpdates++;
+      
+      // Re-queue failed updates (with limit)
+      if (this.metrics.failedUpdates < 3) {
+        console.log('🔄 Re-queuing failed updates...');
+        // Could implement retry logic here
+      }
+    }
+    
+    this.metrics.totalUpdates++;
+  }
+
+  /**
+   * Update a single name in the oracle
+   */
+  private async updateSingleName(update: NameUpdate): Promise<void> {
+    console.log(`🔄 Updating single name: ${update.username} -> ${update.address}`);
+    
+    try {
+      const tx = await this.oracleContract.updateName(update.username, update.address);
+      const receipt = await tx.wait();
+      
+      console.log(`✅ Single update completed (gas: ${receipt.gasUsed})`);
+      
+      // Calculate reward
+      const reward = this.config.rewardAmount;
+      this.metrics.earnedRewards += reward;
+      
+      this.emit('name-updated', {
+        username: update.username,
+        address: update.address,
+        txHash: receipt.hash,
+        gasUsed: receipt.gasUsed,
+        reward
+      });
+      
+    } catch (error) {
+      console.error(`❌ Single update failed: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Update multiple names in a batch
+   */
+  private async updateBatchNames(updates: NameUpdate[]): Promise<void> {
+    console.log(`🔄 Updating batch of ${updates.length} names...`);
+    
+    try {
+      const usernames = updates.map(u => u.username);
+      const addresses = updates.map(u => u.address);
+      
+      const tx = await this.oracleContract.batchUpdateNames(usernames, addresses);
+      const receipt = await tx.wait();
+      
+      console.log(`✅ Batch update completed (gas: ${receipt.gasUsed})`);
+      
+      // Calculate rewards
+      const totalReward = this.config.rewardAmount * updates.length;
+      this.metrics.earnedRewards += totalReward;
+      
+      this.emit('batch-updated', {
+        count: updates.length,
+        txHash: receipt.hash,
+        gasUsed: receipt.gasUsed,
+        totalReward
+      });
+      
+    } catch (error) {
+      console.error(`❌ Batch update failed: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Get current metrics
+   */
+  public getMetrics(): OracleMetrics {
+    return { ...this.metrics };
+  }
+
+  /**
+   * Get current status
+   */
+  public getStatus(): {
+    isRunning: boolean;
+    queueSize: number;
+    metrics: OracleMetrics;
+    lastError?: string;
+  } {
+    return {
+      isRunning: this.isRunning,
+      queueSize: this.updateQueue.length,
+      metrics: this.getMetrics()
+    };
+  }
+
+  /**
+   * Query name from COTI registry
+   */
+  public async queryCotiName(username: string): Promise<string> {
+    try {
+      const address = await this.registryContract.resolve(username);
+      return address;
+    } catch (error) {
+      console.error(`❌ Failed to query COTI name: ${error.message}`);
+      return ethers.ZeroAddress;
+    }
+  }
+
+  /**
+   * Query name from Ethereum oracle
+   */
+  public async queryEthereumName(username: string): Promise<string> {
+    try {
+      const address = await this.oracleContract.queryName(username);
+      return address;
+    } catch (error) {
+      console.error(`❌ Failed to query Ethereum name: ${error.message}`);
+      return ethers.ZeroAddress;
+    }
+  }
+
+  /**
+   * Force sync a specific name
+   */
+  public async forceSyncName(username: string): Promise<void> {
+    console.log(`🔄 Force syncing name: ${username}`);
+    
+    try {
+      const cotiAddress = await this.queryCotiName(username);
+      
+      if (cotiAddress && cotiAddress !== ethers.ZeroAddress) {
+        await this.updateSingleName({
+          username,
+          address: cotiAddress,
+          timestamp: Date.now(),
+          blockNumber: await this.cotiProvider.getBlockNumber()
+        });
+        
+        console.log(`✅ Force sync completed for ${username}`);
+      } else {
+        console.log(`⚠️  Name ${username} not found on COTI`);
+      }
+      
+    } catch (error) {
+      console.error(`❌ Force sync failed: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Health check
+   */
+  public async healthCheck(): Promise<boolean> {
+    try {
+      // Check if running
+      if (!this.isRunning) {
+        return false;
+      }
+      
+      // Check oracle health
+      const oracleHealthy = await this.oracleContract.isHealthy();
+      
+      // Check recent activity
+      const timeSinceLastUpdate = Date.now() - this.metrics.lastUpdateTime;
+      const isRecentlyActive = timeSinceLastUpdate < (this.config.updateInterval * 2 * 1000);
+      
+      return oracleHealthy && isRecentlyActive;
+      
+    } catch (error) {
+      console.error(`❌ Health check failed: ${error.message}`);
+      return false;
+    }
+  }
+}

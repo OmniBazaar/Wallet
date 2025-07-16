@@ -8,6 +8,16 @@
     "dev": "vite build --mode development --watch",
     "build": "vite build",
     "build:chrome": "cross-env TARGET_BROWSER=chrome vite build",
+    "contracts:compile": "hardhat compile",
+    "contracts:test": "hardhat test",
+    "contracts:deploy:coti": "hardhat run scripts/deploy-coti-testnet.js --network coti-testnet",
+    "contracts:deploy:ethereum": "hardhat run scripts/deploy-ethereum-testnet.js --network sepolia",
+    "contracts:deploy:all": "npm run contracts:deploy:coti && npm run contracts:deploy:ethereum",
+    "contracts:verify:coti": "hardhat verify --network coti-testnet",
+    "contracts:verify:ethereum": "hardhat verify --network sepolia",
+    "network:check": "hardhat network-check",
+    "network:coti": "hardhat network-check --network coti-testnet",
+    "network:ethereum": "hardhat network-check --network sepolia",
     "build:firefox": "cross-env TARGET_BROWSER=firefox vite build",
     "build:all": "npm run build:chrome && npm run build:firefox",
     "test": "vitest",
@@ -67,7 +77,9 @@
     "dayjs": "^1.11.0",
     "lodash": "^4.17.0",
     "big.js": "^6.2.0",
-    "bn.js": "^5.2.0"
+    "bn.js": "^5.2.0",
+    "@openzeppelin/contracts": "^5.0.0",
+    "dotenv": "^16.0.0"
   },
   "devDependencies": {
     "@types/node": "^20.8.0",
@@ -99,7 +111,12 @@
     "autoprefixer": "^10.4.0",
     "postcss": "^8.4.0",
     "rollup": "^4.0.0",
-    "rollup-plugin-copy": "^3.5.0"
+    "rollup-plugin-copy": "^3.5.0",
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "@nomicfoundation/hardhat-verify": "^2.0.0",
+    "hardhat": "^2.19.0",
+    "hardhat-gas-reporter": "^1.0.8",
+    "solidity-coverage": "^0.8.0"
   },
   "engines": {
     "node": ">=18.0.0",

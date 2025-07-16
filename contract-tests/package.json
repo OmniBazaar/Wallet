@@ -1,0 +1,27 @@
+{
+  "name": "omnibazaar-contracts",
+  "version": "1.0.0",
+  "description": "Smart contracts for OmniBazaar ENS integration",
+  "main": "index.js",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "deploy:coti": "hardhat run scripts/deploy-coti-testnet.js --network coti-testnet",
+    "deploy:ethereum": "hardhat run scripts/deploy-ethereum-testnet.js --network sepolia",
+    "network:check": "hardhat network-check"
+  },
+  "keywords": ["ethereum", "blockchain", "smart-contracts", "ens"],
+  "author": "OmniBazaar Team",
+  "license": "MIT",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "@nomicfoundation/hardhat-verify": "^2.0.0",
+    "hardhat": "^2.19.0",
+    "hardhat-gas-reporter": "^1.0.8",
+    "solidity-coverage": "^0.8.0"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.0.0",
+    "dotenv": "^16.0.0"
+  }
+}
