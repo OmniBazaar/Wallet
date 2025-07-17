@@ -6,7 +6,7 @@ This document summarizes the complete implementation of the ENS integration syst
 ## Architecture
 
 ### 1. Contract System
-- **OmniNameRegistry** (COTI V2): Stores username → address mappings
+- **OmniNameRegistry** (OmniCoin): Stores username → address mappings
 - **OmniStatelessResolver** (Ethereum): Resolves names without storing per-user data  
 - **OmniOracle** (Ethereum): Bridges COTI data to Ethereum
 
@@ -24,7 +24,7 @@ This document summarizes the complete implementation of the ENS integration syst
 
 ### Smart Contracts
 
-#### OmniNameRegistry (COTI V2)
+#### OmniNameRegistry (OmniCoin)
 
 ```solidity
 // Key functions:
