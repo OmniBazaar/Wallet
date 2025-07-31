@@ -6,6 +6,8 @@ This document outlines the comprehensive development strategy for the OmniBazaar
 
 **Core Architecture**: Enkrypt foundation + Rainbow NFT capabilities + Frame privacy features + DePay payment integration
 
+**UPDATED (2025-07-23)**: Now integrates with OmniBazaar's Hybrid L2.5 Architecture where OmniCoin is deployed ON COTI V2 with dual consensus (COTI for transactions, Proof of Participation for business logic)
+
 ---
 
 ## Repository Sources & Component Mapping
@@ -73,7 +75,7 @@ Wallet/
 │   │   │   ├── bitcoin/
 │   │   │   ├── solana/
 │   │   │   ├── polkadot/
-│   │   │   ├── coti/                   # Custom COTI V2 integration
+│   │   │   ├── coti/                   # COTI V2 network integration (OmniCoin token)
 │   │   │   └── types/
 │   │   │
 │   │   ├── storage/                    # From Enkrypt - Encrypted storage
@@ -84,7 +86,7 @@ Wallet/
 │   │   ├── privacy/                    # From Frame - Privacy features
 │   │   │   ├── rpc-isolation/
 │   │   │   ├── metadata-protection/
-│   │   │   ├── coti-privacy/           # COTI V2 privacy integration
+│   │   │   ├── coti-privacy/           # COTI V2 MPC/garbled circuits integration
 │   │   │   └── transaction-shielding/
 │   │   │
 │   │   ├── nft/                        # From Rainbow - NFT capabilities
@@ -157,7 +159,17 @@ Wallet/
 │   │   │
 │   │   └── main.ts
 │   │
-│   ├── omnibazaar/                     # OmniBazaar-specific integrations
+│   ├── omnibazaar/                     # OmniBazaar Hybrid L2.5 integrations
+│   │   ├── coti-layer/                 # COTI V2 transaction layer integration
+│   │   │   ├── omnicoin-token.ts       # OmniCoin ERC20 token on COTI V2
+│   │   │   ├── privacy-operations.ts   # MPC/garbled circuits operations
+│   │   │   └── staking-interface.ts    # COTI staking operations
+│   │   │
+│   │   ├── validator-layer/            # OmniBazaar validator business logic
+│   │   │   ├── marketplace-ops.ts      # Marketplace validation
+│   │   │   ├── proof-of-participation.ts # PoP consensus interface
+│   │   │   └── fee-distribution.ts     # Validator fee distribution
+│   │   │
 │   │   ├── marketplace/
 │   │   │   ├── listing-creator.ts
 │   │   │   ├── nft-marketplace.ts
@@ -171,9 +183,9 @@ Wallet/
 │   │   │   ├── swap-interface.ts
 │   │   │   └── liquidity-provider.ts
 │   │   │
-│   │   └── node/
-│   │       ├── marketplace-node.ts
-│   │       └── content-discovery.ts
+│   │   └── bridge/
+│   │       ├── dual-layer-bridge.ts    # Bridge between COTI and validators
+│   │       └── consensus-coordinator.ts
 │   │
 │   └── types/                          # TypeScript definitions
 │       ├── chains.ts
@@ -246,7 +258,7 @@ Wallet/
 **Architecture Achievements**:
 - **350+ MB** extracted from 4 source repositories
 - **500+ lines** of TypeScript type definitions
-- **Multi-chain support** for Ethereum, Bitcoin, Solana, Polkadot, COTI
+- **Multi-chain support** for Ethereum, Bitcoin, Solana, Polkadot, COTI V2 (hosting OmniCoin)
 - **Type safety** with 0 compilation errors
 
 #### 1.3 Browser Extension Framework ✅ COMPLETED
@@ -296,7 +308,7 @@ Wallet/
 **Technical Achievements**:
 - **2,150+ lines** of new NFT-related code
 - **100% test coverage** for all NFT functionality
-- **4 blockchain providers** with unified interface
+- **4+ blockchain network providers** with unified interface (including COTI V2)
 - **ERC721, ERC1155, SPL** token standard support
 
 **Key Features Delivered**:
@@ -344,7 +356,7 @@ Wallet/
 - ✅ **Interactive elements** with smooth transitions
 - ✅ **Accessibility** considerations (WCAG compliance ready)
 
-### Phase 3: Privacy Layer & COTI V2 Integration (Weeks 9-12)
+### Phase 3: Privacy Layer & Hybrid L2.5 Integration (Weeks 9-12)
 
 #### 3.1 Extract Frame Privacy Architecture
 **Duration**: Weeks 9-10
@@ -378,25 +390,30 @@ main/windows/           → Secure UI rendering
 - Secure transaction handling
 - Foundation for COTI V2 integration
 
-#### 3.2 COTI V2 Privacy Integration
+#### 3.2 Hybrid L2.5 Architecture Integration
 **Duration**: Weeks 11-12
 
 **Tasks**:
-- [ ] Research and implement COTI V2 Garbled Circuits integration
-- [ ] Add private transaction capabilities
+- [ ] Implement OmniCoin token interface (deployed ON COTI V2)
+- [ ] Add COTI V2 MPC/garbled circuits integration for privacy
+- [ ] Create dual-layer transaction handling (COTI + OmniBazaar validators)
+- [ ] Integrate Proof of Participation consensus interface
+- [ ] Add privacy-enabled staking operations
 - [ ] Implement confidential smart contract interactions
 - [ ] Create privacy-preserving marketplace transactions
 - [ ] Add selective disclosure features
 
 **Technical Requirements**:
-- Integration with COTI V2 MPC protocol
-- Support for confidential transactions
-- Privacy-preserving NFT operations
-- Encrypted marketplace communications
+- Integration with COTI V2 MPC protocol (garbled circuits)
+- Dual-layer transaction coordination (COTI + validators)
+- Support for confidential OmniCoin transactions
+- Privacy-preserving NFT operations on OmniCoin
+- Encrypted marketplace communications via validators
 
 **Deliverables**:
-- COTI V2 chain integration with privacy features
-- Confidential transaction capabilities
+- COTI V2 network integration with OmniCoin token support
+- Dual-layer transaction processing capabilities
+- Privacy-enabled wallet operations using MPC/garbled circuits
 - Privacy-preserving marketplace operations
 - Encrypted metadata handling
 
@@ -502,7 +519,7 @@ src/getWallets.js       → Wallet detection
 - **Future**: Safari (when Web Extensions support improves)
 
 ### Chain Support Priority
-1. **Tier 1**: Ethereum, COTI V2, Bitcoin, Solana
+1. **Tier 1**: Ethereum, COTI V2 (hosting OmniCoin), Bitcoin, Solana
 2. **Tier 2**: Polkadot, BSC, Polygon, Avalanche
 3. **Tier 3**: All other EVM chains, additional non-EVM
 
@@ -569,7 +586,7 @@ src/getWallets.js       → Wallet detection
 | Risk | Probability | Impact | Mitigation Strategy |
 |------|-------------|--------|-------------------|
 | Component integration complexity | High | High | Incremental integration, extensive testing |
-| COTI V2 integration challenges | Medium | High | Early prototyping, close cooperation with COTI team |
+| Hybrid L2.5 architecture complexity | Medium | High | Dual-layer testing, validator network coordination |
 | Browser compatibility issues | Medium | Medium | Progressive enhancement, polyfills |
 | Performance with multiple chains | Medium | Medium | Lazy loading, efficient state management |
 
@@ -625,8 +642,8 @@ src/getWallets.js       → Wallet detection
 - Advanced marketplace features
 
 ### Version 2.0 (Month 7-12)
-- Complete COTI V2 ecosystem integration
-- Advanced privacy features (zero-knowledge proofs)
+- Complete OmniBazaar Hybrid L2.5 integration
+- Advanced privacy features (enhanced MPC/garbled circuits)
 - Enterprise features for large-scale adoption
 
 ---

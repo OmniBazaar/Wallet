@@ -1,15 +1,46 @@
-# Wallet Validator Integration
+# Wallet Validator Integration - Hybrid L2.5 Architecture
 
-This document outlines the integration between the Wallet module and the OmniBazaar Validator services.
+This document outlines the integration between the Wallet module and the OmniBazaar Validator services within the new Hybrid L2.5 Architecture.
+
+## Architecture Overview
+
+The Wallet module operates within a dual-layer architecture:
+- **Layer 1 (COTI V2)**: OmniCoin token transactions with MPC privacy
+- **Layer 2.5 (OmniBazaar Validators)**: Wallet business logic with Proof of Participation consensus
+
+### OmniCoin Integration
+OmniCoin is deployed as a token ON COTI V2 (not a fork), leveraging:
+- COTI's MPC (Multi-Party Computation) for transaction privacy
+- Garbled circuits for confidential wallet operations
+- Fast, scalable transaction processing
+- Enterprise-grade privacy protection
+
+## Dual Consensus Integration
+
+The Wallet module integrates with both consensus layers:
+
+### COTI V2 Layer Integration
+- **Transaction Processing**: Token transfers through COTI V2
+- **Privacy Features**: Encrypted balances and transaction amounts
+- **Token Operations**: OmniCoin transfers, staking operations
+- **Smart Contracts**: Core wallet functionality on COTI
+
+### OmniBazaar Validator Layer Integration
+- **Wallet Logic**: Account management, portfolio tracking
+- **Business Rules**: Fee distribution, reward calculations
+- **Data Storage**: IPFS coordination for wallet backups
+- **Multi-Chain**: Cross-chain bridge coordination
+- **Username Services**: ENS-like username resolution
 
 ## Overview
 
-The Wallet module provides a comprehensive multi-chain wallet solution that integrates with Validator services to provide:
-- Secure transaction processing through the Validator blockchain service
-- Balance queries and real-time updates
+The Wallet module provides a comprehensive multi-chain wallet solution that integrates with both layers to provide:
+- Secure transaction processing through COTI V2 and Validator services
+- Balance queries with privacy-preserving features
 - Cross-chain coordination and bridging
-- ENS resolution and username services
-- Secure wallet data storage on IPFS
+- Username services and ENS resolution
+- Secure wallet data storage on IPFS through validators
+- Privacy-enabled staking operations
 
 ## Architecture
 

@@ -22,6 +22,8 @@ OmniBazaar logo image files: C:\Users\rickc\OmniBazaar\Wallet\static\images
 
 Notice: when implementing NFT minting of new user listings, we will want to mint on the OmniCoin blockchain. When displaying NFTs in the marketplace, we will want to support as many chains as is practically possible.
 
-## Legacy References
+## References
 
 Review the legacy DHT system and user interface for hints on what metadata to store for listings,  how to index and search for it, and how to display it in the UI.
+
+See this file for important general rules and context: C:\Users\rickc\OmniBazaar\claude.md
