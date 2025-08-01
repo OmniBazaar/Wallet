@@ -750,4 +750,13 @@ export class OmniCoinProvider extends CotiProvider {
   }
 }
 
-export default OmniCoinProvider; 
+export default OmniCoinProvider;
+
+// Export live provider
+export { LiveOmniCoinProvider, createLiveOmniCoinProvider, liveOmniCoinProvider } from './live-provider';
+
+// Export unified getProvider function that returns live provider
+export async function getOmniCoinProvider(networkName?: string): Promise<ethers.providers.JsonRpcProvider> {
+  const { liveOmniCoinProvider } = await import('./live-provider');
+  return liveOmniCoinProvider.getProvider();
+} 

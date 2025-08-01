@@ -348,4 +348,13 @@ export class CotiProvider extends EthereumProvider {
   }
 }
 
-export default CotiProvider; 
+export default CotiProvider;
+
+// Export live provider
+export { LiveCOTIProvider, createLiveCOTIProvider, liveCOTIProvider } from './live-provider';
+
+// Export unified getProvider function that returns live provider
+export async function getCotiProvider(networkName?: string): Promise<ethers.providers.JsonRpcProvider> {
+  const { liveCOTIProvider } = await import('./live-provider');
+  return liveCOTIProvider.getProvider();
+} 

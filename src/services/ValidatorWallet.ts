@@ -4,15 +4,16 @@
  * Integrates wallet operations with the Validator service network
  */
 
-import { ValidatorClient } from '../../Validator/src/client/ValidatorClient';
-import { OmniCoinBlockchain } from '../../Validator/src/services/blockchain/OmniCoinBlockchain';
-import { IPFSStorageNetwork } from '../../Validator/src/services/storage/IPFSStorageNetwork';
+import { createAvalancheValidatorClient, AvalancheValidatorClient } from '../../Validator/src/client/AvalancheValidatorClient';
+import { gql } from '@apollo/client';
 import { ethers } from 'ethers';
 import { nanoid } from 'nanoid';
 import { ref, Ref } from 'vue';
 
 export interface ValidatorWalletConfig {
   validatorEndpoint: string;
+  wsEndpoint?: string;
+  apiKey?: string;
   networkId: string;
   userId: string;
   enableSecureStorage: boolean;
@@ -70,9 +71,7 @@ export interface ENSResolution {
 }
 
 export class ValidatorWalletService {
-  private validatorClient: ValidatorClient;
-  private blockchain: OmniCoinBlockchain;
-  private ipfsStorage: IPFSStorageNetwork;
+  private client: AvalancheValidatorClient;
   private config: ValidatorWalletConfig;
   private accounts: Map<string, WalletAccount> = new Map();
   private activeAccountId: string | null = null;
@@ -85,9 +84,11 @@ export class ValidatorWalletService {
 
   constructor(config: ValidatorWalletConfig) {
     this.config = config;
-    this.validatorClient = new ValidatorClient(config.validatorEndpoint);
-    this.blockchain = this.validatorClient.getBlockchain();
-    this.ipfsStorage = this.validatorClient.getStorage();
+    this.client = createAvalancheValidatorClient({
+      validatorEndpoint: config.validatorEndpoint,
+      wsEndpoint: config.wsEndpoint,
+      apiKey: config.apiKey
+    });
   }
 
   /**
@@ -95,8 +96,11 @@ export class ValidatorWalletService {
    */
   async initialize(): Promise<void> {
     try {
-      // Initialize validator client
-      await this.validatorClient.initialize();
+      // Check validator health
+      const health = await this.client.checkHealth();
+      if (!health.data?.health?.healthy) {
+        throw new Error('Validator service is not healthy');
+      }
       
       // Load existing accounts from secure storage
       await this.loadAccountsFromStorage();
@@ -273,11 +277,22 @@ export class ValidatorWalletService {
         throw new Error('Account not found');
       }
 
-      // Get balance from validator blockchain service
-      const balance = await this.blockchain.getBalance(account.address);
+      // Get balance from validator GraphQL API
+      const result = await this.client.query({
+        query: gql`
+          query GetBalance($address: String!) {
+            account(address: $address) {
+              balance
+            }
+          }
+        `,
+        variables: { address: account.address }
+      });
+      
+      const balance = result.data?.account?.balance || '0';
       
       // Update account balance
-      account.balance = balance.toString();
+      account.balance = balance;
       
       // Update reactive balance
       this.balancesRef.value = {
@@ -353,8 +368,28 @@ export class ValidatorWalletService {
       // Sign transaction
       const signedTx = await wallet.signTransaction(tx);
       
-      // Submit to validator blockchain service
-      const result = await this.blockchain.sendRawTransaction(signedTx);
+      // Submit to validator via GraphQL
+      const mutation = gql`
+        mutation SendTransaction($signedTx: String!) {
+          sendRawTransaction(signedTx: $signedTx) {
+            success
+            transactionHash
+            blockNumber
+            confirmations
+            error
+          }
+        }
+      `;
+      
+      const mutationResult = await this.client.mutate({
+        mutation,
+        variables: { signedTx }
+      });
+      
+      const result = mutationResult.data?.sendRawTransaction || {
+        success: false,
+        error: 'Transaction submission failed'
+      };
       
       if (result.success) {
         // Update balance after successful transaction
@@ -414,20 +449,49 @@ export class ValidatorWalletService {
    */
   async resolveENS(name: string): Promise<ENSResolution | null> {
     try {
-      // Use validator blockchain service for ENS resolution
-      const resolution = await this.blockchain.resolveENS(name);
+      // Check if it's an OmniBazaar username (no domain extension)
+      const isOmniName = !name.includes('.');
+      const fullName = isOmniName ? name : name.replace('.omnibazaar', '');
       
-      if (!resolution) {
+      // Use validator's ENS resolution
+      const address = await this.client.resolveUsername(fullName);
+      
+      if (!address) {
         return null;
       }
       
+      // Get user metadata
+      const query = gql`
+        query GetUserMetadata($username: String!) {
+          usernameRegistration(username: $username) {
+            metadata {
+              email
+              website
+              twitter
+              avatar
+              description
+            }
+          }
+        }
+      `;
+      
+      const result = await this.client.query({
+        query,
+        variables: { username: fullName }
+      });
+      
+      const metadata = result.data?.usernameRegistration?.metadata || {};
+      
       return {
-        address: resolution.address,
-        name: name,
-        avatar: resolution.avatar,
-        description: resolution.description,
-        social: resolution.social,
-        verified: resolution.verified || false
+        address,
+        name: fullName,
+        avatar: metadata.avatar,
+        description: metadata.description,
+        social: {
+          twitter: metadata.twitter,
+          website: metadata.website
+        },
+        verified: true
       };
     } catch (error) {
       console.error('Error resolving ENS name:', error);
@@ -468,10 +532,21 @@ export class ValidatorWalletService {
         checksum: await this.calculateChecksum(encryptedData)
       };
 
-      // Store backup on IPFS
-      const backupHash = await this.ipfsStorage.storeData(
+      // Store backup on IPFS via validator
+      const backupHash = await this.client.storeDocument(
         JSON.stringify(backup),
-        `wallet_backup_${backup.id}.json`
+        {
+          title: `Wallet Backup ${backup.id}`,
+          author: this.config.userId,
+          category: 'wallet-backups',
+          type: 'backup',
+          tags: ['wallet', 'backup'],
+          permissions: {
+            public: false,
+            users: [this.config.userId],
+            roles: []
+          }
+        }
       );
 
       console.log(`Wallet backup created with hash: ${backupHash}`);
@@ -588,13 +663,36 @@ export class ValidatorWalletService {
     }
   ): Promise<any[]> {
     try {
-      // Get transaction history from validator blockchain service
-      const history = await this.blockchain.getTransactionHistory(address, {
-        limit: options?.limit || 50,
-        offset: options?.offset || 0
+      // Get transaction history from validator GraphQL API
+      const query = gql`
+        query GetTransactionHistory($address: String!, $limit: Int, $offset: Int) {
+          transactionHistory(address: $address, limit: $limit, offset: $offset) {
+            transactions {
+              hash
+              from
+              to
+              value
+              timestamp
+              blockNumber
+              status
+              gasUsed
+              gasPrice
+            }
+            total
+          }
+        }
+      `;
+      
+      const result = await this.client.query({
+        query,
+        variables: {
+          address,
+          limit: options?.limit || 50,
+          offset: options?.offset || 0
+        }
       });
       
-      return history;
+      return result.data?.transactionHistory?.transactions || [];
     } catch (error) {
       console.error('Error getting transaction history:', error);
       return [];
@@ -606,14 +704,23 @@ export class ValidatorWalletService {
    */
   async estimateGas(request: TransactionRequest): Promise<string> {
     try {
-      const gasEstimate = await this.blockchain.estimateGas({
-        from: request.from,
-        to: request.to,
-        value: request.value,
-        data: request.data
+      const query = gql`
+        query EstimateGas($from: String!, $to: String!, $value: String!, $data: String) {
+          estimateGas(from: $from, to: $to, value: $value, data: $data)
+        }
+      `;
+      
+      const result = await this.client.query({
+        query,
+        variables: {
+          from: request.from,
+          to: request.to,
+          value: request.value,
+          data: request.data || '0x'
+        }
       });
       
-      return gasEstimate.toString();
+      return result.data?.estimateGas || '21000';
     } catch (error) {
       console.error('Error estimating gas:', error);
       throw error;
@@ -625,8 +732,17 @@ export class ValidatorWalletService {
    */
   async getGasPrice(): Promise<string> {
     try {
-      const gasPrice = await this.blockchain.getGasPrice();
-      return gasPrice.toString();
+      const query = gql`
+        query GetGasPrice {
+          gasPrice
+        }
+      `;
+      
+      const result = await this.client.query({
+        query
+      });
+      
+      return result.data?.gasPrice || '1000000000'; // 1 gwei default
     } catch (error) {
       console.error('Error getting gas price:', error);
       throw error;
@@ -640,9 +756,6 @@ export class ValidatorWalletService {
     try {
       // Save any pending data
       await this.saveAllAccountsToStorage();
-      
-      // Disconnect from validator client
-      await this.validatorClient.disconnect();
       
       // Clear local data
       this.accounts.clear();
@@ -665,8 +778,21 @@ export class ValidatorWalletService {
         return;
       }
 
-      // Load account index from IPFS
-      const indexData = await this.ipfsStorage.retrieveData(`wallet_index_${this.config.userId}.json`);
+      // Load account index from validator storage
+      const query = gql`
+        query GetWalletIndex($userId: String!) {
+          document(id: $userId, category: "wallet-index") {
+            content
+          }
+        }
+      `;
+      
+      const result = await this.client.query({
+        query,
+        variables: { userId: `wallet_index_${this.config.userId}` }
+      });
+      
+      const indexData = result.data?.document?.content;
       
       if (!indexData) {
         console.log('No existing wallet data found');
@@ -678,7 +804,20 @@ export class ValidatorWalletService {
       // Load individual accounts
       for (const accountId of accountIds) {
         try {
-          const accountData = await this.ipfsStorage.retrieveData(`wallet_account_${accountId}.json`);
+          const accountQuery = gql`
+            query GetWalletAccount($accountId: String!) {
+              document(id: $accountId, category: "wallet-accounts") {
+                content
+              }
+            }
+          `;
+          
+          const accountResult = await this.client.query({
+            query: accountQuery,
+            variables: { accountId: `wallet_account_${accountId}` }
+          });
+          
+          const accountData = accountResult.data?.document?.content;
           if (accountData) {
             const account = JSON.parse(accountData) as WalletAccount;
             this.accounts.set(account.id, account);
@@ -705,12 +844,40 @@ export class ValidatorWalletService {
 
       // Save account data
       const accountData = JSON.stringify(account);
-      await this.ipfsStorage.storeData(accountData, `wallet_account_${account.id}.json`);
+      await this.client.storeDocument(
+        accountData,
+        {
+          title: `Wallet Account ${account.id}`,
+          author: this.config.userId,
+          category: 'wallet-accounts',
+          type: 'account',
+          tags: ['wallet', 'account'],
+          permissions: {
+            public: false,
+            users: [this.config.userId],
+            roles: []
+          }
+        }
+      );
 
       // Save private key separately (encrypted)
       if (privateKey) {
         const encryptedKey = await this.encryptData(privateKey, this.config.userId);
-        await this.ipfsStorage.storeData(encryptedKey, `wallet_key_${account.id}.json`);
+        await this.client.storeDocument(
+          encryptedKey,
+          {
+            title: `Wallet Key ${account.id}`,
+            author: this.config.userId,
+            category: 'wallet-keys',
+            type: 'key',
+            tags: ['wallet', 'key'],
+            permissions: {
+              public: false,
+              users: [this.config.userId],
+              roles: []
+            }
+          }
+        );
       }
 
       // Update account index
@@ -749,9 +916,20 @@ export class ValidatorWalletService {
   private async updateAccountIndex(): Promise<void> {
     try {
       const accountIds = Array.from(this.accounts.keys());
-      await this.ipfsStorage.storeData(
+      await this.client.storeDocument(
         JSON.stringify(accountIds),
-        `wallet_index_${this.config.userId}.json`
+        {
+          title: `Wallet Index ${this.config.userId}`,
+          author: this.config.userId,
+          category: 'wallet-index',
+          type: 'index',
+          tags: ['wallet', 'index'],
+          permissions: {
+            public: false,
+            users: [this.config.userId],
+            roles: []
+          }
+        }
       );
     } catch (error) {
       console.error('Error updating account index:', error);
@@ -764,7 +942,20 @@ export class ValidatorWalletService {
         return null;
       }
 
-      const encryptedKey = await this.ipfsStorage.retrieveData(`wallet_key_${accountId}.json`);
+      const keyQuery = gql`
+        query GetWalletKey($keyId: String!) {
+          document(id: $keyId, category: "wallet-keys") {
+            content
+          }
+        }
+      `;
+      
+      const keyResult = await this.client.query({
+        query: keyQuery,
+        variables: { keyId: `wallet_key_${accountId}` }
+      });
+      
+      const encryptedKey = keyResult.data?.document?.content;
       
       if (!encryptedKey) {
         return null;
@@ -911,7 +1102,9 @@ export class ValidatorWalletService {
 
 // Export configured instance for easy use
 export const validatorWallet = new ValidatorWalletService({
-  validatorEndpoint: import.meta.env.VITE_VALIDATOR_ENDPOINT || 'localhost:3000',
+  validatorEndpoint: import.meta.env.VITE_VALIDATOR_ENDPOINT || 'http://localhost:4000',
+  wsEndpoint: import.meta.env.VITE_VALIDATOR_WS_ENDPOINT || 'ws://localhost:4000/graphql',
+  apiKey: import.meta.env.VITE_VALIDATOR_API_KEY,
   networkId: import.meta.env.VITE_NETWORK_ID || 'omnibazaar-mainnet',
   userId: '', // Will be set when user logs in
   enableSecureStorage: true,

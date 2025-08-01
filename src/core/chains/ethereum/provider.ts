@@ -350,4 +350,13 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
   }
 }
 
-export default EthereumProvider; 
+export default EthereumProvider;
+
+// Export live provider
+export { LiveEthereumProvider, createLiveEthereumProvider, liveEthereumProvider } from './live-provider';
+
+// Export unified getProvider function that returns live provider
+export async function getProvider(networkName?: string): Promise<ethers.providers.JsonRpcProvider> {
+  const { liveEthereumProvider } = await import('./live-provider');
+  return liveEthereumProvider.getProvider();
+} 
