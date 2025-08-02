@@ -102,4 +102,98 @@ export const getMigrationStatus = async (
     console.error('Error getting migration status:', error);
     throw new Error('Failed to get migration status');
   }
+};
+
+// =============================================================================
+// DECIMAL CONVERSION UTILITIES
+// =============================================================================
+
+/**
+ * Conversion constants for legacy balance migration
+ */
+export const LEGACY_DECIMALS = 6;
+export const NEW_DECIMALS = 18;
+export const CONVERSION_FACTOR = BigInt(10 ** (NEW_DECIMALS - LEGACY_DECIMALS)); // 10^12
+
+/**
+ * Convert a legacy balance from 6 decimals to 18 decimals
+ * @param legacyBalance Balance with 6 decimals as string
+ * @returns Converted balance with 18 decimals as string
+ */
+export const convertLegacyBalance = (legacyBalance: string): string => {
+  try {
+    // Parse the legacy balance (6 decimals)
+    const legacyBigInt = BigInt(legacyBalance);
+    
+    // Multiply by conversion factor (10^12) to get 18 decimals
+    const newBalance = legacyBigInt * CONVERSION_FACTOR;
+    
+    return newBalance.toString();
+  } catch (error) {
+    console.error('Failed to convert legacy balance:', error);
+    throw new Error(`Invalid legacy balance: ${legacyBalance}`);
+  }
+};
+
+/**
+ * Convert a human-readable amount with 6 decimals to 18 decimals
+ * @param amount Human-readable amount (e.g., "100.5" XOM)
+ * @returns Amount with 18 decimals as string
+ */
+export const convertLegacyAmount = (amount: string): string => {
+  try {
+    // First parse with 6 decimals to get the base units
+    const baseUnits = ethers.parseUnits(amount, LEGACY_DECIMALS);
+    
+    // Then multiply by conversion factor
+    const newBaseUnits = baseUnits * CONVERSION_FACTOR;
+    
+    return newBaseUnits.toString();
+  } catch (error) {
+    console.error('Failed to convert legacy amount:', error);
+    throw new Error(`Invalid amount: ${amount}`);
+  }
+};
+
+/**
+ * Format balance for display with proper decimal places
+ * @param balance Balance as string (with 18 decimals)
+ * @param displayDecimals Number of decimal places to show (default: 4)
+ * @returns Formatted balance string
+ */
+export const formatBalance = (balance: string, displayDecimals: number = 4): string => {
+  try {
+    // Use ethers to format with 18 decimals
+    const formatted = ethers.formatUnits(balance, NEW_DECIMALS);
+    
+    // Parse and format to desired decimal places
+    const num = parseFloat(formatted);
+    return num.toFixed(displayDecimals);
+  } catch (error) {
+    console.error('Failed to format balance:', error);
+    return '0.0000';
+  }
+};
+
+/**
+ * Enhanced migration function that handles decimal conversion
+ */
+export const migrateLegacyBalanceWithConversion = async (
+  username: string,
+  password: string,
+  newWalletAddress: string
+): Promise<MigrationResult & { convertedBalance?: string }> => {
+  const result = await migrateLegacyBalance(username, password, newWalletAddress);
+  
+  if (result.success && result.balance) {
+    // Convert the 6-decimal balance to 18 decimals
+    const convertedBalance = convertLegacyBalance(result.balance);
+    
+    return {
+      ...result,
+      convertedBalance,
+    };
+  }
+  
+  return result;
 }; 

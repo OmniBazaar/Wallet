@@ -38,7 +38,7 @@ export const OMNICOIN_NETWORKS: Record<string, OmniCoinNetwork> = {
     nativeCurrency: {
       name: 'OmniCoin',
       symbol: 'XOM',
-      decimals: 6 // As per OmniBazaar Design Checkpoint
+      decimals: 18 // Updated for EVM standard compatibility
     },
     features: {
       privacy: true,
@@ -55,7 +55,7 @@ export const OMNICOIN_NETWORKS: Record<string, OmniCoinNetwork> = {
     nativeCurrency: {
       name: 'Test OmniCoin',
       symbol: 'tXOM',
-      decimals: 6
+      decimals: 18
     },
     features: {
       privacy: true,

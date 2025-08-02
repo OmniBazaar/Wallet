@@ -285,8 +285,11 @@ export class ProviderManager {
     let value: ethers.BigNumber;
     switch (chain) {
       case 'omnicoin':
+        // 18 decimals (updated for EVM standard)
+        value = ethers.utils.parseUnits(amount, 18);
+        break;
       case 'coti':
-        // 6 decimals
+        // 6 decimals (COTI native)
         value = ethers.utils.parseUnits(amount, 6);
         break;
       default:
