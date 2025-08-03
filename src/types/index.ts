@@ -1,13 +1,15 @@
 export interface NetworkConfig {
     name: string;
-    chainId: string;
-    networkId: number;
-    rpcUrls: {
+    chainId: number | string;
+    currency: string;
+    rpcUrl: string;
+    networkId?: number;
+    rpcUrls?: {
         mainnet: string[];
         testnet: string[];
     } | string[];
-    blockExplorerUrls: string[];
-    nativeCurrency: {
+    blockExplorerUrls?: string[];
+    nativeCurrency?: {
         name: string;
         symbol: string;
         decimals: number;
@@ -41,6 +43,7 @@ export interface WalletError extends Error {
 }
 
 export interface TransactionRequest {
+    from?: string;
     to: string;
     value?: string;
     data?: string;
@@ -49,19 +52,25 @@ export interface TransactionRequest {
     nonce?: number;
 }
 
-export interface TransactionResponse {
+export interface Transaction {
     hash: string;
     from: string;
     to: string;
     value: string;
-    data: string;
-    gasLimit: string;
-    gasPrice: string;
-    nonce: number;
-    chainId: number;
+    fee?: string;
+    data?: string;
+    gasLimit?: string;
+    gasPrice?: string;
+    nonce?: number;
+    chainId?: number;
     blockNumber?: number;
     blockHash?: string;
     timestamp?: number;
+    status?: 'pending' | 'confirmed' | 'failed';
+}
+
+export interface TransactionResponse extends Transaction {
+    wait?: () => Promise<Transaction>;
 }
 
 export interface TokenInfo {

@@ -9,10 +9,14 @@ import { ethers } from 'ethers';
 import { LiveEthereumProvider, ETHEREUM_NETWORKS } from '../chains/ethereum/live-provider';
 import { LiveCOTIProvider, COTI_NETWORKS } from '../chains/coti/live-provider';
 import { LiveOmniCoinProvider, OMNICOIN_NETWORKS } from '../chains/omnicoin/live-provider';
+import { LiveBitcoinProvider } from '../chains/bitcoin/live-provider';
+import { MultiChainEVMProvider, ALL_NETWORKS } from '../chains/evm';
+import { LivePolkadotProvider, POLKADOT_NETWORKS } from '../chains/polkadot';
+import { LiveSolanaProvider, SOLANA_NETWORKS } from '../chains/solana';
 import { keyringService, ChainType } from '../keyring/KeyringService';
 
 export type NetworkType = 'mainnet' | 'testnet';
-export type ProviderType = LiveEthereumProvider | LiveCOTIProvider | LiveOmniCoinProvider;
+export type ProviderType = LiveEthereumProvider | LiveCOTIProvider | LiveOmniCoinProvider | LiveBitcoinProvider | MultiChainEVMProvider | LivePolkadotProvider | LiveSolanaProvider;
 
 export interface ChainConfig {
   chainType: ChainType;
@@ -53,11 +57,22 @@ export const SUPPORTED_CHAINS: Record<ChainType, ChainConfig> = {
     chainType: 'solana',
     name: 'Solana',
     icon: 'solana',
-    networks: ['mainnet', 'devnet'],
+    networks: Object.keys(SOLANA_NETWORKS),
     defaultNetwork: 'mainnet',
     features: {
       nft: true,
       defi: true
+    }
+  },
+  substrate: {
+    chainType: 'substrate',
+    name: 'Polkadot/Substrate',
+    icon: 'polkadot',
+    networks: Object.keys(POLKADOT_NETWORKS),
+    defaultNetwork: 'polkadot',
+    features: {
+      staking: true,
+      nft: true
     }
   },
   coti: {
@@ -88,7 +103,9 @@ export const SUPPORTED_CHAINS: Record<ChainType, ChainConfig> = {
 export class ProviderManager {
   private static instance: ProviderManager;
   private providers: Map<ChainType, ProviderType> = new Map();
+  private evmProviders: Map<string, MultiChainEVMProvider> = new Map();
   private activeChain: ChainType = 'ethereum';
+  private activeNetwork: string = 'ethereum'; // For EVM chain switching
   private networkType: NetworkType = 'mainnet';
   private initialized: boolean = false;
   
@@ -112,11 +129,21 @@ export class ProviderManager {
     this.networkType = networkType;
 
     try {
-      // Initialize Ethereum provider
+      // Initialize main Ethereum provider for backward compatibility
       const ethProvider = new LiveEthereumProvider(
         networkType === 'mainnet' ? 'mainnet' : 'sepolia'
       );
       this.providers.set('ethereum', ethProvider);
+
+      // Initialize EVM providers for all supported chains
+      for (const [networkKey, network] of Object.entries(ALL_NETWORKS)) {
+        // Skip testnets in mainnet mode and vice versa
+        if (networkType === 'mainnet' && network.testnet) continue;
+        if (networkType === 'testnet' && !network.testnet) continue;
+        
+        const evmProvider = new MultiChainEVMProvider(networkKey);
+        this.evmProviders.set(networkKey, evmProvider);
+      }
 
       // Initialize COTI provider
       const cotiProvider = new LiveCOTIProvider(networkType);
@@ -126,7 +153,19 @@ export class ProviderManager {
       const omniProvider = new LiveOmniCoinProvider(networkType);
       this.providers.set('omnicoin', omniProvider);
 
-      // TODO: Initialize Bitcoin and Solana providers when implemented
+      // Initialize Bitcoin provider
+      const btcProvider = new LiveBitcoinProvider(networkType);
+      this.providers.set('bitcoin', btcProvider);
+
+      // Initialize Polkadot/Substrate providers
+      const defaultPolkadotNetwork = networkType === 'mainnet' ? 'polkadot' : 'westend';
+      const polkadotProvider = new LivePolkadotProvider(defaultPolkadotNetwork);
+      this.providers.set('substrate', polkadotProvider);
+
+      // Initialize Solana provider
+      const solanaNetwork = networkType === 'mainnet' ? 'mainnet' : 'devnet';
+      const solanaProvider = new LiveSolanaProvider(solanaNetwork);
+      this.providers.set('solana', solanaProvider);
 
       this.initialized = true;
     } catch (error) {
@@ -143,9 +182,56 @@ export class ProviderManager {
   }
 
   /**
+   * Get EVM provider for specific network
+   */
+  getEVMProvider(networkKey: string): MultiChainEVMProvider | null {
+    return this.evmProviders.get(networkKey) || null;
+  }
+
+  /**
+   * Switch to a specific EVM network
+   */
+  async switchEVMNetwork(networkKey: string): Promise<void> {
+    const provider = this.evmProviders.get(networkKey);
+    if (!provider) {
+      // Try to create a new provider for this network
+      const network = ALL_NETWORKS[networkKey];
+      if (!network) {
+        throw new Error(`Unknown EVM network: ${networkKey}`);
+      }
+      
+      const newProvider = new MultiChainEVMProvider(networkKey);
+      this.evmProviders.set(networkKey, newProvider);
+      this.activeNetwork = networkKey;
+      this.activeChain = 'ethereum'; // All EVM chains use 'ethereum' chain type
+    } else {
+      this.activeNetwork = networkKey;
+      this.activeChain = 'ethereum';
+    }
+  }
+
+  /**
+   * Get list of available EVM networks
+   */
+  getAvailableEVMNetworks(): string[] {
+    return Array.from(this.evmProviders.keys());
+  }
+
+  /**
+   * Get all supported EVM networks (static)
+   */
+  static getSupportedEVMNetworks(): string[] {
+    return Object.keys(ALL_NETWORKS);
+  }
+
+  /**
    * Get active provider
    */
   getActiveProvider(): ProviderType | null {
+    // If active chain is ethereum and we have a specific EVM network active
+    if (this.activeChain === 'ethereum' && this.activeNetwork !== 'ethereum') {
+      return this.evmProviders.get(this.activeNetwork) || null;
+    }
     return this.providers.get(this.activeChain) || null;
   }
 
@@ -217,6 +303,11 @@ export class ProviderManager {
     try {
       switch (chain) {
         case 'ethereum': {
+          // Check if we're using a specific EVM chain
+          if (this.activeNetwork !== 'ethereum' && this.evmProviders.has(this.activeNetwork)) {
+            const evmProvider = this.evmProviders.get(this.activeNetwork)!;
+            return await evmProvider.getFormattedBalance();
+          }
           const ethProvider = provider as LiveEthereumProvider;
           return await ethProvider.getFormattedBalance();
         }
@@ -236,6 +327,30 @@ export class ProviderManager {
           if (balances.private) result += `, XOMP: ${balances.private}`;
           if (balances.staked) result += `, Staked: ${balances.staked}`;
           return result;
+        }
+        
+        case 'bitcoin': {
+          const btcProvider = provider as LiveBitcoinProvider;
+          return await btcProvider.getFormattedBalance();
+        }
+        
+        case 'substrate': {
+          const polkadotProvider = provider as LivePolkadotProvider;
+          return await polkadotProvider.getActiveFormattedBalance();
+        }
+        
+        case 'solana': {
+          const solanaProvider = provider as LiveSolanaProvider;
+          const balance = await solanaProvider.getActiveFormattedBalance();
+          // Also get SPL tokens
+          const tokens = await solanaProvider.getActiveTokenBalances();
+          if (tokens.length > 0) {
+            const tokenList = tokens.map(t => 
+              `${parseInt(t.amount) / Math.pow(10, t.decimals)} ${t.symbol || 'Unknown'}`
+            ).join(', ');
+            return `${balance}, Tokens: ${tokenList}`;
+          }
+          return balance;
         }
         
         default:
@@ -273,7 +388,7 @@ export class ProviderManager {
     amount: string,
     chainType?: ChainType,
     data?: string
-  ): Promise<ethers.providers.TransactionResponse> {
+  ): Promise<ethers.providers.TransactionResponse | string> {
     const chain = chainType || this.activeChain;
     const provider = this.getProvider(chain);
     
@@ -281,7 +396,32 @@ export class ProviderManager {
       throw new Error(`No provider for chain: ${chain}`);
     }
 
-    // Parse amount based on chain decimals
+    // Handle Bitcoin separately
+    if (chain === 'bitcoin') {
+      const btcProvider = provider as LiveBitcoinProvider;
+      // Bitcoin amount is in BTC, convert to satoshis
+      const satoshis = Math.floor(parseFloat(amount) * 100000000).toString();
+      return await btcProvider.sendBitcoin(to, satoshis);
+    }
+
+    // Handle Polkadot/Substrate separately
+    if (chain === 'substrate') {
+      const polkadotProvider = provider as LivePolkadotProvider;
+      const network = polkadotProvider.getCurrentNetwork();
+      // Convert amount to smallest unit based on decimals
+      const value = Math.floor(parseFloat(amount) * Math.pow(10, network.decimals)).toString();
+      return await polkadotProvider.sendNativeToken(to, value);
+    }
+
+    // Handle Solana separately
+    if (chain === 'solana') {
+      const solanaProvider = provider as LiveSolanaProvider;
+      // Convert SOL to lamports
+      const lamports = Math.floor(parseFloat(amount) * 1e9).toString();
+      return await solanaProvider.sendNativeToken(to, lamports);
+    }
+
+    // Parse amount based on chain decimals for EVM chains
     let value: ethers.BigNumber;
     switch (chain) {
       case 'omnicoin':
@@ -305,6 +445,11 @@ export class ProviderManager {
 
     switch (chain) {
       case 'ethereum': {
+        // Check if we're using a specific EVM chain
+        if (this.activeNetwork !== 'ethereum' && this.evmProviders.has(this.activeNetwork)) {
+          const evmProvider = this.evmProviders.get(this.activeNetwork)!;
+          return await evmProvider.sendTransaction(transaction);
+        }
         const ethProvider = provider as LiveEthereumProvider;
         return await ethProvider.sendTransaction(transaction);
       }

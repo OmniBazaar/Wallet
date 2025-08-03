@@ -23,6 +23,9 @@ import * as crypto from 'crypto';
 import { ec as EC } from 'elliptic';
 import { Keypair } from '@solana/web3.js';
 import * as bitcoin from 'bitcoinjs-lib';
+import { Keyring } from '@polkadot/keyring';
+import { u8aToHex } from '@polkadot/util';
+import bs58 from 'bs58';
 import BrowserStorage, { StorageInterface } from '../storage/common/browser-storage';
 
 // Types
@@ -52,7 +55,7 @@ export interface EncryptedData {
   salt: string;
 }
 
-export type ChainType = 'ethereum' | 'bitcoin' | 'solana' | 'coti' | 'omnicoin';
+export type ChainType = 'ethereum' | 'bitcoin' | 'solana' | 'coti' | 'omnicoin' | 'substrate';
 
 export interface KeyringOptions {
   mnemonic?: string;
@@ -83,6 +86,7 @@ const COIN_TYPES: Record<ChainType, number> = {
   solana: 501,
   coti: 60, // Using Ethereum's coin type
   omnicoin: 9999, // Custom coin type for OmniCoin
+  substrate: 354, // Polkadot's coin type
 };
 
 export class BIP39Keyring {
@@ -436,6 +440,9 @@ export class BIP39Keyring {
       case 'solana':
         return this.getSolanaAddress(hdNode);
       
+      case 'substrate':
+        return this.getSubstrateAddress(hdNode);
+      
       default:
         throw new Error(`Unsupported chain type: ${chainType}`);
     }
@@ -469,6 +476,35 @@ export class BIP39Keyring {
     return {
       address: keypair.publicKey.toBase58(),
       publicKey: keypair.publicKey.toBase58()
+    };
+  }
+
+  /**
+   * Export private key for Solana
+   */
+  private exportSolanaPrivateKey(hdNode: HDNodeWallet): string {
+    const privateKey = Buffer.from(hdNode.privateKey.slice(2), 'hex');
+    const keypair = Keypair.fromSeed(privateKey.slice(0, 32));
+    return bs58.encode(keypair.secretKey);
+  }
+
+  /**
+   * Get Substrate address from HD node
+   */
+  private getSubstrateAddress(hdNode: HDNodeWallet): { address: string; publicKey: string } {
+    // Create a substrate keyring
+    const keyring = new Keyring({ type: 'sr25519' });
+    
+    // Convert HD node private key to seed
+    const privateKey = Buffer.from(hdNode.privateKey.slice(2), 'hex');
+    const seed = privateKey.slice(0, 32);
+    
+    // Create keypair from seed
+    const keypair = keyring.addFromSeed(seed);
+    
+    return {
+      address: keypair.address,
+      publicKey: u8aToHex(keypair.publicKey)
     };
   }
 
