@@ -10,7 +10,7 @@ import { encodeAddress } from '@polkadot/util-crypto';
 export class LivePolkadotProvider extends PolkadotProvider {
   private activeAddress: string | null = null;
 
-  constructor(networkKey: string = 'polkadot') {
+  constructor(networkKey = 'polkadot') {
     const network = POLKADOT_NETWORKS[networkKey];
     if (!network) {
       throw new Error(`Unknown Polkadot network: ${networkKey}`);
@@ -36,7 +36,7 @@ export class LivePolkadotProvider extends PolkadotProvider {
   /**
    * Get all addresses from keyring
    */
-  async getAddresses(count: number = 10): Promise<string[]> {
+  async getAddresses(count = 10): Promise<string[]> {
     const accounts = await keyringService.getAccounts('substrate');
     return accounts.slice(0, count).map(account => 
       encodeAddress(account.address, this.prefix)
@@ -125,7 +125,7 @@ export class LivePolkadotProvider extends PolkadotProvider {
   /**
    * Get staking information
    */
-  async getStakingInfo(address?: string): Promise<any> {
+  async getStakingInfo(address?: string): Promise<{ bonded: string; unbonding: string; nominators: string[] }> {
     const api = await this.ensureApi();
     const addr = address || await this.getAddress();
 

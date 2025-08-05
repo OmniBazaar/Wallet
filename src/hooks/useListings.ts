@@ -1,8 +1,6 @@
 import { useState, useCallback } from 'react';
-import { ethers } from 'ethers';
 import { useWallet } from './useWallet';
 import { ListingMetadata, SearchFilters } from '../types/listing';
-import { getNFTMetadata } from '../utils/nft';
 
 interface UseListingsReturn {
     listings: ListingMetadata[];

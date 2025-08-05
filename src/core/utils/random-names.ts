@@ -583,7 +583,7 @@ const right = [
   "yonath",
 ];
 
-const sumAscii = (str: string) => {
+const sumAscii = (str: string): number => {
   let sum = 0;
   for (let i = 0; i < str.length; i++) {
     sum += str.charCodeAt(i);
@@ -591,13 +591,13 @@ const sumAscii = (str: string) => {
   return sum;
 };
 
-const generateRandomNameWithSeed = (sep = "_", seedStr: string) => {
+export const generateRandomNameWithSeed = (sep = "_", seedStr: string): string => {
   let seed = sumAscii(seedStr);
-  const random = () => {
+  const random = (): number => {
     const x = Math.sin(seed++) * 10000;
     return Math.floor((x - Math.floor(x)) * 10000);
   };
   return `${left[random() % left.length]}${sep}${right[random() % right.length]}`;
 };
 
-export { generateRandomNameWithSeed };
+// Default export removed, function already exported above

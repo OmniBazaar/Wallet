@@ -131,7 +131,7 @@ export class MultiChainNFTDisplay {
           nftsByChain[chainId] = mockNFTs;
         }
       } catch (error) {
-        console.error(`Failed to fetch NFTs from chain ${chainId}:`, error);
+        console.warn(`Failed to fetch NFTs from chain ${chainId}:`, error);
         nftsByChain[chainId] = [];
       }
     }
@@ -167,7 +167,7 @@ export class MultiChainNFTDisplay {
           collectionsByChain[chainId] = mockCollections;
         }
       } catch (error) {
-        console.error(`Failed to fetch collections from chain ${chainId}:`, error);
+        console.warn(`Failed to fetch collections from chain ${chainId}:`, error);
         collectionsByChain[chainId] = [];
       }
     }
@@ -223,20 +223,21 @@ export class MultiChainNFTDisplay {
           }
         }
       } catch (error) {
-        console.error(`Search failed for chain ${chainId}:`, error);
+        console.warn(`Search failed for chain ${chainId}:`, error);
       }
     }
 
     // Sort results
     if (query.sortBy) {
       results.sort((a, b) => {
-        const order = (query as any).sortOrder === 'desc' ? -1 : 1;
+        const order = (query as { sortOrder?: string }).sortOrder === 'desc' ? -1 : 1;
         switch (query.sortBy) {
           case 'price_asc':
-          case 'price_desc':
+          case 'price_desc': {
             const priceA = parseFloat(a.price || '0');
             const priceB = parseFloat(b.price || '0');
             return (priceA - priceB) * order;
+          }
           case 'created_desc':
             // Use token ID as proxy for creation time
             return (parseInt(b.tokenId) - parseInt(a.tokenId)) * order;
@@ -317,7 +318,7 @@ export class MultiChainNFTDisplay {
         ],
         contract: `0x${Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}`,
         contractAddress: `0x${Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}`,
-        tokenStandard: chainConfig.nftStandards[0] as any,
+        tokenStandard: chainConfig.nftStandards[0] as 'ERC721' | 'ERC1155' | 'SPL' | 'NEP171' | string,
         blockchain: chainConfig.name.toLowerCase(),
         owner: address,
         creator: `0x${Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}`,
@@ -343,7 +344,7 @@ export class MultiChainNFTDisplay {
       description: `Sample collection from ${chainConfig.name}`,
       contract: `0x${Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}`,
       contractAddress: `0x${Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}`,
-      tokenStandard: chainConfig.nftStandards[0] as any,
+      tokenStandard: chainConfig.nftStandards[0] as 'ERC721' | 'ERC1155' | 'SPL' | 'NEP171' | string,
       blockchain: chainConfig.name.toLowerCase(),
       creator: `0x${Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}`,
       verified: true,
@@ -373,7 +374,7 @@ export class MultiChainNFTDisplay {
    * Get list of enabled chains
    */
   getEnabledChains(): ChainConfig[] {
-    return Array.from(this.enabledChains).map(id => this.chains.get(id)!).filter(Boolean);
+    return Array.from(this.enabledChains).map(id => this.chains.get(id)).filter((chain): chain is ChainConfig => chain !== undefined);
   }
 
   /**
@@ -386,7 +387,29 @@ export class MultiChainNFTDisplay {
   /**
    * Convert NFTItem to MarketplaceListing format
    */
-  private convertNFTToListing(nft: NFTItem): any {
+  private convertNFTToListing(nft: NFTItem): {
+    id: string;
+    nftId: string;
+    tokenId: string;
+    contract: string;
+    seller: string;
+    price: string;
+    currency: string;
+    listingType: 'fixed_price';
+    title: string;
+    description?: string;
+    category: string;
+    tags: string[];
+    featured: boolean;
+    verified: boolean;
+    escrowEnabled: boolean;
+    instantPurchase: boolean;
+    createdAt: number;
+    updatedAt: number;
+    views: number;
+    likes: number;
+    shares: number;
+  } {
     return {
       id: `listing_${nft.id}`,
       nftId: nft.id,
@@ -447,7 +470,7 @@ export class MultiChainNFTDisplay {
       this.registerProvider(101, solanaProvider);
     }
 
-    console.log('Multi-chain NFT providers initialized');
+    console.warn('Multi-chain NFT providers initialized');
   }
 
   /**
@@ -462,7 +485,13 @@ export class MultiChainNFTDisplay {
       isConnected: boolean;
     };
   }> {
-    const stats: any = {};
+    const stats: Record<number, {
+      name: string;
+      enabled: boolean;
+      nftCount: number;
+      collectionCount: number;
+      isConnected: boolean;
+    }> = {};
 
     for (const [chainId, config] of this.chains) {
       const provider = this.providers.get(chainId);

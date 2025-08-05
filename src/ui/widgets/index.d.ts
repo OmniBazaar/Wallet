@@ -6,9 +6,9 @@ declare namespace OmniCoinWidgets {
       configurationId?: string;
       accept?: string[];
       reject?: string[];
-      onConnect?: (wallet: any) => void;
+      onConnect?: (wallet: { address: string; provider: unknown; chainId: number }) => void;
       onDisconnect?: () => void;
-      onError?: (error: any) => void;
+      onError?: (error: Error) => void;
     }) => void;
     unmount: () => void;
   }
@@ -18,8 +18,8 @@ declare namespace OmniCoinWidgets {
       container?: HTMLElement;
       configuration?: string;
       configurationId?: string;
-      onLogin?: (wallet: any) => void;
-      onError?: (error: any) => void;
+      onLogin?: (wallet: { address: string; provider: unknown; chainId: number }) => void;
+      onError?: (error: Error) => void;
     }) => void;
     unmount: () => void;
   }
@@ -29,8 +29,8 @@ declare namespace OmniCoinWidgets {
       container?: HTMLElement;
       configuration?: string;
       configurationId?: string;
-      onSuccess?: (transaction: any) => void;
-      onError?: (error: any) => void;
+      onSuccess?: (transaction: { hash: string; blockNumber?: number; status: string }) => void;
+      onError?: (error: Error) => void;
     }) => void;
     unmount: () => void;
   }
@@ -40,8 +40,8 @@ declare namespace OmniCoinWidgets {
       container?: HTMLElement;
       configuration?: string;
       configurationId?: string;
-      onSuccess?: (transaction: any) => void;
-      onError?: (error: any) => void;
+      onSuccess?: (transaction: { hash: string; blockNumber?: number; status: string }) => void;
+      onError?: (error: Error) => void;
     }) => void;
     unmount: () => void;
   }
@@ -51,8 +51,8 @@ declare namespace OmniCoinWidgets {
       container?: HTMLElement;
       configuration?: string;
       configurationId?: string;
-      onSelect?: (selection: any) => void;
-      onError?: (error: any) => void;
+      onSelect?: (selection: { value: unknown; label: string }) => void;
+      onError?: (error: Error) => void;
     }) => void;
     unmount: () => void;
   }

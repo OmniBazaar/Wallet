@@ -106,7 +106,7 @@ export class ValidatorBalanceService {
       // Start price updates
       this.startPriceUpdates();
       
-      console.log('Validator Balance Service initialized successfully');
+      console.warn('Validator Balance Service initialized successfully');
     } catch (error) {
       console.error('Failed to initialize Validator Balance Service:', error);
       throw new Error(`Balance service initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -116,7 +116,7 @@ export class ValidatorBalanceService {
   /**
    * Get account balance
    */
-  async getBalance(address: string, useCache: boolean = true): Promise<AccountBalance> {
+  async getBalance(address: string, useCache = true): Promise<AccountBalance> {
     try {
       this.isLoadingRef.value = true;
       
@@ -320,7 +320,7 @@ export class ValidatorBalanceService {
   /**
    * Start automatic balance updates
    */
-  startBalanceUpdates(addresses: string[], interval: number = 30000): void {
+  startBalanceUpdates(addresses: string[], interval = 30000): void {
     addresses.forEach(address => {
       // Clear existing interval if any
       this.stopBalanceUpdates(address);
@@ -358,7 +358,7 @@ export class ValidatorBalanceService {
   /**
    * Get balance history for an address
    */
-  getBalanceHistory(address: string, limit: number = 100): BalanceHistory[] {
+  getBalanceHistory(address: string, limit = 100): BalanceHistory[] {
     const history = this.balanceHistory.get(address) || [];
     return history.slice(-limit).reverse(); // Most recent first
   }
@@ -520,7 +520,7 @@ export class ValidatorBalanceService {
       // Disconnect from validator client
       await this.validatorClient.disconnect();
       
-      console.log('Validator Balance Service disconnected');
+      console.warn('Validator Balance Service disconnected');
     } catch (error) {
       console.error('Error disconnecting balance service:', error);
     }
@@ -573,7 +573,7 @@ export class ValidatorBalanceService {
     }
   }
 
-  private async saveBalanceHistory(address: string, history: BalanceHistory[]): Promise<void> {
+  private async saveBalanceHistory(_address: string, _history: BalanceHistory[]): Promise<void> {
     try {
       const allHistory = Object.fromEntries(this.balanceHistory.entries());
       localStorage.setItem(

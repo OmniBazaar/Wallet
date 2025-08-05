@@ -31,7 +31,7 @@ export class PolygonNFTProvider implements ChainProvider {
    */
   async getNFTs(address: string): Promise<NFTItem[]> {
     try {
-      console.log(`Fetching Polygon NFTs for address: ${address}`);
+      console.warn(`Fetching Polygon NFTs for address: ${address}`);
       
       // Try Alchemy API first if available
       if (this.config.alchemyApiKey) {
@@ -42,7 +42,7 @@ export class PolygonNFTProvider implements ChainProvider {
       return await this.generateMockNFTs(address);
       
     } catch (error) {
-      console.error('Error fetching Polygon NFTs:', error);
+      console.warn('Error fetching Polygon NFTs:', error);
       return await this.generateMockNFTs(address);
     }
   }
@@ -65,7 +65,7 @@ export class PolygonNFTProvider implements ChainProvider {
       
       return await this.generateMockNFT(contractAddress, tokenId, 'unknown');
     } catch (error) {
-      console.error('Error fetching Polygon NFT metadata:', error);
+      console.warn('Error fetching Polygon NFT metadata:', error);
       return null;
     }
   }
@@ -88,7 +88,7 @@ export class PolygonNFTProvider implements ChainProvider {
         items: []
       }];
     } catch (error) {
-      console.error('Error fetching Polygon collections:', error);
+      console.warn('Error fetching Polygon collections:', error);
       return [];
     }
   }
@@ -106,13 +106,35 @@ export class PolygonNFTProvider implements ChainProvider {
     }
     
     const data = await response.json();
-    return data.ownedNfts.map((nft: any) => this.transformAlchemyNFT(nft));
+    return data.ownedNfts.map((nft: {
+      contract: { address: string };
+      id: { tokenId: string; tokenMetadata?: { tokenType?: string } };
+      metadata?: {
+        name?: string;
+        description?: string;
+        image?: string;
+        attributes?: Array<{ trait_type: string; value: string | number }>;
+        creator?: string;
+      };
+      media?: Array<{ gateway?: string }>;
+    }) => this.transformAlchemyNFT(nft));
   }
 
   /**
    * Transform Alchemy NFT data to our format
    */
-  private transformAlchemyNFT(nft: any): NFTItem {
+  private transformAlchemyNFT(nft: {
+    contract: { address: string };
+    id: { tokenId: string; tokenMetadata?: { tokenType?: string } };
+    metadata?: {
+      name?: string;
+      description?: string;
+      image?: string;
+      attributes?: Array<{ trait_type: string; value: string | number }>;
+      creator?: string;
+    };
+    media?: Array<{ gateway?: string }>;
+  }): NFTItem {
     const metadata = nft.metadata || {};
     
     return {
@@ -202,7 +224,7 @@ export class PolygonNFTProvider implements ChainProvider {
         )
         .slice(0, limit);
     } catch (error) {
-      console.error('Error searching Polygon NFTs:', error);
+      console.warn('Error searching Polygon NFTs:', error);
       return [];
     }
   }
@@ -210,11 +232,11 @@ export class PolygonNFTProvider implements ChainProvider {
   /**
    * Get trending NFTs on Polygon
    */
-  async getTrendingNFTs(limit = 20): Promise<NFTItem[]> {
+  async getTrendingNFTs(_limit = 20): Promise<NFTItem[]> {
     try {
       return await this.generateMockNFTs('trending');
     } catch (error) {
-      console.error('Error fetching trending Polygon NFTs:', error);
+      console.warn('Error fetching trending Polygon NFTs:', error);
       return [];
     }
   }
@@ -238,7 +260,7 @@ export class PolygonNFTProvider implements ChainProvider {
         const response = await fetch(`${this.alchemyUrl}/${this.config.alchemyApiKey}/getNFTs?owner=0x0000000000000000000000000000000000000000&pageSize=1`);
         if (response.ok) workingApis.push('Alchemy');
       } catch (error) {
-        console.error('Polygon Alchemy connection test failed:', error);
+        console.warn('Polygon Alchemy connection test failed:', error);
       }
     }
 

@@ -32,7 +32,7 @@ type AssetMetadataAllNetworksArgs = {
 export const assetMetadataQueryKey = ({
   assetAddress,
   chainId,
-}: AssetMetadataArgs) =>
+}: AssetMetadataArgs): readonly [string, { assetAddress: string; chainId: number }, { persisterVersion: number }] =>
   createQueryKey(
     'assetMetadata',
     { assetAddress, chainId },
@@ -44,7 +44,7 @@ type AssetMetadataQueryKey = ReturnType<typeof assetMetadataQueryKey>;
 export const assetSearchMetadataQueryKey = ({
   assetAddress,
   chainId,
-}: AssetMetadataArgs) =>
+}: AssetMetadataArgs): readonly [string, { assetAddress: string; chainId: number }, { persisterVersion: number }] =>
   createQueryKey(
     'assetSearchMetadata',
     { assetAddress, chainId },
@@ -60,7 +60,7 @@ type AssetSearchMetadataQueryKey = ReturnType<
 
 async function assetMetadataQueryFunction({
   queryKey: [{ assetAddress, chainId }],
-}: QueryFunctionArgs<typeof assetMetadataQueryKey>) {
+}: QueryFunctionArgs<typeof assetMetadataQueryKey>): Promise<{ address: string; chainId: number; name?: string; symbol?: string; decimals?: number; logoURI?: string } | null> {
   if (assetAddress && isValidAddress(assetAddress)) {
     const metadata = await getAssetMetadata({
       address: assetAddress,
@@ -77,7 +77,7 @@ async function assetMetadataQueryFunction({
 
 async function assetSearchMetadataQueryFunction({
   queryKey: [{ assetAddress, chainId }],
-}: QueryFunctionArgs<typeof assetSearchMetadataQueryKey>) {
+}: QueryFunctionArgs<typeof assetSearchMetadataQueryKey>): Promise<{ address: string; chainId: number; name?: string; symbol?: string; decimals?: number; logoURI?: string } | null> {
   if (assetAddress && isAddress(assetAddress)) {
     const metadata = await getAssetMetadata({
       address: assetAddress,
@@ -148,7 +148,7 @@ export function useAssetMetadata(
     AssetMetadataResult,
     AssetMetadataQueryKey
   > = {},
-) {
+): { data?: AssetMetadataResult; isLoading: boolean; error?: Error } {
   return useQuery({
     queryKey: assetMetadataQueryKey({
       assetAddress,
@@ -167,7 +167,7 @@ export function useAssetSearchMetadata(
     AssetSearchMetadataResult,
     AssetSearchMetadataQueryKey
   > = {},
-) {
+): { data?: AssetSearchMetadataResult; isLoading: boolean; error?: Error } {
   return useQuery({
     queryKey: assetSearchMetadataQueryKey({
       assetAddress,
@@ -186,7 +186,7 @@ export function useAssetSearchMetadataAllNetworks(
     AssetSearchMetadataResult,
     AssetSearchMetadataQueryKey
   > = {},
-) {
+): { data?: AssetSearchMetadataResult[]; isLoading: boolean; error?: Error } {
   const { chains: userChains } = useUserChains();
 
   const queries = useQueries({

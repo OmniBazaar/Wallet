@@ -154,5 +154,10 @@ DePay/* */
 clone-depay.ps1
 cursor_*.md
 
-# Deprecated DePay directory
+# Reference directoies
 DePay/
+source-repos/
+
+# Claude Files
+.claude/
+CLAUDE.md

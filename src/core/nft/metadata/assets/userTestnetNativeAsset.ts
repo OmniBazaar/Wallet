@@ -18,7 +18,7 @@ import { getProvider } from '~/core/wagmi/clientToProvider';
 
 const USER_ASSETS_REFETCH_INTERVAL = 60000;
 
-export const getNativeAssetMock = ({ chainId }: { chainId: ChainId }) => {
+export const getNativeAssetMock = ({ chainId }: { chainId: ChainId }): ParsedUserAsset => {
   const chain = getChain({ chainId });
   const nativeAssetAddress =
     useNetworkStore.getState().getChainsNativeAsset()[chainId]?.address ||
@@ -65,7 +65,7 @@ export const userTestnetNativeAssetQueryKey = ({
   address,
   currency,
   chainId,
-}: UserTestnetNativeAssetArgs) =>
+}: UserTestnetNativeAssetArgs): readonly [string, { address: Address; currency: SupportedCurrencyKey; chainId: ChainId }, { persisterVersion: number }] =>
   createQueryKey(
     'userTestnetNativeAsset',
     { address, currency, chainId },
@@ -81,7 +81,7 @@ type UserTestnetNativeAssetQueryKey = ReturnType<
 
 async function userTestnetNativeAssetQueryFunction({
   queryKey: [{ address, currency, chainId }],
-}: QueryFunctionArgs<typeof userTestnetNativeAssetQueryKey>) {
+}: QueryFunctionArgs<typeof userTestnetNativeAssetQueryKey>): Promise<ParsedUserAsset | null> {
   try {
     // Don't do anything unless it's a testnet
     if (
@@ -121,7 +121,7 @@ export function useUserTestnetNativeAsset(
     ParsedUserAsset,
     UserTestnetNativeAssetQueryKey
   > = {},
-) {
+): unknown {
   return useQuery({
     queryKey: userTestnetNativeAssetQueryKey({
       address,

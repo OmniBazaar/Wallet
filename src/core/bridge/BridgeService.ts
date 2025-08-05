@@ -3,12 +3,11 @@
  * Manages bridge quotes, executions, and monitoring
  */
 
-import { ethers } from 'ethers';
+import { BigNumber, constants, Contract, utils } from 'ethers';
 import { 
   BridgeRoute, 
   BridgeQuoteRequest, 
   BridgeQuoteResponse,
-  BridgeTransaction,
   BridgeStatus,
   BridgeProvider,
   BRIDGE_SUPPORT,
@@ -17,14 +16,43 @@ import {
 import { providerManager } from '../providers/ProviderManager';
 import { ChainType } from '../keyring/BIP39Keyring';
 
+/**
+ * Token information for bridge operations
+ */
+export interface BridgeToken {
+  /** Token contract address */
+  address: string;
+  /** Token symbol (e.g., 'USDC') */
+  symbol: string;
+  /** Token decimals */
+  decimals: number;
+  /** Token name */
+  name: string;
+}
+
+/**
+ * Cross-chain bridge service for managing token transfers between different blockchains
+ * @example
+ * ```typescript
+ * const bridgeService = new BridgeService();
+ * const quotes = await bridgeService.getQuotes({
+ *   fromChain: 'ethereum',
+ *   toChain: 'avalanche',
+ *   fromToken: 'USDC',
+ *   amount: '100'
+ * });
+ * ```
+ */
 export class BridgeService {
   private activeTransfers: Map<string, BridgeStatus> = new Map();
   
   /**
-   * Get quotes from multiple bridge providers
+   * Get quotes from multiple bridge providers for a cross-chain transfer
+   * @param request - Bridge quote request containing transfer details
+   * @returns Promise resolving to bridge quote response with available routes
+   * @throws {BridgeError} When no compatible bridges are found
    */
   async getQuotes(request: BridgeQuoteRequest): Promise<BridgeQuoteResponse> {
-    const routes: BridgeRoute[] = [];
     
     // Find compatible bridges
     const compatibleBridges = this.findCompatibleBridges(
@@ -35,8 +63,8 @@ export class BridgeService {
     
     // Get quotes from each compatible bridge
     const quotePromises = compatibleBridges.map(bridge => 
-      this.getQuoteFromBridge(bridge, request).catch(err => {
-        console.error(`Failed to get quote from ${bridge}:`, err);
+      this.getQuoteFromBridge(bridge, request).catch(_err => {
+        // Log bridge quote failure but continue with other providers
         return null;
       })
     );
@@ -46,8 +74,8 @@ export class BridgeService {
     
     // Sort by best output amount
     const sortedRoutes = validQuotes.sort((a, b) => {
-      const aAmount = ethers.BigNumber.from(a.toAmount);
-      const bAmount = ethers.BigNumber.from(b.toAmount);
+      const aAmount = BigNumber.from(a.toAmount);
+      const bAmount = BigNumber.from(b.toAmount);
       return bAmount.gt(aAmount) ? 1 : -1;
     });
     
@@ -78,12 +106,13 @@ export class BridgeService {
             await this.executeApproval(route);
             break;
             
-          case 'deposit':
+          case 'deposit': {
             const txHash = await this.executeDeposit(route);
             this.updateTransferStatus(transferId, {
               fromTxHash: txHash
             });
             break;
+          }
             
           case 'wait':
             // Monitoring happens in background
@@ -101,7 +130,7 @@ export class BridgeService {
     } catch (error) {
       this.updateTransferStatus(transferId, {
         status: 'failed',
-        message: error.message
+        message: error instanceof Error ? error.message : 'Unknown error'
       });
       throw error;
     }
@@ -154,7 +183,7 @@ export class BridgeService {
     const toToken = this.getTokenInfo(request.toChain, request.toToken || request.fromToken);
     
     // Calculate estimated output (mock calculation)
-    const inputAmount = ethers.BigNumber.from(request.amount);
+    const inputAmount = BigNumber.from(request.amount);
     const bridgeFee = inputAmount.mul(10).div(10000); // 0.1% fee
     const outputAmount = inputAmount.sub(bridgeFee);
     
@@ -182,10 +211,16 @@ export class BridgeService {
   /**
    * Get token info for bridge
    */
-  private getTokenInfo(chain: string, tokenSymbol: string) {
+  private getTokenInfo(chain: string, tokenSymbol: string): {
+    address: string;
+    symbol: string;
+    name: string;
+    decimals: number;
+    chainId: number | string;
+  } {
     // Check if it's a known bridge token
-    const tokenAddresses = BRIDGE_TOKENS[tokenSymbol];
-    const address = tokenAddresses?.[chain] || ethers.constants.AddressZero;
+    const tokenAddresses = BRIDGE_TOKENS[tokenSymbol as keyof typeof BRIDGE_TOKENS];
+    const address = tokenAddresses?.[chain as keyof typeof tokenAddresses] || constants.AddressZero;
     
     return {
       address,
@@ -199,11 +234,15 @@ export class BridgeService {
   /**
    * Get bridge steps based on provider
    */
-  private getBridgeSteps(bridge: BridgeProvider, token: any) {
+  private getBridgeSteps(bridge: BridgeProvider, token: BridgeToken): Array<{
+    type: 'approve' | 'deposit' | 'wait' | 'claim';
+    description: string;
+    estimatedTime: number;
+  }> {
     const steps = [];
     
     // Most bridges require approval for ERC20
-    if (token.address !== ethers.constants.AddressZero) {
+    if (token.address !== constants.AddressZero) {
       steps.push({
         type: 'approve' as const,
         description: `Approve ${token.symbol} for bridge`,
@@ -226,7 +265,7 @@ export class BridgeService {
     });
     
     // Some bridges require claiming
-    if ([BridgeProvider.Hop, BridgeProvider.Across].includes(bridge)) {
+    if ([BridgeProvider.HOP, BridgeProvider.ACROSS].includes(bridge)) {
       steps.push({
         type: 'claim' as const,
         description: 'Claim tokens on destination',
@@ -250,20 +289,23 @@ export class BridgeService {
     const bridgeAddress = this.getBridgeAddress(route.bridge, route.fromChain);
     
     // Create approval transaction
-    const tokenContract = new ethers.Contract(
+    const tokenContract = new Contract(
       route.fromToken.address,
       ['function approve(address spender, uint256 amount) returns (bool)'],
-      provider
+      provider as { call: (transaction: { to: string; data: string }) => Promise<string> }
     );
     
     const tx = await tokenContract.populateTransaction.approve(
       bridgeAddress,
-      ethers.constants.MaxUint256
+      constants.MaxUint256
     );
     
     // Execute through provider manager
+    if (!tx.to) {
+      throw new Error('Invalid transaction: missing recipient address');
+    }
     await providerManager.sendTransaction(
-      tx.to!,
+      tx.to,
       '0',
       route.fromChain as ChainType,
       tx.data
@@ -283,10 +325,10 @@ export class BridgeService {
     const bridgeAddress = this.getBridgeAddress(route.bridge, route.fromChain);
     
     // For native tokens, send directly
-    if (route.fromToken.address === ethers.constants.AddressZero) {
+    if (route.fromToken.address === constants.AddressZero) {
       const txHash = await providerManager.sendTransaction(
         bridgeAddress,
-        ethers.utils.formatUnits(route.fromAmount, route.fromToken.decimals),
+        utils.formatUnits(route.fromAmount, route.fromToken.decimals),
         route.fromChain as ChainType
       );
       return txHash as string;
@@ -310,13 +352,13 @@ export class BridgeService {
   private async executeClaim(route: BridgeRoute): Promise<void> {
     // Implementation would vary by bridge
     // Some bridges auto-claim, others require manual claim
-    console.log('Claim would be executed for', route.id);
+    console.warn('Claim would be executed for', route.id);
   }
   
   /**
    * Monitor bridge progress
    */
-  private async monitorBridge(transferId: string, route: BridgeRoute) {
+  private async monitorBridge(transferId: string, route: BridgeRoute): Promise<void> {
     // In production, this would poll bridge APIs or listen to events
     // For now, simulate completion after estimated time
     
@@ -331,7 +373,7 @@ export class BridgeService {
   /**
    * Update transfer status
    */
-  private updateTransferStatus(transferId: string, update: Partial<BridgeStatus>) {
+  private updateTransferStatus(transferId: string, update: Partial<BridgeStatus>): void {
     const current = this.activeTransfers.get(transferId);
     if (current) {
       this.activeTransfers.set(transferId, {
@@ -347,13 +389,13 @@ export class BridgeService {
   private getBridgeAddress(bridge: BridgeProvider, chain: string): string {
     // Bridge contract addresses would be maintained in config
     const addresses: Record<string, Record<string, string>> = {
-      [BridgeProvider.Hop]: {
+      [BridgeProvider.HOP]: {
         ethereum: '0x3666f603Cc164936C1b87e207F36BEBa4AC5f18a',
         polygon: '0x553bC791D746767166fA3888432038193cEED5E2',
         arbitrum: '0x33ceb27b39d2Bb7D2e61F7564d3Df29344020417',
         optimism: '0x91f8490eC27cbB1b2FaEdd29c2eC23011d7355FB',
       },
-      [BridgeProvider.Stargate]: {
+      [BridgeProvider.STARGATE]: {
         ethereum: '0x8731d54E9D02c286767d56ac03e8037C07e01e98',
         polygon: '0x45A01E4e04F14f7A4a6702c74187c5F6222033cd',
         arbitrum: '0x53Bf833A5d6c4ddA888F69c22C88C9f356a41614',
@@ -362,7 +404,7 @@ export class BridgeService {
       // Add other bridge addresses
     };
     
-    return addresses[bridge]?.[chain] || ethers.constants.AddressZero;
+    return addresses[bridge]?.[chain] || constants.AddressZero;
   }
   
   /**
@@ -404,7 +446,7 @@ export class BridgeService {
       toChain,
       fromToken: token,
       amount,
-      fromAddress: ethers.constants.AddressZero, // Just for estimation
+      fromAddress: constants.AddressZero, // Just for estimation
     };
     
     const { routes } = await this.getQuotes(request);

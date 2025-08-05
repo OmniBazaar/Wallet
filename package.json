@@ -74,7 +74,7 @@
     "ipfs-http-client": "^60.0.0",
     "multiformats": "^12.1.0",
     "orbit-db": "^0.29.0",
-    "gun": "^0.20.0",
+    "gun": "^0.2019.930",
     "webextension-polyfill": "^0.10.0",
     "nanoid": "^5.0.0",
     "dayjs": "^1.11.0",

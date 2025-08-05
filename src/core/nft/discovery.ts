@@ -10,8 +10,8 @@ import {
   NFTStandard,
   NFTDiscoveryOptions,
   NFTDiscoveryResult,
-  NFTCollection,
-  NFTMetadata,
+  // NFTCollection,
+  // NFTMetadata,
   SolanaNFT,
   NFT_API_ENDPOINTS,
   SPECIAL_NFT_CONTRACTS,
@@ -83,7 +83,7 @@ export class NFTDiscoveryService {
   private async discoverEVMNFTs(
     address: string,
     chain: string,
-    options: NFTDiscoveryOptions
+    _options: NFTDiscoveryOptions
   ): Promise<NFT[]> {
     try {
       const chainMapping: Record<string, string> = {
@@ -106,14 +106,14 @@ export class NFTDiscoveryService {
       });
 
       if (!response.ok) {
-        console.error(`Failed to fetch NFTs for ${chain}:`, response.statusText);
+        console.warn(`Failed to fetch NFTs for ${chain}:`, response.statusText);
         return [];
       }
 
       const data = await response.json();
       return this.parseSimpleHashNFTs(data.nfts || [], chain);
     } catch (error) {
-      console.error(`Error discovering EVM NFTs on ${chain}:`, error);
+      console.warn(`Error discovering EVM NFTs on ${chain}:`, error);
       return [];
     }
   }
@@ -123,7 +123,7 @@ export class NFTDiscoveryService {
    */
   private async discoverSolanaNFTs(
     address: string,
-    options: NFTDiscoveryOptions
+    _options: NFTDiscoveryOptions
   ): Promise<SolanaNFT[]> {
     try {
       const url = `${NFT_API_ENDPOINTS.helius}/addresses/${address}/nfts`;
@@ -135,14 +135,14 @@ export class NFTDiscoveryService {
       });
 
       if (!response.ok) {
-        console.error('Failed to fetch Solana NFTs:', response.statusText);
+        console.warn('Failed to fetch Solana NFTs:', response.statusText);
         return [];
       }
 
       const data = await response.json();
       return this.parseHeliusNFTs(data.items || []);
     } catch (error) {
-      console.error('Error discovering Solana NFTs:', error);
+      console.warn('Error discovering Solana NFTs:', error);
       return [];
     }
   }
@@ -151,8 +151,8 @@ export class NFTDiscoveryService {
    * Discover Substrate NFTs (Polkadot/Kusama ecosystem)
    */
   private async discoverSubstrateNFTs(
-    address: string,
-    options: NFTDiscoveryOptions
+    _address: string,
+    _options: NFTDiscoveryOptions
   ): Promise<NFT[]> {
     // This would integrate with Subscan or similar APIs
     // For now, return empty array
@@ -162,7 +162,18 @@ export class NFTDiscoveryService {
   /**
    * Parse SimpleHash NFT data
    */
-  private parseSimpleHashNFTs(nfts: any[], chain: string): NFT[] {
+  private parseSimpleHashNFTs(nfts: Array<{
+    contract_address: string;
+    token_id: string;
+    name?: string;
+    description?: string;
+    image_url?: string;
+    video_url?: string;
+    audio_url?: string;
+    model_url?: string;
+    collection?: { name?: string };
+    contract?: { type?: string };
+  }>, chain: string): NFT[] {
     return nfts.map(nft => ({
       id: `${chain}_${nft.contract_address}_${nft.token_id}`,
       contract_address: nft.contract_address,
@@ -188,7 +199,7 @@ export class NFTDiscoveryService {
         external_url: nft.collection.external_url,
         twitter: nft.collection.twitter_username,
         discord: nft.collection.discord_url,
-        verified: nft.collection.marketplace_pages?.some((m: any) => m.verified),
+        verified: nft.collection.marketplace_pages?.some((m: { verified?: boolean }) => m.verified),
         spam_score: nft.collection.spam_score,
         floor_price: nft.collection.floor_prices?.[0] ? {
           value: nft.collection.floor_prices[0].value,
@@ -211,7 +222,26 @@ export class NFTDiscoveryService {
   /**
    * Parse Helius Solana NFT data
    */
-  private parseHeliusNFTs(nfts: any[]): SolanaNFT[] {
+  private parseHeliusNFTs(nfts: Array<{
+    id: string;
+    ownership: { owner: string };
+    interface?: string;
+    content?: {
+      metadata?: {
+        name?: string;
+        description?: string;
+        image?: string;
+        animation_url?: string;
+        external_url?: string;
+        attributes?: Array<{ trait_type: string; value: string | number }>;
+      };
+    };
+    token_info?: {
+      supply?: number;
+      decimals?: number;
+    };
+    creators?: Array<{ address: string; verified: boolean; share: number }>;
+  }>): SolanaNFT[] {
     return nfts.map(nft => ({
       id: `solana_${nft.id}`,
       contract_address: nft.id,
@@ -226,7 +256,7 @@ export class NFTDiscoveryService {
         description: nft.content.metadata.description,
         image: nft.content.files?.[0]?.uri || nft.content.metadata.image,
         external_url: nft.content.metadata.external_url,
-        attributes: nft.content.metadata.attributes?.map((attr: any) => ({
+        attributes: nft.content?.metadata?.attributes?.map((attr: { trait_type: string; value: string | number }) => ({
           trait_type: attr.trait_type,
           value: attr.value,
         })) || [],
@@ -239,7 +269,7 @@ export class NFTDiscoveryService {
       update_authority: nft.authorities?.[0]?.address,
       primary_sale_happened: nft.royalty?.primary_sale_happened,
       seller_fee_basis_points: nft.royalty?.basis_points,
-      creators: nft.creators?.map((creator: any) => ({
+      creators: nft.creators?.map((creator: { address: string; verified: boolean; share: number }) => ({
         address: creator.address,
         verified: creator.verified,
         share: creator.share,
@@ -321,7 +351,7 @@ export class NFTDiscoveryService {
       const parsed = this.parseSimpleHashNFTs([data], chain);
       return parsed[0] || null;
     } catch (error) {
-      console.error('Error fetching NFT:', error);
+      console.warn('Error fetching NFT:', error);
       return null;
     }
   }
@@ -332,7 +362,7 @@ export class NFTDiscoveryService {
   async getCollectionNFTs(
     chain: string,
     collectionAddress: string,
-    limit: number = 50
+    limit = 50
   ): Promise<NFT[]> {
     try {
       const url = `${NFT_API_ENDPOINTS.simplehash}/nfts/collection/${chain}/${collectionAddress}?limit=${limit}`;
@@ -350,7 +380,7 @@ export class NFTDiscoveryService {
       const data = await response.json();
       return this.parseSimpleHashNFTs(data.nfts || [], chain);
     } catch (error) {
-      console.error('Error fetching collection NFTs:', error);
+      console.warn('Error fetching collection NFTs:', error);
       return [];
     }
   }

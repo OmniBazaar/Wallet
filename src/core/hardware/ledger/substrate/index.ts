@@ -26,7 +26,7 @@ class LedgerSubstrate implements HWWalletProvider {
     this.network = network;
   }
 
-  validatePathAndNetwork(options: getAddressRequest | SignTransactionRequest) {
+  validatePathAndNetwork(options: getAddressRequest | SignTransactionRequest): void {
     if (!LedgerApps[this.network])
       throw new Error("ledger-substrate: Invalid network name");
     const pathValues = bip32ToAddressNList(
@@ -70,7 +70,7 @@ class LedgerSubstrate implements HWWalletProvider {
       }));
   }
 
-  signMessage() {
+  signMessage(): never {
     throw new Error("Not Supported");
   }
 

@@ -4,7 +4,22 @@ import { WalletState, WalletError } from '../types';
 import { getProvider, getAvailableProviders } from '../config/providers';
 import { getNetworkByChainId } from '../config/networks';
 
-export const useWallet = () => {
+export const useWallet = (): {
+    address: string | null;
+    chainId: number | null;
+    provider: ethers.BrowserProvider | null;
+    isConnecting: boolean;
+    error: string | null;
+    connect: (providerId: string) => Promise<void>;
+    disconnect: () => void;
+    switchNetwork: (chainId: number) => Promise<void>;
+    getAvailableWallets: () => Array<{
+        id: string;
+        name: string;
+        icon: string;
+        isInstalled: boolean;
+    }>;
+} => {
     const [state, setState] = useState<WalletState>({
         address: null,
         chainId: null,
@@ -37,7 +52,7 @@ export const useWallet = () => {
                 throw new Error('Provider not available');
             }
 
-            const ethersProvider = new ethers.providers.Web3Provider(provider);
+            const ethersProvider = new ethers.BrowserProvider(provider);
             const accounts = await ethersProvider.send('eth_requestAccounts', []);
             const network = await ethersProvider.getNetwork();
 
@@ -106,8 +121,8 @@ export const useWallet = () => {
                     method: 'wallet_switchEthereumChain',
                     params: [{ chainId: network.chainId }]
                 });
-            } catch (switchError: any) {
-                if (switchError.code === 4902) {
+            } catch (switchError: unknown) {
+                if ((switchError as { code?: number }).code === 4902) {
                     await provider.request({
                         method: 'wallet_addEthereumChain',
                         params: [{

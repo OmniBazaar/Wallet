@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, useEffect } from 'react';
+import React, { createContext, useContext, useReducer } from 'react';
 import { ethers } from 'ethers';
 import { WalletState, WalletContextType, TokenInfo, Transaction } from '../types/wallet';
 
@@ -13,7 +13,7 @@ const initialState: WalletState = {
 
 type Action =
   | { type: 'CONNECT_START' }
-  | { type: 'CONNECT_SUCCESS'; payload: { address: string; chainId: number; provider: any } }
+  | { type: 'CONNECT_SUCCESS'; payload: { address: string; chainId: number; provider: ethers.providers.Web3Provider } }
   | { type: 'CONNECT_ERROR'; payload: string }
   | { type: 'DISCONNECT' }
   | { type: 'UPDATE_CHAIN_ID'; payload: number };
@@ -50,10 +50,10 @@ function reducer(state: WalletState, action: Action): WalletState {
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
-export function WalletProvider({ children }: { children: React.ReactNode }) {
+export function WalletProvider({ children }: { children: React.ReactNode }): JSX.Element {
   const [state, dispatch] = useReducer(reducer, initialState);
 
-  const connect = async () => {
+  const connect = async (): Promise<void> => {
     try {
       dispatch({ type: 'CONNECT_START' });
 
@@ -83,7 +83,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
             type: 'CONNECT_SUCCESS',
             payload: {
               address: accounts[0],
-              chainId: state.chainId!,
+              chainId: state.chainId as number,
               provider: state.provider,
             },
           });
@@ -98,11 +98,11 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const disconnect = () => {
+  const disconnect = (): void => {
     dispatch({ type: 'DISCONNECT' });
   };
 
-  const switchNetwork = async (chainId: number) => {
+  const switchNetwork = async (chainId: number): Promise<void> => {
     try {
       await window.ethereum.request({
         method: 'wallet_switchEthereumChain',
@@ -191,7 +191,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function useWallet() {
+export function useWallet(): WalletContextType {
   const context = useContext(WalletContext);
   if (context === undefined) {
     throw new Error('useWallet must be used within a WalletProvider');

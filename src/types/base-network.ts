@@ -17,7 +17,7 @@ export interface BaseNetwork {
   coingeckoID?: string;
   provider: ProviderName;
   displayAddress: (address: string) => string;
-  identicon: (address: string, options?: any) => string;
+  identicon: (address: string, options?: { size?: number; background?: string }) => string;
   basePath: string;
 }
 

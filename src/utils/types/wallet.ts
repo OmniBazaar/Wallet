@@ -1,7 +1,7 @@
 export interface WalletState {
   address: string | null;
   chainId: number | null;
-  provider: any | null;
+  provider: { request: (args: { method: string; params?: unknown[] }) => Promise<unknown> } | null;
   isConnected: boolean;
   isConnecting: boolean;
   error: string | null;

@@ -1,6 +1,6 @@
 import type { TrezorConnect as TrezorConnectType } from "@trezor/connect-web";
 
-const getTrezorConnect = async () => {
+const getTrezorConnect = async (): Promise<TrezorConnectType> => {
   if (chrome && chrome.runtime && chrome.runtime.getPlatformInfo) {
     const TrezorConnect = await import("@trezor/connect-webextension");
     await TrezorConnect.default.init({
@@ -14,8 +14,7 @@ const getTrezorConnect = async () => {
     });
     return TrezorConnect.default as TrezorConnectType;
   } else {
-    const TrezorConnect = ((await import("@trezor/connect-web")) as any)
-      .default;
+    const TrezorConnect = (await import("@trezor/connect-web") as { default: { default: TrezorConnectType; init: (config: { lazyLoad: boolean; manifest: { email: string; appUrl: string } }) => Promise<void> } }).default;
     await TrezorConnect.default.init({
       lazyLoad: true,
       manifest: {

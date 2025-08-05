@@ -111,7 +111,7 @@ export class ValidatorWalletService {
       }
       
       this.isInitialized = true;
-      console.log('Validator Wallet Service initialized successfully');
+      console.warn('Validator Wallet Service initialized successfully');
     } catch (error) {
       console.error('Failed to initialize Validator Wallet Service:', error);
       throw new Error(`Wallet initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -192,7 +192,7 @@ export class ValidatorWalletService {
       // Update balance
       await this.updateAccountBalance(account.id);
       
-      console.log(`Created new ${type} account: ${account.address}`);
+      console.warn(`Created new ${type} account: ${account.address}`);
       return account;
     } catch (error) {
       console.error('Error creating account:', error);
@@ -317,7 +317,7 @@ export class ValidatorWalletService {
       );
       
       await Promise.all(updatePromises);
-      console.log('Updated all account balances');
+      console.warn('Updated all account balances');
     } catch (error) {
       console.error('Error updating all balances:', error);
     }
@@ -549,7 +549,7 @@ export class ValidatorWalletService {
         }
       );
 
-      console.log(`Wallet backup created with hash: ${backupHash}`);
+      console.warn(`Wallet backup created with hash: ${backupHash}`);
       
       return backup;
     } catch (error) {
@@ -590,7 +590,7 @@ export class ValidatorWalletService {
       // Update all balances
       await this.updateAllBalances();
       
-      console.log('Wallet restored successfully');
+      console.warn('Wallet restored successfully');
     } catch (error) {
       console.error('Error restoring wallet:', error);
       throw error;
@@ -644,7 +644,7 @@ export class ValidatorWalletService {
       // Update reactive data
       this.updateReactiveData();
       
-      console.log(`Account removed: ${account.address}`);
+      console.warn(`Account removed: ${account.address}`);
     } catch (error) {
       console.error('Error removing account:', error);
       throw error;
@@ -661,7 +661,17 @@ export class ValidatorWalletService {
       offset?: number;
       chainId?: string;
     }
-  ): Promise<any[]> {
+  ): Promise<Array<{
+    hash: string;
+    from: string;
+    to: string;
+    value: string;
+    timestamp: number;
+    blockNumber: number;
+    status: string;
+    gasUsed: string;
+    gasPrice: string;
+  }>> {
     try {
       // Get transaction history from validator GraphQL API
       const query = gql`
@@ -765,7 +775,7 @@ export class ValidatorWalletService {
       // Update reactive data
       this.updateReactiveData();
       
-      console.log('Validator Wallet Service disconnected');
+      console.warn('Validator Wallet Service disconnected');
     } catch (error) {
       console.error('Error disconnecting wallet service:', error);
     }
@@ -795,7 +805,7 @@ export class ValidatorWalletService {
       const indexData = result.data?.document?.content;
       
       if (!indexData) {
-        console.log('No existing wallet data found');
+        console.warn('No existing wallet data found');
         return;
       }
 
@@ -830,7 +840,7 @@ export class ValidatorWalletService {
       // Update reactive data
       this.updateReactiveData();
       
-      console.log(`Loaded ${this.accounts.size} accounts from storage`);
+      console.warn(`Loaded ${this.accounts.size} accounts from storage`);
     } catch (error) {
       console.error('Error loading accounts from storage:', error);
     }
@@ -899,7 +909,7 @@ export class ValidatorWalletService {
     }
   }
 
-  private async removeAccountFromStorage(accountId: string): Promise<void> {
+  private async removeAccountFromStorage(_accountId: string): Promise<void> {
     try {
       if (!this.config.enableSecureStorage) {
         return;

@@ -7,7 +7,7 @@ export interface PaymentRequest {
   to: string;
   amount: string;
   description?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface PaymentResponse {

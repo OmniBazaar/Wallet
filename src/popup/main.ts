@@ -13,7 +13,7 @@ import Marketplace from './pages/Marketplace.vue';
 import Settings from './pages/Settings.vue';
 import Welcome from './pages/Welcome.vue';
 
-console.log('🚀 OmniBazaar Wallet popup initializing...');
+console.warn('🚀 OmniBazaar Wallet popup initializing...');
 
 // Create router
 const router = createRouter({
@@ -45,4 +45,4 @@ app.config.errorHandler = (err, vm, info) => {
 // Mount the app
 app.mount('#app');
 
-console.log('✅ OmniBazaar Wallet popup mounted'); 
+console.warn('✅ OmniBazaar Wallet popup mounted'); 

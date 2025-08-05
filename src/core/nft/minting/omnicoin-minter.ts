@@ -1,4 +1,4 @@
-import { ethers } from 'ethers';
+// import { ethers } from 'ethers'; // TODO: implement ethers integration
 import type { NFTMintRequest, NFTMetadata, NFTItem } from '../../../types/nft';
 import type { ListingMetadata } from '../../../types/listing';
 import { IPFSService } from '../../storage/ipfs-service';
@@ -67,10 +67,14 @@ export class OmniCoinNFTMinter {
       const tokenId = await this.getNextTokenId();
       
       // 4. Mint NFT on OmniCoin
+      if (!ipfsResult.metadataUri) {
+        return { success: false, error: 'IPFS metadata URI is required' };
+      }
+      
       const mintResult = await this.mintToBlockchain(
         sellerAddress,
         tokenId,
-        ipfsResult.metadataUri!
+        ipfsResult.metadataUri
       );
 
       if (!mintResult.success) {
@@ -78,11 +82,15 @@ export class OmniCoinNFTMinter {
       }
 
       // 5. Create NFT item object
+      if (!mintResult.transactionHash) {
+        return { success: false, error: 'Transaction hash missing from mint result' };
+      }
+      
       const nftItem = await this.createNFTItem(
         tokenId,
         metadata,
-        mintResult.transactionHash!,
-        ipfsResult.metadataUri!,
+        mintResult.transactionHash,
+        ipfsResult.metadataUri,
         sellerAddress
       );
 
@@ -100,7 +108,7 @@ export class OmniCoinNFTMinter {
       };
 
     } catch (error) {
-      console.error('NFT minting error:', error);
+      console.warn('NFT minting error:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown minting error'
@@ -305,7 +313,7 @@ export class OmniCoinNFTMinter {
   ): Promise<void> {
     try {
       // TODO: Integrate with marketplace listing service
-      console.log('Creating marketplace listing for NFT:', nftItem.id);
+      console.warn('Creating marketplace listing for NFT:', nftItem.id);
       
       // For now, just mark as listed
       nftItem.isListed = true;
@@ -313,7 +321,7 @@ export class OmniCoinNFTMinter {
       nftItem.currency = mintRequest.listingCurrency || 'XOM';
       
     } catch (error) {
-      console.error('Failed to create marketplace listing:', error);
+      console.warn('Failed to create marketplace listing:', error);
     }
   }
 

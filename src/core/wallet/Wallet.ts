@@ -1,6 +1,6 @@
-import { BrowserProvider, TransactionResponse } from 'ethers';
+import { BrowserProvider, TransactionResponse, Contract } from 'ethers';
 import { Transaction } from './Transaction';
-import { SupportedAssets } from './assets';
+// import { SupportedAssets } from './assets'; // TODO: implement asset support
 import { getOmniCoinBalance, OmniCoinMetadata } from '../blockchain/OmniCoin';
 
 export interface WalletConfig {
@@ -72,7 +72,12 @@ export class WalletError extends Error {
 
 export class WalletImpl implements Wallet {
   private provider: BrowserProvider;
-  private signer: any; // TODO: Replace with proper type
+  private signer: { 
+    sendTransaction: (transaction: { to?: string; value?: bigint; data?: string; gasLimit?: bigint; gasPrice?: bigint }) => Promise<TransactionResponse>; 
+    getAddress: () => Promise<string>;
+    signTransaction: (transaction: { to?: string; value?: bigint; data?: string; gasLimit?: bigint; gasPrice?: bigint }) => Promise<string>;
+    signMessage: (message: string) => Promise<string>;
+  } | null = null;
   private state: WalletState | null = null;
   private accountChangeCallbacks: ((address: string) => void)[] = [];
   private networkChangeCallbacks: ((chainId: number) => void)[] = [];
@@ -84,6 +89,9 @@ export class WalletImpl implements Wallet {
 
   async connect(): Promise<void> {
     try {
+      if (!this.signer) {
+        throw new WalletError('Signer not initialized', 'SIGNER_ERROR');
+      }
       const address = await this.signer.getAddress();
       const balance = await this.provider.getBalance(address);
       const network = await this.provider.getNetwork();
@@ -137,6 +145,7 @@ export class WalletImpl implements Wallet {
 
   async sendTransaction(transaction: Transaction): Promise<TransactionResponse> {
     if (!this.state) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
+    if (!this.signer) throw new WalletError('Signer not initialized', 'SIGNER_ERROR');
 
     try {
       const tx = await this.signer.sendTransaction(transaction.toEthersTransaction());
@@ -150,12 +159,14 @@ export class WalletImpl implements Wallet {
 
   async signTransaction(transaction: Transaction): Promise<string> {
     if (!this.state) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
+    if (!this.signer) throw new WalletError('Signer not initialized', 'SIGNER_ERROR');
     const tx = transaction.toEthersTransaction();
     return this.signer.signTransaction(tx);
   }
 
   async signMessage(message: string): Promise<string> {
     if (!this.state) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
+    if (!this.signer) throw new WalletError('Signer not initialized', 'SIGNER_ERROR');
     return this.signer.signMessage(message);
   }
 
@@ -166,14 +177,15 @@ export class WalletImpl implements Wallet {
       return this.getBalance('OMNI') as Promise<bigint>;
     }
 
-    const contract = new ethers.Contract(tokenAddress, ['function balanceOf(address) view returns (uint256)'], this.provider);
+    const contract = new Contract(tokenAddress, ['function balanceOf(address) view returns (uint256)'], this.provider);
     return contract.balanceOf(this.state.address);
   }
 
   async approveToken(tokenAddress: string, spender: string, amount: bigint): Promise<TransactionResponse> {
     if (!this.state) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
 
-    const contract = new ethers.Contract(tokenAddress, ['function approve(address,uint256)'], this.signer);
+    if (!this.signer) throw new WalletError('Signer not initialized', 'SIGNER_ERROR');
+    const contract = new Contract(tokenAddress, ['function approve(address,uint256)'], this.signer);
     return contract.approve(spender, amount);
   }
 
@@ -223,24 +235,26 @@ export class WalletImpl implements Wallet {
       const address = accounts[0];
       const balance = await this.provider.getBalance(address);
       const nonce = await this.provider.getTransactionCount(address);
-      this.state = { ...this.state!, address, balance, nonce };
+      if (!this.state) throw new Error('Wallet state not initialized');
+      this.state = { ...this.state, address, balance, nonce };
     }
     this.accountChangeCallbacks.forEach(callback => callback(accounts[0] || ''));
   }
 
   private async handleNetworkChange(chainId: string): Promise<void> {
     const newChainId = parseInt(chainId, 16);
-    this.state = { ...this.state!, chainId: newChainId };
+    if (!this.state) throw new Error('Wallet state not initialized');
+    this.state = { ...this.state, chainId: newChainId };
     this.networkChangeCallbacks.forEach(callback => callback(newChainId));
   }
 
-  async stakeOmniCoin(amount: bigint): Promise<TransactionResponse> {
+  async stakeOmniCoin(_amount: bigint): Promise<TransactionResponse> {
     if (!this.state) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
     // Implementation for staking OmniCoin
     throw new Error('Not implemented');
   }
 
-  async unstakeOmniCoin(amount: bigint): Promise<TransactionResponse> {
+  async unstakeOmniCoin(_amount: bigint): Promise<TransactionResponse> {
     if (!this.state) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
     // Implementation for unstaking OmniCoin
     throw new Error('Not implemented');
@@ -270,13 +284,13 @@ export class WalletImpl implements Wallet {
     throw new Error('Not implemented');
   }
 
-  async proposeGovernanceAction(description: string, actions: GovernanceAction[]): Promise<TransactionResponse> {
+  async proposeGovernanceAction(_description: string, _actions: GovernanceAction[]): Promise<TransactionResponse> {
     if (!this.state) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
     // Implementation for proposing governance action
     throw new Error('Not implemented');
   }
 
-  async voteOnProposal(proposalId: number, support: boolean): Promise<TransactionResponse> {
+  async voteOnProposal(_proposalId: number, _support: boolean): Promise<TransactionResponse> {
     if (!this.state) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
     // Implementation for voting on proposal
     throw new Error('Not implemented');

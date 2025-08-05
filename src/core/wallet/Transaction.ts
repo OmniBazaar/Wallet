@@ -66,7 +66,7 @@ export class Transaction {
   static createContractCall(
     to: string,
     data: string,
-    value: bigint = 0n
+    value = 0n
   ): Transaction {
     return new Transaction({
       to,

@@ -43,7 +43,7 @@ export class OracleNodeService extends EventEmitter {
   private signer: ethers.Wallet;
   private registryContract: ethers.Contract;
   private oracleContract: ethers.Contract;
-  private isRunning: boolean = false;
+  private isRunning = false;
   private updateQueue: NameUpdate[] = [];
   private metrics: OracleMetrics;
   private config: NodeConfig;
@@ -108,11 +108,11 @@ export class OracleNodeService extends EventEmitter {
    */
   public async start(): Promise<void> {
     if (this.isRunning) {
-      console.log('Oracle node service is already running');
+      console.warn('Oracle node service is already running');
       return;
     }
 
-    console.log('🚀 Starting Oracle Node Service...');
+    console.warn('🚀 Starting Oracle Node Service...');
     
     try {
       // Test connections
@@ -125,11 +125,11 @@ export class OracleNodeService extends EventEmitter {
       this.startUpdateScheduler();
       
       this.isRunning = true;
-      console.log('✅ Oracle Node Service started successfully');
+      console.warn('✅ Oracle Node Service started successfully');
       
       this.emit('started');
     } catch (error) {
-      console.error('❌ Failed to start Oracle Node Service:', error);
+      console.warn('❌ Failed to start Oracle Node Service:', error);
       throw error;
     }
   }
@@ -139,18 +139,18 @@ export class OracleNodeService extends EventEmitter {
    */
   public async stop(): Promise<void> {
     if (!this.isRunning) {
-      console.log('Oracle node service is not running');
+      console.warn('Oracle node service is not running');
       return;
     }
 
-    console.log('🛑 Stopping Oracle Node Service...');
+    console.warn('🛑 Stopping Oracle Node Service...');
     
     this.isRunning = false;
     
     // Process remaining updates
     await this.processUpdateQueue();
     
-    console.log('✅ Oracle Node Service stopped');
+    console.warn('✅ Oracle Node Service stopped');
     this.emit('stopped');
   }
 
@@ -158,30 +158,30 @@ export class OracleNodeService extends EventEmitter {
    * Test connections to both networks
    */
   private async testConnections(): Promise<void> {
-    console.log('🔍 Testing network connections...');
+    console.warn('🔍 Testing network connections...');
     
     // Test COTI connection
     try {
       const cotiBlockNumber = await this.cotiProvider.getBlockNumber();
-      console.log(`✅ COTI connection OK (block: ${cotiBlockNumber})`);
+      console.warn(`✅ COTI connection OK (block: ${cotiBlockNumber})`);
     } catch (error) {
-      throw new Error(`COTI connection failed: ${error.message}`);
+      throw new Error(`COTI connection failed: ${(error as Error).message}`);
     }
     
     // Test Ethereum connection
     try {
       const ethBlockNumber = await this.ethereumProvider.getBlockNumber();
-      console.log(`✅ Ethereum connection OK (block: ${ethBlockNumber})`);
+      console.warn(`✅ Ethereum connection OK (block: ${ethBlockNumber})`);
     } catch (error) {
-      throw new Error(`Ethereum connection failed: ${error.message}`);
+      throw new Error(`Ethereum connection failed: ${(error as Error).message}`);
     }
     
     // Test oracle health
     try {
       const isHealthy = await this.oracleContract.isHealthy();
-      console.log(`✅ Oracle health: ${isHealthy}`);
+      console.warn(`✅ Oracle health: ${isHealthy}`);
     } catch (error) {
-      console.warn(`⚠️  Oracle health check failed: ${error.message}`);
+      console.warn(`⚠️  Oracle health check failed: ${(error as Error).message}`);
     }
   }
 
@@ -189,11 +189,11 @@ export class OracleNodeService extends EventEmitter {
    * Start monitoring COTI blockchain for name events
    */
   private startCotiMonitoring(): void {
-    console.log('👁️  Starting COTI blockchain monitoring...');
+    console.warn('👁️  Starting COTI blockchain monitoring...');
     
     // Listen for name registrations
     this.registryContract.on('NameRegistered', (username, owner, timestamp, event) => {
-      console.log(`📝 Name registered: ${username} -> ${owner}`);
+      console.warn(`📝 Name registered: ${username} -> ${owner}`);
       
       this.queueUpdate({
         username,
@@ -205,7 +205,7 @@ export class OracleNodeService extends EventEmitter {
     
     // Listen for name transfers
     this.registryContract.on('NameTransferred', (username, from, to, event) => {
-      console.log(`🔄 Name transferred: ${username} (${from} -> ${to})`);
+      console.warn(`🔄 Name transferred: ${username} (${from} -> ${to})`);
       
       this.queueUpdate({
         username,
@@ -220,7 +220,7 @@ export class OracleNodeService extends EventEmitter {
    * Start periodic update scheduler
    */
   private startUpdateScheduler(): void {
-    console.log('⏰ Starting update scheduler...');
+    console.warn('⏰ Starting update scheduler...');
     
     setInterval(async () => {
       if (this.isRunning && this.updateQueue.length > 0) {
@@ -244,7 +244,7 @@ export class OracleNodeService extends EventEmitter {
       this.updateQueue.push(update);
     }
     
-    console.log(`📥 Queued update: ${update.username} (queue size: ${this.updateQueue.length})`);
+    console.warn(`📥 Queued update: ${update.username} (queue size: ${this.updateQueue.length})`);
   }
 
   /**
@@ -255,7 +255,7 @@ export class OracleNodeService extends EventEmitter {
       return;
     }
 
-    console.log(`🔄 Processing ${this.updateQueue.length} updates...`);
+    console.warn(`🔄 Processing ${this.updateQueue.length} updates...`);
     
     try {
       // Process in batches
@@ -273,7 +273,7 @@ export class OracleNodeService extends EventEmitter {
       this.metrics.successfulUpdates += batch.length;
       this.metrics.lastUpdateTime = Date.now();
       
-      console.log(`✅ Processed ${batch.length} updates successfully`);
+      console.warn(`✅ Processed ${batch.length} updates successfully`);
       
       // Emit progress
       this.emit('updates-processed', {
@@ -282,12 +282,12 @@ export class OracleNodeService extends EventEmitter {
       });
       
     } catch (error) {
-      console.error('❌ Failed to process updates:', error);
+      console.warn('❌ Failed to process updates:', error);
       this.metrics.failedUpdates++;
       
       // Re-queue failed updates (with limit)
       if (this.metrics.failedUpdates < 3) {
-        console.log('🔄 Re-queuing failed updates...');
+        console.warn('🔄 Re-queuing failed updates...');
         // Could implement retry logic here
       }
     }
@@ -299,13 +299,13 @@ export class OracleNodeService extends EventEmitter {
    * Update a single name in the oracle
    */
   private async updateSingleName(update: NameUpdate): Promise<void> {
-    console.log(`🔄 Updating single name: ${update.username} -> ${update.address}`);
+    console.warn(`🔄 Updating single name: ${update.username} -> ${update.address}`);
     
     try {
       const tx = await this.oracleContract.updateName(update.username, update.address);
       const receipt = await tx.wait();
       
-      console.log(`✅ Single update completed (gas: ${receipt.gasUsed})`);
+      console.warn(`✅ Single update completed (gas: ${receipt.gasUsed})`);
       
       // Calculate reward
       const reward = this.config.rewardAmount;
@@ -320,7 +320,7 @@ export class OracleNodeService extends EventEmitter {
       });
       
     } catch (error) {
-      console.error(`❌ Single update failed: ${error.message}`);
+      console.warn(`❌ Single update failed: ${(error as Error).message}`);
       throw error;
     }
   }
@@ -329,7 +329,7 @@ export class OracleNodeService extends EventEmitter {
    * Update multiple names in a batch
    */
   private async updateBatchNames(updates: NameUpdate[]): Promise<void> {
-    console.log(`🔄 Updating batch of ${updates.length} names...`);
+    console.warn(`🔄 Updating batch of ${updates.length} names...`);
     
     try {
       const usernames = updates.map(u => u.username);
@@ -338,7 +338,7 @@ export class OracleNodeService extends EventEmitter {
       const tx = await this.oracleContract.batchUpdateNames(usernames, addresses);
       const receipt = await tx.wait();
       
-      console.log(`✅ Batch update completed (gas: ${receipt.gasUsed})`);
+      console.warn(`✅ Batch update completed (gas: ${receipt.gasUsed})`);
       
       // Calculate rewards
       const totalReward = this.config.rewardAmount * updates.length;
@@ -352,7 +352,7 @@ export class OracleNodeService extends EventEmitter {
       });
       
     } catch (error) {
-      console.error(`❌ Batch update failed: ${error.message}`);
+      console.warn(`❌ Batch update failed: ${(error as Error).message}`);
       throw error;
     }
   }
@@ -388,7 +388,7 @@ export class OracleNodeService extends EventEmitter {
       const address = await this.registryContract.resolve(username);
       return address;
     } catch (error) {
-      console.error(`❌ Failed to query COTI name: ${error.message}`);
+      console.warn(`❌ Failed to query COTI name: ${(error as Error).message}`);
       return ethers.ZeroAddress;
     }
   }
@@ -401,7 +401,7 @@ export class OracleNodeService extends EventEmitter {
       const address = await this.oracleContract.queryName(username);
       return address;
     } catch (error) {
-      console.error(`❌ Failed to query Ethereum name: ${error.message}`);
+      console.warn(`❌ Failed to query Ethereum name: ${(error as Error).message}`);
       return ethers.ZeroAddress;
     }
   }
@@ -410,7 +410,7 @@ export class OracleNodeService extends EventEmitter {
    * Force sync a specific name
    */
   public async forceSyncName(username: string): Promise<void> {
-    console.log(`🔄 Force syncing name: ${username}`);
+    console.warn(`🔄 Force syncing name: ${username}`);
     
     try {
       const cotiAddress = await this.queryCotiName(username);
@@ -423,13 +423,13 @@ export class OracleNodeService extends EventEmitter {
           blockNumber: await this.cotiProvider.getBlockNumber()
         });
         
-        console.log(`✅ Force sync completed for ${username}`);
+        console.warn(`✅ Force sync completed for ${username}`);
       } else {
-        console.log(`⚠️  Name ${username} not found on COTI`);
+        console.warn(`⚠️  Name ${username} not found on COTI`);
       }
       
     } catch (error) {
-      console.error(`❌ Force sync failed: ${error.message}`);
+      console.warn(`❌ Force sync failed: ${(error as Error).message}`);
       throw error;
     }
   }
@@ -454,7 +454,7 @@ export class OracleNodeService extends EventEmitter {
       return oracleHealthy && isRecentlyActive;
       
     } catch (error) {
-      console.error(`❌ Health check failed: ${error.message}`);
+      console.warn(`❌ Health check failed: ${(error as Error).message}`);
       return false;
     }
   }

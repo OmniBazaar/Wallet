@@ -11,7 +11,7 @@ import { SOLANA_NETWORKS, POPULAR_SPL_TOKENS } from './networks';
 export class LiveSolanaProvider extends SolanaProvider {
   private activeAddress: string | null = null;
 
-  constructor(networkKey: string = 'mainnet') {
+  constructor(networkKey = 'mainnet') {
     const network = SOLANA_NETWORKS[networkKey];
     if (!network) {
       throw new Error(`Unknown Solana network: ${networkKey}`);
@@ -36,7 +36,7 @@ export class LiveSolanaProvider extends SolanaProvider {
   /**
    * Get all addresses from keyring
    */
-  async getAddresses(count: number = 10): Promise<string[]> {
+  async getAddresses(count = 10): Promise<string[]> {
     const accounts = await keyringService.getAccounts('solana');
     return accounts.slice(0, count).map(account => account.address);
   }
@@ -186,7 +186,7 @@ export class LiveSolanaProvider extends SolanaProvider {
   async estimateFee(
     to: string,
     amount: string,
-    isToken: boolean = false
+    isToken = false
   ): Promise<string> {
     const { Transaction, SystemProgram, PublicKey } = await import('@solana/web3.js');
     
@@ -264,7 +264,7 @@ export class LiveSolanaProvider extends SolanaProvider {
   /**
    * Request airdrop (testnet only)
    */
-  async requestAirdrop(amount: number = 1): Promise<string> {
+  async requestAirdrop(amount = 1): Promise<string> {
     if (!this.isTestnet()) {
       throw new Error('Airdrop is only available on testnet/devnet');
     }

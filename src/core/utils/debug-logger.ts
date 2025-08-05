@@ -1,6 +1,6 @@
 // Tiny, configurable debug logging
 
-function ymdhms(timestamp: Date) {
+function ymdhms(timestamp: Date): string {
   return (
     timestamp.getFullYear().toString().padStart(4, "0") +
     ":" +
@@ -96,7 +96,7 @@ function parseConfig(string: string): ParsedConfig {
         ).trim();
         level = levelRaw.slice(1, -1).trim().toLowerCase() || undefined;
       } else {
-        lineWithoutLevel = defaultLevel;
+        lineWithoutLevel = line;
       }
 
       let prefixi = 0;
@@ -111,7 +111,7 @@ function parseConfig(string: string): ParsedConfig {
         prefixi = 1;
       }
 
-      const lineWithoutPrefix = line.slice(prefixi).trim();
+      const lineWithoutPrefix = lineWithoutLevel.slice(prefixi).trim();
 
       const wildcardi = lineWithoutPrefix.indexOf("*");
       let lineWithoutWildcard: string;
@@ -125,14 +125,14 @@ function parseConfig(string: string): ParsedConfig {
         exacts.set(lineWithoutWildcard, {
           forceAllow,
           forceDisallow,
-          level: levelToNumber(level),
+          level: level ? levelToNumber(level) : undefined,
         });
       } else {
         wildcards.set(lineWithoutWildcard, {
           prefix: lineWithoutWildcard,
           forceAllow,
           forceDisallow,
-          level: levelToNumber(level),
+          level: level ? levelToNumber(level) : undefined,
         });
       }
     }
@@ -171,13 +171,13 @@ class DebugLogEnabler {
     this._config = parseConfig(getDebugConfigString() ?? "");
   }
 
-  clear() {
+  clear(): void {
     this._cache.clear();
     this._cache = new Map();
     this._config = defaultParsedConfig;
   }
 
-  refresh() {
+  refresh(): void {
     this._cache.clear();
     this._config = parseConfig(getDebugConfigString() ?? "");
   }
@@ -357,35 +357,35 @@ export class DebugLogger {
     return msgHeader;
   }
 
-  silent(..._args: any[]): void {
+  silent(..._args: unknown[]): void {
     // Drop
   }
 
-  trace(...args: any[]): void {
+  trace(...args: unknown[]): void {
     const level = this.level();
     if (level < LogLevel.TRACE) return;
-    console.debug(this._formatHeader(LogLevel.TRACE), ...args);
+    console.warn(this._formatHeader(LogLevel.TRACE), ...args);
   }
 
-  debug(...args: any[]): void {
+  debug(...args: unknown[]): void {
     const level = this.level();
     if (level < LogLevel.DEBUG) return;
-    console.debug(this._formatHeader(LogLevel.DEBUG), ...args);
+    console.warn(this._formatHeader(LogLevel.DEBUG), ...args);
   }
 
-  info(...args: any[]): void {
+  info(...args: unknown[]): void {
     const level = this.level();
     if (level < LogLevel.INFO) return;
-    console.info(this._formatHeader(LogLevel.INFO), ...args);
+    console.warn(this._formatHeader(LogLevel.INFO), ...args);
   }
 
-  warn(...args: any[]): void {
+  warn(...args: unknown[]): void {
     const level = this.level();
     if (level < LogLevel.WARN) return;
     console.warn(this._formatHeader(LogLevel.WARN), ...args);
   }
 
-  error(...args: any[]): void {
+  error(...args: unknown[]): void {
     const level = this.level();
     if (level < LogLevel.ERROR) return;
     console.error(this._formatHeader(LogLevel.ERROR), ...args);

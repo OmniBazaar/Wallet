@@ -54,6 +54,19 @@ export class KeyringService {
   private keyringManager: KeyringManager;
   private state: KeyringState;
   private providers: Map<ChainType, ethers.Provider> = new Map();
+
+  /**
+   * Get seed from BIP39 keyring
+   */
+  async getSeed(password?: string): Promise<string | null> {
+    if (!this.state.isInitialized || this.state.isLocked) {
+      return null;
+    }
+    if (!password) {
+      throw new Error('Password required to get seed');
+    }
+    return this.bip39Keyring.getMnemonic(password);
+  }
   
   private constructor() {
     this.bip39Keyring = new BIP39Keyring();
@@ -99,7 +112,7 @@ export class KeyringService {
         this.providers.set('omnicoin', omniProvider);
       }
     } catch (error) {
-      console.error('Error initializing providers:', error);
+      console.warn('Error initializing providers:', error);
     }
   }
 
@@ -271,7 +284,7 @@ export class KeyringService {
       return result.signature;
     } else {
       // Web2 signing
-      return await this.keyringManager.signTransaction({ message }, account.chainType as any);
+      return await this.keyringManager.signTransaction({ to: '', value: '0', data: message }, account.chainType as 'ethereum' | 'omnicoin');
     }
   }
 
@@ -293,7 +306,7 @@ export class KeyringService {
       return result.signedTransaction;
     } else {
       // Web2 signing
-      return await this.keyringManager.signTransaction(transaction, account.chainType as any);
+      return await this.keyringManager.signTransaction(transaction, account.chainType as 'ethereum' | 'omnicoin');
     }
   }
 
@@ -315,7 +328,7 @@ export class KeyringService {
       const balance = await provider.getBalance(address);
       return ethers.formatEther(balance);
     } catch (error) {
-      console.error('Error getting balance:', error);
+      console.warn('Error getting balance:', error);
       return '0';
     }
   }
@@ -328,7 +341,7 @@ export class KeyringService {
       try {
         account.balance = await this.getBalance(account.address);
       } catch (error) {
-        console.error(`Error updating balance for ${account.address}:`, error);
+        console.warn(`Error updating balance for ${account.address}:`, error);
         account.balance = '0';
       }
     });
@@ -345,6 +358,15 @@ export class KeyringService {
     }
 
     return await this.bip39Keyring.getMnemonic(password);
+  }
+
+  /**
+   * Resolve username to address (mock implementation)
+   */
+  async resolveUsername(_username: string): Promise<string | null> {
+    // Mock implementation - in production would resolve through ENS or OmniCoin naming service
+    // console.warn('Username resolution not implemented:', username);
+    return null;
   }
 
   /**
@@ -397,7 +419,7 @@ export class KeyringService {
     try {
       keyringAccount.balance = await this.getBalance(account.address);
     } catch (error) {
-      console.error(`Error getting balance for ${account.address}:`, error);
+      console.warn(`Error getting balance for ${account.address}:`, error);
     }
 
     return keyringAccount;

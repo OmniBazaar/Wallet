@@ -91,7 +91,7 @@ interface TokenBalanceProps {
 }
 
 export const TokenBalance: React.FC<TokenBalanceProps> = ({ tokenAddress }) => {
-  const { tokenInfo, balance, formattedBalance, isLoading: isBalanceLoading, error: balanceError } = useTokenBalance(tokenAddress);
+  const { tokenInfo, balance: _balance, formattedBalance, isLoading: isBalanceLoading, error: balanceError } = useTokenBalance(tokenAddress);
   const { transfer, isTransferring, error: transferError } = useTokenTransfer(tokenAddress);
   const [recipient, setRecipient] = useState('');
   const [amount, setAmount] = useState('');
@@ -99,7 +99,7 @@ export const TokenBalance: React.FC<TokenBalanceProps> = ({ tokenAddress }) => {
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error' | 'info' | 'pending'>('info');
 
-  const handleTransfer = async (e: React.FormEvent) => {
+  const handleTransfer = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
 
     if (!tokenInfo) return;
@@ -109,7 +109,7 @@ export const TokenBalance: React.FC<TokenBalanceProps> = ({ tokenAddress }) => {
       setToastMessage('Processing transfer...');
       setShowToast(true);
 
-      const tx = await transfer(recipient, amount);
+      const _tx = await transfer(recipient, amount);
 
       setToastType('success');
       setToastMessage('Transfer successful!');

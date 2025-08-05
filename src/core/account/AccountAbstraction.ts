@@ -1,4 +1,3 @@
-import { ethers } from 'ethers';
 import { Wallet } from '../wallet/Wallet';
 
 export interface AccountCredentials {

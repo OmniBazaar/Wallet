@@ -113,7 +113,7 @@ const nftsForCollectionQueryKey = ({
   address,
   collectionId,
   collectionChains,
-}: NftsForCollectionArgs) =>
+}: NftsForCollectionArgs): readonly [string, { address: Address; collectionId: string; collectionChains: ChainName[] }, { persisterVersion: number }] =>
   createQueryKey(
     'nftsForCollection',
     { address, collectionId, collectionChains },
@@ -126,7 +126,7 @@ const nftsForCollectionQueryKey = ({
 async function nftsForCollectionQueryFunction({
   queryKey: [{ address, collectionId, collectionChains }],
   pageParam,
-}: QueryFunctionArgs<typeof nftsForCollectionQueryKey>) {
+}: QueryFunctionArgs<typeof nftsForCollectionQueryKey>): Promise<{ nfts: unknown[]; nextPage: string | undefined }> {
   const result = await fetchNfts({
     address,
     chains: collectionChains,
@@ -152,7 +152,7 @@ type NftsForCollectionResult = QueryFunctionResult<
 export function useNftsForCollection<TSelectData = NftsForCollectionResult>(
   { address, collectionId, collectionChains }: NftsForCollectionArgs,
   config: InfiniteQueryConfig<NftsForCollectionResult, Error, TSelectData> = {},
-) {
+): unknown {
   return useInfiniteQuery({
     queryKey: nftsForCollectionQueryKey({
       address,

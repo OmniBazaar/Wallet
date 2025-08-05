@@ -5,7 +5,12 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 
 // Declare global chrome API
-declare const chrome: any;
+declare const chrome: {
+  runtime: {
+    sendMessage: (message: { type: string; data?: unknown }, callback: (response: unknown) => void) => void;
+    lastError?: { message: string };
+  };
+};
 
 export interface WalletAccount {
   address: string;
@@ -51,14 +56,14 @@ export const useWalletStore = defineStore('wallet', () => {
   const currentBalance = computed(() => currentAccount.value?.balance || '0');
 
   // Send message to background script
-  async function sendToBackground(type: string, data: any = {}): Promise<any> {
+  async function sendToBackground(type: string, data: unknown = {}): Promise<unknown> {
     return new Promise((resolve, reject) => {
       if (!chrome?.runtime) {
         reject(new Error('Chrome runtime not available'));
         return;
       }
 
-      chrome.runtime.sendMessage({ type, data }, (response: any) => {
+      chrome.runtime.sendMessage({ type, data }, (response: unknown) => {
         if (chrome.runtime.lastError) {
           reject(new Error(chrome.runtime.lastError.message));
         } else {
@@ -74,7 +79,7 @@ export const useWalletStore = defineStore('wallet', () => {
     error.value = null;
 
     try {
-      console.log('🔄 Initializing wallet store...');
+      console.warn('🔄 Initializing wallet store...');
       
       const state = await sendToBackground('GET_WALLET_STATE');
       
@@ -92,15 +97,15 @@ export const useWalletStore = defineStore('wallet', () => {
       // Check if wallet is set up (has accounts)
       isSetup.value = hasAccounts.value;
 
-      console.log('✅ Wallet store initialized:', {
+      console.warn('✅ Wallet store initialized:', {
         isSetup: isSetup.value,
         isUnlocked: isUnlocked.value,
         network: currentNetwork.value
       });
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('❌ Failed to initialize wallet:', err);
-      error.value = err.message || 'Failed to initialize wallet';
+      error.value = (err as Error).message || 'Failed to initialize wallet';
     } finally {
       isLoading.value = false;
     }
@@ -124,9 +129,9 @@ export const useWalletStore = defineStore('wallet', () => {
       }
 
       return false;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('❌ Failed to connect account:', err);
-      error.value = err.message || 'Failed to connect account';
+      error.value = (err as Error).message || 'Failed to connect account';
       return false;
     } finally {
       isLoading.value = false;
@@ -144,9 +149,9 @@ export const useWalletStore = defineStore('wallet', () => {
       currentAccount.value = null;
       isUnlocked.value = false;
       
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('❌ Failed to disconnect account:', err);
-      error.value = err.message || 'Failed to disconnect account';
+      error.value = (err as Error).message || 'Failed to disconnect account';
     } finally {
       isLoading.value = false;
     }
@@ -171,9 +176,9 @@ export const useWalletStore = defineStore('wallet', () => {
       }
 
       return false;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('❌ Failed to switch network:', err);
-      error.value = err.message || 'Failed to switch network';
+      error.value = (err as Error).message || 'Failed to switch network';
       return false;
     } finally {
       isLoading.value = false;
@@ -193,14 +198,20 @@ export const useWalletStore = defineStore('wallet', () => {
       }
 
       return response.balance || '0';
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('❌ Failed to get balance:', err);
       return '0';
     }
   }
 
   // Send transaction
-  async function sendTransaction(transaction: any): Promise<string | null> {
+  async function sendTransaction(transaction: {
+    to: string;
+    value: string;
+    data?: string;
+    gasLimit?: string;
+    gasPrice?: string;
+  }): Promise<string | null> {
     isLoading.value = true;
     error.value = null;
 
@@ -217,9 +228,9 @@ export const useWalletStore = defineStore('wallet', () => {
       }
 
       return null;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('❌ Failed to send transaction:', err);
-      error.value = err.message || 'Failed to send transaction';
+      error.value = (err as Error).message || 'Failed to send transaction';
       return null;
     } finally {
       isLoading.value = false;
@@ -227,7 +238,12 @@ export const useWalletStore = defineStore('wallet', () => {
   }
 
   // Mint NFT
-  async function mintNFT(metadata: any): Promise<string | null> {
+  async function mintNFT(metadata: {
+    name: string;
+    description: string;
+    image: string;
+    attributes?: Array<{ trait_type: string; value: string | number }>;
+  }): Promise<string | null> {
     isLoading.value = true;
     error.value = null;
 
@@ -244,9 +260,9 @@ export const useWalletStore = defineStore('wallet', () => {
       }
 
       return null;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('❌ Failed to mint NFT:', err);
-      error.value = err.message || 'Failed to mint NFT';
+      error.value = (err as Error).message || 'Failed to mint NFT';
       return null;
     } finally {
       isLoading.value = false;
@@ -254,7 +270,13 @@ export const useWalletStore = defineStore('wallet', () => {
   }
 
   // Create marketplace listing
-  async function createListing(listing: any): Promise<string | null> {
+  async function createListing(listing: {
+    title: string;
+    description: string;
+    price: string;
+    category: string;
+    images: string[];
+  }): Promise<string | null> {
     isLoading.value = true;
     error.value = null;
 
@@ -271,9 +293,9 @@ export const useWalletStore = defineStore('wallet', () => {
       }
 
       return null;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('❌ Failed to create listing:', err);
-      error.value = err.message || 'Failed to create listing';
+      error.value = (err as Error).message || 'Failed to create listing';
       return null;
     } finally {
       isLoading.value = false;

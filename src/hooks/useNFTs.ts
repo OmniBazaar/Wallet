@@ -1,9 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
-import { ethers } from 'ethers';
 import { useWallet } from './useWallet';
-import { NFT, getOwnedNFTs, getNFTMetadata } from '../utils/nft';
+import { NFT, getOwnedNFTs } from '../utils/nft';
 
-export const useNFTs = (contractAddress?: string) => {
+export const useNFTs = (contractAddress?: string): {
+    nfts: NFT[];
+    isLoading: boolean;
+    error: string | null;
+    refreshNFTs: () => void;
+} => {
     const { provider, address } = useWallet();
     const [nfts, setNfts] = useState<NFT[]>([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -21,7 +25,7 @@ export const useNFTs = (contractAddress?: string) => {
 
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to fetch NFTs');
-            console.error('Error fetching NFTs:', err);
+            console.warn('Error fetching NFTs:', err);
         } finally {
             setIsLoading(false);
         }

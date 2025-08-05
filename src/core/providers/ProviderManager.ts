@@ -105,9 +105,9 @@ export class ProviderManager {
   private providers: Map<ChainType, ProviderType> = new Map();
   private evmProviders: Map<string, MultiChainEVMProvider> = new Map();
   private activeChain: ChainType = 'ethereum';
-  private activeNetwork: string = 'ethereum'; // For EVM chain switching
+  private activeNetwork = 'ethereum'; // For EVM chain switching
   private networkType: NetworkType = 'mainnet';
-  private initialized: boolean = false;
+  private initialized = false;
   
   private constructor() {}
 
@@ -305,7 +305,8 @@ export class ProviderManager {
         case 'ethereum': {
           // Check if we're using a specific EVM chain
           if (this.activeNetwork !== 'ethereum' && this.evmProviders.has(this.activeNetwork)) {
-            const evmProvider = this.evmProviders.get(this.activeNetwork)!;
+            const evmProvider = this.evmProviders.get(this.activeNetwork);
+            if (!evmProvider) throw new Error(`EVM provider not found for ${this.activeNetwork}`);
             return await evmProvider.getFormattedBalance();
           }
           const ethProvider = provider as LiveEthereumProvider;
@@ -366,7 +367,7 @@ export class ProviderManager {
    * Get all balances for active account
    */
   async getAllBalances(): Promise<Record<ChainType, string>> {
-    const balances: Record<ChainType, string> = {} as any;
+    const balances: Record<ChainType, string> = {} as Record<ChainType, string>;
 
     for (const chainType of Object.keys(SUPPORTED_CHAINS) as ChainType[]) {
       try {
@@ -447,7 +448,8 @@ export class ProviderManager {
       case 'ethereum': {
         // Check if we're using a specific EVM chain
         if (this.activeNetwork !== 'ethereum' && this.evmProviders.has(this.activeNetwork)) {
-          const evmProvider = this.evmProviders.get(this.activeNetwork)!;
+          const evmProvider = this.evmProviders.get(this.activeNetwork);
+          if (!evmProvider) throw new Error(`EVM provider not found for ${this.activeNetwork}`);
           return await evmProvider.sendTransaction(transaction);
         }
         const ethProvider = provider as LiveEthereumProvider;
@@ -490,8 +492,8 @@ export class ProviderManager {
   async getTransactionHistory(
     address?: string,
     chainType?: ChainType,
-    limit: number = 10
-  ): Promise<any[]> {
+    _limit = 10
+  ): Promise<unknown[]> {
     const chain = chainType || this.activeChain;
     const provider = this.getProvider(chain);
     

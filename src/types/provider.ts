@@ -6,32 +6,32 @@ import { BaseNetwork } from './base-network';
 import { NFTCollection } from './nft';
 
 export enum ProviderName {
-  omnibazaar = 'omnibazaar',
-  ethereum = 'ethereum',
-  bitcoin = 'bitcoin',
-  polkadot = 'polkadot',
-  solana = 'solana',
-  coti = 'coti',
+  OMNIBAZAAR = 'omnibazaar',
+  ETHEREUM = 'ethereum',
+  BITCOIN = 'bitcoin',
+  POLKADOT = 'polkadot',
+  SOLANA = 'solana',
+  COTI = 'coti',
 }
 
 export enum ProviderType {
-  evm,
-  substrate,
-  bitcoin,
-  solana,
-  coti,
+  EVM,
+  SUBSTRATE,
+  BITCOIN,
+  SOLANA,
+  COTI,
 }
 
 export enum InternalStorageNamespace {
-  keyring = 'KeyRing',
-  accounts = 'Accounts',
-  nftState = 'NFTState',
-  networksState = 'NetworksState',
-  settingsState = 'SettingsState',
-  tokensState = 'TokensState',
-  marketplaceState = 'MarketplaceState',
-  privacyState = 'PrivacyState',
-  paymentState = 'PaymentState',
+  KEYRING = 'KeyRing',
+  ACCOUNTS = 'Accounts',
+  NFT_STATE = 'NFTState',
+  NETWORKS_STATE = 'NetworksState',
+  SETTINGS_STATE = 'SettingsState',
+  TOKENS_STATE = 'TokensState',
+  MARKETPLACE_STATE = 'MarketplaceState',
+  PRIVACY_STATE = 'PrivacyState',
+  PAYMENT_STATE = 'PaymentState',
 }
 
 export type StorageNamespace = ProviderName | InternalStorageNamespace;
@@ -39,7 +39,7 @@ export type StorageNamespace = ProviderName | InternalStorageNamespace;
 export interface ProviderRPCRequest {
   id: string | number;
   method: string;
-  params?: any[];
+  params?: unknown[];
   options?: {
     url: string;
     domain: string;
@@ -63,7 +63,7 @@ export interface ProviderOptions {
 export type SendMessageHandler = (
   provider: ProviderName,
   message: string,
-) => Promise<any>;
+) => Promise<unknown>;
 
 export interface MiddlewareFunction {
   (request: ProviderRPCRequest): Promise<ProviderRPCRequest>;
@@ -75,7 +75,7 @@ export abstract class BackgroundProviderInterface extends EventEmitter {
   abstract toWindow: (message: string) => void;
   middlewares: MiddlewareFunction[] = [];
 
-  constructor(toWindow: (message: string) => void, options?: unknown) {
+  constructor(toWindow: (message: string) => void, _options?: unknown) {
     super();
     this.toWindow = toWindow;
   }
@@ -91,18 +91,18 @@ export abstract class BackgroundProviderInterface extends EventEmitter {
 export abstract class ProviderAPIInterface {
   abstract node: string;
   
-  constructor(node: string, options?: unknown) {
+  constructor(node: string, _options?: unknown) {
     this.node = node;
   }
   
   abstract init(): Promise<void>;
   abstract getBalance(address: string): Promise<string>;
-  abstract getTransactionStatus(hash: string): Promise<any>;
+  abstract getTransactionStatus(hash: string): Promise<{ status: string; confirmations: number }>;
 }
 
 // NFT Provider interface for marketplace integration
 export interface NFTProviderInterface {
-  mintNFT(metadata: any): Promise<string>;
+  mintNFT(metadata: { name: string; description: string; image: string }): Promise<string>;
   transferNFT(tokenId: string, to: string): Promise<string>;
   getNFTCollection(address: string): Promise<NFTCollection[]>;
   createMarketplaceListing(tokenId: string, price: string): Promise<string>;
@@ -111,14 +111,14 @@ export interface NFTProviderInterface {
 // Payment Provider interface for cross-chain payments
 export interface PaymentProviderInterface {
   initiatePayment(amount: string, to: string, token?: string): Promise<string>;
-  getPaymentHistory(address: string): Promise<any[]>;
-  estimateGas(transaction: any): Promise<string>;
+  getPaymentHistory(address: string): Promise<{ hash: string; amount: string; timestamp: number }[]>;
+  estimateGas(transaction: { to: string; value?: string; data?: string }): Promise<string>;
   swapTokens(fromToken: string, toToken: string, amount: string): Promise<string>;
 }
 
 // Privacy Provider interface for COTI integration
 export interface PrivacyProviderInterface {
-  createPrivateTransaction(params: any): Promise<string>;
+  createPrivateTransaction(params: { to: string; amount: string }): Promise<string>;
   getPrivateBalance(address: string): Promise<string>;
   enablePrivacyMode(): Promise<void>;
   disablePrivacyMode(): Promise<void>;
@@ -131,17 +131,17 @@ export interface OmniBazaarProviderInterface extends BackgroundProviderInterface
   privacyProvider?: PrivacyProviderInterface;
   
   // Marketplace methods
-  createListing(nftData: any, price: string): Promise<string>;
+  createListing(nftData: { tokenId: string; contractAddress: string }, price: string): Promise<string>;
   purchaseItem(listingId: string): Promise<string>;
-  searchMarketplace(query: string): Promise<any[]>;
+  searchMarketplace(query: string): Promise<{ id: string; name: string; price: string }[]>;
   
   // Node discovery methods
   discoverNodes(): Promise<string[]>;
   connectToNode(nodeUrl: string): Promise<boolean>;
   
   // IPFS methods
-  uploadToIPFS(data: any): Promise<string>;
-  getFromIPFS(hash: string): Promise<any>;
+  uploadToIPFS(data: Record<string, unknown>): Promise<string>;
+  getFromIPFS(hash: string): Promise<Record<string, unknown>>;
 }
 
 // Chain-specific provider exports
@@ -170,7 +170,7 @@ export interface SolanaProviderInterface extends BackgroundProviderInterface {
 
 export interface PolkadotProviderInterface extends BackgroundProviderInterface {
   accounts: string[];
-  metadata: any;
+  metadata: Record<string, unknown>;
 }
 
 export interface COTIProviderInterface extends BackgroundProviderInterface {

@@ -23,7 +23,7 @@ export interface SubstrateTransaction {
   value: string;
   method: string;
   section: string;
-  args: any[];
+  args: Array<string | number | boolean>;
   era?: string;
   nonce?: number;
   tip?: string;
@@ -65,7 +65,8 @@ export class PolkadotProvider extends BaseProvider {
     if (!this.api) {
       await this.init();
     }
-    return this.api!;
+    if (!this.api) throw new Error('Failed to initialize Polkadot API');
+    return this.api;
   }
 
   /**
@@ -137,7 +138,7 @@ export class PolkadotProvider extends BaseProvider {
    * Get transaction details
    */
   async getTransaction(txHash: string): Promise<Transaction> {
-    const api = await this.ensureApi();
+    const _api = await this.ensureApi();
     
     // This would typically use Subscan API or similar
     // For now, return a basic structure
@@ -153,7 +154,7 @@ export class PolkadotProvider extends BaseProvider {
   /**
    * Get transaction history
    */
-  async getTransactionHistory(address: string, limit?: number): Promise<Transaction[]> {
+  async getTransactionHistory(_address: string, _limit?: number): Promise<Transaction[]> {
     // This would typically use Subscan API or similar indexing service
     // For now, return empty array
     return [];

@@ -42,7 +42,7 @@ export class IPFSClient {
   // Upload file to IPFS
   async uploadFile(file: File): Promise<IPFSUploadResult> {
     try {
-      console.log('📤 Uploading file to IPFS:', file.name);
+      console.warn('📤 Uploading file to IPFS:', file.name);
       
       // For now, simulate IPFS upload
       // In production, this would use ipfs-http-client or a pinning service
@@ -54,19 +54,19 @@ export class IPFSClient {
         size: file.size
       };
       
-      console.log('✅ File uploaded to IPFS:', result);
+      console.warn('✅ File uploaded to IPFS:', result);
       return result;
       
     } catch (error) {
-      console.error('❌ Failed to upload file to IPFS:', error);
+      console.warn('❌ Failed to upload file to IPFS:', error);
       throw new Error('Failed to upload file to IPFS');
     }
   }
 
   // Upload JSON metadata to IPFS
-  async uploadJSON(data: any): Promise<IPFSUploadResult> {
+  async uploadJSON(data: NFTMetadata | MarketplaceListing): Promise<IPFSUploadResult> {
     try {
-      console.log('📤 Uploading JSON to IPFS');
+      console.warn('📤 Uploading JSON to IPFS');
       
       const jsonString = JSON.stringify(data, null, 2);
       const blob = new Blob([jsonString], { type: 'application/json' });
@@ -75,7 +75,7 @@ export class IPFSClient {
       return await this.uploadFile(file);
       
     } catch (error) {
-      console.error('❌ Failed to upload JSON to IPFS:', error);
+      console.warn('❌ Failed to upload JSON to IPFS:', error);
       throw new Error('Failed to upload JSON to IPFS');
     }
   }
@@ -88,9 +88,9 @@ export class IPFSClient {
     imageUrl?: string;
   }> {
     try {
-      console.log('🎨 Uploading NFT metadata to IPFS');
+      console.warn('🎨 Uploading NFT metadata to IPFS');
       
-      let finalMetadata = { ...metadata };
+      const finalMetadata = { ...metadata };
       let imageHash: string | undefined;
       let imageUrl: string | undefined;
       
@@ -113,15 +113,15 @@ export class IPFSClient {
       };
       
     } catch (error) {
-      console.error('❌ Failed to upload NFT metadata:', error);
+      console.warn('❌ Failed to upload NFT metadata:', error);
       throw new Error('Failed to upload NFT metadata');
     }
   }
 
   // Get content from IPFS
-  async getContent(hash: string): Promise<any> {
+  async getContent(hash: string): Promise<NFTMetadata | MarketplaceListing> {
     try {
-      console.log('📥 Fetching content from IPFS:', hash);
+      console.warn('📥 Fetching content from IPFS:', hash);
       
       const response = await fetch(`${this.gateway}${hash}`);
       if (!response.ok) {
@@ -129,11 +129,11 @@ export class IPFSClient {
       }
       
       const content = await response.json();
-      console.log('✅ Content fetched from IPFS');
+      console.warn('✅ Content fetched from IPFS');
       return content;
       
     } catch (error) {
-      console.error('❌ Failed to fetch content from IPFS:', error);
+      console.warn('❌ Failed to fetch content from IPFS:', error);
       throw new Error('Failed to fetch content from IPFS');
     }
   }
@@ -141,12 +141,12 @@ export class IPFSClient {
   // Upload marketplace listing
   async uploadMarketplaceListing(listing: MarketplaceListing): Promise<IPFSUploadResult> {
     try {
-      console.log('🏪 Uploading marketplace listing to IPFS');
+      console.warn('🏪 Uploading marketplace listing to IPFS');
       
       return await this.uploadJSON(listing);
       
     } catch (error) {
-      console.error('❌ Failed to upload marketplace listing:', error);
+      console.warn('❌ Failed to upload marketplace listing:', error);
       throw new Error('Failed to upload marketplace listing');
     }
   }
@@ -158,7 +158,7 @@ export class IPFSClient {
     category?: string;
   }): Promise<MarketplaceListing[]> {
     try {
-      console.log('🔍 Searching marketplace listings:', query);
+      console.warn('🔍 Searching marketplace listings:', query);
       
       // In production, this would query a decentralized index
       // For now, return mock data
@@ -182,7 +182,7 @@ export class IPFSClient {
       return mockListings;
       
     } catch (error) {
-      console.error('❌ Failed to search listings:', error);
+      console.warn('❌ Failed to search listings:', error);
       return [];
     }
   }
@@ -190,20 +190,20 @@ export class IPFSClient {
   // Pin content to prevent garbage collection
   async pinContent(hash: string): Promise<boolean> {
     try {
-      console.log('📌 Pinning content to IPFS:', hash);
+      console.warn('📌 Pinning content to IPFS:', hash);
       
       if (this.pinningService) {
         // Use pinning service API
         // Implementation would depend on the service (Pinata, Infura, etc.)
-        console.log('✅ Content pinned successfully');
+        console.warn('✅ Content pinned successfully');
         return true;
       } else {
-        console.log('⚠️ No pinning service configured');
+        console.warn('⚠️ No pinning service configured');
         return false;
       }
       
     } catch (error) {
-      console.error('❌ Failed to pin content:', error);
+      console.warn('❌ Failed to pin content:', error);
       return false;
     }
   }
@@ -241,7 +241,7 @@ export class IPFSClient {
   // Test IPFS connectivity
   async testConnectivity(): Promise<boolean> {
     try {
-      console.log('🔗 Testing IPFS connectivity...');
+      console.warn('🔗 Testing IPFS connectivity...');
       
       // Try to fetch a well-known IPFS hash
       const testHash = 'QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG'; // IPFS readme
@@ -251,11 +251,11 @@ export class IPFSClient {
       });
       
       const connected = response.ok;
-      console.log(connected ? '✅ IPFS connectivity OK' : '❌ IPFS connectivity failed');
+      console.warn(connected ? '✅ IPFS connectivity OK' : '❌ IPFS connectivity failed');
       return connected;
       
     } catch (error) {
-      console.error('❌ IPFS connectivity test failed:', error);
+      console.warn('❌ IPFS connectivity test failed:', error);
       return false;
     }
   }

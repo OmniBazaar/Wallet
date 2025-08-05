@@ -2,19 +2,21 @@
  * Jest Configuration for Wallet Tests
  */
 
-module.exports = {
+export default {
   preset: 'ts-jest',
   testEnvironment: 'node',
-  roots: ['<rootDir>/tests'],
+  roots: ['<rootDir>'],
   testMatch: [
     '**/__tests__/**/*.+(ts|tsx|js)',
     '**/?(*.)+(spec|test).+(ts|tsx|js)'
   ],
   transform: {
-    '^.+\\.(ts|tsx)$': 'ts-jest'
+    '^.+\\.(ts|tsx)$': ['ts-jest', {
+      tsconfig: '<rootDir>/tsconfig.test.json'
+    }]
   },
   moduleNameMapper: {
-    '^@/(.*)$': '<rootDir>/src/$1'
+    '^@/(.*)$': '<rootDir>/../src/$1'
   },
   collectCoverageFrom: [
     'src/**/*.{js,ts}',
@@ -31,14 +33,6 @@ module.exports = {
     }
   },
   coverageDirectory: '<rootDir>/coverage',
-  setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],
-  testTimeout: 30000,
-  globals: {
-    'ts-jest': {
-      tsconfig: {
-        esModuleInterop: true,
-        allowSyntheticDefaultImports: true
-      }
-    }
-  }
+  setupFilesAfterEnv: ['<rootDir>/setup.ts'],
+  testTimeout: 30000
 };

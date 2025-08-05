@@ -31,7 +31,7 @@ export class SolanaNFTProvider implements ChainProvider {
    */
   async getNFTs(address: string): Promise<NFTItem[]> {
     try {
-      console.log(`Fetching Solana NFTs for address: ${address}`);
+      console.warn(`Fetching Solana NFTs for address: ${address}`);
       
       // Try Helius API first if available
       if (this.config.heliusApiKey) {
@@ -47,7 +47,7 @@ export class SolanaNFTProvider implements ChainProvider {
       return await this.generateMockNFTs(address);
       
     } catch (error) {
-      console.error('Error fetching Solana NFTs:', error);
+      console.warn('Error fetching Solana NFTs:', error);
       return await this.generateMockNFTs(address);
     }
   }
@@ -75,7 +75,7 @@ export class SolanaNFTProvider implements ChainProvider {
       
       return await this.generateMockNFT(mintAddress, tokenId, 'unknown');
     } catch (error) {
-      console.error('Error fetching Solana NFT metadata:', error);
+      console.warn('Error fetching Solana NFT metadata:', error);
       return null;
     }
   }
@@ -98,7 +98,7 @@ export class SolanaNFTProvider implements ChainProvider {
         items: []
       }];
     } catch (error) {
-      console.error('Error fetching Solana collections:', error);
+      console.warn('Error fetching Solana collections:', error);
       return [];
     }
   }
@@ -116,7 +116,21 @@ export class SolanaNFTProvider implements ChainProvider {
     }
     
     const data = await response.json();
-    return data.nfts.map((nft: any) => this.transformHeliusNFT(nft, address));
+    return data.nfts.map((nft: {
+      id: string;
+      content?: {
+        metadata?: {
+          name?: string;
+          description?: string;
+          image?: string;
+          attributes?: Array<{ trait_type: string; value: string | number }>;
+        };
+        links?: { image?: string };
+      };
+      creators?: Array<{ address: string }>;
+      royalty?: { percent: number };
+      listings?: Array<Record<string, unknown>>;
+    }) => this.transformHeliusNFT(nft, address));
   }
 
   /**
@@ -141,13 +155,36 @@ export class SolanaNFTProvider implements ChainProvider {
     }
     
     const data = await response.json();
-    return data.map((token: any) => this.transformMagicEdenNFT(token, address));
+    return data.map((token: {
+      mintAddress: string;
+      name?: string;
+      description?: string;
+      image?: string;
+      attributes?: Array<{ trait_type: string; value: string | number }>;
+      collection?: string;
+      price?: number;
+      listingPrice?: number;
+    }) => this.transformMagicEdenNFT(token, address));
   }
 
   /**
    * Transform Helius NFT data to our format
    */
-  private transformHeliusNFT(nft: any, owner: string): NFTItem {
+  private transformHeliusNFT(nft: {
+    id: string;
+    content?: {
+      metadata?: {
+        name?: string;
+        description?: string;
+        image?: string;
+        attributes?: Array<{ trait_type: string; value: string | number }>;
+      };
+      links?: { image?: string };
+    };
+    creators?: Array<{ address: string }>;
+    royalty?: { percent: number };
+    listings?: Array<Record<string, unknown>>;
+  }, owner: string): NFTItem {
     const metadata = nft.content?.metadata || {};
     
     return {
@@ -172,7 +209,16 @@ export class SolanaNFTProvider implements ChainProvider {
   /**
    * Transform Magic Eden NFT data to our format
    */
-  private transformMagicEdenNFT(token: any, owner: string): NFTItem {
+  private transformMagicEdenNFT(token: {
+    mintAddress: string;
+    name?: string;
+    description?: string;
+    image?: string;
+    attributes?: Array<{ trait_type: string; value: string | number }>;
+    collection?: string;
+    price?: number;
+    listingPrice?: number;
+  }, owner: string): NFTItem {
     return {
       id: `solana_${token.mintAddress}`,
       tokenId: token.mintAddress,
@@ -286,7 +332,7 @@ export class SolanaNFTProvider implements ChainProvider {
         )
         .slice(0, limit);
     } catch (error) {
-      console.error('Error searching Solana NFTs:', error);
+      console.warn('Error searching Solana NFTs:', error);
       return [];
     }
   }
@@ -300,14 +346,14 @@ export class SolanaNFTProvider implements ChainProvider {
         // Fetch trending from Magic Eden API
         const response = await fetch(`${this.magicEdenUrl}/collections/trending?limit=${limit}`);
         if (response.ok) {
-          const collections = await response.json();
+          const _collections = await response.json();
           // Would transform collection data to NFT items
         }
       }
       
       return await this.generateMockNFTs('trending');
     } catch (error) {
-      console.error('Error fetching trending Solana NFTs:', error);
+      console.warn('Error fetching trending Solana NFTs:', error);
       return [];
     }
   }
@@ -328,14 +374,14 @@ export class SolanaNFTProvider implements ChainProvider {
               floorPrices[symbol] = stats.floorPrice / 1e9; // Convert lamports to SOL
             }
           } catch (error) {
-            console.error(`Error fetching floor price for ${symbol}:`, error);
+            console.warn(`Error fetching floor price for ${symbol}:`, error);
           }
         }
       }
       
       return floorPrices;
     } catch (error) {
-      console.error('Error fetching collection floor prices:', error);
+      console.warn('Error fetching collection floor prices:', error);
       return {};
     }
   }
@@ -359,7 +405,7 @@ export class SolanaNFTProvider implements ChainProvider {
         const response = await fetch(`${this.heliusUrl}/addresses/11111111111111111111111111111112/nfts?api-key=${this.config.heliusApiKey}&limit=1`);
         if (response.ok) workingApis.push('Helius');
       } catch (error) {
-        console.error('Helius connection test failed:', error);
+        console.warn('Helius connection test failed:', error);
       }
     }
 
@@ -368,7 +414,7 @@ export class SolanaNFTProvider implements ChainProvider {
         const response = await fetch(`${this.magicEdenUrl}/collections?limit=1`);
         if (response.ok) workingApis.push('Magic Eden');
       } catch (error) {
-        console.error('Magic Eden connection test failed:', error);
+        console.warn('Magic Eden connection test failed:', error);
       }
     }
 

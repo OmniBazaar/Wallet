@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
 import { SearchFilters } from '../../../../../types/listing';
-import { OmniCoinLoading } from './OmniCoinLoading';
-import { OmniCoinToast } from './OmniCoinToast';
+// import { OmniCoinLoading } from './OmniCoinLoading';
+// import { OmniCoinToast } from './OmniCoinToast';
 
 const SearchContainer = styled.div`
   padding: 1rem;
@@ -117,7 +117,7 @@ export const ListingSearch: React.FC<ListingSearchProps> = ({ onSearch, isLoadin
 
     const [activeFilters, setActiveFilters] = useState<Record<string, string>>({});
 
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>): void => {
         const { name, value } = e.target;
 
         if (name.includes('.')) {
@@ -137,13 +137,13 @@ export const ListingSearch: React.FC<ListingSearchProps> = ({ onSearch, isLoadin
         }
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = (e: React.FormEvent): void => {
         e.preventDefault();
         onSearch(filters);
         updateActiveFilters();
     };
 
-    const updateActiveFilters = () => {
+    const updateActiveFilters = (): void => {
         const newActiveFilters: Record<string, string> = {};
         Object.entries(filters).forEach(([key, value]) => {
             if (value && typeof value !== 'object') {
@@ -159,7 +159,7 @@ export const ListingSearch: React.FC<ListingSearchProps> = ({ onSearch, isLoadin
         setActiveFilters(newActiveFilters);
     };
 
-    const removeFilter = (key: string) => {
+    const removeFilter = (key: string): void => {
         if (key.includes('.')) {
             const [parent, child] = key.split('.');
             setFilters(prev => ({

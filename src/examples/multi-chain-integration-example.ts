@@ -49,7 +49,7 @@ class OmniBazaarMarketplaceExample {
       }
     });
 
-    console.log('✅ Multi-chain NFT providers initialized');
+    console.warn('✅ Multi-chain NFT providers initialized');
   }
 
   /**
@@ -64,7 +64,7 @@ class OmniBazaarMarketplaceExample {
     location?: string;
   }): Promise<string> {
     try {
-      console.log('🔨 Minting new marketplace NFT...');
+      console.warn('🔨 Minting new marketplace NFT...');
 
       const mintRequest: NFTMintRequest = {
         name: productData.name,
@@ -87,7 +87,7 @@ class OmniBazaarMarketplaceExample {
 
       const result = await this.nftMinter.mintNFT(mintRequest);
       
-      console.log('✅ NFT minted successfully:', {
+      console.warn('✅ NFT minted successfully:', {
         transactionHash: result.transactionHash,
         tokenId: result.tokenId,
         ipfsHash: result.ipfsHash
@@ -105,30 +105,37 @@ class OmniBazaarMarketplaceExample {
    */
   async showUserNFTPortfolio(userAddress: string): Promise<void> {
     try {
-      console.log(`📱 Loading NFT portfolio for ${userAddress}...`);
+      console.warn(`📱 Loading NFT portfolio for ${userAddress}...`);
 
       // Get NFTs from all enabled chains
       const portfolio = await this.nftDisplay.getAllNFTs(userAddress);
 
-      console.log(`\n🎨 NFT Portfolio Summary:`);
-      console.log(`Total NFTs: ${portfolio.totalCount}`);
-      console.log(`Chains with NFTs: ${Object.keys(portfolio.chains).length}`);
+      console.warn(`\n🎨 NFT Portfolio Summary:`);
+      console.warn(`Total NFTs: ${portfolio.totalCount}`);
+      console.warn(`Chains with NFTs: ${Object.keys(portfolio.chains).length}`);
 
       // Display breakdown by chain
       for (const [chainId, nfts] of Object.entries(portfolio.chains)) {
         const chainName = this.getChainName(parseInt(chainId));
-        const chainNFTs = nfts as any[];
+        const chainNFTs = nfts as Array<{
+          name: string;
+          price?: string;
+          currency?: string;
+          isListed: boolean;
+          attributes: Array<{ trait_type: string; value: string }>;
+          blockchain: string;
+        }>;
         
         if (chainNFTs.length > 0) {
-          console.log(`\n${chainName}: ${chainNFTs.length} NFTs`);
+          console.warn(`\n${chainName}: ${chainNFTs.length} NFTs`);
           
           // Show first few NFTs from each chain
           chainNFTs.slice(0, 3).forEach((nft, index) => {
-            console.log(`  ${index + 1}. ${nft.name} - ${nft.price || 'Not Listed'} ${nft.currency || ''}`);
+            console.warn(`  ${index + 1}. ${nft.name} - ${nft.price || 'Not Listed'} ${nft.currency || ''}`);
           });
           
           if (chainNFTs.length > 3) {
-            console.log(`  ... and ${chainNFTs.length - 3} more`);
+            console.warn(`  ... and ${chainNFTs.length - 3} more`);
           }
         }
       }
@@ -140,10 +147,10 @@ class OmniBazaarMarketplaceExample {
         nft.attributes.find(attr => attr.trait_type === 'Category')?.value
       ).filter(Boolean))];
 
-      console.log(`\n📊 Portfolio Statistics:`);
-      console.log(`Listed for Sale: ${listedNFTs.length}/${allNFTs.length}`);
-      console.log(`Categories: ${categories.join(', ')}`);
-      console.log(`Blockchains: ${[...new Set(allNFTs.map(nft => nft.blockchain))].join(', ')}`);
+      console.warn(`\n📊 Portfolio Statistics:`);
+      console.warn(`Listed for Sale: ${listedNFTs.length}/${allNFTs.length}`);
+      console.warn(`Categories: ${categories.join(', ')}`);
+      console.warn(`Blockchains: ${[...new Set(allNFTs.map(nft => nft.blockchain))].join(', ')}`);
 
     } catch (error) {
       console.error('❌ Failed to load NFT portfolio:', error);
@@ -159,7 +166,7 @@ class OmniBazaarMarketplaceExample {
     priceRange?: { min: number; max: number };
   }): Promise<void> {
     try {
-      console.log(`🔍 Searching for "${searchTerm}" across all chains...`);
+      console.warn(`🔍 Searching for "${searchTerm}" across all chains...`);
 
       const searchQuery = {
         query: searchTerm,
@@ -171,31 +178,39 @@ class OmniBazaarMarketplaceExample {
 
       const results = await this.nftDisplay.searchNFTs(searchQuery);
 
-      console.log(`\n🎯 Search Results:`);
-      console.log(`Found ${results.total} NFTs matching "${searchTerm}"`);
-      console.log(`Showing ${results.items.length} results`);
+      console.warn(`\n🎯 Search Results:`);
+      console.warn(`Found ${results.total} NFTs matching "${searchTerm}"`);
+      console.warn(`Showing ${results.items.length} results`);
 
       // Display search results
-      results.items.forEach((item: any, index) => {
+      results.items.forEach((item: {
+        title?: string;
+        name?: string;
+        blockchain?: string;
+        price?: string;
+        currency?: string;
+        category?: string;
+        seller?: string;
+      }, index) => {
         const nft = item; // The converted marketplace listing
-        console.log(`\n${index + 1}. ${nft.title || nft.name}`);
-        console.log(`   Blockchain: ${nft.blockchain || 'Unknown'}`);
-        console.log(`   Price: ${nft.price || 'Not Listed'} ${nft.currency || ''}`);
-        console.log(`   Category: ${nft.category || 'General'}`);
-        console.log(`   Seller: ${nft.seller}`);
+        console.warn(`\n${index + 1}. ${nft.title || nft.name}`);
+        console.warn(`   Blockchain: ${nft.blockchain || 'Unknown'}`);
+        console.warn(`   Price: ${nft.price || 'Not Listed'} ${nft.currency || ''}`);
+        console.warn(`   Category: ${nft.category || 'General'}`);
+        console.warn(`   Seller: ${nft.seller}`);
       });
 
       // Show available filters
       if (results.filters) {
-        console.log(`\n🔧 Available Filters:`);
+        console.warn(`\n🔧 Available Filters:`);
         if (results.filters.categories?.length > 0) {
-          console.log(`Categories: ${results.filters.categories.map(c => `${c.name} (${c.count})`).join(', ')}`);
+          console.warn(`Categories: ${results.filters.categories.map(c => `${c.name} (${c.count})`).join(', ')}`);
         }
         if (results.filters.blockchains?.length > 0) {
-          console.log(`Blockchains: ${results.filters.blockchains.map(b => `${b.name} (${b.count})`).join(', ')}`);
+          console.warn(`Blockchains: ${results.filters.blockchains.map(b => `${b.name} (${b.count})`).join(', ')}`);
         }
         if (results.filters.priceRange) {
-          console.log(`Price Range: ${results.filters.priceRange.min} - ${results.filters.priceRange.max}`);
+          console.warn(`Price Range: ${results.filters.priceRange.min} - ${results.filters.priceRange.max}`);
         }
       }
 
@@ -209,22 +224,22 @@ class OmniBazaarMarketplaceExample {
    */
   async showMarketplaceStatistics(): Promise<void> {
     try {
-      console.log('📊 Loading marketplace statistics...');
+      console.warn('📊 Loading marketplace statistics...');
 
       const stats = await this.nftDisplay.getChainStatistics();
 
-      console.log('\n🌐 Multi-Chain NFT Statistics:');
-      console.log('═══════════════════════════════════════');
+      console.warn('\n🌐 Multi-Chain NFT Statistics:');
+      console.warn('═══════════════════════════════════════');
 
       for (const [chainId, chainStats] of Object.entries(stats)) {
         const status = chainStats.enabled ? '🟢 Enabled' : '🔴 Disabled';
         const connection = chainStats.isConnected ? '🔗 Connected' : '❌ Disconnected';
         
-        console.log(`\n${chainStats.name} (Chain ${chainId}):`);
-        console.log(`  Status: ${status}`);
-        console.log(`  Connection: ${connection}`);
-        console.log(`  NFTs: ${chainStats.nftCount}`);
-        console.log(`  Collections: ${chainStats.collectionCount}`);
+        console.warn(`\n${chainStats.name} (Chain ${chainId}):`);
+        console.warn(`  Status: ${status}`);
+        console.warn(`  Connection: ${connection}`);
+        console.warn(`  NFTs: ${chainStats.nftCount}`);
+        console.warn(`  Collections: ${chainStats.collectionCount}`);
       }
 
     } catch (error) {
@@ -237,11 +252,11 @@ class OmniBazaarMarketplaceExample {
    */
   async manageChainSupport(chainId: number, enabled: boolean): Promise<void> {
     const chainName = this.getChainName(chainId);
-    console.log(`${enabled ? '🟢 Enabling' : '🔴 Disabling'} ${chainName} support...`);
+    console.warn(`${enabled ? '🟢 Enabling' : '🔴 Disabling'} ${chainName} support...`);
     
     this.nftDisplay.toggleChain(chainId, enabled);
     
-    console.log(`✅ ${chainName} is now ${enabled ? 'enabled' : 'disabled'}`);
+    console.warn(`✅ ${chainName} is now ${enabled ? 'enabled' : 'disabled'}`);
   }
 
   /**
@@ -263,15 +278,15 @@ class OmniBazaarMarketplaceExample {
  * Example usage and demonstration
  */
 async function demonstrateMultiChainNFT(): Promise<void> {
-  console.log('🚀 OmniBazaar Multi-Chain NFT Integration Demo\n');
+  console.warn('🚀 OmniBazaar Multi-Chain NFT Integration Demo\n');
 
   const marketplace = new OmniBazaarMarketplaceExample();
   const testUserAddress = '0x1234567890123456789012345678901234567890';
 
   try {
     // Example 1: Mint a new marketplace NFT
-    console.log('📝 Example 1: Minting Marketplace NFT');
-    console.log('═══════════════════════════════════════');
+    console.warn('📝 Example 1: Minting Marketplace NFT');
+    console.warn('═══════════════════════════════════════');
     
     await marketplace.mintMarketplaceNFT(testUserAddress, {
       name: 'Vintage Leather Jacket',
@@ -285,16 +300,16 @@ async function demonstrateMultiChainNFT(): Promise<void> {
     await new Promise(resolve => setTimeout(resolve, 1000));
 
     // Example 2: Show user's NFT portfolio
-    console.log('\n📱 Example 2: User NFT Portfolio');
-    console.log('═══════════════════════════════════════');
+    console.warn('\n📱 Example 2: User NFT Portfolio');
+    console.warn('═══════════════════════════════════════');
     
     await marketplace.showUserNFTPortfolio(testUserAddress);
 
     await new Promise(resolve => setTimeout(resolve, 1000));
 
     // Example 3: Search marketplace NFTs
-    console.log('\n🔍 Example 3: Marketplace Search');
-    console.log('═══════════════════════════════════════');
+    console.warn('\n🔍 Example 3: Marketplace Search');
+    console.warn('═══════════════════════════════════════');
     
     await marketplace.searchMarketplaceNFTs('jacket', {
       category: 'Fashion',
@@ -304,22 +319,22 @@ async function demonstrateMultiChainNFT(): Promise<void> {
     await new Promise(resolve => setTimeout(resolve, 1000));
 
     // Example 4: Show marketplace statistics
-    console.log('\n📊 Example 4: Marketplace Statistics');
-    console.log('═══════════════════════════════════════');
+    console.warn('\n📊 Example 4: Marketplace Statistics');
+    console.warn('═══════════════════════════════════════');
     
     await marketplace.showMarketplaceStatistics();
 
     await new Promise(resolve => setTimeout(resolve, 1000));
 
     // Example 5: Chain management
-    console.log('\n🔧 Example 5: Chain Management');
-    console.log('═══════════════════════════════════════');
+    console.warn('\n🔧 Example 5: Chain Management');
+    console.warn('═══════════════════════════════════════');
     
     await marketplace.manageChainSupport(56, false); // Disable BSC
     await marketplace.manageChainSupport(56, true);  // Re-enable BSC
 
-    console.log('\n🎉 Multi-chain NFT integration demo complete!');
-    console.log('✅ Ready for production marketplace integration');
+    console.warn('\n🎉 Multi-chain NFT integration demo complete!');
+    console.warn('✅ Ready for production marketplace integration');
 
   } catch (error) {
     console.error('❌ Demo failed:', error);
@@ -331,5 +346,5 @@ export { OmniBazaarMarketplaceExample, demonstrateMultiChainNFT };
 
 // Run demo if this file is executed directly
 if (require.main === module) {
-  demonstrateMultiChainNFT().catch(console.error);
+  demonstrateMultiChainNFT().catch(console.warn);
 } 

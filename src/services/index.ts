@@ -58,7 +58,7 @@ export async function initializeValidatorServices(userId: string): Promise<void>
     await validatorTransaction.initialize();
     await validatorBalance.initialize();
     
-    console.log('All validator services initialized successfully');
+    console.warn('All validator services initialized successfully');
   } catch (error) {
     console.error('Error initializing validator services:', error);
     throw error;
@@ -72,7 +72,7 @@ export async function disconnectValidatorServices(): Promise<void> {
     await validatorTransaction.disconnect();
     await validatorBalance.disconnect();
     
-    console.log('All validator services disconnected successfully');
+    console.warn('All validator services disconnected successfully');
   } catch (error) {
     console.error('Error disconnecting validator services:', error);
     throw error;

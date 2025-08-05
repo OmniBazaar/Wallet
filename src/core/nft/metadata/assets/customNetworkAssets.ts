@@ -87,7 +87,7 @@ export const customNetworkAssetsKey = ({
   testnetMode,
   filterZeroBalance,
   rainbowChainAssets,
-}: CustomNetworkAssetsArgs) =>
+}: CustomNetworkAssetsArgs): readonly [string, CustomNetworkAssetsArgs, { persisterVersion: number }] =>
   createQueryKey(
     'CustomNetworkAssets',
     {
@@ -100,7 +100,7 @@ export const customNetworkAssetsKey = ({
     { persisterVersion: 4 },
   );
 
-type customNetworkAssetsKey = ReturnType<typeof customNetworkAssetsKey>;
+type CustomNetworkAssetsKey = ReturnType<typeof customNetworkAssetsKey>;
 
 // ///////////////////////////////////////////////
 // Query Function
@@ -111,7 +111,7 @@ export const CustomNetworkAssetsFetchQuery = ({
   testnetMode,
   filterZeroBalance,
   rainbowChainAssets,
-}: FetchCustomNetworkAssetsArgs) => {
+}: FetchCustomNetworkAssetsArgs): Promise<CustomNetworkAssetsResult> => {
   queryClient.fetchQuery({
     queryKey: customNetworkAssetsKey({
       address,
@@ -131,7 +131,7 @@ export const CustomNetworkAssetsSetQueryDefaults = ({
   testnetMode,
   filterZeroBalance,
   rainbowChainAssets,
-}: SetUserDefaultsArgs) => {
+}: SetUserDefaultsArgs): void => {
   queryClient.setQueryDefaults(
     customNetworkAssetsKey({
       address,
@@ -153,7 +153,7 @@ export const CustomNetworkAssetsSetQueryData = ({
   testnetMode,
   filterZeroBalance,
   rainbowChainAssets,
-}: SetCustomNetworkAssetsArgs) => {
+}: SetCustomNetworkAssetsArgs): void => {
   queryClient.setQueryData(
     customNetworkAssetsKey({
       address,
@@ -170,7 +170,7 @@ async function customNetworkAssetsFunction({
   queryKey: [
     { address, currency, testnetMode, filterZeroBalance, rainbowChainAssets },
   ],
-}: QueryFunctionArgs<typeof customNetworkAssetsKey>) {
+}: QueryFunctionArgs<typeof customNetworkAssetsKey>): Promise<CustomNetworkAssetsResult> {
   const cache = queryClient.getQueryCache();
   const cachedCustomNetworkAssets = (cache.find({
     queryKey: customNetworkAssetsKey({
@@ -354,9 +354,9 @@ export function useCustomNetworkAssets<
     CustomNetworkAssetsResult,
     Error,
     TSelectResult,
-    customNetworkAssetsKey
+    CustomNetworkAssetsKey
   > = {},
-) {
+): { data?: TSelectResult; isLoading: boolean; error?: Error } {
   const { testnetMode } = useTestnetModeStore();
   const { rainbowChainAssets } = useRainbowChainAssetsStore();
   return useQuery({

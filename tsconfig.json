@@ -2,7 +2,11 @@
   "compilerOptions": {
     "target": "ES2020",
     "useDefineForClassFields": true,
-    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "lib": [
+      "ES2020",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "module": "ESNext",
     "skipLibCheck": true,
     "strict": true,
@@ -12,8 +16,7 @@
     "exactOptionalPropertyTypes": false,
     "noImplicitReturns": true,
     "noUncheckedIndexedAccess": false,
-    "moduleResolution": "bundler",
-    "allowImportingTsExtensions": true,
+    "moduleResolution": "node",
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
@@ -27,34 +30,61 @@
     "sourceMap": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"],
-      "@/core/*": ["src/core/*"],
-      "@/background/*": ["src/background/*"],
-      "@/content/*": ["src/content/*"],
-      "@/popup/*": ["src/popup/*"],
-      "@/omnibazaar/*": ["src/omnibazaar/*"],
-      "@/types/*": ["src/types/*"],
-      "@/utils/*": ["src/core/utils/*"],
-      "@/stores/*": ["src/stores/*"]
+      "@/*": [
+        "src/*"
+      ],
+      "@/core/*": [
+        "src/core/*"
+      ],
+      "@/background/*": [
+        "src/background/*"
+      ],
+      "@/content/*": [
+        "src/content/*"
+      ],
+      "@/popup/*": [
+        "src/popup/*"
+      ],
+      "@/omnibazaar/*": [
+        "src/omnibazaar/*"
+      ],
+      "@/types/*": [
+        "src/types/*"
+      ],
+      "@/utils/*": [
+        "src/core/utils/*"
+      ],
+      "@/stores/*": [
+        "src/stores/*"
+      ]
     },
     "types": [
       "node"
     ]
   },
   "include": [
-    "src/**/*.ts",
-    "src/**/*.tsx",
-    "src/**/*.vue",
-    "src/**/*.d.ts",
-    "tests/**/*.ts",
+    "src/core/**/*.ts",
+    "src/background/**/*.ts",
+    "src/content/**/*.ts",
+    "src/popup/**/*.ts",
+    "src/types/**/*.ts",
+    "src/utils/**/*.ts",
     "scripts/**/*.ts",
+    "src/hooks/**/*.ts",
+    "src/services/**/*.ts",
+    "src/stores/**/*.ts",
+    "src/examples/**/*.ts",
+    "src/pages/**/*.tsx",
+    "src/ui/**/*.tsx",
+    "src/ui/**/*.d.ts",
     "manifest/**/*.ts"
   ],
   "exclude": [
     "node_modules",
     "dist",
     "source-repos",
-    "DePay"
+    "DePay",
+    "tests"
   ],
   "references": [
     {

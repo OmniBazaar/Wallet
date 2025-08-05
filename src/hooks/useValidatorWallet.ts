@@ -4,10 +4,10 @@
  * Provides reactive hooks for wallet operations through the Validator network
  */
 
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
-import { ValidatorWalletService, WalletAccount, TransactionRequest, TransactionResult } from '../services/ValidatorWallet';
-import { ValidatorTransactionService, Transaction, GasEstimate } from '../services/ValidatorTransaction';
-import { ValidatorBalanceService, AccountBalance, TokenBalance } from '../services/ValidatorBalance';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { WalletAccount, TransactionRequest, TransactionResult } from '../services/ValidatorWallet';
+import { Transaction, GasEstimate } from '../services/ValidatorTransaction';
+import { AccountBalance } from '../services/ValidatorBalance';
 import { validatorWallet, validatorTransaction, validatorBalance } from '../services';
 
 // Global state management
@@ -20,7 +20,26 @@ const globalWalletState = {
 /**
  * Main wallet composable
  */
-export function useValidatorWallet() {
+export function useValidatorWallet(): {
+  isConnected: ReturnType<typeof computed>;
+  hasError: ReturnType<typeof computed>;
+  accounts: ReturnType<typeof computed>;
+  activeAccount: ReturnType<typeof computed>;
+  balances: ReturnType<typeof computed>;
+  isInitializing: ReturnType<typeof ref>;
+  connectionStatus: ReturnType<typeof ref>;
+  initializeWallet: (userId: string) => Promise<void>;
+  disconnectWallet: () => Promise<void>;
+  createAccount: (name: string, type: WalletAccount['type'], chainId: string, options?: {
+    mnemonic?: string;
+    derivationPath?: string;
+    accountType?: 'validator' | 'user';
+    metadata?: Record<string, unknown>;
+  }) => Promise<WalletAccount>;
+  setActiveAccount: (accountId: string) => void;
+  removeAccount: (accountId: string) => Promise<void>;
+  updateBalances: (addresses?: string[]) => Promise<void>;
+} {
   const walletService = validatorWallet;
   const transactionService = validatorTransaction;
   const balanceService = validatorBalance;
@@ -62,7 +81,7 @@ export function useValidatorWallet() {
       
       globalWalletState.isInitialized.value = true;
       connectionStatus.value = 'connected';
-      console.log('Validator wallet services initialized');
+      console.warn('Validator wallet services initialized');
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to initialize wallet';
       globalWalletState.error.value = errorMessage;
@@ -86,7 +105,7 @@ export function useValidatorWallet() {
       
       globalWalletState.isInitialized.value = false;
       connectionStatus.value = 'disconnected';
-      console.log('Validator wallet services disconnected');
+      console.warn('Validator wallet services disconnected');
     } catch (error) {
       console.error('Wallet disconnection error:', error);
     }
@@ -99,7 +118,12 @@ export function useValidatorWallet() {
     name: string,
     type: WalletAccount['type'],
     chainId: string,
-    options?: any
+    options?: {
+      mnemonic?: string;
+      derivationPath?: string;
+      accountType?: 'validator' | 'user';
+      metadata?: Record<string, unknown>;
+    }
   ): Promise<WalletAccount> => {
     try {
       const account = await walletService.createAccount(name, type, chainId, options);
@@ -195,7 +219,19 @@ export function useValidatorWallet() {
 /**
  * Transaction composable
  */
-export function useValidatorTransaction() {
+export function useValidatorTransaction(): {
+  isProcessing: ReturnType<typeof ref>;
+  lastTransaction: ReturnType<typeof ref>;
+  gasEstimate: ReturnType<typeof ref>;
+  pendingTransactions: ReturnType<typeof computed>;
+  transactionHistory: ReturnType<typeof computed>;
+  currentGasEstimate: ReturnType<typeof computed>;
+  sendTransaction: (request: TransactionRequest) => Promise<TransactionResult>;
+  estimateGas: (request: TransactionRequest) => Promise<GasEstimate>;
+  getTransaction: (txHash: string) => Promise<Transaction | null>;
+  cancelTransaction: (txId: string, privateKey: string) => Promise<Transaction>;
+  speedUpTransaction: (txId: string, privateKey: string) => Promise<Transaction>;
+} {
   const transactionService = validatorTransaction;
   
   // Reactive state
@@ -320,7 +356,24 @@ export function useValidatorTransaction() {
 /**
  * Balance composable
  */
-export function useValidatorBalance() {
+export function useValidatorBalance(): {
+  isLoading: ReturnType<typeof ref>;
+  lastUpdated: ReturnType<typeof ref>;
+  balances: ReturnType<typeof computed>;
+  prices: ReturnType<typeof computed>;
+  history: ReturnType<typeof computed>;
+  portfolioSummary: ReturnType<typeof computed>;
+  getBalance: (address: string, useCache?: boolean) => Promise<AccountBalance>;
+  getMultipleBalances: (addresses: string[]) => Promise<Record<string, AccountBalance>>;
+  startBalanceUpdates: (addresses: string[], interval?: number) => void;
+  stopBalanceUpdates: (address?: string) => void;
+  getBalanceHistory: (address: string, limit?: number) => Array<{
+    timestamp: number;
+    balance: string;
+    value?: number;
+  }>;
+  clearCache: () => void;
+} {
   const balanceService = validatorBalance;
   
   // Reactive state
@@ -384,7 +437,11 @@ export function useValidatorBalance() {
   /**
    * Get balance history
    */
-  const getBalanceHistory = (address: string, limit = 100) => {
+  const getBalanceHistory = (address: string, limit = 100): Array<{
+    timestamp: number;
+    balance: string;
+    value?: number;
+  }> => {
     return balanceService.getBalanceHistory(address, limit);
   };
   
@@ -417,7 +474,13 @@ export function useValidatorBalance() {
 /**
  * Wallet status composable
  */
-export function useValidatorWalletStatus() {
+export function useValidatorWalletStatus(): {
+  connectionStatus: ReturnType<typeof ref>;
+  networkInfo: ReturnType<typeof ref>;
+  serviceHealth: ReturnType<typeof ref>;
+  isHealthy: ReturnType<typeof computed>;
+  checkHealth: () => Promise<void>;
+} {
   const connectionStatus = ref<'disconnected' | 'connecting' | 'connected' | 'error'>('disconnected');
   const networkInfo = ref<{ networkId: string; endpoint: string } | null>(null);
   const serviceHealth = ref<Record<string, boolean>>({});
@@ -481,17 +544,23 @@ export function useValidatorWalletStatus() {
 /**
  * ENS resolution composable
  */
-export function useENSResolution() {
+export function useENSResolution(): {
+  isResolving: ReturnType<typeof ref>;
+  cache: ReturnType<typeof ref>;
+  resolveENS: (name: string) => Promise<string | null>;
+  reverseResolveENS: (address: string) => Promise<string | null>;
+  clearCache: () => void;
+} {
   const walletService = validatorWallet;
   
   // Reactive state
   const isResolving = ref(false);
-  const resolutionCache = ref<Record<string, any>>({});
+  const resolutionCache = ref<Record<string, string>>({});
   
   /**
    * Resolve ENS name
    */
-  const resolveENS = async (name: string) => {
+  const resolveENS = async (name: string): Promise<string | null> => {
     try {
       // Check cache first
       if (resolutionCache.value[name]) {
@@ -515,6 +584,27 @@ export function useENSResolution() {
   };
   
   /**
+   * Reverse resolve ENS (address to name)
+   */
+  const reverseResolveENS = async (address: string): Promise<string | null> => {
+    try {
+      isResolving.value = true;
+      const name = await walletService.reverseResolveENS(address);
+      
+      if (name) {
+        resolutionCache.value[address] = name;
+      }
+      
+      return name;
+    } catch (error) {
+      console.error('Error reverse resolving ENS:', error);
+      return null;
+    } finally {
+      isResolving.value = false;
+    }
+  };
+  
+  /**
    * Clear resolution cache
    */
   const clearCache = (): void => {
@@ -524,10 +614,11 @@ export function useENSResolution() {
   return {
     // State
     isResolving,
-    resolutionCache,
+    cache: resolutionCache,
     
     // Actions
     resolveENS,
+    reverseResolveENS,
     clearCache
   };
 }
@@ -535,7 +626,21 @@ export function useENSResolution() {
 /**
  * Wallet backup composable
  */
-export function useWalletBackup() {
+export function useWalletBackup(): {
+  isBackingUp: ReturnType<typeof ref>;
+  isRestoring: ReturnType<typeof ref>;
+  lastBackup: ReturnType<typeof ref>;
+  createBackup: (password: string) => Promise<{
+    data: string;
+    timestamp: number;
+    version: string;
+  }>;
+  restoreFromBackup: (backup: {
+    version: string;
+    accounts: Array<Record<string, unknown>>;
+    metadata?: Record<string, unknown>;
+  }, password: string) => Promise<void>;
+} {
   const walletService = validatorWallet;
   
   // Reactive state
@@ -546,7 +651,11 @@ export function useWalletBackup() {
   /**
    * Create wallet backup
    */
-  const createBackup = async (password: string) => {
+  const createBackup = async (password: string): Promise<{
+    data: string;
+    timestamp: number;
+    version: string;
+  }> => {
     try {
       isBackingUp.value = true;
       const backup = await walletService.backupWallet(password);
@@ -563,7 +672,11 @@ export function useWalletBackup() {
   /**
    * Restore wallet from backup
    */
-  const restoreFromBackup = async (backup: any, password: string) => {
+  const restoreFromBackup = async (backup: {
+    version: string;
+    accounts: Array<Record<string, unknown>>;
+    metadata?: Record<string, unknown>;
+  }, password: string): Promise<void> => {
     try {
       isRestoring.value = true;
       await walletService.restoreWallet(backup, password);

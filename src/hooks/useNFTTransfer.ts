@@ -10,12 +10,16 @@ const ERC1155_ABI = [
     'function safeTransferFrom(address from, address to, uint256 id, uint256 amount, bytes data)'
 ];
 
-export const useNFTTransfer = (contractAddress: string, tokenType: 'ERC721' | 'ERC1155') => {
+export const useNFTTransfer = (contractAddress: string, tokenType: 'ERC721' | 'ERC1155'): {
+    isTransferring: boolean;
+    error: string | null;
+    transfer: (to: string, tokenId: string, amount?: string) => Promise<ethers.TransactionReceipt>;
+} => {
     const { provider, address } = useWallet();
     const [isTransferring, setIsTransferring] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const transfer = useCallback(async (to: string, tokenId: string, amount: string = '1') => {
+    const transfer = useCallback(async (to: string, tokenId: string, amount = '1') => {
         if (!provider || !address) {
             throw new Error('Wallet not connected');
         }

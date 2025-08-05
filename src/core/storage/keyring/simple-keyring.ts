@@ -25,7 +25,7 @@ export interface KeyringOptions {
 
 class SimpleKeyring {
   private storage: StorageInterface;
-  private isUnlocked: boolean = false;
+  private isUnlocked = false;
   private encryptedSeed: string | null = null;
   private walletData: WalletData | null = null;
   
@@ -35,7 +35,7 @@ class SimpleKeyring {
     SETTINGS: 'settings'
   };
 
-  constructor(namespace: string = 'omnibazaar-wallet') {
+  constructor(namespace = 'omnibazaar-wallet') {
     this.storage = new BrowserStorage(namespace);
   }
 

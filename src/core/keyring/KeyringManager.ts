@@ -272,7 +272,7 @@ export class KeyringManager {
       const isAvailable = await registryContract.isAvailable(username);
       return isAvailable;
     } catch (error) {
-      console.error('Error checking username uniqueness:', error);
+      console.warn('Error checking username uniqueness:', error);
       // If contract call fails, assume username is taken for safety
       return false;
     }
@@ -288,7 +288,7 @@ export class KeyringManager {
       const primaryName = await registryContract.reverseResolve(address);
       return primaryName !== '';
     } catch (error) {
-      console.error('Error verifying account exists:', error);
+      console.warn('Error verifying account exists:', error);
       // If contract call fails, allow login attempt
       return true;
     }
@@ -302,7 +302,7 @@ export class KeyringManager {
       // This would typically be handled by the OmniBazaar backend
       // since we don't want users to pay gas fees directly
       // For now, we'll just log the registration request
-      console.log(`Registration request for ${username} -> ${address}`);
+      console.warn(`Registration request for ${username} -> ${address}`);
       
       // In production, this would:
       // 1. Submit registration request to OmniBazaar backend
@@ -312,7 +312,7 @@ export class KeyringManager {
       // TODO: Implement backend API call for name registration
       // await this.submitRegistrationRequest(username, address);
     } catch (error) {
-      console.error('Error registering username on chain:', error);
+      console.warn('Error registering username on chain:', error);
       // Don't throw error - registration can be retried later
     }
   }
@@ -321,9 +321,9 @@ export class KeyringManager {
    * Store encrypted user data
    * TODO: Implement secure storage strategy
    */
-  private async storeUserData(credentials: UserCredentials, accounts: MultiChainKeys): Promise<void> {
+  private async storeUserData(credentials: UserCredentials, _accounts: MultiChainKeys): Promise<void> {
     // TODO: Implement secure storage (encrypted local storage, browser extension storage, etc.)
-    console.log(`Storing user data for: ${credentials.username}`);
+    console.warn(`Storing user data for: ${credentials.username}`);
   }
 
   /**
@@ -373,7 +373,7 @@ export class KeyringManager {
       const address = await registryContract.resolve(username);
       return address !== ethers.ZeroAddress ? address : null;
     } catch (error) {
-      console.error('Error resolving username:', error);
+      console.warn('Error resolving username:', error);
       return null;
     }
   }
@@ -387,7 +387,7 @@ export class KeyringManager {
       const address = await resolverContract.resolve(username);
       return address !== ethers.ZeroAddress ? address : null;
     } catch (error) {
-      console.error('Error resolving username via Ethereum:', error);
+      console.warn('Error resolving username via Ethereum:', error);
       return null;
     }
   }
@@ -401,7 +401,7 @@ export class KeyringManager {
       const username = await registryContract.reverseResolve(address);
       return username !== '' ? username : null;
     } catch (error) {
-      console.error('Error reverse resolving address:', error);
+      console.warn('Error reverse resolving address:', error);
       return null;
     }
   }
@@ -427,7 +427,7 @@ export class KeyringManager {
       // Use ENS service to resolve
       return await this.ensService.resolveAddress(addressOrName);
     } catch (error) {
-      console.error('Error resolving address:', error);
+      console.warn('Error resolving address:', error);
       return null;
     }
   }
@@ -452,7 +452,7 @@ export class KeyringManager {
       
       return await this.ensService.resolveAddressForCoin(addressOrName, coinTypes[chainType]);
     } catch (error) {
-      console.error('Error resolving address for chain:', error);
+      console.warn('Error resolving address for chain:', error);
       return null;
     }
   }
@@ -461,7 +461,7 @@ export class KeyringManager {
    * Sign transaction with current user's key
    * TODO: Implement transaction signing
    */
-  public async signTransaction(transaction: any, chainType: 'ethereum' | 'omnicoin'): Promise<string> {
+  public async signTransaction(transaction: { to: string; value: string; data?: string }, chainType: 'ethereum' | 'omnicoin'): Promise<string> {
     const session = this.getCurrentSession();
     if (!session) {
       throw new Error('User not logged in');
@@ -473,7 +473,7 @@ export class KeyringManager {
     }
 
     // TODO: Implement transaction signing based on chain type
-    console.log(`Signing transaction for ${chainType}:`, transaction);
+    console.warn(`Signing transaction for ${chainType}:`, transaction);
     return 'signed_transaction_hash';
   }
 }

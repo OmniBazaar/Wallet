@@ -1,13 +1,13 @@
 import { BrowserStorageArea } from "@enkryptcom/types";
 
 class MemoryStorage implements BrowserStorageArea {
-  private storage: { [key: string]: any } = {};
+  private storage: { [key: string]: unknown } = {};
 
-  async get(key: string): Promise<Record<string, any>> {
+  async get(key: string): Promise<Record<string, unknown>> {
     return this.storage[key] ? { [key]: this.storage[key] } : {};
   }
 
-  async set(items: Record<string, any>): Promise<void> {
+  async set(items: Record<string, unknown>): Promise<void> {
     Object.keys(items).forEach((key) => {
       this.storage[key] = items[key];
     });
@@ -21,7 +21,7 @@ class MemoryStorage implements BrowserStorageArea {
     this.storage = {};
   }
 
-  async getWholeStorage(): Promise<Record<string, any>> {
+  async getWholeStorage(): Promise<Record<string, unknown>> {
     return this.storage;
   }
 }

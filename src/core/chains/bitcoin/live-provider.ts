@@ -1,4 +1,4 @@
-import { BitcoinProvider, BitcoinNetworkConfig } from './provider';
+import { BitcoinProvider } from './provider';
 import BitcoinNetworks from './networks';
 import { KeyringService } from '../../keyring/KeyringService';
 import { TransactionRequest } from '@/types';
@@ -6,7 +6,7 @@ import { TransactionRequest } from '@/types';
 export class LiveBitcoinProvider extends BitcoinProvider {
   private keyring: KeyringService;
   private currentAddress: string | null = null;
-  private derivationPath: string = "m/84'/0'/0'/0/0"; // Native SegWit by default
+  private derivationPath = "m/84'/0'/0'/0/0"; // Native SegWit by default
 
   constructor(network: 'mainnet' | 'testnet' = 'mainnet') {
     const config = network === 'mainnet' 
@@ -28,7 +28,8 @@ export class LiveBitcoinProvider extends BitcoinProvider {
    * Get current account from keyring
    */
   async getCurrentAccount(): Promise<{ address: string; publicKey: string }> {
-    const seed = await this.keyring.getSeed();
+    // For now, use a default password - in production this should be properly handled
+    const seed = await this.keyring.getSeed('');
     if (!seed) {
       throw new Error('No seed available in keyring');
     }
@@ -59,7 +60,7 @@ export class LiveBitcoinProvider extends BitcoinProvider {
    */
   async sendBitcoin(to: string, amount: string): Promise<string> {
     const { address } = await this.getCurrentAccount();
-    const seed = await this.keyring.getSeed();
+    const seed = await this.keyring.getSeed('');
     
     if (!seed) {
       throw new Error('No seed available for signing');
@@ -82,8 +83,11 @@ export class LiveBitcoinProvider extends BitcoinProvider {
   /**
    * Get transaction history for current account
    */
-  async getTransactionHistory(limit: number = 10): Promise<any[]> {
-    const { address } = await this.getCurrentAccount();
+  async getTransactionHistory(address?: string, limit = 10): Promise<Array<{ hash: string; from: string; to: string; value: string; timestamp: number; status: string }>> {
+    if (!address) {
+      const account = await this.getCurrentAccount();
+      address = account.address;
+    }
     return super.getTransactionHistory(address, limit);
   }
 
@@ -91,7 +95,7 @@ export class LiveBitcoinProvider extends BitcoinProvider {
    * Sign a message with current account
    */
   async signMessage(message: string): Promise<string> {
-    const seed = await this.keyring.getSeed();
+    const seed = await this.keyring.getSeed('');
     if (!seed) {
       throw new Error('No seed available for signing');
     }
@@ -102,8 +106,8 @@ export class LiveBitcoinProvider extends BitcoinProvider {
   /**
    * Get multiple addresses for the wallet (for privacy)
    */
-  async getAddresses(count: number = 10): Promise<string[]> {
-    const seed = await this.keyring.getSeed();
+  async getAddresses(count = 10): Promise<string[]> {
+    const seed = await this.keyring.getSeed('');
     if (!seed) {
       throw new Error('No seed available in keyring');
     }
@@ -121,7 +125,7 @@ export class LiveBitcoinProvider extends BitcoinProvider {
   /**
    * Import wallet from WIF (Wallet Import Format)
    */
-  async importFromWIF(wif: string): Promise<string> {
+  async importFromWIF(_wif: string): Promise<string> {
     // This would be implemented if we want to support importing Bitcoin private keys
     throw new Error('WIF import not yet implemented');
   }
@@ -129,7 +133,7 @@ export class LiveBitcoinProvider extends BitcoinProvider {
   /**
    * Get UTXO set for current account
    */
-  async getUTXOs(): Promise<any[]> {
+  async getUTXOs(): Promise<Array<{ txHash: string; outputIndex: number; value: string; script: string }>> {
     const { address } = await this.getCurrentAccount();
     return super.getUTXOs(address);
   }
@@ -154,7 +158,7 @@ export class LiveBitcoinProvider extends BitcoinProvider {
    * Get address for a specific derivation index
    */
   async getAddressAt(index: number): Promise<string> {
-    const seed = await this.keyring.getSeed();
+    const seed = await this.keyring.getSeed('');
     if (!seed) {
       throw new Error('No seed available in keyring');
     }

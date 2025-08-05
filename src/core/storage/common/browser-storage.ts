@@ -1,8 +1,19 @@
-declare const chrome: any;
+declare const chrome: {
+  storage: {
+    local: {
+      get: (keys: string[] | null, callback: (result: Record<string, unknown>) => void) => void;
+      set: (items: Record<string, unknown>, callback: () => void) => void;
+      remove: (keys: string[], callback: () => void) => void;
+    };
+  };
+  runtime: {
+    lastError?: Error;
+  };
+};
 
 export interface StorageInterface {
-  get(key: string): Promise<any>;
-  set(key: string, value: any): Promise<void>;
+  get<T = unknown>(key: string): Promise<T | null>;
+  set(key: string, value: string | number | boolean | object): Promise<void>;
   remove(key: string): Promise<void>;
   clear(): Promise<void>;
 }
@@ -18,11 +29,11 @@ class BrowserStorage implements StorageInterface {
     return `${this.namespace}:${key}`;
   }
 
-  async get(key: string): Promise<any> {
+  async get<T = unknown>(key: string): Promise<T | null> {
     return new Promise((resolve) => {
       try {
         const namespacedKey = this.getNamespacedKey(key);
-        chrome.storage.local.get([namespacedKey], (result: any) => {
+        chrome.storage.local.get([namespacedKey], (result: Record<string, unknown>) => {
           if (chrome.runtime.lastError) {
             console.error('BrowserStorage.get error:', chrome.runtime.lastError);
             resolve(null);
@@ -37,7 +48,7 @@ class BrowserStorage implements StorageInterface {
     });
   }
 
-  async set(key: string, value: any): Promise<void> {
+  async set(key: string, value: string | number | boolean | object): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
         const namespacedKey = this.getNamespacedKey(key);
@@ -79,7 +90,7 @@ class BrowserStorage implements StorageInterface {
     return new Promise((resolve, reject) => {
       try {
         // Get all keys in this namespace
-        chrome.storage.local.get(null, (allData: any) => {
+        chrome.storage.local.get(null, (allData: Record<string, unknown>) => {
           if (chrome.runtime.lastError) {
             reject(chrome.runtime.lastError);
             return;

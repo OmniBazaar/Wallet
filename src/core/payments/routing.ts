@@ -45,7 +45,7 @@ export interface ExchangeRoute {
 export interface RouteStep {
   type: 'approve' | 'swap' | 'bridge' | 'transfer';
   description: string;
-  data?: any;
+  data?: Record<string, unknown>;
 }
 
 export interface PaymentRequest {
@@ -310,7 +310,7 @@ export class PaymentRoutingService {
       
       return bridgeRoute;
     } catch (error) {
-      console.error('Error finding route:', error);
+      console.warn('Error finding route:', error);
       return null;
     }
   }
@@ -356,7 +356,7 @@ export class PaymentRoutingService {
       // TODO: Implement ERC20 balance checking
       return '0';
     } catch (error) {
-      console.error('Error getting balance:', error);
+      console.warn('Error getting balance:', error);
       return '0';
     }
   }
@@ -459,7 +459,7 @@ export class PaymentRoutingService {
         ]
       };
     } catch (error) {
-      console.error('Error finding swap route:', error);
+      console.warn('Error finding swap route:', error);
       return null;
     }
   }
@@ -531,7 +531,7 @@ export class PaymentRoutingService {
       
       return null;
     } catch (error) {
-      console.error('Error finding bridge route:', error);
+      console.warn('Error finding bridge route:', error);
       return null;
     }
   }
@@ -569,7 +569,7 @@ export class PaymentRoutingService {
         case 'bridge':
           // Execute bridge transfer
           if (step.data?.bridgeRoute) {
-            const bridgeId = await bridgeService.executeBridge(step.data.bridgeRoute);
+            const bridgeId = await bridgeService.executeBridge(step.data.bridgeRoute as unknown);
             return bridgeId; // Return bridge transfer ID
           }
           break;

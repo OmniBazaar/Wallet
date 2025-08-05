@@ -2,7 +2,7 @@ import React from 'react';
 import { WalletProvider } from '../contexts/WalletContext';
 import { WalletConnect } from '../components/WalletConnect';
 
-export default function Home() {
+export default function Home(): JSX.Element {
   return (
     <WalletProvider>
       <div className="container">

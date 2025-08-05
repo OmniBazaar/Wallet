@@ -1,9 +1,8 @@
 // OmniBazaar Wallet Ethereum Provider
 // Adapted from Enkrypt Ethereum provider for our hybrid architecture
 
-import { ethers } from 'ethers';
+import { providers, Contract, BigNumber, utils } from 'ethers';
 import { 
-  BackgroundProviderInterface,
   ProviderName,
   ProviderRPCRequest,
   OnMessageResponse,
@@ -54,7 +53,7 @@ export const EthereumNetworks: { [key: string]: EthereumNetwork } = {
 
 export class EthereumProvider extends EventEmitter implements EthereumProviderInterface {
   network: EthereumNetwork;
-  provider: ethers.providers.JsonRpcProvider;
+  provider: providers.JsonRpcProvider;
   namespace: string;
   toWindow: (message: string) => void;
   chainId: string;
@@ -72,7 +71,7 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
     this.namespace = ProviderName.ethereum;
     this.chainId = this.network.chainID;
     this.networkVersion = parseInt(this.network.chainID, 16).toString();
-    this.provider = new ethers.providers.JsonRpcProvider(this.network.node);
+    this.provider = new providers.JsonRpcProvider(this.network.node);
     
     // Set up provider event listeners
     this.setupEventListeners();
@@ -80,7 +79,7 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
 
   private setupEventListeners(): void {
     // Listen for network changes
-    this.provider.on('network', (newNetwork: any, oldNetwork: any) => {
+    this.provider.on('network', (newNetwork: { chainId: number }, oldNetwork: { chainId: number } | null) => {
       if (oldNetwork) {
         this.emit('chainChanged', '0x' + newNetwork.chainId.toString(16));
         this.sendNotification(JSON.stringify({
@@ -99,7 +98,7 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
     this.networkVersion = parseInt(ethNetwork.chainID, 16).toString();
     
     // Create new provider instance
-    this.provider = new ethers.providers.JsonRpcProvider(ethNetwork.node);
+    this.provider = new providers.JsonRpcProvider(ethNetwork.node);
     this.setupEventListeners();
     
     // Emit chain changed event if different
@@ -118,14 +117,14 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
       return {
         result: JSON.stringify(result)
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       return {
-        error: JSON.stringify(error.message || 'Unknown error')
+        error: JSON.stringify(error instanceof Error ? error.message : 'Unknown error')
       };
     }
   }
 
-  private async handleRPCRequest(request: ProviderRPCRequest): Promise<any> {
+  private async handleRPCRequest(request: ProviderRPCRequest): Promise<string | string[] | number> {
     const { method, params = [] } = request;
 
     switch (method) {
@@ -144,7 +143,7 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
       case 'eth_getBalance': {
         if (params[0]) {
           const balance = await this.provider.getBalance(params[0], 'latest');
-          return ethers.utils.hexlify(balance);
+          return utils.hexlify(balance);
         }
         throw new Error('Missing address parameter');
       }
@@ -196,7 +195,7 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
       case 'eth_estimateGas': {
         if (params[0]) {
           const gasEstimate = await this.provider.estimateGas(params[0]);
-          return ethers.utils.hexlify(gasEstimate);
+          return utils.hexlify(gasEstimate);
         }
         throw new Error('Missing transaction object');
       }
@@ -204,16 +203,16 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
       case 'eth_gasPrice': {
         try {
           const gasPrice = await this.provider.getGasPrice();
-          return ethers.utils.hexlify(gasPrice);
+          return utils.hexlify(gasPrice);
         } catch (error) {
-          // Fallback for older ethers versions
+          console.warn('Failed to get gas price:', error);
           return '0x' + (20 * 1e9).toString(16); // 20 gwei fallback
         }
       }
 
       case 'eth_blockNumber': {
         const blockNumber = await this.provider.getBlockNumber();
-        return ethers.utils.hexlify(blockNumber);
+        return utils.hexlify(blockNumber);
       }
 
       case 'eth_getBlockByNumber': {
@@ -237,28 +236,28 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
     }
   }
 
-  private async sendTransaction(txParams: any): Promise<string> {
+  private async sendTransaction(_txParams: { to: string; value?: string; data?: string; gas?: string; gasPrice?: string }): Promise<string> {
     // This will be integrated with the keyring for signing
     // For now, return a placeholder
     throw new Error('Transaction signing not yet implemented - requires keyring integration');
   }
 
-  private async signTransaction(txParams: any): Promise<string> {
+  private async signTransaction(_txParams: { to: string; value?: string; data?: string; gas?: string; gasPrice?: string }): Promise<string> {
     // This will be integrated with the keyring for signing
     throw new Error('Transaction signing not yet implemented - requires keyring integration');
   }
 
-  private async personalSign(message: string, address: string): Promise<string> {
+  private async personalSign(_message: string, _address: string): Promise<string> {
     // This will be integrated with the keyring for signing
     throw new Error('Message signing not yet implemented - requires keyring integration');
   }
 
-  private async signTypedData(address: string, typedData: string): Promise<string> {
+  private async signTypedData(_address: string, _typedData: string): Promise<string> {
     // This will be integrated with the keyring for signing
     throw new Error('Typed data signing not yet implemented - requires keyring integration');
   }
 
-  private async handleSubscription(type: string, params?: any): Promise<string> {
+  private async handleSubscription(type: string, _params?: string[]): Promise<string> {
     // Generate subscription ID
     const subscriptionId = Math.random().toString(16).slice(2);
     
@@ -269,7 +268,7 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
         this.provider.on('block', (blockNumber: number) => {
           this.sendNotification(JSON.stringify({
             subscription: subscriptionId,
-            result: { number: ethers.utils.hexlify(blockNumber) }
+            result: { number: utils.hexlify(blockNumber) }
           }));
         });
         break;
@@ -286,7 +285,7 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
     return subscriptionId;
   }
 
-  private async handleUnsubscription(subscriptionId: string): Promise<boolean> {
+  private async handleUnsubscription(_subscriptionId: string): Promise<boolean> {
     // Remove subscription (simplified for now)
     return true;
   }
@@ -311,27 +310,27 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
       'function symbol() view returns (string)'
     ];
     
-    const contract = new ethers.Contract(tokenAddress, tokenABI, this.provider);
+    const contract = new Contract(tokenAddress, tokenABI, this.provider);
     const balance = await contract.balanceOf(userAddress);
     return balance.toString();
   }
 
   async estimateTokenTransferGas(tokenAddress: string, to: string, amount: string): Promise<string> {
     const tokenABI = ['function transfer(address to, uint256 amount) returns (bool)'];
-    const contract = new ethers.Contract(tokenAddress, tokenABI, this.provider);
+    const contract = new Contract(tokenAddress, tokenABI, this.provider);
     
     const gasEstimate = await contract.transfer.estimateGas(to, amount);
     return gasEstimate.toString();
   }
 
   // NFT-related methods for marketplace integration
-  async getNFTMetadata(contractAddress: string, tokenId: string): Promise<any> {
+  async getNFTMetadata(contractAddress: string, tokenId: string): Promise<{ tokenURI: string; owner: string }> {
     const nftABI = [
       'function tokenURI(uint256 tokenId) view returns (string)',
       'function ownerOf(uint256 tokenId) view returns (address)'
     ];
     
-    const contract = new ethers.Contract(contractAddress, nftABI, this.provider);
+    const contract = new Contract(contractAddress, nftABI, this.provider);
     const [tokenURI, owner] = await Promise.all([
       contract.tokenURI(tokenId),
       contract.ownerOf(tokenId)
@@ -342,11 +341,11 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
 
   // Format helper methods
   formatBalance(balance: string): string {
-    return ethers.utils.formatEther(balance);
+    return utils.formatEther(balance);
   }
 
-  parseAmount(amount: string): ethers.BigNumber {
-    return ethers.utils.parseEther(amount);
+  parseAmount(amount: string): BigNumber {
+    return utils.parseEther(amount);
   }
 }
 
@@ -356,7 +355,7 @@ export default EthereumProvider;
 export { LiveEthereumProvider, createLiveEthereumProvider, liveEthereumProvider } from './live-provider';
 
 // Export unified getProvider function that returns live provider
-export async function getProvider(networkName?: string): Promise<ethers.providers.JsonRpcProvider> {
+export async function getProvider(_networkName?: string): Promise<providers.JsonRpcProvider> {
   const { liveEthereumProvider } = await import('./live-provider');
   return liveEthereumProvider.getProvider();
 } 

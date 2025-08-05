@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ethers } from 'ethers';
-import { TokenInfo, TokenBalance } from '../types';
+import { TokenInfo } from '../types';
 import { useWallet } from './useWallet';
 
 const ERC20_ABI = [
@@ -10,7 +10,14 @@ const ERC20_ABI = [
     'function name() view returns (string)'
 ];
 
-export const useTokenBalance = (tokenAddress: string) => {
+export const useTokenBalance = (tokenAddress: string): {
+    tokenInfo: TokenInfo | null;
+    balance: string;
+    formattedBalance: string;
+    isLoading: boolean;
+    error: string | null;
+    refreshBalance: () => void;
+} => {
     const { provider, address } = useWallet();
     const [tokenInfo, setTokenInfo] = useState<TokenInfo | null>(null);
     const [balance, setBalance] = useState<string>('0');

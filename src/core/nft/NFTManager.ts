@@ -158,7 +158,7 @@ export class NFTManager {
     nft: SolanaNFT,
     to: string
   ): Promise<string> {
-    const solanaProvider = providerManager.getProvider('solana') as any;
+    const solanaProvider = providerManager.getProvider('solana') as { sendTransaction: (transaction: unknown) => Promise<string> } | null;
     if (!solanaProvider) {
       throw new Error('Solana provider not initialized');
     }

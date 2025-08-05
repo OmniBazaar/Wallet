@@ -17,7 +17,7 @@ export function useNft(
     tokenId: string;
   },
   { initialData }: { initialData: UniqueAsset },
-) {
+): unknown {
   return useQuery({
     queryKey: createQueryKey(
       'nft',

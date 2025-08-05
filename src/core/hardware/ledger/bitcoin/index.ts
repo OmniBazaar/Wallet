@@ -109,7 +109,7 @@ class LedgerBitcoin implements HWWalletProvider {
           new Error("ledger-bitcoin: psbt not set for message signing"),
         );
       }
-      const client = new AppClient(this.transport as any);
+      const client = new AppClient(this.transport as Transport);
       const fpr = await client.getMasterFingerprint();
       const accountPath = options.pathType.path.replace(
         `{index}`,
@@ -196,7 +196,7 @@ class LedgerBitcoin implements HWWalletProvider {
       ),
       outputScriptHex: serializeTransactionOutputs({
         outputs: txOutputs,
-      } as any).toString("hex"),
+      } as { outputs: Array<{ value: number; script: Buffer }> }).toString("hex"),
       segwit: this.isSegwit,
       additionals: [],
     };

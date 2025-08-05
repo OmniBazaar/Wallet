@@ -31,7 +31,7 @@ export interface SolanaNetworkConfig extends NetworkConfig {
 }
 
 export interface SolanaTransaction extends TransactionRequest {
-  instructions?: any[];
+  instructions?: { programId: string; keys: Array<{ pubkey: string; isSigner: boolean; isWritable: boolean }>; data: string }[];
   feePayer?: string;
   recentBlockhash?: string;
   signatures?: string[];
@@ -135,7 +135,7 @@ export class SolanaProvider extends BaseProvider {
         decimals: 9,
         mint: 'So11111111111111111111111111111111111111112', // SOL mint
         uiAmount: solBalance / LAMPORTS_PER_SOL,
-      } as any
+      }
     ];
 
     // Add SPL tokens
@@ -146,7 +146,7 @@ export class SolanaProvider extends BaseProvider {
         decimals: token.decimals,
         mint: token.mint,
         uiAmount: parseInt(token.amount) / Math.pow(10, token.decimals),
-      } as any);
+      });
     }
 
     return balances;
@@ -405,14 +405,14 @@ export class SolanaProvider extends BaseProvider {
   /**
    * Get rent exemption amount
    */
-  async getRentExemption(dataLength: number = 0): Promise<number> {
+  async getRentExemption(dataLength = 0): Promise<number> {
     return await this.connection.getMinimumBalanceForRentExemption(dataLength);
   }
 
   /**
    * Airdrop SOL (testnet/devnet only)
    */
-  async airdrop(address: string, amount: number = 1): Promise<string> {
+  async airdrop(address: string, amount = 1): Promise<string> {
     const publicKey = new PublicKey(address);
     const signature = await this.connection.requestAirdrop(
       publicKey,

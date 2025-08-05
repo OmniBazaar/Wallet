@@ -124,12 +124,12 @@ export const NFTGallery: React.FC<NFTGalleryProps> = ({ contractAddress }) => {
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error' | 'info' | 'pending'>('info');
 
-  const { transfer, isTransferring, error: transferError } = useNFTTransfer(
+  const { transfer, isTransferring, error: _transferError } = useNFTTransfer(
     selectedNFT?.contractAddress || '',
     selectedNFT?.tokenType || 'ERC721'
   );
 
-  const handleTransfer = async () => {
+  const handleTransfer = async (): Promise<void> => {
     if (!selectedNFT) return;
 
     try {

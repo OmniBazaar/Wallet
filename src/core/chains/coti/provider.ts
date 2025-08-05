@@ -3,36 +3,33 @@
 
 import { ethers } from 'ethers';
 import { 
-  BackgroundProviderInterface,
   ProviderName,
   ProviderRPCRequest,
-  OnMessageResponse,
-  EthereumProviderInterface,
-  MiddlewareFunction
+  OnMessageResponse
 } from '@/types/provider';
 import { EthereumNetwork, BaseNetwork } from '@/types/base-network';
-import EventEmitter from 'eventemitter3';
+// import EventEmitter from 'eventemitter3'; // TODO: implement if needed
 import { EthereumProvider } from '../ethereum/provider';
 
 // COTI Privacy Types (adapted from COTI SDK)
-export interface itBool {
+export interface ItBool {
   ciphertext: bigint;
   signature: Uint8Array | string;
 }
 
-export interface itUint {
+export interface ItUint {
   ciphertext: bigint;
   signature: Uint8Array | string;
 }
 
-export interface itString { 
+export interface ItString { 
   ciphertext: { value: Array<bigint> }; 
   signature: Array<Uint8Array | string>;
 }
 
-export interface ctBool extends BigInt {}
-export interface ctUint extends BigInt {}
-export interface ctString { value: Array<bigint> }
+export type CtBool = bigint
+export type CtUint = bigint
+export interface CtString { value: Array<bigint> }
 
 export interface OnboardInfo {
   aesKey?: string;
@@ -86,7 +83,7 @@ export const CotiNetworks: { [key: string]: EthereumNetwork } = {
 
 export class CotiProvider extends EthereumProvider {
   private userOnboardInfo?: OnboardInfo;
-  private autoOnboard: boolean = true;
+  private autoOnboard = true;
 
   constructor(
     toWindow: (message: string) => void,
@@ -132,8 +129,9 @@ export class CotiProvider extends EthereumProvider {
             throw new Error(`Unknown COTI method: ${method}`);
         }
         return { result: JSON.stringify(result) };
-      } catch (error: any) {
-        return { error: JSON.stringify(error.message || 'Unknown error') };
+      } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        return { error: JSON.stringify(errorMessage) };
       }
     }
 
@@ -252,7 +250,7 @@ export class CotiProvider extends EthereumProvider {
     return { publicKey, privateKey };
   }
 
-  private async createOnboardTransaction(publicKey: Uint8Array, contractAddress?: string): Promise<any> {
+  private async createOnboardTransaction(publicKey: Uint8Array, contractAddress?: string): Promise<{ hash: string; to: string; data: string }> {
     // Placeholder onboard transaction creation
     // In production, interact with COTI onboard contract
     return {
@@ -262,7 +260,7 @@ export class CotiProvider extends EthereumProvider {
     };
   }
 
-  private async recoverAESFromTransaction(txHash: string): Promise<void> {
+  private async recoverAESFromTransaction(_txHash: string): Promise<void> {
     // Placeholder AES recovery from transaction
     // In production, decrypt key shares from transaction data
     const recoveredKey = '0123456789abcdef0123456789abcdef';
@@ -271,9 +269,9 @@ export class CotiProvider extends EthereumProvider {
 
   private buildInputText(
     plaintext: bigint,
-    contractAddress: string,
-    functionSelector: string
-  ): itUint {
+    _contractAddress: string,
+    _functionSelector: string
+  ): ItUint {
     // Simplified encryption - in production, use COTI SDK crypto_utils
     const ciphertext = plaintext ^ BigInt('0x1234567890abcdef'); // XOR for demo
     const signature = new Uint8Array(64); // Placeholder signature
@@ -287,9 +285,9 @@ export class CotiProvider extends EthereumProvider {
 
   private buildStringInputText(
     plaintext: string,
-    contractAddress: string,
-    functionSelector: string
-  ): itString {
+    _contractAddress: string,
+    _functionSelector: string
+  ): ItString {
     // Simplified string encryption - in production, use COTI SDK crypto_utils
     const encoder = new TextEncoder();
     const bytes = encoder.encode(plaintext);
@@ -337,7 +335,7 @@ export class CotiProvider extends EthereumProvider {
   }
 
   // Helper method to get COTI-specific network info
-  getCotiNetworkInfo(): any {
+  getCotiNetworkInfo(): { chainId: string; networkName: string; isTestNetwork: boolean; hasPrivacyFeatures: boolean; onboardContractAddress: string } {
     return {
       chainId: this.chainId,
       networkName: this.network.name_long,
@@ -354,7 +352,7 @@ export default CotiProvider;
 export { LiveCOTIProvider, createLiveCOTIProvider, liveCOTIProvider } from './live-provider';
 
 // Export unified getProvider function that returns live provider
-export async function getCotiProvider(networkName?: string): Promise<ethers.providers.JsonRpcProvider> {
+export async function getCotiProvider(_networkName?: string): Promise<ethers.providers.JsonRpcProvider> {
   const { liveCOTIProvider } = await import('./live-provider');
   return liveCOTIProvider.getProvider();
 } 

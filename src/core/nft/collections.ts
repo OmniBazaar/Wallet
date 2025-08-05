@@ -5,6 +5,7 @@ import {
   fetchNftCollections,
   polygonAllowListFetcher,
 } from '~/core/network/nfts';
+import type { UseInfiniteQueryResult } from '@tanstack/react-query';
 import {
   InfiniteQueryConfig,
   QueryFunctionArgs,
@@ -79,7 +80,7 @@ const nftCollectionsQueryKey = ({
   sort,
   testnetMode,
   userChains,
-}: NftCollectionsArgs) =>
+}: NftCollectionsArgs): string[] =>
   createQueryKey(
     'nftCollections',
     { address, sort, testnetMode, userChains },
@@ -89,7 +90,7 @@ const nftCollectionsQueryKey = ({
 // ///////////////////////////////////////////////
 // Query Function
 
-type _QueryResult = {
+type QueryResult = {
   collections: SimpleHashCollectionDetails[];
   nextPage?: string | null;
   pages?: { collections: SimpleHashCollectionDetails[] };
@@ -98,7 +99,7 @@ type _QueryResult = {
 async function nftCollectionsQueryFunction({
   queryKey: [{ address, sort, testnetMode, userChains }],
   pageParam,
-}: QueryFunctionArgs<typeof nftCollectionsQueryKey>): Promise<_QueryResult> {
+}: QueryFunctionArgs<typeof nftCollectionsQueryKey>): Promise<QueryResult> {
   const activeChainIds = userChains
     .filter((chain) => {
       return !testnetMode ? !chain.testnet : chain.testnet;
@@ -153,7 +154,7 @@ type NftCollectionsResult = QueryFunctionResult<
 export function useNftCollections<TSelectData = NftCollectionsResult>(
   { address, sort, testnetMode, userChains }: NftCollectionsArgs,
   config: InfiniteQueryConfig<NftCollectionsResult, Error, TSelectData> = {},
-) {
+): UseInfiniteQueryResult<TSelectData, Error> {
   return useInfiniteQuery({
     queryKey: nftCollectionsQueryKey({
       address,

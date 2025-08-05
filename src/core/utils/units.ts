@@ -19,9 +19,9 @@ const negative1 = toBN(-1);
  * @returns {BN} value of the unit (in Wei)
  * @throws error if the unit is not correct:w
  */
-const getValueOfUnit = (decimals: number) => toBN(10).pow(toBN(decimals));
+const getValueOfUnit = (decimals: number): ReturnType<typeof toBN> => toBN(10).pow(toBN(decimals));
 
-const numberToString = (arg: any) => {
+const numberToString = (arg: string | number | { toString(): string; toPrecision?(): string; toTwos?: boolean; dividedToIntegerBy?: boolean }): string => {
   if (typeof arg === "string") {
     if (!arg.match(/^-?[0-9.]+$/)) {
       throw new Error(
@@ -54,7 +54,7 @@ const numberToString = (arg: any) => {
 const fromBase = (
   weiInput: string,
   decimals: number,
-  optionsInput?: any,
+  optionsInput?: { pad?: boolean; commify?: boolean },
 ): string => {
   let wei = toBN(weiInput);
   const negative = wei.lt(zero);

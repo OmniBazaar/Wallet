@@ -33,7 +33,7 @@ export type AssetsQueryArgs = {
 // ///////////////////////////////////////////////
 // Query Key
 
-const assetsQueryKey = ({ assets, currency }: AssetsQueryArgs) =>
+const assetsQueryKey = ({ assets, currency }: AssetsQueryArgs): string =>
   createQueryKey('assets', { assets, currency }, { persisterVersion: 3 });
 
 type AssetsQueryKey = ReturnType<typeof assetsQueryKey>;
@@ -88,7 +88,7 @@ export async function fetchAssets(
     AssetsQueryResult,
     AssetsQueryKey
   > = {},
-) {
+): Promise<AssetsQueryResult> {
   return await queryClient.fetchQuery({
     queryKey: assetsQueryKey({ assets, currency }),
     queryFn: assetsQueryFunction,
@@ -102,7 +102,7 @@ function parseAssets(
     chainId: ChainId;
   }[],
   currency: SupportedCurrencyKey,
-) {
+): Record<string, unknown> {
   return assetsMetadata.reduce(
     (assetsDict, assetMetadata) => {
       const address =
@@ -133,7 +133,7 @@ export function useAssets<TSelectData = AssetsQueryResult>(
     TSelectData,
     AssetsQueryKey
   > = {},
-) {
+): { data?: TSelectData; isLoading: boolean; error?: Error } {
   return useQuery({
     queryKey: assetsQueryKey({ assets, currency }),
     queryFn: assetsQueryFunction,

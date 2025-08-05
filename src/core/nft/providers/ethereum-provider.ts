@@ -31,7 +31,7 @@ export class EthereumNFTProvider implements ChainProvider {
    */
   async getNFTs(address: string): Promise<NFTItem[]> {
     try {
-      console.log(`Fetching Ethereum NFTs for address: ${address}`);
+      console.warn(`Fetching Ethereum NFTs for address: ${address}`);
       
       // Try Alchemy API first if available
       if (this.config.alchemyApiKey) {
@@ -47,7 +47,7 @@ export class EthereumNFTProvider implements ChainProvider {
       return await this.generateMockNFTs(address);
       
     } catch (error) {
-      console.error('Error fetching Ethereum NFTs:', error);
+      console.warn('Error fetching Ethereum NFTs:', error);
       return await this.generateMockNFTs(address);
     }
   }
@@ -70,7 +70,7 @@ export class EthereumNFTProvider implements ChainProvider {
       
       return await this.generateMockNFT(contractAddress, tokenId, 'unknown');
     } catch (error) {
-      console.error('Error fetching NFT metadata:', error);
+      console.warn('Error fetching NFT metadata:', error);
       return null;
     }
   }
@@ -94,7 +94,7 @@ export class EthereumNFTProvider implements ChainProvider {
         items: []
       }];
     } catch (error) {
-      console.error('Error fetching Ethereum collections:', error);
+      console.warn('Error fetching Ethereum collections:', error);
       return [];
     }
   }
@@ -112,7 +112,18 @@ export class EthereumNFTProvider implements ChainProvider {
     }
     
     const data = await response.json();
-    return data.ownedNfts.map((nft: any) => this.transformAlchemyNFT(nft));
+    return data.ownedNfts.map((nft: {
+      contract: { address: string };
+      id: { tokenId: string; tokenMetadata?: { tokenType?: string } };
+      metadata?: {
+        name?: string;
+        description?: string;
+        image?: string;
+        attributes?: Array<{ trait_type: string; value: string | number }>;
+        creator?: string;
+      };
+      media?: Array<{ gateway?: string }>;
+    }) => this.transformAlchemyNFT(nft));
   }
 
   /**
@@ -137,13 +148,37 @@ export class EthereumNFTProvider implements ChainProvider {
     }
     
     const data = await response.json();
-    return data.assets.map((asset: any) => this.transformOpenSeaNFT(asset));
+    return data.assets.map((asset: {
+      asset_contract: { address: string; schema_name?: string };
+      token_id: string;
+      name?: string;
+      description?: string;
+      image_url?: string;
+      image_preview_url?: string;
+      traits?: Array<{ trait_type: string; value: string | number }>;
+      owner?: { address: string };
+      creator?: { address: string };
+      last_sale?: { total_price: string };
+      sell_orders?: Array<Record<string, unknown>>;
+      permalink?: string;
+    }) => this.transformOpenSeaNFT(asset));
   }
 
   /**
    * Transform Alchemy NFT data to our format
    */
-  private transformAlchemyNFT(nft: any): NFTItem {
+  private transformAlchemyNFT(nft: {
+    contract: { address: string };
+    id: { tokenId: string; tokenMetadata?: { tokenType?: string } };
+    metadata?: {
+      name?: string;
+      description?: string;
+      image?: string;
+      attributes?: Array<{ trait_type: string; value: string | number }>;
+      creator?: string;
+    };
+    media?: Array<{ gateway?: string }>;
+  }): NFTItem {
     const metadata = nft.metadata || {};
     
     return {
@@ -167,7 +202,20 @@ export class EthereumNFTProvider implements ChainProvider {
   /**
    * Transform OpenSea NFT data to our format
    */
-  private transformOpenSeaNFT(asset: any): NFTItem {
+  private transformOpenSeaNFT(asset: {
+    asset_contract: { address: string; schema_name?: string };
+    token_id: string;
+    name?: string;
+    description?: string;
+    image_url?: string;
+    image_preview_url?: string;
+    traits?: Array<{ trait_type: string; value: string | number }>;
+    owner?: { address: string };
+    creator?: { address: string };
+    last_sale?: { total_price: string };
+    sell_orders?: Array<Record<string, unknown>>;
+    permalink?: string;
+  }): NFTItem {
     return {
       id: `ethereum_${asset.asset_contract.address}_${asset.token_id}`,
       tokenId: asset.token_id,
@@ -259,7 +307,7 @@ export class EthereumNFTProvider implements ChainProvider {
         )
         .slice(0, limit);
     } catch (error) {
-      console.error('Error searching Ethereum NFTs:', error);
+      console.warn('Error searching Ethereum NFTs:', error);
       return [];
     }
   }
@@ -267,12 +315,12 @@ export class EthereumNFTProvider implements ChainProvider {
   /**
    * Get popular/trending NFTs
    */
-  async getTrendingNFTs(limit = 20): Promise<NFTItem[]> {
+  async getTrendingNFTs(_limit = 20): Promise<NFTItem[]> {
     try {
       // This would fetch trending NFTs from OpenSea or other APIs
       return await this.generateMockNFTs('trending');
     } catch (error) {
-      console.error('Error fetching trending NFTs:', error);
+      console.warn('Error fetching trending NFTs:', error);
       return [];
     }
   }
@@ -296,7 +344,7 @@ export class EthereumNFTProvider implements ChainProvider {
         const response = await fetch(`${this.alchemyUrl}/${this.config.alchemyApiKey}/getNFTs?owner=0x0000000000000000000000000000000000000000&pageSize=1`);
         if (response.ok) workingApis.push('Alchemy');
       } catch (error) {
-        console.error('Alchemy connection test failed:', error);
+        console.warn('Alchemy connection test failed:', error);
       }
     }
 
@@ -307,7 +355,7 @@ export class EthereumNFTProvider implements ChainProvider {
         });
         if (response.ok) workingApis.push('OpenSea');
       } catch (error) {
-        console.error('OpenSea connection test failed:', error);
+        console.warn('OpenSea connection test failed:', error);
       }
     }
 

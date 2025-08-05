@@ -18,7 +18,7 @@ export interface NFTItem {
   owner: string;
   creator?: string;
   royalties?: number;
-  metadata?: any;
+  metadata?: { name?: string; description?: string; image?: string; attributes?: Array<{ trait_type: string; value: unknown }> };
   
   // Marketplace-specific fields
   isListed?: boolean;

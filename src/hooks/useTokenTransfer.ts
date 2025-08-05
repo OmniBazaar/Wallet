@@ -1,14 +1,19 @@
 import { useState, useCallback } from 'react';
 import { ethers } from 'ethers';
 import { useWallet } from './useWallet';
-import { useTokenApproval } from './useTokenApproval';
 
 const ERC20_ABI = [
     'function transfer(address to, uint256 amount) returns (bool)',
     'function transferFrom(address from, address to, uint256 amount) returns (bool)'
 ];
 
-export const useTokenTransfer = (tokenAddress: string) => {
+export const useTokenTransfer = (tokenAddress: string): {
+    isTransferring: boolean;
+    error: string | null;
+    lastTxHash: string | null;
+    transfer: (to: string, amount: string) => Promise<ethers.TransactionReceipt>;
+    transferFrom: (from: string, to: string, amount: string) => Promise<ethers.TransactionReceipt>;
+} => {
     const { provider, address } = useWallet();
     const [isTransferring, setIsTransferring] = useState(false);
     const [error, setError] = useState<string | null>(null);

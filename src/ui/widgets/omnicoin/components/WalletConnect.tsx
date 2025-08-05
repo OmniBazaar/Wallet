@@ -66,7 +66,7 @@ export const WalletConnect: React.FC = () => {
     const [toastMessage, setToastMessage] = useState('');
     const [toastType, setToastType] = useState<'success' | 'error' | 'info' | 'pending'>('info');
 
-    const handleConnect = async (providerId: string) => {
+    const handleConnect = async (providerId: string): Promise<void> => {
         try {
             setToastType('pending');
             setToastMessage('Connecting to wallet...');
@@ -82,7 +82,7 @@ export const WalletConnect: React.FC = () => {
         }
     };
 
-    const handleDisconnect = () => {
+    const handleDisconnect = (): void => {
         disconnect();
         setToastType('info');
         setToastMessage('Wallet disconnected');

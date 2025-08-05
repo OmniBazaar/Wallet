@@ -1,0 +1,41 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "skipLibCheck": true,
+    "strict": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": false,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["../src/*"],
+      "@/core/*": ["../src/core/*"],
+      "@/background/*": ["../src/background/*"],
+      "@/content/*": ["../src/content/*"],
+      "@/popup/*": ["../src/popup/*"],
+      "@/omnibazaar/*": ["../src/omnibazaar/*"],
+      "@/types/*": ["../src/types/*"],
+      "@/utils/*": ["../src/core/utils/*"],
+      "@/stores/*": ["../src/stores/*"]
+    },
+    "types": ["node", "jest"]
+  },
+  "include": [
+    "../src/**/*.ts",
+    "../src/**/*.tsx",
+    "../src/**/*.d.ts",
+    "./**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "source-repos",
+    "DePay"
+  ]
+}

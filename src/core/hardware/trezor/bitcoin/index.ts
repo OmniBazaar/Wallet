@@ -39,12 +39,12 @@ class TrezorBitcoin implements HWWalletProvider {
       const rootPub = await this.TrezorConnect.getPublicKey({
         path: options.pathType.basePath,
         showOnTrezor: options.confirmAddress,
-      } as any);
+      } as { path: string; showOnTrezor: boolean });
       if (!rootPub.payload) {
         throw new Error("popup failed to open");
       }
       if (!rootPub.success)
-        throw new Error((rootPub.payload as any).error as string);
+        throw new Error((rootPub.payload as { error: string }).error);
 
       const hdKey = new HDKey();
       hdKey.publicKey = Buffer.from(rootPub.payload.publicKey, "hex");
@@ -80,9 +80,9 @@ class TrezorBitcoin implements HWWalletProvider {
       path: options.pathType.path.replace(`{index}`, options.pathIndex),
       message: options.message.toString("hex"),
       hex: true,
-    } as any);
+    } as { path: string; message: string; hex: boolean });
     if (!result.success)
-      throw new Error((result.payload as any).error as string);
+      throw new Error((result.payload as { error: string }).error);
     return bufferToHex(Buffer.from(result.payload.signature, "base64"));
   }
 
@@ -108,10 +108,10 @@ class TrezorBitcoin implements HWWalletProvider {
             amount: out.value,
             address: out.address,
             script_type: "PAYTOADDRESS",
-          }) as any,
+          }) as { amount: number; address: string; script_type: string },
       ),
     }).then((res) => {
-      if (!res.success) throw new Error((res.payload as any).error as string);
+      if (!res.success) throw new Error((res.payload as { error: string }).error);
       return res.payload.serializedTx;
     });
   }

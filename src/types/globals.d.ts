@@ -4,7 +4,7 @@
 declare const chrome: {
   runtime: {
     onMessage: {
-      addListener: (callback: (message: any, sender: any, sendResponse: any) => boolean | void) => void;
+      addListener: (callback: (message: unknown, sender: chrome.runtime.MessageSender, sendResponse: (response?: unknown) => void) => boolean | void) => void;
     };
     onInstalled: {
       addListener: (callback: (details: { reason: string }) => void) => void;
@@ -12,12 +12,12 @@ declare const chrome: {
     onStartup: {
       addListener: (callback: () => void) => void;
     };
-    sendMessage: (message: any, callback?: (response: any) => void) => void;
+    sendMessage: (message: unknown, callback?: (response: unknown) => void) => void;
     getURL: (path: string) => string;
     lastError?: { message: string };
   };
   tabs: {
-    sendMessage: (tabId: number, message: any) => Promise<any>;
+    sendMessage: (tabId: number, message: unknown) => Promise<unknown>;
     create: (options: { url: string }) => void;
     onActivated: {
       addListener: (callback: (activeInfo: { tabId: number }) => void) => void;
@@ -34,13 +34,13 @@ declare const chrome: {
 
 // Window object extensions
 interface Window {
-  omnibazaar?: any;
-  ethereum?: any;
+  omnibazaar?: EthereumProvider;
+  ethereum?: EthereumProvider;
   chrome?: typeof chrome;
 }
 
 // Custom event types
-interface CustomEvent<T = any> {
+interface CustomEvent<T = unknown> {
   detail: T;
 }
 
@@ -51,13 +51,13 @@ interface EthereumProvider {
   chainId?: string;
   networkVersion?: string;
   selectedAddress?: string | null;
-  request: (args: { method: string; params?: any[] }) => Promise<any>;
-  on?: (event: string, callback: (data: any) => void) => void;
-  removeListener?: (event: string, callback: (data: any) => void) => void;
+  request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+  on?: (event: string, callback: (data: unknown) => void) => void;
+  removeListener?: (event: string, callback: (data: unknown) => void) => void;
   isConnected?: () => boolean;
   enable?: () => Promise<string[]>;
-  send?: (method: string, params: any[]) => Promise<any>;
-  sendAsync?: (request: any, callback: (error: Error | null, result?: any) => void) => void;
+  send?: (method: string, params: unknown[]) => Promise<unknown>;
+  sendAsync?: (request: unknown, callback: (error: Error | null, result?: unknown) => void) => void;
 }
 
 // AbortSignal timeout method (newer browsers)

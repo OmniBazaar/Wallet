@@ -38,8 +38,8 @@ class TrezorSolana implements HWWalletProvider {
       showOnTrezor: options.confirmAddress,
     });
     return {
-      address: bufferToHex(base58.decode((res.payload as any).address)),
-      publicKey: bufferToHex(base58.decode((res.payload as any).address)),
+      address: bufferToHex(base58.decode((res.payload as { address: string }).address)),
+      publicKey: bufferToHex(base58.decode((res.payload as { address: string }).address)),
     };
   }
 
@@ -65,7 +65,7 @@ class TrezorSolana implements HWWalletProvider {
       serializedTx: (options.transaction as SolSignTransaction).solTx.toString(
         "hex",
       ),
-    }).then((result) => (result.payload as any).signature);
+    }).then((result) => (result.payload as { signature: string }).signature);
   }
 
   signTypedMessage(_request: SignTypedMessageRequest): Promise<string> {

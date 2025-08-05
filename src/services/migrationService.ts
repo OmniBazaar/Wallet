@@ -84,7 +84,7 @@ export const migrateLegacyBalance = async (
       balance: omnicoinBalance.amount.toString(),
     };
   } catch (error) {
-    console.error('Migration error:', error);
+    console.warn('Migration error:', error);
     return {
       success: false,
       error: 'An error occurred during migration',
@@ -99,7 +99,7 @@ export const getMigrationStatus = async (
     const response = await axios.get(`${API_URL}/status/${username}`);
     return response.data;
   } catch (error) {
-    console.error('Error getting migration status:', error);
+    console.warn('Error getting migration status:', error);
     throw new Error('Failed to get migration status');
   }
 };
@@ -130,7 +130,7 @@ export const convertLegacyBalance = (legacyBalance: string): string => {
     
     return newBalance.toString();
   } catch (error) {
-    console.error('Failed to convert legacy balance:', error);
+    console.warn('Failed to convert legacy balance:', error);
     throw new Error(`Invalid legacy balance: ${legacyBalance}`);
   }
 };
@@ -150,7 +150,7 @@ export const convertLegacyAmount = (amount: string): string => {
     
     return newBaseUnits.toString();
   } catch (error) {
-    console.error('Failed to convert legacy amount:', error);
+    console.warn('Failed to convert legacy amount:', error);
     throw new Error(`Invalid amount: ${amount}`);
   }
 };
@@ -161,7 +161,7 @@ export const convertLegacyAmount = (amount: string): string => {
  * @param displayDecimals Number of decimal places to show (default: 4)
  * @returns Formatted balance string
  */
-export const formatBalance = (balance: string, displayDecimals: number = 4): string => {
+export const formatBalance = (balance: string, displayDecimals = 4): string => {
   try {
     // Use ethers to format with 18 decimals
     const formatted = ethers.formatUnits(balance, NEW_DECIMALS);
@@ -170,7 +170,7 @@ export const formatBalance = (balance: string, displayDecimals: number = 4): str
     const num = parseFloat(formatted);
     return num.toFixed(displayDecimals);
   } catch (error) {
-    console.error('Failed to format balance:', error);
+    console.warn('Failed to format balance:', error);
     return '0.0000';
   }
 };

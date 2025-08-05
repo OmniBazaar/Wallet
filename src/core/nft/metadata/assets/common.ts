@@ -31,7 +31,7 @@ export const userAssetsQueryKey = ({
   address,
   currency,
   testnetMode,
-}: UserAssetsArgs) =>
+}: UserAssetsArgs): readonly [string, { address?: Address; currency: SupportedCurrencyKey; testnetMode?: boolean }, { persisterVersion: number }] =>
   createQueryKey(
     'userAssets',
     { address, currency, testnetMode },
@@ -54,7 +54,7 @@ export async function parseUserAssets({
   }[];
   chainIds: ChainId[];
   currency: SupportedCurrencyKey;
-}) {
+}): Promise<ParsedAssetsDictByChain> {
   const parsedAssetsDict = chainIds.reduce(
     (dict, currentChainId) => ({ ...dict, [currentChainId]: {} }),
     {},

@@ -19,7 +19,7 @@ export interface NetworkConfig {
 export interface WalletState {
     address: string | null;
     chainId: number | null;
-    provider: any | null;
+    provider: { request: (params: unknown) => Promise<unknown> } | null;
     isConnecting: boolean;
     error: string | null;
 }
@@ -39,7 +39,7 @@ export interface WalletProviderProps {
 
 export interface WalletError extends Error {
     code?: string;
-    data?: any;
+    data?: Record<string, unknown>;
 }
 
 export interface TransactionRequest {

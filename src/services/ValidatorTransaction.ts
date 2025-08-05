@@ -63,7 +63,17 @@ export interface TransactionReceipt {
   gasUsed: string;
   effectiveGasPrice: string;
   status: number;
-  logs: any[];
+  logs: Array<{
+    address: string;
+    topics: string[];
+    data: string;
+    blockNumber: number;
+    transactionHash: string;
+    transactionIndex: number;
+    blockHash: string;
+    logIndex: number;
+    removed: boolean;
+  }>;
   contractAddress?: string;
 }
 
@@ -109,7 +119,7 @@ export class ValidatorTransactionService {
       // Start transaction monitoring
       this.startTransactionMonitoring();
       
-      console.log('Validator Transaction Service initialized successfully');
+      console.warn('Validator Transaction Service initialized successfully');
     } catch (error) {
       console.error('Failed to initialize Validator Transaction Service:', error);
       throw new Error(`Transaction service initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -190,7 +200,7 @@ export class ValidatorTransactionService {
           await this.distributeFees(tx);
         }
 
-        console.log(`Transaction sent: ${tx.hash}`);
+        console.warn(`Transaction sent: ${tx.hash}`);
         return tx;
       } else {
         // Transaction failed
@@ -412,7 +422,7 @@ export class ValidatorTransactionService {
       const replacementGasPrice = BigInt(pendingTx.gasPrice) * BigInt(110) / BigInt(100); // 10% higher
 
       // Send replacement transaction to same address with 0 value
-      const wallet = new ethers.Wallet(privateKey);
+      const _wallet = new ethers.Wallet(privateKey);
       const replacementTx = await this.sendTransaction(
         pendingTx.from,
         pendingTx.from, // Send to self
@@ -455,7 +465,7 @@ export class ValidatorTransactionService {
       const replacementGasPrice = BigInt(pendingTx.gasPrice) * BigInt(125) / BigInt(100); // 25% higher
 
       // Send replacement transaction with same data but higher gas
-      const wallet = new ethers.Wallet(privateKey);
+      const _wallet = new ethers.Wallet(privateKey);
       const replacementTx = await this.sendTransaction(
         pendingTx.from,
         pendingTx.to,
@@ -617,7 +627,7 @@ export class ValidatorTransactionService {
       // Disconnect from validator client
       await this.validatorClient.disconnect();
 
-      console.log('Validator Transaction Service disconnected');
+      console.warn('Validator Transaction Service disconnected');
     } catch (error) {
       console.error('Error disconnecting transaction service:', error);
     }
@@ -712,13 +722,25 @@ export class ValidatorTransactionService {
         'fixed',
         tx.hash
       );
-      console.log(`Fees distributed for transaction ${tx.hash}`);
+      console.warn(`Fees distributed for transaction ${tx.hash}`);
     } catch (error) {
       console.error('Error distributing fees:', error);
     }
   }
 
-  private convertBlockchainTransaction(blockchainTx: any): Transaction {
+  private convertBlockchainTransaction(blockchainTx: {
+    hash: string;
+    from: string;
+    to: string;
+    value: bigint;
+    data: string;
+    chainId?: number;
+    nonce: number;
+    gasLimit: bigint;
+    gasPrice: bigint;
+    blockNumber?: number;
+    confirmations: number;
+  }): Transaction {
     return {
       id: this.generateTransactionId(),
       hash: blockchainTx.hash,

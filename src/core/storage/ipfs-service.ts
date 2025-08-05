@@ -56,7 +56,7 @@ export class IPFSService {
   /**
    * Upload JSON data to IPFS
    */
-  async uploadJSON(data: any, filename = 'data.json'): Promise<string> {
+  async uploadJSON(data: Record<string, unknown>, filename = 'data.json'): Promise<string> {
     try {
       const jsonString = JSON.stringify(data, null, 2);
       const blob = new Blob([jsonString], { type: 'application/json' });
@@ -117,7 +117,7 @@ export class IPFSService {
   /**
    * Get JSON content from IPFS
    */
-  async getJSON(hash: string): Promise<any> {
+  async getJSON(hash: string): Promise<Record<string, unknown>> {
     try {
       const content = await this.getContent(hash);
       const text = new TextDecoder().decode(content);

@@ -44,7 +44,7 @@ class TrezorEthereum implements HWWalletProvider {
       if (!rootPub.payload) {
         throw new Error("popup failed to open");
       }
-      if (!rootPub.success) throw new Error((rootPub.payload as any).error);
+      if (!rootPub.success) throw new Error((rootPub.payload as { error: string }).error);
 
       const hdKey = new HDKey();
       hdKey.publicKey = Buffer.from(rootPub.payload.publicKey, "hex");
@@ -78,7 +78,7 @@ class TrezorEthereum implements HWWalletProvider {
       message: options.message.toString("hex"),
       hex: true,
     });
-    if (!result.success) throw new Error((result.payload as any).error);
+    if (!result.success) throw new Error((result.payload as { error: string }).error);
     return bufferToHex(hexToBuffer(result.payload.signature));
   }
 
@@ -99,7 +99,7 @@ class TrezorEthereum implements HWWalletProvider {
         path: options.pathType.path.replace(`{index}`, options.pathIndex),
         transaction: { ...txObject, gasPrice: bigIntToHex(tx.gasPrice) },
       }).then((result) => {
-        if (!result.success) throw new Error((result.payload as any).error);
+        if (!result.success) throw new Error((result.payload as { error: string }).error);
         const rv = BigInt(parseInt(result.payload.v, 16));
         const cv = tx.common.chainId() * 2n + 35n;
         return toRpcSig(
@@ -119,7 +119,7 @@ class TrezorEthereum implements HWWalletProvider {
         maxPriorityFeePerGas: bigIntToHex(tx.maxPriorityFeePerGas),
       },
     }).then((result) => {
-      if (!result.success) throw new Error((result.payload as any).error);
+      if (!result.success) throw new Error((result.payload as { error: string }).error);
       return toRpcSig(
         BigInt(result.payload.v),
         hexToBuffer(result.payload.r),
@@ -136,17 +136,17 @@ class TrezorEthereum implements HWWalletProvider {
       message: request.message,
     };
     const { domain_separator_hash, message_hash } = transformTypedData(
-      eip712Data as any,
+      eip712Data as { domain: Record<string, unknown>; message: Record<string, unknown> },
       true,
     );
     const result = await this.TrezorConnect.ethereumSignTypedData({
       path: request.pathType.path.replace(`{index}`, request.pathIndex),
-      data: eip712Data as any,
+      data: eip712Data as { domain: Record<string, unknown>; message: Record<string, unknown> },
       metamask_v4_compat: true,
       domain_separator_hash,
       message_hash,
     });
-    if (!result.success) throw new Error((result.payload as any).error);
+    if (!result.success) throw new Error((result.payload as { error: string }).error);
     return bufferToHex(hexToBuffer(result.payload.signature));
   }
 

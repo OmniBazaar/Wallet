@@ -8,10 +8,10 @@ import { ChainType } from '../keyring/BIP39Keyring';
 export enum NFTType {
   ERC721 = 'ERC721',
   ERC1155 = 'ERC1155',
-  Ordinals = 'ORDINALS',
-  SolanaBGUM = 'SOLANABGUM',
-  SolanaToken = 'SOLANATOKEN',
-  SubstrateNFT = 'SUBSTRATENFT',
+  ORDINALS = 'ORDINALS',
+  SOLANA_BGUM = 'SOLANABGUM',
+  SOLANA_TOKEN = 'SOLANATOKEN',
+  SUBSTRATE_NFT = 'SUBSTRATENFT',
 }
 
 export enum NFTStandard {
@@ -34,7 +34,7 @@ export interface NFTMetadata {
   animation_url?: string;
   external_url?: string;
   attributes?: NFTAttribute[];
-  properties?: Record<string, any>;
+  properties?: Record<string, unknown>;
   background_color?: string;
 }
 
@@ -121,11 +121,11 @@ export interface SolanaEdition {
 }
 
 export enum SolanaTokenStandard {
-  NonFungible = 'NonFungible',
-  FungibleAsset = 'FungibleAsset',
-  Fungible = 'Fungible',
-  NonFungibleEdition = 'NonFungibleEdition',
-  ProgrammableNonFungible = 'ProgrammableNonFungible',
+  NON_FUNGIBLE = 'NonFungible',
+  FUNGIBLE_ASSET = 'FungibleAsset',
+  FUNGIBLE = 'Fungible',
+  NON_FUNGIBLE_EDITION = 'NonFungibleEdition',
+  PROGRAMMABLE_NON_FUNGIBLE = 'ProgrammableNonFungible',
 }
 
 export interface NFTDiscoveryOptions {
@@ -161,16 +161,16 @@ export const SPECIAL_NFT_CONTRACTS = {
 
 // Marketplace identifiers
 export enum NFTMarketplace {
-  OpenSea = 'opensea',
-  Blur = 'blur',
-  LooksRare = 'looksrare',
+  OPEN_SEA = 'opensea',
+  BLUR = 'blur',
+  LOOKS_RARE = 'looksrare',
   X2Y2 = 'x2y2',
-  Rarible = 'rarible',
-  MagicEden = 'magiceden',
-  Solanart = 'solanart',
-  DigitalEyes = 'digitaleyes',
-  Singular = 'singular',
-  Kodadot = 'kodadot',
+  RARIBLE = 'rarible',
+  MAGIC_EDEN = 'magiceden',
+  SOLANART = 'solanart',
+  DIGITAL_EYES = 'digitaleyes',
+  SINGULAR = 'singular',
+  KODADOT = 'kodadot',
 }
 
 // Chain-specific NFT API endpoints

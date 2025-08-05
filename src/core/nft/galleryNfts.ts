@@ -42,7 +42,7 @@ const galleryNftsQueryKey = ({
   sort,
   testnetMode,
   userChains,
-}: GalleryNftsArgs) =>
+}: GalleryNftsArgs): readonly [string, { address: string; sort: string; testnetMode: boolean; userChains: string[] }, { persisterVersion: number }] =>
   createQueryKey(
     'galleryNfts',
     { address, sort, testnetMode, userChains },
@@ -55,7 +55,7 @@ const galleryNftsQueryKey = ({
 async function galleryNftsQueryFunction({
   queryKey: [{ address, sort, testnetMode, userChains }],
   pageParam,
-}: QueryFunctionArgs<typeof galleryNftsQueryKey>) {
+}: QueryFunctionArgs<typeof galleryNftsQueryKey>): Promise<{ data: unknown[]; nextPageParam?: unknown }> {
   if (
     process.env.IS_TESTING === 'true' &&
     isLowerCaseMatch(address, EMPTY_WALLET_ADDRESS)
@@ -113,7 +113,7 @@ export function useGalleryNfts<TSelectData = GalleryNftsResult>(
   });
 }
 
-function getGalleryNftsTestData({ sort }: { sort: NftSort }) {
+function getGalleryNftsTestData({ sort }: { sort: NftSort }): { data: unknown[]; nextPageParam?: unknown } {
   if (sort === 'alphabetical') {
     return {
       ...NFTS_TEST_DATA,

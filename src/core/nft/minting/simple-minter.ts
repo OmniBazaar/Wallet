@@ -44,7 +44,7 @@ export class SimplifiedNFTMinter {
     sellerAddress: string
   ): Promise<MintingResult> {
     try {
-      console.log('Starting NFT minting process...');
+      console.warn('Starting NFT minting process...');
       
       // 1. Validate the mint request
       const validation = this.validateMintRequest(mintRequest);
@@ -68,7 +68,7 @@ export class SimplifiedNFTMinter {
       const mintResult = await this.simulateBlockchainMinting(
         sellerAddress,
         tokenId,
-        ipfsResult.hash!
+        ipfsResult.hash || 'unknown'
       );
 
       if (!mintResult.success) {
@@ -79,12 +79,12 @@ export class SimplifiedNFTMinter {
       const nftItem = this.createNFTItem(
         tokenId,
         metadata,
-        mintResult.transactionHash!,
-        ipfsResult.hash!,
+        mintResult.transactionHash || 'unknown',
+        ipfsResult.hash || 'unknown',
         sellerAddress
       );
 
-      console.log('NFT minting completed successfully');
+      console.warn('NFT minting completed successfully');
       return {
         success: true,
         tokenId,
@@ -94,7 +94,7 @@ export class SimplifiedNFTMinter {
       };
 
     } catch (error) {
-      console.error('NFT minting error:', error);
+      console.warn('NFT minting error:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown minting error'
@@ -157,7 +157,7 @@ export class SimplifiedNFTMinter {
   /**
    * Simulate IPFS upload (replace with real implementation)
    */
-  private async simulateIPFSUpload(metadata: NFTMetadata, image: File | string): Promise<IPFSUploadResult> {
+  private async simulateIPFSUpload(metadata: NFTMetadata, _image: File | string): Promise<IPFSUploadResult> {
     try {
       // Simulate async upload delay
       await new Promise(resolve => setTimeout(resolve, 1000));
@@ -168,7 +168,7 @@ export class SimplifiedNFTMinter {
       // Update metadata with IPFS image URL
       metadata.image = `ipfs://${hash}`;
 
-      console.log('IPFS upload simulated:', hash);
+      console.warn('IPFS upload simulated:', hash);
       return {
         success: true,
         hash
@@ -193,9 +193,9 @@ export class SimplifiedNFTMinter {
    * Simulate blockchain minting (replace with real implementation)
    */
   private async simulateBlockchainMinting(
-    toAddress: string,
-    tokenId: string,
-    metadataHash: string
+    _toAddress: string,
+    _tokenId: string,
+    _metadataHash: string
   ): Promise<{ success: boolean; transactionHash?: string; error?: string }> {
     try {
       // Simulate async blockchain interaction delay
@@ -206,7 +206,7 @@ export class SimplifiedNFTMinter {
         Math.floor(Math.random() * 16).toString(16)
       ).join('');
 
-      console.log('Blockchain minting simulated:', transactionHash);
+      console.warn('Blockchain minting simulated:', transactionHash);
       return {
         success: true,
         transactionHash

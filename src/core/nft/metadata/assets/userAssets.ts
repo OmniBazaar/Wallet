@@ -61,7 +61,7 @@ export const userAssetsQueryKey = ({
   address,
   currency,
   testnetMode,
-}: UserAssetsArgs) =>
+}: UserAssetsArgs): readonly [string, { address?: Address; currency: SupportedCurrencyKey; testnetMode?: boolean }, { persisterVersion: number }] =>
   createQueryKey(
     'userAssets',
     { address, currency, testnetMode },
@@ -77,7 +77,7 @@ export const userAssetsFetchQuery = ({
   address,
   currency,
   testnetMode,
-}: FetchUserAssetsArgs) => {
+}: FetchUserAssetsArgs): void => {
   queryClient.fetchQuery({
     queryKey: userAssetsQueryKey({
       address,
@@ -93,7 +93,7 @@ export const userAssetsSetQueryDefaults = ({
   currency,
   staleTime,
   testnetMode,
-}: SetUserDefaultsArgs) => {
+}: SetUserDefaultsArgs): void => {
   queryClient.setQueryDefaults(
     userAssetsQueryKey({ address, currency, testnetMode }),
     {
@@ -107,7 +107,7 @@ export const userAssetsSetQueryData = ({
   currency,
   userAssets,
   testnetMode,
-}: SetUserAssetsArgs) => {
+}: SetUserAssetsArgs): void => {
   queryClient.setQueryData(
     userAssetsQueryKey({ address, currency, testnetMode }),
     userAssets,
@@ -116,7 +116,7 @@ export const userAssetsSetQueryData = ({
 
 async function userAssetsQueryFunction({
   queryKey: [{ address, currency, testnetMode }],
-}: QueryFunctionArgs<typeof userAssetsQueryKey>) {
+}: QueryFunctionArgs<typeof userAssetsQueryKey>): Promise<ParsedAssetsDictByChain> {
   const cache = queryClient.getQueryCache();
   const cachedUserAssets = (cache.find({
     queryKey: userAssetsQueryKey({
@@ -194,7 +194,7 @@ async function userAssetsQueryFunctionRetryByChain({
   chainIds: ChainId[];
   currency: SupportedCurrencyKey;
   testnetMode?: boolean;
-}) {
+}): Promise<void> {
   try {
     const cache = queryClient.getQueryCache();
     const cachedUserAssets =
@@ -251,7 +251,7 @@ export function useUserAssets<TSelectResult = UserAssetsResult>(
     TSelectResult,
     UserAssetsQueryKey
   > = {},
-) {
+): unknown {
   const { testnetMode } = useTestnetModeStore();
   return useQuery({
     queryKey: userAssetsQueryKey({
@@ -283,7 +283,7 @@ export const userAssetsByChainQueryKey = ({
   address,
   chainId,
   currency,
-}: UserAssetsByChainArgs) =>
+}: UserAssetsByChainArgs): readonly [string, { address: Address; chainId: ChainId; currency: SupportedCurrencyKey }, { persisterVersion: number }] =>
   createQueryKey(
     'userAssetsByChain',
     { address, chainId, currency },
@@ -305,7 +305,7 @@ export async function fetchUserAssetsByChain<
     TSelectData,
     UserAssetsByChainQueryKey
   > = {},
-) {
+): Promise<TSelectData> {
   return await queryClient.fetchQuery({
     queryKey: userAssetsByChainQueryKey({
       address,
@@ -375,7 +375,7 @@ export function useUserAssetsByChain<TSelectResult = UserAssetsByChainResult>(
     TSelectResult,
     UserAssetsByChainQueryKey
   > = {},
-) {
+): unknown {
   return useQuery({
     queryKey: userAssetsByChainQueryKey({
       address,

@@ -21,7 +21,7 @@ export class ENSService {
     ];
     
     // ENS Resolver ABI (minimal)
-    const ENS_RESOLVER_ABI = [
+    const _ENS_RESOLVER_ABI = [
       "function addr(bytes32 node) external view returns (address)",
       "function addr(bytes32 node, uint256 coinType) external view returns (bytes memory)"
     ];

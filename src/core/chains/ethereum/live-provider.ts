@@ -21,7 +21,7 @@ export interface EthereumNetwork {
 }
 
 // Production RPC endpoints
-export const ETHEREUM_NETWORKS: Record<string, EthereumNetwork> = {
+export const ETHEREUM_NETWORKS = {
   mainnet: {
     name: 'Ethereum Mainnet',
     chainId: 1,
@@ -77,21 +77,21 @@ export const ETHEREUM_NETWORKS: Record<string, EthereumNetwork> = {
       decimals: 18
     }
   }
-};
+} as const;
 
 export class LiveEthereumProvider {
-  private provider: ethers.JsonRpcProvider;
+  protected provider: ethers.providers.JsonRpcProvider;
   private network: EthereumNetwork;
   private signer: ethers.Signer | null = null;
   
-  constructor(networkName: string = 'mainnet') {
+  constructor(networkName = 'mainnet') {
     const network = ETHEREUM_NETWORKS[networkName];
     if (!network) {
       throw new Error(`Unknown network: ${networkName}`);
     }
     
     this.network = network;
-    this.provider = new ethers.JsonRpcProvider(network.rpcUrl, {
+    this.provider = new ethers.providers.JsonRpcProvider(network.rpcUrl, {
       chainId: network.chainId,
       name: network.name
     });
@@ -100,7 +100,7 @@ export class LiveEthereumProvider {
   /**
    * Get the provider instance
    */
-  getProvider(): ethers.JsonRpcProvider {
+  getProvider(): ethers.providers.JsonRpcProvider {
     return this.provider;
   }
 
@@ -121,7 +121,7 @@ export class LiveEthereumProvider {
     }
     
     this.network = network;
-    this.provider = new ethers.JsonRpcProvider(network.rpcUrl, {
+    this.provider = new ethers.providers.JsonRpcProvider(network.rpcUrl, {
       chainId: network.chainId,
       name: network.name
     });
@@ -241,14 +241,14 @@ export class LiveEthereumProvider {
   /**
    * Create contract instance
    */
-  getContract(address: string, abi: any[]): ethers.Contract {
+  getContract(address: string, abi: ethers.ContractInterface): ethers.Contract {
     return new ethers.Contract(address, abi, this.provider);
   }
 
   /**
    * Create contract instance with signer
    */
-  async getContractWithSigner(address: string, abi: any[]): Promise<ethers.Contract> {
+  async getContractWithSigner(address: string, abi: ethers.ContractInterface): Promise<ethers.Contract> {
     const signer = await this.getSigner();
     return new ethers.Contract(address, abi, signer);
   }
@@ -314,7 +314,10 @@ class KeyringSigner extends ethers.Signer {
     const signedTx = await this.signTransaction(transaction);
     
     // Send to network
-    return await this.provider!.sendTransaction(signedTx);
+    if (!this.provider) {
+      throw new Error('Provider not available');
+    }
+    return await this.provider.sendTransaction(signedTx);
   }
 
   connect(provider: ethers.providers.Provider): KeyringSigner {

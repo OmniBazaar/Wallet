@@ -1,6 +1,6 @@
-import { BrowserProvider } from 'ethers';
+// import { BrowserProvider } from 'ethers'; // TODO: implement provider integration
 import { TokenInfo } from './index';
-import { TransactionResponse } from 'ethers';
+// import { TransactionResponse } from 'ethers'; // TODO: implement transaction integration
 import { ListingNode } from './listing';
 
 export interface UseTokenBalanceResult {

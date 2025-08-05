@@ -1,16 +1,16 @@
 import { ethers } from 'ethers';
 import { LiveEthereumProvider } from '../ethereum/live-provider';
 import { ALL_NETWORKS, EVMNetworkConfig, getRpcUrl } from './networks';
-import { KeyringService } from '../../keyring/KeyringService';
+// import { KeyringService } from '../../keyring/KeyringService'; // TODO: implement if needed
 
 /**
  * Multi-chain EVM provider that can handle any EVM-compatible chain
  */
 export class MultiChainEVMProvider extends LiveEthereumProvider {
   private currentNetwork: EVMNetworkConfig;
-  private providers: Map<number, ethers.providers.JsonRpcProvider> = new Map();
+  private providers: Map<number, ethers.JsonRpcProvider> = new Map();
 
-  constructor(networkKey: string = 'ethereum') {
+  constructor(networkKey = 'ethereum') {
     // Initialize with Ethereum mainnet as base
     super('mainnet');
     
@@ -29,7 +29,7 @@ export class MultiChainEVMProvider extends LiveEthereumProvider {
    */
   private initializeProvider(): void {
     const rpcUrl = getRpcUrl(this.currentNetwork);
-    const provider = new ethers.providers.JsonRpcProvider(rpcUrl, {
+    const provider = new ethers.JsonRpcProvider(rpcUrl, {
       chainId: this.currentNetwork.chainId,
       name: this.currentNetwork.name
     });
@@ -51,7 +51,7 @@ export class MultiChainEVMProvider extends LiveEthereumProvider {
     let provider = this.providers.get(network.chainId);
     if (!provider) {
       const rpcUrl = getRpcUrl(network);
-      provider = new ethers.providers.JsonRpcProvider(rpcUrl, {
+      provider = new ethers.JsonRpcProvider(rpcUrl, {
         chainId: network.chainId,
         name: network.name
       });
@@ -102,7 +102,7 @@ export class MultiChainEVMProvider extends LiveEthereumProvider {
    */
   async addCustomNetwork(network: EVMNetworkConfig): Promise<void> {
     const rpcUrl = getRpcUrl(network);
-    const provider = new ethers.providers.JsonRpcProvider(rpcUrl, {
+    const provider = new ethers.JsonRpcProvider(rpcUrl, {
       chainId: network.chainId,
       name: network.name
     });
@@ -115,7 +115,7 @@ export class MultiChainEVMProvider extends LiveEthereumProvider {
       // Add to ALL_NETWORKS for future use
       ALL_NETWORKS[network.shortName] = network;
     } catch (error) {
-      throw new Error(`Failed to connect to network: ${error.message}`);
+      throw new Error(`Failed to connect to network: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -143,7 +143,7 @@ export class MultiChainEVMProvider extends LiveEthereumProvider {
   /**
    * Estimate gas with network-specific limits
    */
-  async estimateGas(transaction: ethers.providers.TransactionRequest): Promise<ethers.BigNumber> {
+  async estimateGas(transaction: ethers.TransactionRequest): Promise<ethers.BigNumber> {
     const estimate = await this.provider.estimateGas(transaction);
     
     // Apply network-specific adjustments
@@ -159,6 +159,14 @@ export class MultiChainEVMProvider extends LiveEthereumProvider {
   }
 
   /**
+   * Get the active account address
+   */
+  async getAddress(): Promise<string> {
+    const signer = await this.getSigner();
+    return await signer.getAddress();
+  }
+
+  /**
    * Get formatted balance with native currency symbol
    */
   async getFormattedBalance(address?: string): Promise<string> {
@@ -171,7 +179,7 @@ export class MultiChainEVMProvider extends LiveEthereumProvider {
   /**
    * Send transaction with network-specific handling
    */
-  async sendTransaction(transaction: ethers.providers.TransactionRequest): Promise<ethers.providers.TransactionResponse> {
+  async sendTransaction(transaction: ethers.TransactionRequest): Promise<ethers.TransactionResponse> {
     // Add chain ID to prevent replay attacks
     transaction.chainId = this.currentNetwork.chainId;
     

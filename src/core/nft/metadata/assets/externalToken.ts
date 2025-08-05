@@ -44,14 +44,14 @@ export const externalTokenQueryKey = ({
   address,
   chainId,
   currency,
-}: ExternalTokenArgs) =>
+}: ExternalTokenArgs): readonly [string, { address: string; chainId: number; currency: string }, { persisterVersion: number }] =>
   createQueryKey(
     'externalToken',
     { address, chainId, currency },
     { persisterVersion: 1 },
   );
 
-type externalTokenQueryKey = ReturnType<typeof externalTokenQueryKey>;
+type ExternalTokenQueryKey = ReturnType<typeof externalTokenQueryKey>;
 
 // Helpers
 const formatExternalAsset = (
@@ -95,7 +95,7 @@ export async function fetchExternalToken({
   address,
   chainId,
   currency,
-}: ExternalTokenArgs) {
+}: ExternalTokenArgs): Promise<ParsedAsset | null> {
   const response = await metadataClient.externalToken({
     address,
     chainId,
@@ -128,9 +128,9 @@ export function useExternalToken(
     ExternalTokenQueryFunctionResult,
     Error,
     ParsedAsset,
-    externalTokenQueryKey
+    ExternalTokenQueryKey
   > = {},
-) {
+): { data?: ParsedAsset; isLoading: boolean; error?: Error } {
   return useQuery({
     queryKey: externalTokenQueryKey({ address, chainId, currency }),
     queryFn: externalTokenQueryFunction,
@@ -147,9 +147,9 @@ export function useExternalTokens(
     ExternalTokenQueryFunctionResult,
     Error,
     ParsedAsset,
-    externalTokenQueryKey
+    ReturnType<typeof externalTokenQueryKey>
   > = {},
-) {
+): unknown {
   const queries = useQueries({
     queries: assets.map(({ address, chainId }) => ({
       queryKey: externalTokenQueryKey({ address, chainId, currency }),
