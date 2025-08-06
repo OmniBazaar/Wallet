@@ -1,5 +1,8 @@
 import { TransactionRequest, AbiCoder, concat } from 'ethers';
 
+/**
+ * Core transaction data for blockchain transactions
+ */
 export interface TransactionData {
   to?: string;
   from?: string;
@@ -11,6 +14,9 @@ export interface TransactionData {
   chainId?: number;
 }
 
+/**
+ * Optional parameters for transaction execution
+ */
 export interface TransactionOptions {
   confirmations?: number;
   timeout?: number;
@@ -20,10 +26,19 @@ export interface TransactionOptions {
   maxPriorityFeePerGas?: bigint;
 }
 
+/**
+ * Represents a blockchain transaction with gas options and utilities
+ * Provides methods to convert to Ethers.js format and create common transaction types
+ */
 export class Transaction {
   private data: TransactionData;
   private options: TransactionOptions;
 
+  /**
+   * Creates a new Transaction instance
+   * @param data - Core transaction data
+   * @param options - Optional transaction parameters with defaults
+   */
   constructor(data: TransactionData, options: TransactionOptions = {}) {
     this.data = data;
     this.options = {
@@ -33,14 +48,26 @@ export class Transaction {
     };
   }
 
+  /**
+   * Gets a copy of the transaction data
+   * @returns Cloned transaction data object
+   */
   getData(): TransactionData {
     return { ...this.data };
   }
 
+  /**
+   * Gets a copy of the transaction options
+   * @returns Cloned transaction options object
+   */
   getOptions(): TransactionOptions {
     return { ...this.options };
   }
 
+  /**
+   * Converts the transaction to Ethers.js TransactionRequest format
+   * @returns Transaction in Ethers.js format
+   */
   toEthersTransaction(): TransactionRequest {
     return {
       to: this.data.to,
@@ -54,7 +81,12 @@ export class Transaction {
     };
   }
 
-  // Helper methods for common transaction types
+  /**
+   * Creates a simple ETH transfer transaction
+   * @param to - Recipient address
+   * @param value - Amount to transfer in wei
+   * @returns New Transaction instance
+   */
   static createTransfer(to: string, value: bigint): Transaction {
     return new Transaction({
       to,
@@ -63,6 +95,13 @@ export class Transaction {
     });
   }
 
+  /**
+   * Creates a smart contract call transaction
+   * @param to - Contract address
+   * @param data - Encoded function call data
+   * @param value - ETH value to send with call (default: 0)
+   * @returns New Transaction instance
+   */
   static createContractCall(
     to: string,
     data: string,
@@ -75,6 +114,13 @@ export class Transaction {
     });
   }
 
+  /**
+   * Creates an ERC-20 token transfer transaction
+   * @param tokenAddress - Token contract address
+   * @param to - Recipient address
+   * @param amount - Amount of tokens to transfer
+   * @returns New Transaction instance with encoded transfer call
+   */
   static createTokenTransfer(
     tokenAddress: string,
     to: string,

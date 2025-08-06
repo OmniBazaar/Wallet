@@ -12,7 +12,9 @@ import {
 import { EthereumNetwork, BaseNetwork } from '@/types/base-network';
 import EventEmitter from 'eventemitter3';
 
-// Default Ethereum networks
+/**
+ * Configuration for supported Ethereum networks
+ */
 export const EthereumNetworks: { [key: string]: EthereumNetwork } = {
   ethereum: {
     name: 'ethereum',
@@ -51,6 +53,10 @@ export const EthereumNetworks: { [key: string]: EthereumNetwork } = {
   }
 };
 
+/**
+ * Ethereum provider implementation for OmniBazaar wallet
+ * Handles RPC requests, transaction signing, and network management
+ */
 export class EthereumProvider extends EventEmitter implements EthereumProviderInterface {
   network: EthereumNetwork;
   provider: providers.JsonRpcProvider;
@@ -61,6 +67,11 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
   selectedAddress: string | null = null;
   middlewares: MiddlewareFunction[] = [];
 
+  /**
+   * Creates a new Ethereum provider instance
+   * @param toWindow - Function to send messages to the window/UI
+   * @param network - Ethereum network configuration (defaults to mainnet)
+   */
   constructor(
     toWindow: (message: string) => void,
     network: EthereumNetwork = EthereumNetworks.ethereum
@@ -77,6 +88,9 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
     this.setupEventListeners();
   }
 
+  /**
+   * Sets up event listeners for provider state changes
+   */
   private setupEventListeners(): void {
     // Listen for network changes
     this.provider.on('network', (newNetwork: { chainId: number }, oldNetwork: { chainId: number } | null) => {
@@ -90,6 +104,10 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
     });
   }
 
+  /**
+   * Switches the provider to a different network
+   * @param network - Target network configuration
+   */
   async setRequestProvider(network: BaseNetwork): Promise<void> {
     const ethNetwork = network as EthereumNetwork;
     const oldChainId = this.chainId;
@@ -111,6 +129,11 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
     }
   }
 
+  /**
+   * Handles RPC requests from dApps or the wallet UI
+   * @param request - RPC request object containing method and parameters
+   * @returns Response object with result or error
+   */
   async request(request: ProviderRPCRequest): Promise<OnMessageResponse> {
     try {
       const result = await this.handleRPCRequest(request);
@@ -124,6 +147,11 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
     }
   }
 
+  /**
+   * Internal RPC request handler that processes specific Ethereum methods
+   * @param request - RPC request to process
+   * @returns Result data for the RPC call
+   */
   private async handleRPCRequest(request: ProviderRPCRequest): Promise<string | string[] | number> {
     const { method, params = [] } = request;
 
@@ -290,19 +318,38 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
     return true;
   }
 
+  /**
+   * Determines if an RPC request creates a persistent event subscription
+   * @param request - RPC request to check
+   * @returns True if the request creates a subscription
+   */
   async isPersistentEvent(request: ProviderRPCRequest): Promise<boolean> {
     return request.method === 'eth_subscribe';
   }
 
+  /**
+   * Sends a notification to the wallet UI
+   * @param notif - Notification message as JSON string
+   */
   async sendNotification(notif: string): Promise<void> {
     this.toWindow(notif);
   }
 
+  /**
+   * Gets the UI path for a specific page
+   * @param page - Page name
+   * @returns UI path for the page
+   */
   getUIPath(page: string): string {
     return `/ethereum/${page}`;
   }
 
-  // Additional utility methods for OmniBazaar integration
+  /**
+   * Gets the balance of an ERC-20 token for a user
+   * @param tokenAddress - Contract address of the token
+   * @param userAddress - User's wallet address
+   * @returns Token balance as string
+   */
   async getTokenBalance(tokenAddress: string, userAddress: string): Promise<string> {
     const tokenABI = [
       'function balanceOf(address owner) view returns (uint256)',
@@ -315,6 +362,13 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
     return balance.toString();
   }
 
+  /**
+   * Estimates gas needed for an ERC-20 token transfer
+   * @param tokenAddress - Contract address of the token
+   * @param to - Recipient address
+   * @param amount - Amount to transfer
+   * @returns Estimated gas as string
+   */
   async estimateTokenTransferGas(tokenAddress: string, to: string, amount: string): Promise<string> {
     const tokenABI = ['function transfer(address to, uint256 amount) returns (bool)'];
     const contract = new Contract(tokenAddress, tokenABI, this.provider);
@@ -323,7 +377,12 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
     return gasEstimate.toString();
   }
 
-  // NFT-related methods for marketplace integration
+  /**
+   * Gets metadata for an NFT from its contract
+   * @param contractAddress - NFT contract address
+   * @param tokenId - Token ID of the NFT
+   * @returns Object containing tokenURI and owner address
+   */
   async getNFTMetadata(contractAddress: string, tokenId: string): Promise<{ tokenURI: string; owner: string }> {
     const nftABI = [
       'function tokenURI(uint256 tokenId) view returns (string)',
@@ -339,11 +398,20 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
     return { tokenURI, owner };
   }
 
-  // Format helper methods
+  /**
+   * Formats a balance from wei to ETH
+   * @param balance - Balance in wei as string
+   * @returns Formatted balance in ETH
+   */
   formatBalance(balance: string): string {
     return utils.formatEther(balance);
   }
 
+  /**
+   * Parses an amount from ETH to wei
+   * @param amount - Amount in ETH as string
+   * @returns Amount in wei as BigNumber
+   */
   parseAmount(amount: string): BigNumber {
     return utils.parseEther(amount);
   }
@@ -354,7 +422,11 @@ export default EthereumProvider;
 // Export live provider
 export { LiveEthereumProvider, createLiveEthereumProvider, liveEthereumProvider } from './live-provider';
 
-// Export unified getProvider function that returns live provider
+/**
+ * Gets a live Ethereum provider instance
+ * @param _networkName - Network name (currently unused)
+ * @returns Promise resolving to JsonRpcProvider instance
+ */
 export async function getProvider(_networkName?: string): Promise<providers.JsonRpcProvider> {
   const { liveEthereumProvider } = await import('./live-provider');
   return liveEthereumProvider.getProvider();

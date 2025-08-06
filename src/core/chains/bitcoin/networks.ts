@@ -1,6 +1,7 @@
 // import * as bitcoin from 'bitcoinjs-lib';
 import { BitcoinNetworkConfig } from './provider';
 
+/** Bitcoin mainnet network configuration */
 export const BitcoinMainnet: BitcoinNetworkConfig = {
   chainId: 0, // Bitcoin doesn't use chainId like Ethereum
   name: 'Bitcoin',
@@ -20,6 +21,7 @@ export const BitcoinMainnet: BitcoinNetworkConfig = {
   feeRate: 10, // Default fee rate in sat/vB
 };
 
+/** Bitcoin testnet network configuration */
 export const BitcoinTestnet: BitcoinNetworkConfig = {
   chainId: 1, // Testnet identifier
   name: 'Bitcoin Testnet',
@@ -39,7 +41,10 @@ export const BitcoinTestnet: BitcoinNetworkConfig = {
   feeRate: 10,
 };
 
-// Alternative API endpoints for redundancy
+/**
+ * Alternative API endpoints for redundancy when primary endpoints fail
+ * Provides fallback options for both mainnet and testnet operations
+ */
 export const AlternativeAPIs = {
   mainnet: [
     'https://api.blockcypher.com/v1/btc/main',
@@ -52,7 +57,10 @@ export const AlternativeAPIs = {
   ],
 };
 
-// Lightning Network configuration (for future implementation)
+/**
+ * Lightning Network configuration for future implementation
+ * Currently placeholder for planned Lightning Network integration
+ */
 export const LightningConfig = {
   mainnet: {
     name: 'Lightning Network',
@@ -66,7 +74,12 @@ export const LightningConfig = {
   },
 };
 
+/**
+ * Default Bitcoin network configurations
+ */
 export default {
+  /** Bitcoin mainnet configuration */
   mainnet: BitcoinMainnet,
+  /** Bitcoin testnet configuration */
   testnet: BitcoinTestnet,
 };

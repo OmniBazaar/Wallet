@@ -1,12 +1,17 @@
 import { NetworkNames } from "@enkryptcom/types";
 import { bip44Paths } from "../../configs";
 
+/** Default BIP44 paths for Ethereum-based networks on Ledger */
 const DEFAULT_PATHS = [
   bip44Paths.ethereumLedger,
   bip44Paths.ethereumLedgerLive,
 ];
-// https://github.com/LedgerHQ/app-ethereum/blob/develop/src/network.c
-// last updated: 08-29-2024
+/**
+ * Supported derivation paths for each network on Ledger hardware wallets
+ * Based on Ledger Ethereum app network configurations
+ * @see https://github.com/LedgerHQ/app-ethereum/blob/develop/src/network.c
+ * Last updated: 08-29-2024
+ */
 const supportedPaths = {
   [NetworkNames.Ethereum]: DEFAULT_PATHS,
   [NetworkNames.Matic]: DEFAULT_PATHS,
@@ -36,4 +41,7 @@ const supportedPaths = {
   [NetworkNames.Telos]: DEFAULT_PATHS,
   [NetworkNames.Blast]: DEFAULT_PATHS,
 };
+/**
+ * Supported derivation paths mapping for Ledger Ethereum networks
+ */
 export { supportedPaths };

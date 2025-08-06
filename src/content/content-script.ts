@@ -1,9 +1,12 @@
-// OmniBazaar Wallet Content Script
-// Injects Web3 providers into web pages for dApp interaction
+/**
+ * OmniBazaar Wallet Content Script
+ * Injects Web3 providers into web pages for dApp interaction
+ * Provides both OmniBazaar-specific and Ethereum-compatible provider APIs
+ */
 
 import { ProviderName, ProviderRPCRequest } from '@/types/provider';
 
-// Declare global chrome API
+/** Chrome extension runtime API type definitions */
 declare const chrome: {
   runtime: {
     onMessage: {
@@ -12,6 +15,8 @@ declare const chrome: {
     sendMessage: (message: unknown) => Promise<unknown>;
   };
 };
+
+/** Extended window object with Web3 provider properties */
 declare const window: Window & {
   ethereum?: unknown;
   [key: string]: unknown;
@@ -19,10 +24,13 @@ declare const window: Window & {
 
 console.warn('🌐 OmniBazaar Wallet content script loaded');
 
-// Track injected providers
+/** Track which providers have been injected to avoid duplicates */
 const injectedProviders = new Set<string>();
 
-// Message handler for background script communications
+/**
+ * Message handler for background script communications
+ * Handles provider notifications and page context requests
+ */
 chrome.runtime.onMessage.addListener((message: { type: string; data?: unknown }, sender: chrome.runtime.MessageSender, sendResponse: (response?: unknown) => void) => {
   console.warn('📨 Content script received message:', message.type);
   
@@ -46,13 +54,20 @@ chrome.runtime.onMessage.addListener((message: { type: string; data?: unknown },
   return true;
 });
 
-// Get favicon URL
+/**
+ * Extracts the favicon URL from the current page
+ * @returns The favicon URL or empty string if not found
+ */
 function getFaviconUrl(): string {
   const favicon = document.querySelector('link[rel*="icon"]') as HTMLLinkElement;
   return favicon ? favicon.href : '';
 }
 
-// Handle provider notifications from background
+/**
+ * Handles provider notifications from the background script
+ * Forwards notifications to injected providers via postMessage
+ * @param data - JSON string containing notification data
+ */
 function handleProviderNotification(data: string): void {
   try {
     const notification = JSON.parse(data);
@@ -67,7 +82,13 @@ function handleProviderNotification(data: string): void {
   }
 }
 
-// Send request to background script
+/**
+ * Sends requests to the background script via Chrome runtime messaging
+ * @param type - The message type identifier
+ * @param data - The message payload
+ * @returns Promise resolving to the background script response
+ * @throws {Error} When the Chrome runtime encounters an error
+ */
 async function sendToBackground(type: string, data: unknown): Promise<unknown> {
   return new Promise((resolve, reject) => {
     chrome.runtime.sendMessage({ type, data }, (response: unknown) => {
@@ -80,10 +101,14 @@ async function sendToBackground(type: string, data: unknown): Promise<unknown> {
   });
 }
 
-// Event callback type
+/** Event callback function type for provider event handling */
 type EventCallback = (detail: unknown) => void;
 
-// Create OmniBazaar provider
+/**
+ * Creates the OmniBazaar-specific Web3 provider
+ * Includes marketplace-specific methods alongside standard Web3 functionality
+ * @returns The OmniBazaar provider object
+ */
 function createOmniBazaarProvider(): unknown {
   console.warn('🔗 Creating OmniBazaar provider');
   
@@ -147,10 +172,14 @@ function createOmniBazaarProvider(): unknown {
   return provider;
 }
 
-// Legacy callback type for older dApps
+/** Legacy callback type for older dApps that use sendAsync */
 type LegacyCallback = (error: Error | null, result?: unknown) => void;
 
-// Create Ethereum provider (for compatibility with existing dApps)
+/**
+ * Creates an Ethereum-compatible Web3 provider for dApp compatibility
+ * Provides standard Ethereum RPC methods and legacy support
+ * @returns The Ethereum provider object
+ */
 function createEthereumProvider(): unknown {
   console.warn('🔗 Creating Ethereum provider');
   
@@ -215,7 +244,10 @@ function createEthereumProvider(): unknown {
   return provider;
 }
 
-// Inject providers into the page
+/**
+ * Injects Web3 providers into the page's window object
+ * Creates both OmniBazaar and Ethereum providers for maximum dApp compatibility
+ */
 function injectProviders(): void {
   if (window.omnibazaar) {
     console.warn('🔄 OmniBazaar provider already exists');
@@ -244,7 +276,10 @@ function injectProviders(): void {
   console.warn('✅ Providers injected successfully:', Array.from(injectedProviders));
 }
 
-// Announce provider according to EIP-6963
+/**
+ * Announces the provider according to EIP-6963 wallet discovery standard
+ * Allows dApps to discover and connect to OmniBazaar Wallet
+ */
 function announceProvider(): void {
   const detail = {
     info: {
@@ -259,12 +294,18 @@ function announceProvider(): void {
   window.dispatchEvent(new CustomEvent('eip6963:announceProvider', { detail }));
 }
 
-// Listen for EIP-6963 requests
+/**
+ * Listen for EIP-6963 provider discovery requests
+ * Responds with provider announcement when requested by dApps
+ */
 window.addEventListener('eip6963:requestProvider', () => {
   announceProvider();
 });
 
-// Listen for page messages
+/**
+ * Listen for page messages and handle provider notifications
+ * Forwards blockchain events to the appropriate provider instances
+ */
 window.addEventListener('message', (event: MessageEvent) => {
   if (event.data?.type === 'OMNIBAZAAR_PROVIDER_NOTIFICATION') {
     // Forward provider notifications to dApp
@@ -284,14 +325,17 @@ window.addEventListener('message', (event: MessageEvent) => {
   }
 });
 
-// Initialize when DOM is ready
+/**
+ * Initialize providers when DOM is ready
+ * Handles both traditional page loads and SPA navigation
+ */
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', injectProviders);
 } else {
   injectProviders();
 }
 
-// Also inject on document idle for SPA compatibility
+/** Additional injection timeout for SPA compatibility */
 setTimeout(injectProviders, 100);
 
 console.warn('🚀 OmniBazaar Wallet content script initialized'); 

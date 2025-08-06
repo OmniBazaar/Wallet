@@ -3,6 +3,9 @@
 
 import { ProviderName } from './provider';
 
+/**
+ * Base network configuration interface for all blockchain networks
+ */
 export interface BaseNetwork {
   name: string;
   name_long: string;
@@ -21,6 +24,9 @@ export interface BaseNetwork {
   basePath: string;
 }
 
+/**
+ * Ethereum-specific network configuration
+ */
 export interface EthereumNetwork extends BaseNetwork {
   chainID: string;
   slip44: number;
@@ -28,6 +34,9 @@ export interface EthereumNetwork extends BaseNetwork {
   multicall?: string;
 }
 
+/**
+ * Bitcoin-specific network configuration
+ */
 export interface BitcoinNetwork extends BaseNetwork {
   networkType: 'mainnet' | 'testnet';
   bech32: string;
@@ -36,11 +45,17 @@ export interface BitcoinNetwork extends BaseNetwork {
   wif: number;
 }
 
+/**
+ * Solana-specific network configuration
+ */
 export interface SolanaNetwork extends BaseNetwork {
   cluster: 'mainnet-beta' | 'testnet' | 'devnet';
   programId?: string;
 }
 
+/**
+ * Polkadot-specific network configuration
+ */
 export interface PolkadotNetwork extends BaseNetwork {
   genesisHash: string;
   prefix: number;
@@ -48,6 +63,9 @@ export interface PolkadotNetwork extends BaseNetwork {
   unit: string;
 }
 
+/**
+ * COTI-specific network configuration with privacy features
+ */
 export interface COTINetwork extends BaseNetwork {
   privacyEnabled: boolean;
   mpcProtocol: string;

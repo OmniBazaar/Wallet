@@ -2,6 +2,9 @@ import React, { createContext, useContext, useReducer } from 'react';
 import { ethers } from 'ethers';
 import { WalletState, WalletContextType, TokenInfo, Transaction } from '../types/wallet';
 
+/**
+ * Initial state for the wallet context
+ */
 const initialState: WalletState = {
   address: null,
   chainId: null,
@@ -11,6 +14,9 @@ const initialState: WalletState = {
   error: null,
 };
 
+/**
+ * Action types for wallet state management
+ */
 type Action =
   | { type: 'CONNECT_START' }
   | { type: 'CONNECT_SUCCESS'; payload: { address: string; chainId: number; provider: ethers.providers.Web3Provider } }
@@ -18,6 +24,12 @@ type Action =
   | { type: 'DISCONNECT' }
   | { type: 'UPDATE_CHAIN_ID'; payload: number };
 
+/**
+ * Reducer function for wallet state management
+ * @param state - Current wallet state
+ * @param action - Action to process
+ * @returns Updated wallet state
+ */
 function reducer(state: WalletState, action: Action): WalletState {
   switch (action.type) {
     case 'CONNECT_START':
@@ -48,11 +60,23 @@ function reducer(state: WalletState, action: Action): WalletState {
   }
 }
 
+/**
+ * React context for wallet functionality
+ */
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
+/**
+ * Provides wallet functionality to child components
+ * @param children - React child components
+ * @returns JSX element with wallet context provider
+ */
 export function WalletProvider({ children }: { children: React.ReactNode }): JSX.Element {
   const [state, dispatch] = useReducer(reducer, initialState);
 
+  /**
+   * Connects to user's Web3 wallet (MetaMask, etc.)
+   * @throws {Error} When no Web3 provider is found or connection fails
+   */
   const connect = async (): Promise<void> => {
     try {
       dispatch({ type: 'CONNECT_START' });
@@ -98,10 +122,18 @@ export function WalletProvider({ children }: { children: React.ReactNode }): JSX
     }
   };
 
+  /**
+   * Disconnects from the current wallet
+   */
   const disconnect = (): void => {
     dispatch({ type: 'DISCONNECT' });
   };
 
+  /**
+   * Switches to a different blockchain network
+   * @param chainId - Target chain ID
+   * @throws {Error} When network switch fails
+   */
   const switchNetwork = async (chainId: number): Promise<void> => {
     try {
       await window.ethereum.request({
@@ -113,6 +145,14 @@ export function WalletProvider({ children }: { children: React.ReactNode }): JSX
     }
   };
 
+  /**
+   * Sends a transaction (native token or ERC-20 token)
+   * @param to - Recipient address
+   * @param value - Amount to send
+   * @param token - Optional token info for ERC-20 transfers
+   * @returns Transaction hash
+   * @throws {Error} When wallet not connected or transaction fails
+   */
   const sendTransaction = async (to: string, value: string, token?: TokenInfo): Promise<string> => {
     if (!state.provider || !state.address) {
       throw new Error('Wallet not connected');
@@ -144,6 +184,12 @@ export function WalletProvider({ children }: { children: React.ReactNode }): JSX
     }
   };
 
+  /**
+   * Gets the balance of native currency or ERC-20 token
+   * @param token - Optional token info for ERC-20 balance
+   * @returns Formatted balance as string
+   * @throws {Error} When wallet not connected or balance query fails
+   */
   const getBalance = async (token?: TokenInfo): Promise<string> => {
     if (!state.provider || !state.address) {
       throw new Error('Wallet not connected');
@@ -167,6 +213,11 @@ export function WalletProvider({ children }: { children: React.ReactNode }): JSX
     }
   };
 
+  /**
+   * Gets transaction history for the connected wallet
+   * @returns Array of transaction records
+   * @todo Implement blockchain explorer integration
+   */
   const getTransactions = async (): Promise<Transaction[]> => {
     // This is a placeholder. In a real implementation, you would:
     // 1. Query a blockchain explorer API
@@ -191,6 +242,15 @@ export function WalletProvider({ children }: { children: React.ReactNode }): JSX
   );
 }
 
+/**
+ * Hook to access wallet functionality in React components
+ * @returns Wallet context with state and methods
+ * @throws {Error} When used outside of WalletProvider
+ * @example
+ * ```tsx
+ * const { state, connect, sendTransaction } = useWallet();
+ * ```
+ */
 export function useWallet(): WalletContextType {
   const context = useContext(WalletContext);
   if (context === undefined) {

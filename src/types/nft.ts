@@ -1,6 +1,9 @@
 // OmniBazaar Wallet NFT Types
 // Enhanced for marketplace integration
 
+/**
+ * Represents an individual NFT with marketplace integration
+ */
 export interface NFTItem {
   id: string;
   tokenId: string;
@@ -32,6 +35,9 @@ export interface NFTItem {
   metadataUri?: string;
 }
 
+/**
+ * Represents an NFT attribute/trait following OpenSea metadata standard
+ */
 export interface NFTAttribute {
   trait_type: string;
   value: string | number;
@@ -39,6 +45,9 @@ export interface NFTAttribute {
   max_value?: number;
 }
 
+/**
+ * Represents an NFT collection with marketplace data
+ */
 export interface NFTCollection {
   id: string;
   name: string;
@@ -68,6 +77,9 @@ export interface NFTCollection {
   };
 }
 
+/**
+ * Standard NFT metadata with OmniBazaar marketplace extensions
+ */
 export interface NFTMetadata {
   name: string;
   description: string;
@@ -102,6 +114,9 @@ export interface NFTMetadata {
   };
 }
 
+/**
+ * Represents an NFT listing on the OmniBazaar marketplace
+ */
 export interface MarketplaceListing {
   id: string;
   nftId: string;
@@ -144,6 +159,9 @@ export interface MarketplaceListing {
   shares: number;
 }
 
+/**
+ * Represents an NFT transfer/transaction event on the blockchain
+ */
 export interface NFTTransferEvent {
   id: string;
   transactionHash: string;
@@ -159,6 +177,9 @@ export interface NFTTransferEvent {
   gasPrice?: string;
 }
 
+/**
+ * Request parameters for minting a new NFT
+ */
 export interface NFTMintRequest {
   name: string;
   description: string;
@@ -178,6 +199,9 @@ export interface NFTMintRequest {
   pinToIPFS?: boolean;
 }
 
+/**
+ * Search query parameters for marketplace NFT discovery
+ */
 export interface NFTSearchQuery {
   query?: string;
   category?: string;
@@ -195,6 +219,9 @@ export interface NFTSearchQuery {
   offset?: number;
 }
 
+/**
+ * Result set from NFT marketplace search operations
+ */
 export interface NFTSearchResult {
   items: MarketplaceListing[];
   total: number;

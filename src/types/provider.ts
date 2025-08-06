@@ -5,6 +5,9 @@ import EventEmitter from 'eventemitter3';
 import { BaseNetwork } from './base-network';
 import { NFTCollection } from './nft';
 
+/**
+ * Supported blockchain provider names
+ */
 export enum ProviderName {
   OMNIBAZAAR = 'omnibazaar',
   ETHEREUM = 'ethereum',
@@ -14,6 +17,9 @@ export enum ProviderName {
   COTI = 'coti',
 }
 
+/**
+ * Categories of blockchain providers by consensus mechanism
+ */
 export enum ProviderType {
   EVM,
   SUBSTRATE,
@@ -22,6 +28,9 @@ export enum ProviderType {
   COTI,
 }
 
+/**
+ * Internal storage namespaces for wallet data segregation
+ */
 export enum InternalStorageNamespace {
   KEYRING = 'KeyRing',
   ACCOUNTS = 'Accounts',
@@ -34,8 +43,14 @@ export enum InternalStorageNamespace {
   PAYMENT_STATE = 'PaymentState',
 }
 
+/**
+ * Union type for all supported storage namespaces
+ */
 export type StorageNamespace = ProviderName | InternalStorageNamespace;
 
+/**
+ * Standard RPC request format for provider communication
+ */
 export interface ProviderRPCRequest {
   id: string | number;
   method: string;
@@ -49,27 +64,47 @@ export interface ProviderRPCRequest {
   };
 }
 
+/**
+ * Standard response format for provider messages
+ */
 export interface OnMessageResponse {
   result?: string;
   error?: string;
 }
 
+/**
+ * Configuration options for provider initialization
+ */
 export interface ProviderOptions {
   name: ProviderName;
   type: ProviderType;
   sendMessageHandler: SendMessageHandler;
 }
 
+/**
+ * Function type for sending messages between providers
+ * @param provider - Target provider name
+ * @param message - Message payload to send
+ * @returns Promise resolving to the response
+ */
 export type SendMessageHandler = (
   provider: ProviderName,
   message: string,
 ) => Promise<unknown>;
 
+/**
+ * Middleware function for processing RPC requests
+ * @param request - The RPC request to process
+ * @returns Promise resolving to the processed request
+ */
 export interface MiddlewareFunction {
   (request: ProviderRPCRequest): Promise<ProviderRPCRequest>;
 }
 
-// Abstract base provider interface
+/**
+ * Abstract base class for blockchain providers running in background
+ * Handles RPC communication and event management
+ */
 export abstract class BackgroundProviderInterface extends EventEmitter {
   abstract namespace: string;
   abstract toWindow: (message: string) => void;
@@ -87,7 +122,10 @@ export abstract class BackgroundProviderInterface extends EventEmitter {
   abstract sendNotification(notif: string): Promise<void>;
 }
 
-// Provider API interface for chain interactions
+/**
+ * Abstract base class for chain-specific API interactions
+ * Provides core blockchain functionality
+ */
 export abstract class ProviderAPIInterface {
   abstract node: string;
   
@@ -100,7 +138,9 @@ export abstract class ProviderAPIInterface {
   abstract getTransactionStatus(hash: string): Promise<{ status: string; confirmations: number }>;
 }
 
-// NFT Provider interface for marketplace integration
+/**
+ * Interface for NFT-related operations in the marketplace
+ */
 export interface NFTProviderInterface {
   mintNFT(metadata: { name: string; description: string; image: string }): Promise<string>;
   transferNFT(tokenId: string, to: string): Promise<string>;
@@ -108,7 +148,9 @@ export interface NFTProviderInterface {
   createMarketplaceListing(tokenId: string, price: string): Promise<string>;
 }
 
-// Payment Provider interface for cross-chain payments
+/**
+ * Interface for payment operations across different blockchains
+ */
 export interface PaymentProviderInterface {
   initiatePayment(amount: string, to: string, token?: string): Promise<string>;
   getPaymentHistory(address: string): Promise<{ hash: string; amount: string; timestamp: number }[]>;
@@ -116,7 +158,9 @@ export interface PaymentProviderInterface {
   swapTokens(fromToken: string, toToken: string, amount: string): Promise<string>;
 }
 
-// Privacy Provider interface for COTI integration
+/**
+ * Interface for privacy-enhanced transactions using COTI
+ */
 export interface PrivacyProviderInterface {
   createPrivateTransaction(params: { to: string; amount: string }): Promise<string>;
   getPrivateBalance(address: string): Promise<string>;
@@ -124,7 +168,10 @@ export interface PrivacyProviderInterface {
   disablePrivacyMode(): Promise<void>;
 }
 
-// OmniBazaar-specific provider interface
+/**
+ * Main provider interface for OmniBazaar marketplace functionality
+ * Extends base provider with marketplace-specific methods
+ */
 export interface OmniBazaarProviderInterface extends BackgroundProviderInterface {
   nftProvider: NFTProviderInterface;
   paymentProvider: PaymentProviderInterface;
@@ -144,7 +191,9 @@ export interface OmniBazaarProviderInterface extends BackgroundProviderInterface
   getFromIPFS(hash: string): Promise<Record<string, unknown>>;
 }
 
-// Chain-specific provider exports
+/**
+ * Union type for all supported blockchain providers
+ */
 export type Provider = 
   | EthereumProviderInterface 
   | BitcoinProviderInterface 
@@ -152,27 +201,42 @@ export type Provider =
   | PolkadotProviderInterface
   | COTIProviderInterface;
 
+/**
+ * Ethereum-specific provider interface
+ */
 export interface EthereumProviderInterface extends BackgroundProviderInterface {
   chainId: string;
   networkVersion: string;
   selectedAddress: string | null;
 }
 
+/**
+ * Bitcoin-specific provider interface
+ */
 export interface BitcoinProviderInterface extends BackgroundProviderInterface {
   network: 'mainnet' | 'testnet';
   addressType: 'legacy' | 'segwit' | 'native_segwit';
 }
 
+/**
+ * Solana-specific provider interface
+ */
 export interface SolanaProviderInterface extends BackgroundProviderInterface {
   cluster: 'mainnet-beta' | 'testnet' | 'devnet';
   publicKey: string | null;
 }
 
+/**
+ * Polkadot-specific provider interface
+ */
 export interface PolkadotProviderInterface extends BackgroundProviderInterface {
   accounts: string[];
   metadata: Record<string, unknown>;
 }
 
+/**
+ * COTI-specific provider interface with privacy features
+ */
 export interface COTIProviderInterface extends BackgroundProviderInterface {
   privacyEnabled: boolean;
   mpcEnabled: boolean;

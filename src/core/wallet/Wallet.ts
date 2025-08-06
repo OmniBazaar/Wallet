@@ -3,12 +3,18 @@ import { Transaction } from './Transaction';
 // import { SupportedAssets } from './assets'; // TODO: implement asset support
 import { getOmniCoinBalance, OmniCoinMetadata } from '../blockchain/OmniCoin';
 
+/**
+ * Configuration parameters for wallet network setup
+ */
 export interface WalletConfig {
   network: string;
   rpcUrl: string;
   chainId: number;
 }
 
+/**
+ * Current state of the wallet including address and balances
+ */
 export interface WalletState {
   address: string;
   balance: bigint;
@@ -16,12 +22,19 @@ export interface WalletState {
   chainId: number;
 }
 
+/**
+ * Represents an action in a governance proposal
+ */
 export interface GovernanceAction {
   target: string;
   value: bigint;
   data: string;
 }
 
+/**
+ * Main wallet interface defining all wallet operations
+ * Supports multi-chain functionality and OmniCoin-specific features
+ */
 export interface Wallet {
   // Core Wallet Functions
   getAddress(): Promise<string>;
@@ -63,6 +76,9 @@ export interface Wallet {
   voteOnProposal(proposalId: number, support: boolean): Promise<TransactionResponse>;
 }
 
+/**
+ * Custom error class for wallet operations
+ */
 export class WalletError extends Error {
   constructor(message: string, public code: string) {
     super(message);
@@ -70,6 +86,10 @@ export class WalletError extends Error {
   }
 }
 
+/**
+ * Main implementation of the Wallet interface
+ * Provides full wallet functionality for the OmniBazaar ecosystem
+ */
 export class WalletImpl implements Wallet {
   private provider: BrowserProvider;
   private signer: { 
@@ -83,10 +103,18 @@ export class WalletImpl implements Wallet {
   private networkChangeCallbacks: ((chainId: number) => void)[] = [];
   private balanceChangeCallbacks: ((balance: bigint) => void)[] = [];
 
+  /**
+   * Creates a new WalletImpl instance
+   * @param provider - Ethereum browser provider for blockchain interactions
+   */
   constructor(provider: BrowserProvider) {
     this.provider = provider;
   }
 
+  /**
+   * Connects the wallet and initializes state
+   * @throws {WalletError} When connection fails or signer is not initialized
+   */
   async connect(): Promise<void> {
     try {
       if (!this.signer) {
@@ -113,16 +141,30 @@ export class WalletImpl implements Wallet {
     }
   }
 
+  /**
+   * Disconnects the wallet and cleans up event listeners
+   */
   async disconnect(): Promise<void> {
     this.state = null;
     this.provider.removeAllListeners();
   }
 
+  /**
+   * Gets the current wallet address
+   * @returns The wallet address
+   * @throws {WalletError} When wallet is not connected
+   */
   async getAddress(): Promise<string> {
     if (!this.state) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
     return this.state.address;
   }
 
+  /**
+   * Gets the balance for the specified asset or native currency
+   * @param assetSymbol - Optional asset symbol (e.g., 'OMNI' for OmniCoin)
+   * @returns Balance as bigint for native currency or string for tokens
+   * @throws {WalletError} When wallet is not connected
+   */
   async getBalance(assetSymbol?: string): Promise<bigint | string> {
     if (!this.state) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
 
@@ -134,15 +176,30 @@ export class WalletImpl implements Wallet {
     return this.state.balance;
   }
 
+  /**
+   * Gets the current chain ID
+   * @returns The chain ID as a number
+   * @throws {WalletError} When wallet is not connected
+   */
   async getChainId(): Promise<number> {
     if (!this.state) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
     return this.state.chainId;
   }
 
+  /**
+   * Gets the underlying Ethereum provider
+   * @returns The browser provider instance
+   */
   getProvider(): BrowserProvider {
     return this.provider;
   }
 
+  /**
+   * Sends a transaction using the wallet
+   * @param transaction - Transaction object to send
+   * @returns Promise resolving to transaction response
+   * @throws {WalletError} When wallet is not connected, signer not initialized, or transaction fails
+   */
   async sendTransaction(transaction: Transaction): Promise<TransactionResponse> {
     if (!this.state) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
     if (!this.signer) throw new WalletError('Signer not initialized', 'SIGNER_ERROR');
@@ -157,6 +214,12 @@ export class WalletImpl implements Wallet {
     }
   }
 
+  /**
+   * Signs a transaction without sending it
+   * @param transaction - Transaction to sign
+   * @returns Promise resolving to signed transaction hex string
+   * @throws {WalletError} When wallet is not connected or signer not initialized
+   */
   async signTransaction(transaction: Transaction): Promise<string> {
     if (!this.state) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
     if (!this.signer) throw new WalletError('Signer not initialized', 'SIGNER_ERROR');
@@ -164,12 +227,24 @@ export class WalletImpl implements Wallet {
     return this.signer.signTransaction(tx);
   }
 
+  /**
+   * Signs a message using the wallet
+   * @param message - Message to sign
+   * @returns Promise resolving to signature
+   * @throws {WalletError} When wallet is not connected or signer not initialized
+   */
   async signMessage(message: string): Promise<string> {
     if (!this.state) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
     if (!this.signer) throw new WalletError('Signer not initialized', 'SIGNER_ERROR');
     return this.signer.signMessage(message);
   }
 
+  /**
+   * Gets the balance of a specific ERC-20 token
+   * @param tokenAddress - Contract address of the token
+   * @returns Promise resolving to token balance
+   * @throws {WalletError} When wallet is not connected
+   */
   async getTokenBalance(tokenAddress: string): Promise<bigint> {
     if (!this.state) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
 
@@ -181,6 +256,14 @@ export class WalletImpl implements Wallet {
     return contract.balanceOf(this.state.address);
   }
 
+  /**
+   * Approves a spender to use tokens on behalf of the wallet
+   * @param tokenAddress - Contract address of the token
+   * @param spender - Address that will be approved to spend tokens
+   * @param amount - Amount of tokens to approve
+   * @returns Promise resolving to transaction response
+   * @throws {WalletError} When wallet is not connected or signer not initialized
+   */
   async approveToken(tokenAddress: string, spender: string, amount: bigint): Promise<TransactionResponse> {
     if (!this.state) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
 
@@ -189,6 +272,11 @@ export class WalletImpl implements Wallet {
     return contract.approve(spender, amount);
   }
 
+  /**
+   * Switches to a different blockchain network
+   * @param chainId - Target chain ID
+   * @throws {WalletError} When network switch fails
+   */
   async switchNetwork(chainId: number): Promise<void> {
     try {
       await this.provider.send('wallet_switchEthereumChain', [{ chainId: `0x${chainId.toString(16)}` }]);
@@ -198,6 +286,11 @@ export class WalletImpl implements Wallet {
     }
   }
 
+  /**
+   * Adds a new network to the wallet
+   * @param config - Network configuration
+   * @throws {WalletError} When network addition fails
+   */
   async addNetwork(config: WalletConfig): Promise<void> {
     try {
       await this.provider.send('wallet_addEthereumChain', [{
@@ -211,23 +304,44 @@ export class WalletImpl implements Wallet {
     }
   }
 
+  /**
+   * Registers a callback for account change events
+   * @param callback - Function to call when account changes
+   */
   onAccountChange(callback: (address: string) => void): void {
     this.accountChangeCallbacks.push(callback);
   }
 
+  /**
+   * Registers a callback for network change events
+   * @param callback - Function to call when network changes
+   */
   onNetworkChange(callback: (chainId: number) => void): void {
     this.networkChangeCallbacks.push(callback);
   }
 
+  /**
+   * Registers a callback for balance change events
+   * @param callback - Function to call when balance changes
+   */
   onBalanceChange(callback: (balance: bigint) => void): void {
     this.balanceChangeCallbacks.push(callback);
   }
 
+  /**
+   * Gets the current wallet state
+   * @returns Promise resolving to wallet state
+   * @throws {WalletError} When wallet is not connected
+   */
   async getState(): Promise<WalletState> {
     if (!this.state) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
     return this.state;
   }
 
+  /**
+   * Handles account change events from the provider
+   * @param accounts - Array of available accounts
+   */
   private async handleAccountChange(accounts: string[]): Promise<void> {
     if (accounts.length === 0) {
       this.state = null;
@@ -241,6 +355,10 @@ export class WalletImpl implements Wallet {
     this.accountChangeCallbacks.forEach(callback => callback(accounts[0] || ''));
   }
 
+  /**
+   * Handles network change events from the provider
+   * @param chainId - New chain ID in hex format
+   */
   private async handleNetworkChange(chainId: string): Promise<void> {
     const newChainId = parseInt(chainId, 16);
     if (!this.state) throw new Error('Wallet state not initialized');
@@ -297,6 +415,13 @@ export class WalletImpl implements Wallet {
   }
 }
 
+/**
+ * Utility function to send OmniCoin to another address
+ * @param wallet - Wallet instance to use for sending
+ * @param to - Recipient address
+ * @param amount - Amount to send as string
+ * @returns Promise resolving to transaction response
+ */
 export async function sendOmniCoin(wallet: Wallet, to: string, amount: string): Promise<TransactionResponse> {
   const transaction = new Transaction({
     to: OmniCoinMetadata.contractAddress,

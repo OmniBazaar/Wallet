@@ -6,11 +6,31 @@ import {
 } from '@enkryptcom/types';
 import { KeyRingBase } from './keyring';
 
+/**
+ * Public interface for keyring operations that don't require unlocking
+ * Provides read-only access to account information and development test accounts
+ * @example
+ * ```typescript
+ * const publicKeyring = new PublicKeyRing();
+ * const accounts = await publicKeyring.getAccounts();
+ * const isLocked = publicKeyring.isLocked();
+ * ```
+ */
 class PublicKeyRing {
+  /** Private keyring instance for secure operations */
   #keyring: KeyRingBase;
+  
+  /**
+   * Creates a new public keyring interface
+   */
   constructor() {
     this.#keyring = new KeyRingBase();
   }
+  /**
+   * Retrieves all stored account keys with development test accounts in dev mode
+   * @returns Object mapping addresses to EnkryptAccount objects
+   * @private
+   */
   private async getKeysObject(): Promise<{ [key: string]: EnkryptAccount }> {
     const allKeys = await this.#keyring.getKeysObject();
     if (__IS_DEV__) {
@@ -108,6 +128,16 @@ class PublicKeyRing {
     }
     return allKeys;
   }
+  /**
+   * Gets all accounts, optionally filtered by signer type
+   * @param types - Optional array of signer types to filter by
+   * @returns Array of EnkryptAccount objects
+   * @example
+   * ```typescript
+   * const allAccounts = await publicKeyring.getAccounts();
+   * const evmAccounts = await publicKeyring.getAccounts([SignerType.secp256k1]);
+   * ```
+   */
   async getAccounts(types?: SignerType[]): Promise<EnkryptAccount[]> {
     return this.getKeysObject().then(keysObject => {
       const records = Object.values(keysObject);
@@ -116,6 +146,16 @@ class PublicKeyRing {
         : records;
     });
   }
+  /**
+   * Gets a specific account by address
+   * @param address - The account address to retrieve
+   * @returns The EnkryptAccount for the specified address
+   * @throws {Error} When address doesn't exist in keyring
+   * @example
+   * ```typescript
+   * const account = await publicKeyring.getAccount('0x742d35Cc...');
+   * ```
+   */
   async getAccount(address: string): Promise<EnkryptAccount> {
     const allKeys = await this.getKeysObject();
     if (!allKeys[address]) {
@@ -123,12 +163,32 @@ class PublicKeyRing {
     }
     return allKeys[address];
   }
+  /**
+   * Checks if the keyring is currently locked
+   * @returns True if keyring is locked, false otherwise
+   */
   isLocked(): boolean {
     return this.#keyring.isLocked();
   }
+  /**
+   * Checks if the keyring has been initialized
+   * @returns Promise resolving to true if keyring is initialized
+   */
   isInitialized(): Promise<boolean> {
     return this.#keyring.isInitialized();
   }
+  /**
+   * Checks if an account with the given address already exists
+   * @param newAddress - The address to check for existing account
+   * @returns Promise resolving to true if account already exists
+   * @example
+   * ```typescript
+   * const exists = await publicKeyring.accountAlreadyAdded('0x742d35Cc...');
+   * if (!exists) {
+   *   // Safe to add new account
+   * }
+   * ```
+   */
   async accountAlreadyAdded(newAddress: string): Promise<boolean> {
     newAddress = newAddress.toLowerCase();
 
@@ -146,4 +206,8 @@ class PublicKeyRing {
     return alreadyExists;
   }
 }
+
+/**
+ * Public keyring interface for read-only wallet operations
+ */
 export default PublicKeyRing;

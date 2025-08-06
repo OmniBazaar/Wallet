@@ -3,6 +3,9 @@ import { TokenInfo } from './index';
 // import { TransactionResponse } from 'ethers'; // TODO: implement transaction integration
 import { ListingNode } from './listing';
 
+/**
+ * Result interface for the useTokenBalance hook
+ */
 export interface UseTokenBalanceResult {
     tokenInfo: TokenInfo | null;
     balance: string;
@@ -12,18 +15,27 @@ export interface UseTokenBalanceResult {
     refreshBalance: () => Promise<void>;
 }
 
+/**
+ * Result interface for the useTokenTransfer hook
+ */
 export interface UseTokenTransferResult {
     transfer: (to: string, amount: string) => Promise<void>;
     isLoading: boolean;
     error: string | null;
 }
 
+/**
+ * Result interface for the useTokenApproval hook
+ */
 export interface UseTokenApprovalResult {
     approve: (spender: string, amount: string) => Promise<void>;
     isLoading: boolean;
     error: string | null;
 }
 
+/**
+ * Result interface for the useNFTs hook
+ */
 export interface UseNFTsResult {
     nfts: NFT[];
     isLoading: boolean;
@@ -31,12 +43,18 @@ export interface UseNFTsResult {
     refresh: () => Promise<void>;
 }
 
+/**
+ * Result interface for the useNFTTransfer hook
+ */
 export interface UseNFTTransferResult {
     transfer: (to: string, tokenId: string) => Promise<void>;
     isLoading: boolean;
     error: string | null;
 }
 
+/**
+ * Result interface for the useListings hook
+ */
 export interface UseListingsResult {
     listings: ListingNode[];
     isLoading: boolean;
@@ -45,6 +63,9 @@ export interface UseListingsResult {
     search: (filters: SearchFilters) => Promise<void>;
 }
 
+/**
+ * Simplified NFT interface for React hooks
+ */
 export interface NFT {
     tokenId: string;
     name: string;
@@ -54,6 +75,9 @@ export interface NFT {
     contractAddress: string;
 }
 
+/**
+ * Search filter parameters for marketplace listings
+ */
 export interface SearchFilters {
     query?: string;
     category?: string;
@@ -63,6 +87,10 @@ export interface SearchFilters {
     sortOrder?: 'asc' | 'desc';
 }
 
+/**
+ * Simplified listing node interface for React hooks
+ * Note: This duplicates types/listing.ts - consider consolidation
+ */
 export interface ListingNode {
     id: string;
     title: string;

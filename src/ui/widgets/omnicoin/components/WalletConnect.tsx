@@ -4,6 +4,9 @@ import { useWalletContext } from '../../../../../contexts/WalletContext';
 import { OmniCoinLoading } from './OmniCoinLoading';
 import { OmniCoinToast } from './OmniCoinToast';
 
+/**
+ * Styled container for the wallet connection interface
+ */
 const ConnectContainer = styled.div`
   display: flex;
   flex-direction: column;
@@ -14,12 +17,18 @@ const ConnectContainer = styled.div`
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 `;
 
+/**
+ * Grid layout for wallet provider buttons
+ */
 const ProviderList = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 1rem;
 `;
 
+/**
+ * Styled button for wallet provider selection
+ */
 const ProviderButton = styled.button<{ isConnected?: boolean }>`
   display: flex;
   align-items: center;
@@ -42,17 +51,26 @@ const ProviderButton = styled.button<{ isConnected?: boolean }>`
   }
 `;
 
+/**
+ * Styled icon for wallet providers
+ */
 const ProviderIcon = styled.img`
   width: 24px;
   height: 24px;
 `;
 
+/**
+ * Styled text for status information
+ */
 const StatusText = styled.p`
   margin: 0;
   font-size: 0.875rem;
   color: ${props => props.theme.colors.text.primary};
 `;
 
+/**
+ * Styled code block for displaying wallet addresses
+ */
 const AddressText = styled.code`
   background: ${props => props.theme.colors.backgroundAlt};
   padding: 0.25rem 0.5rem;
@@ -60,12 +78,22 @@ const AddressText = styled.code`
   font-size: 0.875rem;
 `;
 
+/**
+ * Wallet connection component for OmniBazaar
+ * Allows users to connect/disconnect various wallet providers
+ * 
+ * @returns JSX element for wallet connection interface
+ */
 export const WalletConnect: React.FC = () => {
     const { address, chainId, isConnecting, error, connect, disconnect, getAvailableWallets } = useWalletContext();
     const [showToast, setShowToast] = useState(false);
     const [toastMessage, setToastMessage] = useState('');
     const [toastType, setToastType] = useState<'success' | 'error' | 'info' | 'pending'>('info');
 
+    /**
+     * Handles wallet connection for a specific provider
+     * @param providerId - ID of the wallet provider to connect
+     */
     const handleConnect = async (providerId: string): Promise<void> => {
         try {
             setToastType('pending');
@@ -82,6 +110,9 @@ export const WalletConnect: React.FC = () => {
         }
     };
 
+    /**
+     * Handles wallet disconnection
+     */
     const handleDisconnect = (): void => {
         disconnect();
         setToastType('info');

@@ -1,3 +1,6 @@
+/**
+ * Represents a geographic location for listings and sellers
+ */
 export interface Location {
     country: string;
     state?: string;
@@ -9,6 +12,9 @@ export interface Location {
     };
 }
 
+/**
+ * Contact information for sellers in the marketplace
+ */
 export interface ContactInfo {
     email: string;
     phone?: string;
@@ -21,6 +27,9 @@ export interface ContactInfo {
     };
 }
 
+/**
+ * Represents a seller in the OmniBazaar marketplace
+ */
 export interface Seller {
     address: string;
     name: string;
@@ -33,6 +42,9 @@ export interface Seller {
     verified: boolean;
 }
 
+/**
+ * Details for physical products in marketplace listings
+ */
 export interface ProductDetails {
     name: string;
     description: string;
@@ -50,6 +62,9 @@ export interface ProductDetails {
     availability: boolean;
 }
 
+/**
+ * Details for services offered in marketplace listings
+ */
 export interface ServiceDetails {
     name: string;
     description: string;
@@ -72,6 +87,9 @@ export interface ServiceDetails {
     experience?: string;
 }
 
+/**
+ * Represents a node in the distributed listing network
+ */
 export interface ListingNode {
     address: string;
     name: string;
@@ -81,6 +99,9 @@ export interface ListingNode {
     lastSync: string;
 }
 
+/**
+ * Complete metadata for a marketplace listing
+ */
 export interface ListingMetadata {
     id: string;
     type: 'product' | 'service';
@@ -99,6 +120,9 @@ export interface ListingMetadata {
     };
 }
 
+/**
+ * Filter options for searching marketplace listings
+ */
 export interface SearchFilters {
     type?: 'product' | 'service';
     category?: string;

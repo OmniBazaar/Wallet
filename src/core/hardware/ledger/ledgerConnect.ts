@@ -6,6 +6,17 @@ import type LedgerEthereum from "./ethereum";
 import type LedgerSubstrate from "./substrate";
 import { ledgerAppNames } from "../configs";
 
+/**
+ * Connects to a Ledger device and opens the appropriate app for the network
+ * @param this - The LedgerEthereum or LedgerSubstrate instance with transport
+ * @param networkName - The network name to connect to
+ * @returns Promise resolving to true when connection is successful
+ * @throws {Error} When device connection fails or required app is not installed/opened
+ * @example
+ * ```typescript
+ * const connected = await connect.call(ledgerInstance, NetworkNames.Ethereum);
+ * ```
+ */
 function connect(
   this: LedgerEthereum | LedgerSubstrate,
   networkName: NetworkNames,
@@ -35,4 +46,7 @@ function connect(
     });
 }
 
+/**
+ * Ledger device connection utility
+ */
 export default connect;

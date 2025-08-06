@@ -11,6 +11,7 @@ import { keccak256 } from "web3-utils";
 import { EncryptedData, Errors } from "@enkryptcom/types";
 import { bufferToHex, hexToBuffer } from ".";
 
+/** Scrypt key derivation parameters for encryption */
 const scryptParams = {
   cipher: "aes-128-ctr",
   kdf: "scrypt",
@@ -20,9 +21,28 @@ const scryptParams = {
   p: 1,
 };
 
+/**
+ * Runs cipher operation on buffer data
+ * @param cipher - The cipher or decipher instance
+ * @param data - The data buffer to process
+ * @returns Processed buffer
+ */
 const runCipherBuffer = (cipher: Cipher | Decipher, data: Buffer): Buffer =>
   Buffer.concat([cipher.update(data), cipher.final()]);
 
+/**
+ * Encrypts a message buffer using scrypt key derivation and AES-128-CTR
+ * @param msg - The message buffer to encrypt
+ * @param password - The password for key derivation
+ * @returns Promise resolving to encrypted data with salt, IV, MAC, and ciphertext
+ * @example
+ * ```typescript
+ * const encrypted = await encrypt(
+ *   Buffer.from('secret message'),
+ *   'secure-password'
+ * );
+ * ```
+ */
 export const encrypt = async (
   msg: Buffer,
   password: string,
@@ -65,6 +85,18 @@ export const encrypt = async (
   };
 };
 
+/**
+ * Decrypts encrypted data using scrypt key derivation and AES-128-CTR
+ * @param encryptedData - The encrypted data object containing ciphertext, salt, IV, and MAC
+ * @param password - The password for key derivation
+ * @returns Promise resolving to the decrypted buffer
+ * @throws {Error} When password is incorrect (MAC verification fails)
+ * @example
+ * ```typescript
+ * const decrypted = await decrypt(encryptedData, 'secure-password');
+ * const message = decrypted.toString('utf8');
+ * ```
+ */
 export const decrypt = async (
   encryptedData: EncryptedData,
   password: string,

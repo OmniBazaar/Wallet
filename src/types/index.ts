@@ -1,3 +1,6 @@
+/**
+ * Configuration for blockchain networks
+ */
 export interface NetworkConfig {
     name: string;
     chainId: number | string;
@@ -16,6 +19,9 @@ export interface NetworkConfig {
     };
 }
 
+/**
+ * Current state of wallet connection and provider
+ */
 export interface WalletState {
     address: string | null;
     chainId: number | null;
@@ -24,6 +30,9 @@ export interface WalletState {
     error: string | null;
 }
 
+/**
+ * Extended wallet context with action methods
+ */
 export interface WalletContextType extends WalletState {
     connect: () => Promise<void>;
     disconnect: () => void;
@@ -31,17 +40,26 @@ export interface WalletContextType extends WalletState {
     addNetwork: (networkConfig: NetworkConfig) => Promise<void>;
 }
 
+/**
+ * Props for the WalletProvider React component
+ */
 export interface WalletProviderProps {
     children: React.ReactNode;
     defaultNetwork?: string;
     supportedNetworks?: string[];
 }
 
+/**
+ * Extended error interface with additional wallet context
+ */
 export interface WalletError extends Error {
     code?: string;
     data?: Record<string, unknown>;
 }
 
+/**
+ * Parameters for initiating a blockchain transaction
+ */
 export interface TransactionRequest {
     from?: string;
     to: string;
@@ -52,6 +70,9 @@ export interface TransactionRequest {
     nonce?: number;
 }
 
+/**
+ * Complete transaction data including confirmation status
+ */
 export interface Transaction {
     hash: string;
     from: string;
@@ -69,10 +90,16 @@ export interface Transaction {
     status?: 'pending' | 'confirmed' | 'failed';
 }
 
+/**
+ * Transaction response with additional wait method
+ */
 export interface TransactionResponse extends Transaction {
     wait?: () => Promise<Transaction>;
 }
 
+/**
+ * Basic information about an ERC-20 token or native currency
+ */
 export interface TokenInfo {
     address: string;
     symbol: string;
@@ -81,12 +108,18 @@ export interface TokenInfo {
     logoURI?: string;
 }
 
+/**
+ * Token balance information with formatted display
+ */
 export interface TokenBalance {
     token: TokenInfo;
     balance: string;
     formattedBalance: string;
 }
 
+/**
+ * Event callbacks for wallet state changes
+ */
 export interface WalletEvents {
     onConnect?: (address: string) => void;
     onDisconnect?: () => void;

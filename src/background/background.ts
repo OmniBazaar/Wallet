@@ -35,11 +35,19 @@ declare const chrome: {
   };
 };
 
-// Background provider instances
+/**
+ * Map of active blockchain providers
+ */
 const providers = new Map<ProviderName, EthereumProvider>();
+
+/**
+ * Current active browser tab ID for communication
+ */
 let currentTab: number | null = null;
 
-// Initialize providers
+/**
+ * Initializes blockchain providers for the wallet
+ */
 function initializeProviders(): void {
   console.warn('🚀 Initializing OmniBazaar Wallet providers...');
   
@@ -55,7 +63,10 @@ function initializeProviders(): void {
   console.warn(`📊 Total providers: ${providers.size}`);
 }
 
-// Send message to content script
+/**
+ * Sends messages to content scripts in active tabs
+ * @param message - Message to send as JSON string
+ */
 async function sendToContentScript(message: string): Promise<void> {
   if (currentTab && chrome.tabs) {
     try {
@@ -132,7 +143,11 @@ chrome.runtime.onMessage.addListener(async (message: { type: string; data?: unkn
   return true; // Will respond asynchronously
 });
 
-// Handle provider RPC requests
+/**
+ * Handles RPC requests from content scripts
+ * @param request - RPC request with provider specification
+ * @returns Promise resolving to RPC response
+ */
 async function handleProviderRequest(request: ProviderRPCRequest & { provider: ProviderName }): Promise<OnMessageResponse> {
   const { provider: providerName, ...rpcRequest } = request;
   
@@ -153,7 +168,10 @@ async function handleProviderRequest(request: ProviderRPCRequest & { provider: P
   }
 }
 
-// Get current wallet state
+/**
+ * Gets the current state of the wallet
+ * @returns Promise resolving to wallet state object
+ */
 async function getWalletState(): Promise<{
   isUnlocked: boolean;
   currentAccount: null;
@@ -177,7 +195,12 @@ async function getWalletState(): Promise<{
   return state;
 }
 
-// Connect account
+/**
+ * Connects an account to the wallet
+ * @param data - Account connection parameters
+ * @returns Promise resolving to connection result
+ * @todo Implement keyring integration
+ */
 async function connectAccount(data: { address?: string }): Promise<{
   success: boolean;
   error?: string;
@@ -192,7 +215,10 @@ async function connectAccount(data: { address?: string }): Promise<{
   };
 }
 
-// Disconnect account
+/**
+ * Disconnects the current account
+ * @returns Promise resolving to disconnection result
+ */
 async function disconnectAccount(): Promise<{ success: boolean }> {
   console.warn('🔓 Disconnect account requested');
   
@@ -200,7 +226,11 @@ async function disconnectAccount(): Promise<{ success: boolean }> {
   return { success: true };
 }
 
-// Switch network
+/**
+ * Switches to a different blockchain network
+ * @param data - Network switching parameters
+ * @returns Promise resolving to network switch result
+ */
 async function switchNetwork(data: { network: string; chainId?: string }): Promise<{
   success?: boolean;
   network?: string;
@@ -217,7 +247,11 @@ async function switchNetwork(data: { network: string; chainId?: string }): Promi
   return { success: true, network: data.network };
 }
 
-// Get balance
+/**
+ * Gets the balance for an address on a specific network
+ * @param data - Balance query parameters
+ * @returns Promise resolving to balance information
+ */
 async function getBalance(data: { address: string; network?: string }): Promise<{
   balance?: string;
   network?: string;
@@ -250,7 +284,12 @@ async function getBalance(data: { address: string; network?: string }): Promise<
   }
 }
 
-// Sign transaction
+/**
+ * Signs a transaction using the wallet's private key
+ * @param data - Transaction data to sign
+ * @returns Promise resolving to signing result
+ * @todo Implement keyring integration
+ */
 async function signTransaction(data: unknown): Promise<{
   success: boolean;
   error?: string;
@@ -264,7 +303,12 @@ async function signTransaction(data: unknown): Promise<{
   };
 }
 
-// Mint NFT
+/**
+ * Mints a new NFT on the blockchain
+ * @param data - NFT minting parameters
+ * @returns Promise resolving to minting result
+ * @todo Implement NFT component integration
+ */
 async function mintNFT(data: unknown): Promise<{
   success: boolean;
   error?: string;
@@ -278,7 +322,12 @@ async function mintNFT(data: unknown): Promise<{
   };
 }
 
-// Create marketplace listing
+/**
+ * Creates a new listing on the OmniBazaar marketplace
+ * @param data - Listing creation parameters
+ * @returns Promise resolving to listing creation result
+ * @todo Implement marketplace integration
+ */
 async function createMarketplaceListing(data: unknown): Promise<{
   success: boolean;
   error?: string;

@@ -1,5 +1,8 @@
 import { BrowserProvider } from 'ethers';
 
+/**
+ * Current state of the wallet connection
+ */
 export interface WalletState {
     address: string | null;
     chainId: number | null;
@@ -9,6 +12,9 @@ export interface WalletState {
     error: string | null;
 }
 
+/**
+ * Information about an ERC-20 token or native currency
+ */
 export interface TokenInfo {
     address: string;
     symbol: string;
@@ -16,6 +22,9 @@ export interface TokenInfo {
     decimals: number;
 }
 
+/**
+ * Represents a blockchain transaction
+ */
 export interface Transaction {
     hash: string;
     from: string;
@@ -26,6 +35,9 @@ export interface Transaction {
     token?: TokenInfo;
 }
 
+/**
+ * Context type for wallet functionality in React components
+ */
 export interface WalletContextType {
     state: WalletState;
     connect: () => Promise<void>;
