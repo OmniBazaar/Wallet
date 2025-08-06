@@ -141,6 +141,15 @@ Wallet/
 - ✅ **UI Components**: Contexts, widgets, pages with JSX.Element return types
 - ✅ **Examples & Types**: All demonstration and definition files
 
+## 🆕 Recent Service Additions (2025-08-06)
+
+### Cross-Module Service Propagation Completed
+- ✅ **ParticipationService**: Correct participation scoring (100 point max, component-based per design)
+- ✅ **XOMFeeProtocolService**: Reward tracking and claiming (0.025 XOM rewards)
+- ✅ **FaucetService**: Multi-network testnet token distribution
+- ✅ **BlockExplorerService**: Multi-chain blockchain exploration
+- ✅ **KYCService**: Sumsub testnet integration with progressive verification
+
 ## 🚧 Remaining Work (1%)
 
 ### 1. OmniCoin Blockchain (External Dependency)
