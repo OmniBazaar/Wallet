@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OmniWallet Embedded</title>
+    <meta name="description" content="OmniWallet embedded wallet interface">
+    
+    <!-- Security Headers -->
+    <meta http-equiv="Content-Security-Policy" content="
+        default-src 'self';
+        script-src 'self' 'unsafe-inline';
+        style-src 'self' 'unsafe-inline';
+        connect-src https://api.omnibazaar.com wss://ws.omnibazaar.com;
+        frame-ancestors https://*.omnibazaar.com;
+    ">
+    
+    <!-- Styles -->
+    <style>
+        :root {
+            --primary: #4A90E2;
+            --primary-dark: #357ABD;
+            --secondary: #50E3C2;
+            --success: #4CAF50;
+            --warning: #FF9800;
+            --danger: #F44336;
+            --dark: #2C3E50;
+            --light: #F5F7FA;
+            --border: #E1E8ED;
+            --text: #333;
+            --text-light: #666;
+            --shadow: 0 2px 4px rgba(0,0,0,0.1);
+            --shadow-lg: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--light);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .container {
+            max-width: 400px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 20px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            padding: 20px 0;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 20px;
+        }
+
+        .logo {
+            width: 60px;
+            height: 60px;
+            margin: 0 auto 10px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        .header p {
+            color: var(--text-light);
+            font-size: 14px;
+            margin-top: 5px;
+        }
+
+        /* Main Content */
+        .main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Views */
+        .view {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .view.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Auth View */
+        .auth-options {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        .auth-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 14px 20px;
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 16px;
+            color: var(--text);
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+        }
+
+        .auth-btn:hover {
+            background: var(--light);
+            box-shadow: var(--shadow);
+            transform: translateY(-1px);
+        }
+
+        .auth-btn.primary {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        .auth-btn.primary:hover {
+            background: var(--primary-dark);
+            border-color: var(--primary-dark);
+        }
+
+        .auth-btn .icon {
+            font-size: 20px;
+        }
+
+        /* Form Elements */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text);
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 16px;
+            transition: all 0.2s;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
+        }
+
+        .form-hint {
+            margin-top: 6px;
+            font-size: 13px;
+            color: var(--text-light);
+        }
+
+        /* OTP Input */
+        .otp-inputs {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin: 20px 0;
+        }
+
+        .otp-input {
+            width: 50px;
+            height: 50px;
+            text-align: center;
+            font-size: 24px;
+            font-weight: 600;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+
+        .otp-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
+        }
+
+        /* Wallet View */
+        .wallet-header {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+
+        .wallet-address {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .address-text {
+            font-family: monospace;
+            font-size: 14px;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 6px 12px;
+            border-radius: 6px;
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .copy-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 6px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .copy-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .balance {
+            font-size: 32px;
+            font-weight: 600;
+            margin: 10px 0;
+        }
+
+        .balance-usd {
+            font-size: 18px;
+            opacity: 0.9;
+        }
+
+        /* Actions */
+        .wallet-actions {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .action-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+            padding: 12px;
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 13px;
+            color: var(--text);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .action-btn:hover {
+            background: var(--light);
+            box-shadow: var(--shadow);
+        }
+
+        .action-btn .icon {
+            font-size: 24px;
+        }
+
+        /* Transaction View */
+        .tx-details {
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .tx-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .tx-icon {
+            width: 40px;
+            height: 40px;
+            background: var(--primary);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+
+        .tx-title {
+            flex: 1;
+        }
+
+        .tx-title h3 {
+            font-size: 18px;
+            margin-bottom: 2px;
+        }
+
+        .tx-title p {
+            font-size: 14px;
+            color: var(--text-light);
+        }
+
+        .tx-field {
+            margin-bottom: 15px;
+        }
+
+        .tx-label {
+            font-size: 13px;
+            color: var(--text-light);
+            margin-bottom: 5px;
+        }
+
+        .tx-value {
+            font-size: 15px;
+            font-weight: 500;
+            word-break: break-all;
+        }
+
+        .tx-amount {
+            font-size: 24px;
+            font-weight: 600;
+            color: var(--primary);
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 14px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .btn-secondary {
+            background: white;
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            background: var(--light);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #D32F2F;
+        }
+
+        .btn-block {
+            width: 100%;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        /* Loading */
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Messages */
+        .message {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+
+        .message.success {
+            background: #E8F5E9;
+            color: #2E7D32;
+            border: 1px solid #C8E6C9;
+        }
+
+        .message.error {
+            background: #FFEBEE;
+            color: #C62828;
+            border: 1px solid #FFCDD2;
+        }
+
+        .message.info {
+            background: #E3F2FD;
+            color: #1565C0;
+            border: 1px solid #BBDEFB;
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: var(--text-light);
+            font-size: 13px;
+            border-top: 1px solid var(--border);
+        }
+
+        .footer a {
+            color: var(--primary);
+            text-decoration: none;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* Responsive */
+        @media (max-width: 480px) {
+            .container {
+                padding: 10px;
+            }
+
+            .wallet-actions {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="logo">OW</div>
+            <h1>OmniWallet</h1>
+            <p id="status">Secure Web3 Wallet</p>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main">
+            <!-- Auth View -->
+            <div id="authView" class="view active">
+                <h2 style="text-align: center; margin-bottom: 10px;">Welcome Back</h2>
+                <p style="text-align: center; color: var(--text-light); margin-bottom: 30px;">
+                    Choose how you'd like to access your wallet
+                </p>
+
+                <div class="auth-options">
+                    <button class="auth-btn primary" onclick="wallet.showEmailAuth()">
+                        <span class="icon">📧</span>
+                        <span>Continue with Email</span>
+                    </button>
+
+                    <button class="auth-btn" onclick="wallet.showPhoneAuth()">
+                        <span class="icon">📱</span>
+                        <span>Continue with Phone</span>
+                    </button>
+
+                    <button class="auth-btn" onclick="wallet.authenticateWithGoogle()">
+                        <span class="icon">🔍</span>
+                        <span>Continue with Google</span>
+                    </button>
+
+                    <button class="auth-btn" onclick="wallet.authenticateWithPasskey()">
+                        <span class="icon">🔑</span>
+                        <span>Use Passkey</span>
+                    </button>
+
+                    <button class="auth-btn" onclick="wallet.showLegacyAuth()">
+                        <span class="icon">🔐</span>
+                        <span>Legacy OmniCoin Login</span>
+                    </button>
+                </div>
+
+                <p style="text-align: center; margin-top: 30px; font-size: 13px; color: var(--text-light);">
+                    Don't have a wallet? 
+                    <a href="#" onclick="wallet.showCreateWallet()" style="color: var(--primary);">Create one</a>
+                </p>
+            </div>
+
+            <!-- Email Auth View -->
+            <div id="emailAuthView" class="view">
+                <h2 style="margin-bottom: 20px;">Sign in with Email</h2>
+                
+                <div class="form-group">
+                    <label class="form-label">Email Address</label>
+                    <input type="email" id="emailInput" class="form-input" placeholder="you@example.com">
+                    <p class="form-hint">We'll send you a verification code</p>
+                </div>
+
+                <button class="btn btn-primary btn-block" onclick="wallet.sendEmailOTP()">
+                    Send Code
+                </button>
+
+                <button class="btn btn-secondary btn-block" onclick="wallet.showAuthView()" style="margin-top: 10px;">
+                    Back
+                </button>
+            </div>
+
+            <!-- OTP Verification View -->
+            <div id="otpView" class="view">
+                <h2 style="text-align: center; margin-bottom: 10px;">Enter Verification Code</h2>
+                <p style="text-align: center; color: var(--text-light); margin-bottom: 20px;">
+                    We sent a code to <strong id="otpDestination"></strong>
+                </p>
+
+                <div class="otp-inputs">
+                    <input type="text" class="otp-input" maxlength="1" oninput="wallet.handleOTPInput(this, 0)">
+                    <input type="text" class="otp-input" maxlength="1" oninput="wallet.handleOTPInput(this, 1)">
+                    <input type="text" class="otp-input" maxlength="1" oninput="wallet.handleOTPInput(this, 2)">
+                    <input type="text" class="otp-input" maxlength="1" oninput="wallet.handleOTPInput(this, 3)">
+                    <input type="text" class="otp-input" maxlength="1" oninput="wallet.handleOTPInput(this, 4)">
+                    <input type="text" class="otp-input" maxlength="1" oninput="wallet.handleOTPInput(this, 5)">
+                </div>
+
+                <button class="btn btn-primary btn-block" onclick="wallet.verifyOTP()">
+                    Verify Code
+                </button>
+
+                <p style="text-align: center; margin-top: 20px; font-size: 13px; color: var(--text-light);">
+                    Didn't receive code? 
+                    <a href="#" onclick="wallet.resendOTP()" style="color: var(--primary);">Resend</a>
+                </p>
+            </div>
+
+            <!-- Wallet View -->
+            <div id="walletView" class="view">
+                <div class="wallet-header">
+                    <p style="opacity: 0.9;">Total Balance</p>
+                    <div class="balance" id="balance">0.00 OMNI</div>
+                    <div class="balance-usd" id="balanceUSD">≈ $0.00 USD</div>
+                    
+                    <div class="wallet-address">
+                        <div class="address-text" id="walletAddress">0x...</div>
+                        <button class="copy-btn" onclick="wallet.copyAddress()">📋</button>
+                    </div>
+                </div>
+
+                <div class="wallet-actions">
+                    <button class="action-btn" onclick="wallet.showSend()">
+                        <span class="icon">↗️</span>
+                        <span>Send</span>
+                    </button>
+                    <button class="action-btn" onclick="wallet.showReceive()">
+                        <span class="icon">↙️</span>
+                        <span>Receive</span>
+                    </button>
+                    <button class="action-btn" onclick="wallet.showSwap()">
+                        <span class="icon">🔄</span>
+                        <span>Swap</span>
+                    </button>
+                </div>
+
+                <h3 style="margin-bottom: 15px;">Recent Activity</h3>
+                <div id="activityList">
+                    <p style="text-align: center; color: var(--text-light); padding: 20px;">
+                        No transactions yet
+                    </p>
+                </div>
+
+                <button class="btn btn-secondary btn-block" onclick="wallet.disconnect()" style="margin-top: 20px;">
+                    Disconnect
+                </button>
+            </div>
+
+            <!-- Transaction Approval View -->
+            <div id="txApprovalView" class="view">
+                <div class="tx-details">
+                    <div class="tx-header">
+                        <div class="tx-icon">💸</div>
+                        <div class="tx-title">
+                            <h3>Confirm Transaction</h3>
+                            <p id="txDapp">marketplace.omnibazaar.com</p>
+                        </div>
+                    </div>
+
+                    <div class="tx-field">
+                        <div class="tx-label">From</div>
+                        <div class="tx-value" id="txFrom">0x...</div>
+                    </div>
+
+                    <div class="tx-field">
+                        <div class="tx-label">To</div>
+                        <div class="tx-value" id="txTo">0x...</div>
+                    </div>
+
+                    <div class="tx-field">
+                        <div class="tx-label">Amount</div>
+                        <div class="tx-value tx-amount" id="txAmount">0.00 OMNI</div>
+                    </div>
+
+                    <div class="tx-field">
+                        <div class="tx-label">Network Fee</div>
+                        <div class="tx-value" id="txFee">~0.001 OMNI</div>
+                    </div>
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-secondary" onclick="wallet.rejectTransaction()" style="flex: 1;">
+                        Cancel
+                    </button>
+                    <button class="btn btn-primary" onclick="wallet.approveTransaction()" style="flex: 1;">
+                        Confirm
+                    </button>
+                </div>
+            </div>
+
+            <!-- Loading View -->
+            <div id="loadingView" class="view">
+                <div class="loading">
+                    <div class="spinner"></div>
+                </div>
+                <p style="text-align: center; color: var(--text-light);" id="loadingMessage">
+                    Initializing wallet...
+                </p>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p>
+                Secured by OmniBazaar | 
+                <a href="https://omnibazaar.com/privacy" target="_blank">Privacy</a> | 
+                <a href="https://omnibazaar.com/terms" target="_blank">Terms</a>
+            </p>
+        </div>
+    </div>
+
+    <!-- Wallet Script -->
+    <script src="./EmbeddedWalletCore.js"></script>
+    <script>
+        // Initialize wallet on load
+        window.wallet = new EmbeddedWalletCore();
+        
+        // Set up PostMessage listener
+        window.addEventListener('message', (event) => {
+            wallet.handleMessage(event);
+        });
+        
+        // Initialize
+        window.addEventListener('DOMContentLoaded', () => {
+            wallet.init();
+        });
+    </script>
+</body>
+</html>

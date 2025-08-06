@@ -143,6 +143,24 @@ Wallet/
 
 ## 🆕 Recent Service Additions (2025-08-06)
 
+### Embedded Wallet Implementation (2025-08-06 17:02 UTC)
+- ✅ **EmbeddedWalletProvider**: iframe-based wallet provider with PostMessage API
+- ✅ **embed.html**: Complete wallet UI for iframe (auth, transactions, management)
+- ✅ **EmbeddedWalletCore**: Core logic for MPC keys, authentication, and signing
+- ✅ **Integration Example**: Marketplace demo showing browser-only wallet usage
+- ✅ **Authentication Methods**:
+  - Email OTP verification
+  - SMS phone authentication
+  - Social login (Google, Apple, GitHub)
+  - Passkeys/WebAuthn biometric
+  - Legacy OmniCoin v1 credentials
+- ⏳ **Backend Required** (not yet implemented):
+  - Authentication API endpoints
+  - MPC key management service
+  - OTP/SMS verification service
+  - OAuth provider integration
+  - Session management system
+
 ### Legacy User Migration System (2025-08-06 16:19 UTC)
 - ✅ **LegacyLoginModal**: Step-by-step migration interface for v1 users
 - ✅ **UnifiedLoginForm**: Smart authentication that detects legacy users

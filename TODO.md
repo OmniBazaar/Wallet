@@ -1,13 +1,27 @@
 # OmniWallet Development Plan
 
-**Last Updated:** 2025-08-06 15:30 UTC  
-**Status:** COTI V2 Privacy Integration Complete - pXOM Support Added ✅
+**Last Updated:** 2025-08-06 17:02 UTC  
+**Status:** Embedded Wallet Frontend Complete - Backend Pending 🚧
 
 ## Overview
 
 OmniWallet is being developed as a fork of the DePay wallet, with significant modifications to integrate OmniCoin and privacy features. This document outlines the step-by-step development plan, testing strategy, and implementation details.
 
 ## 🎉 MAJOR MILESTONES ACHIEVED
+
+### ✅ Embedded Wallet Frontend Complete (August 6, 2025 17:02 UTC)
+- **No Extension Required**: Browser-only wallet access via iframe
+- **EmbeddedWalletProvider**: Complete PostMessage API implementation
+- **Multiple Auth Methods**: Email, SMS, social login, passkeys, legacy
+- **MPC Architecture**: Key shards split between device/server/recovery
+- **Full UI Implementation**: Authentication, transactions, wallet management
+- **Integration Example**: Working marketplace demo
+
+### ⏳ Backend Services Required (Not Yet Implemented)
+- **Authentication API**: OAuth, OTP, passkey endpoints needed
+- **MPC Key Service**: Real multi-party computation protocol
+- **Session Management**: JWT tokens and refresh logic
+- **Production Infrastructure**: Hosting, CDN, database, Redis
 
 ### ✅ COTI V2 Privacy Integration Complete (August 6, 2025)
 - **COTI SDK Dependencies** added to package.json
@@ -72,11 +86,17 @@ OmniWallet is being developed as a fork of the DePay wallet, with significant mo
 
 ### 2.1 Security Features
 
-- [ ] Authentication
-  - [ ] Implement biometric authentication
-  - [ ] Add 2FA support
-  - [ ] Create session management
-  - [ ] Implement secure storage
+- [x] Authentication (Frontend Complete)
+  - [x] Implement biometric authentication (Passkeys/WebAuthn)
+  - [x] Add 2FA support (OTP via email/SMS)
+  - [x] Create session management (frontend ready)
+  - [x] Implement secure storage (MPC key shards)
+  
+- [ ] Authentication (Backend Required)
+  - [ ] OAuth provider integration endpoints
+  - [ ] OTP verification service
+  - [ ] Session token management API
+  - [ ] MPC key shard coordination service
 
 - [ ] Transaction Security
   - [ ] Add transaction signing
