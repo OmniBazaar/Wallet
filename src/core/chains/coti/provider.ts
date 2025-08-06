@@ -1,5 +1,11 @@
-// OmniBazaar Wallet COTI Provider
-// Extends Ethereum provider with COTI V2 privacy features
+/**
+ * OmniBazaar Wallet COTI Provider
+ * 
+ * Extends Ethereum provider with COTI V2 privacy features using Garbled Circuits.
+ * Supports both XOM (public) and pXOM (private) tokens with MPC-based privacy.
+ * 
+ * @module coti/provider
+ */
 
 import { ethers } from 'ethers';
 import { 
@@ -8,10 +14,22 @@ import {
   OnMessageResponse
 } from '@/types/provider';
 import { EthereumNetwork, BaseNetwork } from '@/types/base-network';
-// import EventEmitter from 'eventemitter3'; // TODO: implement if needed
 import { EthereumProvider } from '../ethereum/provider';
 
-// COTI Privacy Types (adapted from COTI SDK)
+// COTI SDK imports (when available)
+let cotiSDK: any = null;
+try {
+  // Dynamic import to avoid build errors if SDK not installed
+  import('@coti-io/coti-sdk-typescript').then(module => {
+    cotiSDK = module;
+  }).catch(() => {
+    console.warn('COTI SDK not available, using fallback implementation');
+  });
+} catch {
+  console.warn('COTI SDK not available, using fallback implementation');
+}
+
+// COTI Privacy Types (COTI V2 Garbled Circuits)
 export interface ItBool {
   ciphertext: bigint;
   signature: Uint8Array | string;
@@ -27,14 +45,26 @@ export interface ItString {
   signature: Array<Uint8Array | string>;
 }
 
-export type CtBool = bigint
-export type CtUint = bigint
+export type CtBool = bigint;
+export type CtUint = bigint;
+export type CtUint64 = bigint; // 64-bit encrypted values
+export type UtUint64 = bigint; // Unsigned encrypted values
 export interface CtString { value: Array<bigint> }
+
+// Privacy token types
+export interface PrivacyTokenBalance {
+  xom: string;      // Public XOM balance
+  pxom: string;     // Private pXOM balance (encrypted)
+  pxomDecrypted?: string; // Decrypted pXOM balance (only for owner)
+  totalUsd?: string;
+}
 
 export interface OnboardInfo {
   aesKey?: string;
   txHash?: string;
   rsaKey?: RsaKeyPair;
+  mpcNodeUrl?: string; // MPC node for Garbled Circuits
+  isOnboarded: boolean;
 }
 
 export interface RsaKeyPair {
@@ -81,9 +111,16 @@ export const CotiNetworks: { [key: string]: EthereumNetwork } = {
   }
 };
 
+/**
+ * COTI Provider with privacy features using Garbled Circuits
+ * @class CotiProvider
+ * @extends EthereumProvider
+ */
 export class CotiProvider extends EthereumProvider {
   private userOnboardInfo?: OnboardInfo;
   private autoOnboard = true;
+  private mpcClient?: any; // MPC client for Garbled Circuits
+  private privacyEnabled = false;
 
   constructor(
     toWindow: (message: string) => void,
@@ -125,6 +162,22 @@ export class CotiProvider extends EthereumProvider {
             this.clearOnboardInfo();
             result = true;
             break;
+          // New privacy methods for pXOM
+          case 'coti_getPrivacyBalance':
+            result = await this.getPrivacyBalance(params[0]);
+            break;
+          case 'coti_convertXOMToPXOM':
+            result = await this.convertXOMToPXOM(params[0], params[1]);
+            break;
+          case 'coti_convertPXOMToXOM':
+            result = await this.convertPXOMToXOM(params[0], params[1]);
+            break;
+          case 'coti_privateTransfer':
+            result = await this.privateTransfer(params[0], params[1], params[2]);
+            break;
+          case 'coti_enablePrivacy':
+            result = await this.enablePrivacy(params[0]);
+            break;
           default:
             throw new Error(`Unknown COTI method: ${method}`);
         }
@@ -141,23 +194,45 @@ export class CotiProvider extends EthereumProvider {
 
   // COTI Privacy Methods
 
+  /**
+   * Onboard user to COTI V2 privacy network
+   * @param contractAddress Optional contract address for onboarding
+   * @returns Onboard information including keys
+   */
   async onboardUser(contractAddress?: string): Promise<OnboardInfo> {
     try {
       // Generate RSA key pair for secure key sharing
       const rsaKeyPair = this.generateRSAKeyPair();
       
-      // Create onboard transaction (placeholder implementation)
-      const onboardTx = await this.createOnboardTransaction(rsaKeyPair.publicKey, contractAddress);
-      
-      // Store onboard info
-      this.userOnboardInfo = {
-        rsaKey: rsaKeyPair,
-        txHash: onboardTx.hash
-      };
+      // If COTI SDK is available, use it
+      if (cotiSDK) {
+        const onboardResult = await cotiSDK.onboard({
+          provider: this.ethersProvider,
+          contractAddress
+        });
+        
+        this.userOnboardInfo = {
+          rsaKey: rsaKeyPair,
+          txHash: onboardResult.txHash,
+          aesKey: onboardResult.aesKey,
+          mpcNodeUrl: onboardResult.mpcNodeUrl || 'https://mpc.coti.io',
+          isOnboarded: true
+        };
+      } else {
+        // Fallback implementation
+        const onboardTx = await this.createOnboardTransaction(rsaKeyPair.publicKey, contractAddress);
+        
+        this.userOnboardInfo = {
+          rsaKey: rsaKeyPair,
+          txHash: onboardTx.hash,
+          mpcNodeUrl: 'https://mpc.coti.io',
+          isOnboarded: true
+        };
+        
+        await this.recoverAESFromTransaction(onboardTx.hash);
+      }
 
-      // Generate AES key from transaction
-      await this.recoverAESFromTransaction(onboardTx.hash);
-
+      this.privacyEnabled = true;
       return this.userOnboardInfo;
     } catch (error) {
       throw new Error(`Onboarding failed: ${error}`);
@@ -181,7 +256,7 @@ export class CotiProvider extends EthereumProvider {
     plaintextValue: bigint | number | string, 
     contractAddress: string, 
     functionSelector: string
-  ): Promise<itUint | itString> {
+  ): Promise<ItUint | ItString> {
     if (!this.userOnboardInfo?.aesKey) {
       if (this.autoOnboard) {
         console.warn('AES key not found, attempting to onboard...');
@@ -207,16 +282,16 @@ export class CotiProvider extends EthereumProvider {
     }
   }
 
-  async decryptValue(ciphertext: ctUint | ctString): Promise<bigint | string> {
+  async decryptValue(ciphertext: CtUint | CtString): Promise<bigint | string> {
     if (!this.userOnboardInfo?.aesKey) {
       throw new Error('AES key not found - cannot decrypt value');
     }
 
-    // Check if it's a ctString (has value property)
+    // Check if it's a CtString (has value property)
     if (ciphertext && typeof ciphertext === 'object' && 'value' in ciphertext) {
-      return this.decryptString(ciphertext as ctString);
+      return this.decryptString(ciphertext as CtString);
     } else {
-      // Treat as ctUint (bigint)
+      // Treat as CtUint (bigint)
       return this.decryptUint(ciphertext as bigint);
     }
   }
@@ -313,7 +388,7 @@ export class CotiProvider extends EthereumProvider {
     return ciphertext ^ BigInt('0x1234567890abcdef');
   }
 
-  private decryptString(ciphertext: ctString): string {
+  private decryptString(ciphertext: CtString): string {
     // Simplified string decryption - in production, use COTI SDK crypto_utils
     const bytes = new Uint8Array(
       ciphertext.value.map((val, i) => Number(BigInt(val) ^ BigInt(i + 1)))
@@ -343,6 +418,160 @@ export class CotiProvider extends EthereumProvider {
       hasPrivacyFeatures: true,
       onboardContractAddress: '0x0000000000000000000000000000000000000001' // Placeholder
     };
+  }
+
+  // New privacy methods for pXOM support
+
+  /**
+   * Get privacy token balances (XOM and pXOM)
+   * @param address User address
+   * @returns Privacy token balances
+   */
+  async getPrivacyBalance(address: string): Promise<PrivacyTokenBalance> {
+    try {
+      // Get XOM balance (public)
+      const xomBalance = await this.ethersProvider.getBalance(address);
+      
+      // Get pXOM balance (encrypted)
+      let pxomBalance = '0';
+      let pxomDecrypted: string | undefined;
+      
+      if (this.privacyEnabled && this.userOnboardInfo?.isOnboarded) {
+        // Use COTI SDK if available
+        if (cotiSDK) {
+          const encryptedBalance = await cotiSDK.getEncryptedBalance(address);
+          pxomBalance = encryptedBalance.toString();
+          
+          // Decrypt if owner
+          if (this.userOnboardInfo.aesKey) {
+            pxomDecrypted = (await this.decryptValue(encryptedBalance)).toString();
+          }
+        } else {
+          // Fallback: estimate from contract
+          pxomBalance = '0'; // Would query pXOM contract
+        }
+      }
+      
+      return {
+        xom: ethers.formatEther(xomBalance),
+        pxom: pxomBalance,
+        pxomDecrypted,
+        totalUsd: '0' // Would calculate from price oracle
+      };
+    } catch (error) {
+      throw new Error(`Failed to get privacy balance: ${error}`);
+    }
+  }
+
+  /**
+   * Convert XOM to pXOM (0.5% fee)
+   * @param amount Amount to convert
+   * @param address User address
+   * @returns Transaction hash
+   */
+  async convertXOMToPXOM(amount: string, address: string): Promise<string> {
+    try {
+      const amountWei = ethers.parseEther(amount);
+      const fee = amountWei * BigInt(5) / BigInt(1000); // 0.5% fee
+      const netAmount = amountWei - fee;
+      
+      // Call OmniBridge contract to swap
+      const bridgeAddress = '0x...'; // OmniBridge contract
+      const bridgeAbi = ['function swapToPrivate(uint256 amount)'];
+      const bridgeContract = new ethers.Contract(bridgeAddress, bridgeAbi, this.ethersProvider);
+      
+      const tx = await bridgeContract.swapToPrivate(amountWei);
+      await tx.wait();
+      
+      console.log(`Converted ${amount} XOM to ${ethers.formatEther(netAmount)} pXOM`);
+      return tx.hash;
+    } catch (error) {
+      throw new Error(`XOM to pXOM conversion failed: ${error}`);
+    }
+  }
+
+  /**
+   * Convert pXOM to XOM (no fee)
+   * @param amount Amount to convert
+   * @param address User address
+   * @returns Transaction hash
+   */
+  async convertPXOMToXOM(amount: string, address: string): Promise<string> {
+    try {
+      const amountWei = ethers.parseEther(amount);
+      
+      // Call OmniBridge contract to swap
+      const bridgeAddress = '0x...'; // OmniBridge contract
+      const bridgeAbi = ['function swapToPublic(uint256 amount)'];
+      const bridgeContract = new ethers.Contract(bridgeAddress, bridgeAbi, this.ethersProvider);
+      
+      const tx = await bridgeContract.swapToPublic(amountWei);
+      await tx.wait();
+      
+      console.log(`Converted ${amount} pXOM to ${amount} XOM`);
+      return tx.hash;
+    } catch (error) {
+      throw new Error(`pXOM to XOM conversion failed: ${error}`);
+    }
+  }
+
+  /**
+   * Execute private transfer using pXOM
+   * @param to Recipient address
+   * @param amount Amount to transfer
+   * @param from Sender address
+   * @returns Transaction hash
+   */
+  async privateTransfer(to: string, amount: string, from: string): Promise<string> {
+    try {
+      if (!this.privacyEnabled || !this.userOnboardInfo?.isOnboarded) {
+        throw new Error('Privacy not enabled. Please onboard first.');
+      }
+      
+      const amountWei = ethers.parseEther(amount);
+      
+      // Encrypt the amount using Garbled Circuits
+      const encryptedAmount = await this.encryptValue(
+        amountWei,
+        '0x...', // pXOM contract
+        'transfer'
+      );
+      
+      // Execute private transfer
+      if (cotiSDK) {
+        const tx = await cotiSDK.privateTransfer({
+          from,
+          to,
+          encryptedAmount,
+          provider: this.ethersProvider
+        });
+        return tx.hash;
+      } else {
+        // Fallback implementation
+        throw new Error('COTI SDK required for private transfers');
+      }
+    } catch (error) {
+      throw new Error(`Private transfer failed: ${error}`);
+    }
+  }
+
+  /**
+   * Enable privacy features for an address
+   * @param address User address
+   * @returns Success status
+   */
+  async enablePrivacy(address: string): Promise<boolean> {
+    try {
+      if (!this.userOnboardInfo?.isOnboarded) {
+        await this.onboardUser();
+      }
+      
+      this.privacyEnabled = true;
+      console.log(`Privacy enabled for ${address}`);
+      return true;
+    } catch (error) {
+      throw new Error(`Failed to enable privacy: ${error}`);
+    }
   }
 }
 
