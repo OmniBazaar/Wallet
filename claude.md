@@ -1,5 +1,25 @@
 # Wallet Module
 
+## 🚨 CRITICAL: BEFORE WRITING ANY CODE
+
+**MANDATORY STEPS:**
+1. **READ `/mnt/c/Users/rickc/OmniBazaar/CURRENT_STATUS.md`** - Check what's already complete
+2. **SEARCH for existing implementations in this module** - Many features already exist!
+3. **VERIFY the task hasn't been done** - Don't duplicate work
+4. **UPDATE `/mnt/c/Users/rickc/OmniBazaar/CURRENT_STATUS.md`** after completing work
+5. **UPDATE `/mnt/c/Users/rickc/OmniBazaar/TODO.md`** to mark tasks complete
+
+**WALLET MODULE - ALREADY IMPLEMENTED:**
+- ✅ 70+ blockchain support
+- ✅ Multi-source hybrid design (Enkrypt + Rainbow + Frame + DePay)
+- ✅ Zero-gas ENS resolution
+- ✅ Legacy user migration system
+- ✅ BIP-39 HD wallet with AES-256-GCM
+- ✅ NFT minting and display
+- ✅ IPFS integration
+- ✅ Hardware wallet framework
+- ✅ Professional UI components
+
 ## General Rules
 
 ### Solidity Development
