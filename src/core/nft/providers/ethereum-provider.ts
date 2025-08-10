@@ -1,11 +1,13 @@
 import type { NFTItem, NFTCollection } from '../../../types/nft';
 import type { ChainProvider } from '../display/multi-chain-display';
+import { OmniProvider } from '../../providers/OmniProvider';
 
 export interface EthereumNFTConfig {
   rpcUrl: string;
   alchemyApiKey?: string;
   moralisApiKey?: string;
   openseaApiKey?: string;
+  useOmniProvider?: boolean; // Use OmniBazaar validators instead of external RPCs
 }
 
 /**
@@ -20,10 +22,20 @@ export class EthereumNFTProvider implements ChainProvider {
   private config: EthereumNFTConfig;
   private baseUrl = 'https://api.opensea.io/api/v1';
   private alchemyUrl = 'https://eth-mainnet.g.alchemy.com/nft/v2';
+  private omniProvider?: OmniProvider;
 
   constructor(config: EthereumNFTConfig) {
     this.config = config;
     this.isConnected = Boolean(config.rpcUrl);
+    
+    // Initialize OmniProvider if configured
+    if (config.useOmniProvider) {
+      this.omniProvider = new OmniProvider(1, {
+        validatorUrl: process.env.VALIDATOR_URL || 'wss://validator.omnibazaar.com',
+        walletId: 'ethereum-nft-provider',
+        authKey: process.env.OMNI_AUTH_KEY
+      });
+    }
   }
 
   /**
@@ -33,7 +45,19 @@ export class EthereumNFTProvider implements ChainProvider {
     try {
       console.warn(`Fetching Ethereum NFTs for address: ${address}`);
       
-      // Try Alchemy API first if available
+      // Try OmniProvider first if available
+      if (this.omniProvider) {
+        try {
+          const nfts = await this.omniProvider.send('omni_getNFTs', [address]);
+          if (nfts && nfts.length > 0) {
+            return nfts;
+          }
+        } catch (error) {
+          console.warn('OmniProvider failed, falling back to external APIs:', error);
+        }
+      }
+      
+      // Try Alchemy API if available
       if (this.config.alchemyApiKey) {
         return await this.fetchFromAlchemy(address);
       }
@@ -43,12 +67,12 @@ export class EthereumNFTProvider implements ChainProvider {
         return await this.fetchFromOpenSea(address);
       }
       
-      // Fallback to mock data for development
-      return await this.generateMockNFTs(address);
+      // Fallback to direct blockchain query
+      return await this.fetchFromBlockchain(address);
       
     } catch (error) {
       console.warn('Error fetching Ethereum NFTs:', error);
-      return await this.generateMockNFTs(address);
+      return [];
     }
   }
 
@@ -68,7 +92,7 @@ export class EthereumNFTProvider implements ChainProvider {
         }
       }
       
-      return await this.generateMockNFT(contractAddress, tokenId, 'unknown');
+      return null;
     } catch (error) {
       console.warn('Error fetching NFT metadata:', error);
       return null;
@@ -239,73 +263,145 @@ export class EthereumNFTProvider implements ChainProvider {
   }
 
   /**
-   * Generate mock NFTs for development/testing
+   * Fetch NFTs directly from blockchain using ethers
    */
-  private async generateMockNFTs(address: string): Promise<NFTItem[]> {
-    const mockNFTs: NFTItem[] = [];
-    const count = Math.floor(Math.random() * 8) + 2; // 2-9 NFTs
-
-    for (let i = 0; i < count; i++) {
-      mockNFTs.push(await this.generateMockNFT(
-        `0x${Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}`,
-        (i + 1).toString(),
-        address
-      ));
+  private async fetchFromBlockchain(address: string): Promise<NFTItem[]> {
+    try {
+      // Use OmniProvider instead of external RPC
+      const { ProviderFactory } = await import('../../providers/provider-factory');
+      const provider = ProviderFactory.getProvider(1); // Ethereum chainId = 1
+      
+      // Try OmniBazaar's cached NFT data first
+      try {
+        const cachedNFTs = await provider.getNFTs(address, 1);
+        if (cachedNFTs && cachedNFTs.length > 0) {
+          console.log('NFTs served from OmniBazaar validator cache');
+          return cachedNFTs;
+        }
+      } catch (error) {
+        console.warn('Failed to get cached NFTs, falling back to direct query');
+      }
+      
+      // Common NFT contracts to check
+      const nftContracts = [
+        '0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D', // BAYC
+        '0xb47e3cd837dDF8e4c57F05d70Ab865de6e193BBB', // CryptoPunks
+        '0x60E4d786628Fea6478F785A6d7e704777c86a7c6', // MAYC
+        '0xED5AF388653567Af2F388E6224dC7C4b3241C544', // Azuki
+        '0x8a90CAb2b38dba80c64b7734e58Ee1dB38B8992e'  // Doodles
+      ];
+      
+      const nfts: NFTItem[] = [];
+      
+      // ERC721 ABI for balanceOf and tokenOfOwnerByIndex
+      const erc721Abi = [
+        'function balanceOf(address owner) view returns (uint256)',
+        'function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)',
+        'function tokenURI(uint256 tokenId) view returns (string)',
+        'function name() view returns (string)',
+        'function symbol() view returns (string)',
+        'function ownerOf(uint256 tokenId) view returns (address)'
+      ];
+      
+      for (const contractAddress of nftContracts) {
+        try {
+          const contract = new ethers.Contract(contractAddress, erc721Abi, provider);
+          
+          // Get balance
+          const balance = await contract.balanceOf(address);
+          if (balance === 0n) continue;
+          
+          // Get collection name
+          const collectionName = await contract.name().catch(() => 'Unknown Collection');
+          
+          // Get up to 10 NFTs from this collection
+          const limit = Math.min(Number(balance), 10);
+          
+          for (let i = 0; i < limit; i++) {
+            try {
+              const tokenId = await contract.tokenOfOwnerByIndex(address, i);
+              const tokenURI = await contract.tokenURI(tokenId).catch(() => '');
+              
+              // Parse metadata if available
+              let metadata: any = {};
+              if (tokenURI.startsWith('data:')) {
+                // On-chain metadata
+                const json = tokenURI.split(',')[1];
+                metadata = JSON.parse(atob(json));
+              } else if (tokenURI.startsWith('ipfs://')) {
+                // IPFS metadata - fetch if gateway available
+                const ipfsGateway = 'https://ipfs.io/ipfs/';
+                const ipfsHash = tokenURI.replace('ipfs://', '');
+                try {
+                  const response = await fetch(ipfsGateway + ipfsHash);
+                  metadata = await response.json();
+                } catch {
+                  metadata = { name: `${collectionName} #${tokenId}`, description: '' };
+                }
+              } else if (tokenURI.startsWith('http')) {
+                // HTTP metadata
+                try {
+                  const response = await fetch(tokenURI);
+                  metadata = await response.json();
+                } catch {
+                  metadata = { name: `${collectionName} #${tokenId}`, description: '' };
+                }
+              }
+              
+              nfts.push({
+                id: `ethereum_${contractAddress}_${tokenId}`,
+                tokenId: tokenId.toString(),
+                name: metadata.name || `${collectionName} #${tokenId}`,
+                description: metadata.description || '',
+                image: metadata.image || '',
+                imageUrl: metadata.image || '',
+                attributes: metadata.attributes || [],
+                contract: contractAddress,
+                contractAddress,
+                tokenStandard: 'ERC721',
+                blockchain: 'ethereum',
+                owner: address,
+                creator: '',
+                price: '0',
+                currency: 'ETH',
+                isListed: false
+              });
+            } catch (error) {
+              console.warn(`Failed to fetch NFT ${i} from ${contractAddress}:`, error);
+            }
+          }
+        } catch (error) {
+          console.warn(`Failed to query contract ${contractAddress}:`, error);
+        }
+      }
+      
+      return nfts;
+    } catch (error) {
+      console.error('Failed to fetch NFTs from blockchain:', error);
+      return [];
     }
-
-    return mockNFTs;
   }
 
-  /**
-   * Generate a single mock NFT
-   */
-  private async generateMockNFT(contractAddress: string, tokenId: string, owner: string): Promise<NFTItem> {
-    const collections = ['CryptoPunks', 'Bored Ape Yacht Club', 'Azuki', 'Doodles', 'Cool Cats'];
-    const rarities = ['Common', 'Uncommon', 'Rare', 'Epic', 'Legendary'];
-    const categories = ['PFP', 'Art', 'Gaming', 'Music', 'Photography'];
-    
-    const collection = collections[Math.floor(Math.random() * collections.length)];
-    const rarity = rarities[Math.floor(Math.random() * rarities.length)];
-    const category = categories[Math.floor(Math.random() * categories.length)];
-
-    return {
-      id: `ethereum_${contractAddress}_${tokenId}`,
-      tokenId,
-      name: `${collection} #${tokenId}`,
-      description: `A ${rarity} ${collection} NFT from the Ethereum blockchain`,
-      image: `https://api.dicebear.com/7.x/bottts-neutral/svg?seed=ethereum${tokenId}`,
-      imageUrl: `https://api.dicebear.com/7.x/bottts-neutral/svg?seed=ethereum${tokenId}`,
-      attributes: [
-        { trait_type: 'Collection', value: collection },
-        { trait_type: 'Rarity', value: rarity },
-        { trait_type: 'Category', value: category },
-        { trait_type: 'Blockchain', value: 'Ethereum' }
-      ],
-      contract: contractAddress,
-      contractAddress,
-      tokenStandard: 'ERC721',
-      blockchain: 'ethereum',
-      owner,
-      creator: `0x${Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}`,
-      price: (Math.random() * 5 + 0.1).toFixed(3),
-      currency: 'ETH',
-      isListed: Math.random() > 0.6
-    };
-  }
 
   /**
    * Search NFTs (basic implementation)
    */
   async searchNFTs(query: string, limit = 20): Promise<NFTItem[]> {
     try {
-      // This would implement actual search functionality
-      const mockResults = await this.generateMockNFTs('search');
-      return mockResults
-        .filter(nft => 
-          nft.name.toLowerCase().includes(query.toLowerCase()) ||
-          nft.description.toLowerCase().includes(query.toLowerCase())
-        )
-        .slice(0, limit);
+      // If we have Alchemy API, use it for search
+      if (this.config.alchemyApiKey) {
+        const response = await fetch(
+          `${this.alchemyUrl}/${this.config.alchemyApiKey}/getNFTs?contractAddresses[]=${query}&withMetadata=true&pageSize=${limit}`
+        );
+        
+        if (response.ok) {
+          const data = await response.json();
+          return data.ownedNfts?.map((nft: any) => this.transformAlchemyNFT(nft)) || [];
+        }
+      }
+      
+      // Return empty array if no search API available
+      return [];
     } catch (error) {
       console.warn('Error searching Ethereum NFTs:', error);
       return [];
@@ -317,8 +413,47 @@ export class EthereumNFTProvider implements ChainProvider {
    */
   async getTrendingNFTs(_limit = 20): Promise<NFTItem[]> {
     try {
-      // This would fetch trending NFTs from OpenSea or other APIs
-      return await this.generateMockNFTs('trending');
+      // Fetch trending NFTs from OpenSea API if available
+      if (this.config.openseaApiKey) {
+        const response = await fetch(`${this.baseUrl}/events?event_type=sale&limit=20`, {
+          headers: {
+            'X-API-KEY': this.config.openseaApiKey
+          }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          const nfts: NFTItem[] = [];
+          
+          for (const event of data.asset_events || []) {
+            if (event.asset) {
+              nfts.push({
+                id: `ethereum_${event.asset.asset_contract.address}_${event.asset.token_id}`,
+                tokenId: event.asset.token_id,
+                name: event.asset.name || `${event.asset.collection.name} #${event.asset.token_id}`,
+                description: event.asset.description || '',
+                image: event.asset.image_url || '',
+                imageUrl: event.asset.image_url || '',
+                attributes: event.asset.traits || [],
+                contract: event.asset.asset_contract.address,
+                contractAddress: event.asset.asset_contract.address,
+                tokenStandard: event.asset.asset_contract.schema_name || 'ERC721',
+                blockchain: 'ethereum',
+                owner: event.asset.owner?.address || '',
+                creator: event.asset.creator?.address || '',
+                price: event.total_price ? (Number(event.total_price) / 1e18).toString() : '0',
+                currency: 'ETH',
+                isListed: true
+              });
+            }
+          }
+          
+          return nfts;
+        }
+      }
+      
+      // Fallback to empty array if no API available
+      return [];
     } catch (error) {
       console.warn('Error fetching trending NFTs:', error);
       return [];

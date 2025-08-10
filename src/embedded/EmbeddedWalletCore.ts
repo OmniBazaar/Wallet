@@ -14,6 +14,7 @@ import {
     RPCMethod,
     AuthMethod 
 } from './EmbeddedWalletProvider';
+import { secureStorage } from '../core/storage/SecureIndexedDB';
 
 /**
  * MPC key shard structure
@@ -577,15 +578,38 @@ export class EmbeddedWalletCore {
     }
     
     /**
-     * Get device shard from local storage
+     * Get device shard from secure storage
      */
     private async getDeviceShard(): Promise<string> {
-        // In production, use IndexedDB with encryption
-        const shard = localStorage.getItem(`shard_${this.currentSession?.userId}`);
+        // Ensure secure storage is initialized
+        if (!secureStorage.isInitialized()) {
+            // Use session token as password for auto-unlock
+            await secureStorage.initialize(this.currentSession?.token || '');
+        }
+        
+        // Retrieve shard from encrypted IndexedDB
+        const shard = await secureStorage.retrieve(`shard_${this.currentSession?.userId}`);
         if (!shard) {
             throw new Error('Device shard not found');
         }
         return shard;
+    }
+    
+    /**
+     * Store device shard in secure storage
+     */
+    private async storeDeviceShard(shard: string): Promise<void> {
+        // Ensure secure storage is initialized
+        if (!secureStorage.isInitialized()) {
+            await secureStorage.initialize(this.currentSession?.token || '');
+        }
+        
+        // Store shard in encrypted IndexedDB
+        await secureStorage.store(
+            `shard_${this.currentSession?.userId}`,
+            shard,
+            'mpc_shard'
+        );
     }
     
     /**

@@ -54,6 +54,7 @@ export class KeyringService {
   private keyringManager: KeyringManager;
   private state: KeyringState;
   private providers: Map<ChainType, ethers.Provider> = new Map();
+  private validatorClient: any = null; // Will be set when validator is available
 
   /**
    * Get seed from BIP39 keyring
@@ -361,12 +362,40 @@ export class KeyringService {
   }
 
   /**
-   * Resolve username to address (mock implementation)
+   * Resolve username to address through OmniCoin naming service or ENS
    */
-  async resolveUsername(_username: string): Promise<string | null> {
-    // Mock implementation - in production would resolve through ENS or OmniCoin naming service
-    // console.warn('Username resolution not implemented:', username);
-    return null;
+  async resolveUsername(username: string): Promise<string | null> {
+    try {
+      // Check if it's an ENS name (.eth)
+      if (username.endsWith('.eth')) {
+        const provider = this.getProvider();
+        if (provider) {
+          const address = await provider.resolveName(username);
+          return address;
+        }
+      }
+      
+      // Check if it's an OmniCoin username (.omnibazaar or no extension)
+      const isOmniName = !username.includes('.') || username.endsWith('.omnibazaar');
+      if (isOmniName) {
+        // Try to resolve through KeyringManager if available
+        if (this.keyringManager) {
+          const cleanName = username.replace('.omnibazaar', '');
+          return await this.keyringManager.resolveUsername(cleanName);
+        }
+        
+        // Fallback to validator client if available
+        if (this.validatorClient) {
+          const cleanName = username.replace('.omnibazaar', '');
+          return await this.validatorClient.resolveUsername(cleanName);
+        }
+      }
+      
+      return null;
+    } catch (error) {
+      console.warn('Error resolving username:', error);
+      return null;
+    }
   }
 
   /**
@@ -374,6 +403,24 @@ export class KeyringService {
    */
   getState(): KeyringState {
     return { ...this.state };
+  }
+
+  /**
+   * Get provider for current active account's chain
+   */
+  private getProvider(): ethers.Provider | null {
+    if (!this.state.activeAccount) {
+      // Default to Ethereum provider
+      return this.providers.get('ethereum') || null;
+    }
+    return this.providers.get(this.state.activeAccount.chainType) || null;
+  }
+
+  /**
+   * Set validator client for username resolution
+   */
+  setValidatorClient(client: any): void {
+    this.validatorClient = client;
   }
 
   /**

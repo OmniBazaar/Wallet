@@ -1,6 +1,7 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useWallet } from './useWallet';
 import { ListingMetadata, SearchFilters } from '../types/listing';
+import { OmniProvider } from '../core/providers/OmniProvider';
 
 interface UseListingsReturn {
     listings: ListingMetadata[];
@@ -20,16 +21,51 @@ export const useListings = (contractAddress: string): UseListingsReturn => {
     const [error, setError] = useState<string | null>(null);
     const [totalResults, setTotalResults] = useState(0);
     const [currentPage, setCurrentPage] = useState(1);
+    const [omniProvider, setOmniProvider] = useState<OmniProvider | null>(null);
+    
+    // Initialize OmniProvider for marketplace data
+    useEffect(() => {
+        const initProvider = async () => {
+            try {
+                const provider = new OmniProvider(1, {
+                    validatorUrl: process.env.VALIDATOR_URL || 'wss://validator.omnibazaar.com',
+                    walletId: 'marketplace-listings',
+                    authKey: process.env.OMNI_AUTH_KEY
+                });
+                setOmniProvider(provider);
+            } catch (error) {
+                console.error('Failed to initialize OmniProvider:', error);
+            }
+        };
+        
+        initProvider();
+    }, []);
 
     const searchListings = useCallback(async (filters: SearchFilters) => {
-        if (!provider) return;
-
         try {
             setIsLoading(true);
             setError(null);
 
-            // TODO: Implement actual search logic using the OmniBazaar API
-            // This is a placeholder for the search implementation
+            // Try OmniProvider first for P2P marketplace data
+            if (omniProvider) {
+                try {
+                    const result = await omniProvider.send('omni_searchListings', [{
+                        contractAddress,
+                        ...filters
+                    }]);
+                    
+                    if (result && result.listings) {
+                        setListings(result.listings);
+                        setTotalResults(result.total || result.listings.length);
+                        setCurrentPage(filters.page || 1);
+                        return;
+                    }
+                } catch (error) {
+                    console.warn('OmniProvider search failed, falling back to API:', error);
+                }
+            }
+
+            // Fallback to direct API if OmniProvider not available
             const response = await fetch('/api/listings/search', {
                 method: 'POST',
                 headers: {
@@ -56,14 +92,23 @@ export const useListings = (contractAddress: string): UseListingsReturn => {
         } finally {
             setIsLoading(false);
         }
-    }, [provider, contractAddress]);
+    }, [omniProvider, contractAddress]);
 
     const getListing = useCallback(async (tokenId: string): Promise<ListingMetadata | null> => {
-        if (!provider) return null;
-
         try {
-            // TODO: Implement actual listing fetch logic
-            // This is a placeholder for the implementation
+            // Try OmniProvider first
+            if (omniProvider) {
+                try {
+                    const result = await omniProvider.send('omni_getListing', [contractAddress, tokenId]);
+                    if (result && result.listing) {
+                        return result.listing;
+                    }
+                } catch (error) {
+                    console.warn('OmniProvider getListing failed, falling back to API:', error);
+                }
+            }
+
+            // Fallback to direct API
             const response = await fetch(`/api/listings/${contractAddress}/${tokenId}`);
 
             if (!response.ok) {
@@ -77,17 +122,28 @@ export const useListings = (contractAddress: string): UseListingsReturn => {
             console.error('Error fetching listing:', err);
             return null;
         }
-    }, [provider, contractAddress]);
+    }, [omniProvider, contractAddress]);
 
     const refreshListings = useCallback(async () => {
-        if (!provider) return;
-
         try {
             setIsLoading(true);
             setError(null);
 
-            // TODO: Implement actual refresh logic
-            // This is a placeholder for the implementation
+            // Try OmniProvider first
+            if (omniProvider) {
+                try {
+                    const result = await omniProvider.send('omni_refreshListings', [contractAddress]);
+                    if (result && result.listings) {
+                        setListings(result.listings);
+                        setTotalResults(result.total || result.listings.length);
+                        return;
+                    }
+                } catch (error) {
+                    console.warn('OmniProvider refresh failed, falling back to API:', error);
+                }
+            }
+
+            // Fallback to direct API
             const response = await fetch(`/api/listings/${contractAddress}/refresh`);
 
             if (!response.ok) {
@@ -104,7 +160,7 @@ export const useListings = (contractAddress: string): UseListingsReturn => {
         } finally {
             setIsLoading(false);
         }
-    }, [provider, contractAddress]);
+    }, [omniProvider, contractAddress]);
 
     return {
         listings,

@@ -1,27 +1,28 @@
 import type { NFTItem, NFTCollection } from '../../../types/nft';
 import type { ChainProvider } from '../display/multi-chain-display';
 
-export interface PolygonNFTConfig {
+export interface BaseNFTConfig {
   rpcUrl: string;
+  basescanApiKey?: string;
   alchemyApiKey?: string;
-  moralisApiKey?: string;
-  quickNodeApiKey?: string;
+  simplehashApiKey?: string;
 }
 
 /**
- * Polygon NFT Provider for fetching NFTs from Polygon network
- * Supports multiple APIs for comprehensive NFT data on Polygon
+ * Base NFT Provider for fetching NFTs from Base mainnet
+ * Supports Basescan, Alchemy, and SimpleHash APIs for comprehensive NFT data
  */
-export class PolygonNFTProvider implements ChainProvider {
-  chainId = 137;
-  name = 'Polygon';
+export class BaseNFTProvider implements ChainProvider {
+  chainId = 8453; // Base mainnet
+  name = 'Base';
   isConnected = false;
   
-  private config: PolygonNFTConfig;
-  private alchemyUrl = 'https://polygon-mainnet.g.alchemy.com/nft/v2';
-  private openseaUrl = 'https://api.opensea.io/api/v1';
+  private config: BaseNFTConfig;
+  private basescanUrl = 'https://api.basescan.org/api';
+  private alchemyUrl = 'https://base-mainnet.g.alchemy.com/nft/v2';
+  private simplehashUrl = 'https://api.simplehash.com/api/v0';
 
-  constructor(config: PolygonNFTConfig) {
+  constructor(config: BaseNFTConfig) {
     this.config = config;
     this.isConnected = Boolean(config.rpcUrl);
   }
@@ -31,23 +32,23 @@ export class PolygonNFTProvider implements ChainProvider {
    */
   async getNFTs(address: string): Promise<NFTItem[]> {
     try {
-      console.warn(`Fetching Polygon NFTs for address: ${address}`);
+      console.warn(`Fetching Base NFTs for address: ${address}`);
       
       // Try Alchemy API first if available
       if (this.config.alchemyApiKey) {
         return await this.fetchFromAlchemy(address);
       }
       
-      // Try QuickNode if available
-      if (this.config.quickNodeApiKey) {
-        return await this.fetchFromQuickNode(address);
+      // Try SimpleHash API if available
+      if (this.config.simplehashApiKey) {
+        return await this.fetchFromSimpleHash(address);
       }
       
       // Fallback to direct blockchain query
       return await this.fetchFromBlockchain(address);
       
     } catch (error) {
-      console.warn('Error fetching Polygon NFTs:', error);
+      console.warn('Error fetching Base NFTs:', error);
       return [];
     }
   }
@@ -108,7 +109,7 @@ export class PolygonNFTProvider implements ChainProvider {
       }
       
       return {
-        id: `polygon_${contractAddress}_${tokenId}`,
+        id: `base_${contractAddress}_${tokenId}`,
         tokenId,
         name: metadata.name || `${name} #${tokenId}`,
         description: metadata.description || '',
@@ -118,13 +119,13 @@ export class PolygonNFTProvider implements ChainProvider {
         contract: contractAddress,
         contractAddress,
         tokenStandard: 'ERC721',
-        blockchain: 'polygon',
+        blockchain: 'base',
         owner,
         creator: '',
         isListed: false
       };
     } catch (error) {
-      console.warn('Error fetching Polygon NFT metadata:', error);
+      console.warn('Error fetching Base NFT metadata:', error);
       return null;
     }
   }
@@ -134,20 +135,30 @@ export class PolygonNFTProvider implements ChainProvider {
    */
   async getCollections(address: string): Promise<NFTCollection[]> {
     try {
-      return [{
-        id: 'polygon_collection_1',
-        name: 'Polygon NFT Collection',
-        description: 'Sample Polygon collection with low gas fees',
-        contract: '0x0000000000000000000000000000000000000000',
-        contractAddress: '0x0000000000000000000000000000000000000000',
-        tokenStandard: 'ERC721',
-        blockchain: 'polygon',
-        creator: address,
-        verified: true,
-        items: []
-      }];
+      const nfts = await this.getNFTs(address);
+      const collectionMap = new Map<string, NFTCollection>();
+      
+      for (const nft of nfts) {
+        if (!collectionMap.has(nft.contractAddress)) {
+          collectionMap.set(nft.contractAddress, {
+            id: `base_collection_${nft.contractAddress}`,
+            name: nft.name.split('#')[0].trim() || 'Unknown Collection',
+            description: '',
+            contract: nft.contractAddress,
+            contractAddress: nft.contractAddress,
+            tokenStandard: nft.tokenStandard,
+            blockchain: 'base',
+            creator: nft.creator || address,
+            verified: false,
+            items: []
+          });
+        }
+        collectionMap.get(nft.contractAddress)!.items.push(nft);
+      }
+      
+      return Array.from(collectionMap.values());
     } catch (error) {
-      console.warn('Error fetching Polygon collections:', error);
+      console.warn('Error fetching Base collections:', error);
       return [];
     }
   }
@@ -165,91 +176,78 @@ export class PolygonNFTProvider implements ChainProvider {
     }
     
     const data = await response.json();
-    return data.ownedNfts.map((nft: {
-      contract: { address: string };
-      id: { tokenId: string; tokenMetadata?: { tokenType?: string } };
-      metadata?: {
-        name?: string;
-        description?: string;
-        image?: string;
-        attributes?: Array<{ trait_type: string; value: string | number }>;
-        creator?: string;
-      };
-      media?: Array<{ gateway?: string }>;
-    }) => this.transformAlchemyNFT(nft));
+    return data.ownedNfts?.map((nft: any) => this.transformAlchemyNFT(nft)) || [];
+  }
+
+  /**
+   * Fetch NFTs from SimpleHash API
+   */
+  private async fetchFromSimpleHash(address: string): Promise<NFTItem[]> {
+    const response = await fetch(
+      `${this.simplehashUrl}/nfts/owners?chains=base&wallet_addresses=${address}&limit=100`,
+      {
+        headers: {
+          'X-API-KEY': this.config.simplehashApiKey!
+        }
+      }
+    );
+    
+    if (!response.ok) {
+      throw new Error(`SimpleHash API error: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    return data.nfts?.map((nft: any) => this.transformSimpleHashNFT(nft)) || [];
   }
 
   /**
    * Transform Alchemy NFT data to our format
    */
-  private transformAlchemyNFT(nft: {
-    contract: { address: string };
-    id: { tokenId: string; tokenMetadata?: { tokenType?: string } };
-    metadata?: {
-      name?: string;
-      description?: string;
-      image?: string;
-      attributes?: Array<{ trait_type: string; value: string | number }>;
-      creator?: string;
-    };
-    media?: Array<{ gateway?: string }>;
-  }): NFTItem {
+  private transformAlchemyNFT(nft: any): NFTItem {
     const metadata = nft.metadata || {};
     
     return {
-      id: `polygon_${nft.contract.address}_${nft.id.tokenId}`,
+      id: `base_${nft.contract.address}_${nft.id.tokenId}`,
       tokenId: nft.id.tokenId,
-      name: metadata.name || `Polygon Token #${nft.id.tokenId}`,
-      description: metadata.description || '',
+      name: metadata.name || nft.title || `Base NFT #${nft.id.tokenId}`,
+      description: metadata.description || nft.description || '',
       image: metadata.image || nft.media?.[0]?.gateway || '',
       imageUrl: metadata.image || nft.media?.[0]?.gateway || '',
       attributes: metadata.attributes || [],
       contract: nft.contract.address,
       contractAddress: nft.contract.address,
       tokenStandard: nft.id.tokenMetadata?.tokenType || 'ERC721',
-      blockchain: 'polygon',
-      owner: 'unknown',
-      creator: metadata.creator || 'unknown',
+      blockchain: 'base',
+      owner: '',
+      creator: metadata.creator || '',
       isListed: false
     };
   }
 
   /**
-   * Fetch NFTs from QuickNode API
+   * Transform SimpleHash NFT data to our format
    */
-  private async fetchFromQuickNode(address: string): Promise<NFTItem[]> {
-    try {
-      const response = await fetch(`https://api.quicknode.com/nft/v1/polygon/nfts?wallet=${address}`, {
-        headers: {
-          'x-api-key': this.config.quickNodeApiKey!
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error(`QuickNode API error: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      return data.assets?.map((nft: any) => ({
-        id: `polygon_${nft.contract}_${nft.tokenId}`,
-        tokenId: nft.tokenId,
-        name: nft.name || `Polygon NFT #${nft.tokenId}`,
-        description: nft.description || '',
-        image: nft.imageUrl || '',
-        imageUrl: nft.imageUrl || '',
-        attributes: nft.traits || [],
-        contract: nft.contract,
-        contractAddress: nft.contract,
-        tokenStandard: nft.type || 'ERC721',
-        blockchain: 'polygon',
-        owner: address,
-        creator: nft.creator || '',
-        isListed: false
-      })) || [];
-    } catch (error) {
-      console.warn('QuickNode fetch failed:', error);
-      return [];
-    }
+  private transformSimpleHashNFT(nft: any): NFTItem {
+    return {
+      id: `base_${nft.contract_address}_${nft.token_id}`,
+      tokenId: nft.token_id,
+      name: nft.name || `Base NFT #${nft.token_id}`,
+      description: nft.description || '',
+      image: nft.image_url || nft.previews?.image_medium_url || '',
+      imageUrl: nft.image_url || nft.previews?.image_medium_url || '',
+      attributes: nft.extra_metadata?.attributes || [],
+      contract: nft.contract_address,
+      contractAddress: nft.contract_address,
+      tokenStandard: nft.contract?.type || 'ERC721',
+      blockchain: 'base',
+      owner: nft.owners?.[0]?.owner_address || '',
+      creator: nft.contract?.deployed_by || '',
+      price: nft.last_sale?.unit_price ? 
+        (Number(nft.last_sale.unit_price) / 1e18).toString() : '0',
+      currency: 'ETH',
+      isListed: Boolean(nft.listings?.length),
+      marketplaceUrl: nft.external_url
+    };
   }
 
   /**
@@ -260,13 +258,13 @@ export class PolygonNFTProvider implements ChainProvider {
       const { ethers } = await import('ethers');
       const provider = new ethers.JsonRpcProvider(this.config.rpcUrl);
       
-      // Popular Polygon NFT contracts to check
+      // Popular Base NFT contracts to check
       const nftContracts = [
-        '0x9d305a42A3975Ee4c1C57555BeD5919889DCE63F', // Polygon Punks
-        '0x0BEF619Cf38cF0c22967289b8419720fBd1Db9f7', // Aavegotchi
-        '0x3FA0EAC3058828Cc4BA97F51A33597C695bF6F9e', // MATIC Monsters
-        '0x219b8aB790dedB965cA5C1C6C8fb48f5B5b2BeE6', // Polygon Apes
-        '0xC4dF0e539dF923c3e0832196cC3f17e54Dd4d32a'  // PolyDoge
+        '0xd4307e0acd12cf46fd6cf93bc264f5d5d1598792', // Base, Introduced
+        '0xba5e05cb26b78eda3a2f8e3b3814726305dcac83', // BasePaint
+        '0x5806485215C8542C448EcF707aB6321b85eB5D18', // Stand with Crypto
+        '0x9d6F33d70A90588c70e411aB22d899BAD31C4264', // Base Day One
+        '0xfae6aBAEA9e712dCCeCAEDbEd2700aeBd293dd25'  // Base Gods
       ];
       
       const nfts: NFTItem[] = [];
@@ -326,7 +324,7 @@ export class PolygonNFTProvider implements ChainProvider {
               }
               
               nfts.push({
-                id: `polygon_${contractAddress}_${tokenId}`,
+                id: `base_${contractAddress}_${tokenId}`,
                 tokenId: tokenId.toString(),
                 name: metadata.name || `${collectionName} #${tokenId}`,
                 description: metadata.description || '',
@@ -336,11 +334,11 @@ export class PolygonNFTProvider implements ChainProvider {
                 contract: contractAddress,
                 contractAddress,
                 tokenStandard: 'ERC721',
-                blockchain: 'polygon',
+                blockchain: 'base',
                 owner: address,
                 creator: '',
                 price: '0',
-                currency: 'MATIC',
+                currency: 'ETH',
                 isListed: false
               });
             } catch (error) {
@@ -360,78 +358,126 @@ export class PolygonNFTProvider implements ChainProvider {
   }
 
   /**
-   * Search NFTs on Polygon
+   * Search NFTs on Base
    */
   async searchNFTs(query: string, limit = 20): Promise<NFTItem[]> {
     try {
       // If we have Alchemy API, use it for search
       if (this.config.alchemyApiKey) {
         const response = await fetch(
-          `${this.alchemyUrl}/${this.config.alchemyApiKey}/searchNFTs?query=${encodeURIComponent(query)}&pageSize=${limit}`
+          `${this.alchemyUrl}/${this.config.alchemyApiKey}/getNFTs?contractAddresses[]=${query}&withMetadata=true&pageSize=${limit}`
         );
         
         if (response.ok) {
           const data = await response.json();
-          return data.nfts?.map((nft: any) => this.transformAlchemyNFT(nft)) || [];
+          return data.ownedNfts?.map((nft: any) => this.transformAlchemyNFT(nft)) || [];
         }
       }
       
-      // Fallback to empty array if no search API available
+      // If we have SimpleHash API, use it for search
+      if (this.config.simplehashApiKey) {
+        const response = await fetch(
+          `${this.simplehashUrl}/nfts/collection/${query}?chains=base&limit=${limit}`,
+          {
+            headers: {
+              'X-API-KEY': this.config.simplehashApiKey
+            }
+          }
+        );
+        
+        if (response.ok) {
+          const data = await response.json();
+          return data.nfts?.map((nft: any) => this.transformSimpleHashNFT(nft)) || [];
+        }
+      }
+      
       return [];
     } catch (error) {
-      console.warn('Error searching Polygon NFTs:', error);
+      console.warn('Error searching Base NFTs:', error);
       return [];
     }
   }
 
   /**
-   * Get trending NFTs on Polygon
+   * Get trending NFTs on Base
    */
   async getTrendingNFTs(limit = 20): Promise<NFTItem[]> {
     try {
-      // Fetch from OpenSea trending collections on Polygon
-      const response = await fetch(
-        `https://api.opensea.io/api/v1/events?chain=matic&event_type=sale&limit=${limit}`,
-        {
-          headers: {
-            'Accept': 'application/json'
-          }
-        }
-      );
-      
-      if (response.ok) {
-        const data = await response.json();
+      // Fetch trending NFTs on Base
+      if (this.config.alchemyApiKey) {
+        // Get NFTs from popular collections
+        const popularContracts = [
+          '0xd4307e0acd12cf46fd6cf93bc264f5d5d1598792', // Base, Introduced
+          '0xba5e05cb26b78eda3a2f8e3b3814726305dcac83', // BasePaint
+          '0x5806485215C8542C448EcF707aB6321b85eB5D18'  // Stand with Crypto
+        ];
+        
         const nfts: NFTItem[] = [];
         
-        for (const event of data.asset_events || []) {
-          if (event.asset) {
-            nfts.push({
-              id: `polygon_${event.asset.asset_contract.address}_${event.asset.token_id}`,
-              tokenId: event.asset.token_id,
-              name: event.asset.name || `${event.asset.collection.name} #${event.asset.token_id}`,
-              description: event.asset.description || '',
-              image: event.asset.image_url || '',
-              imageUrl: event.asset.image_url || '',
-              attributes: event.asset.traits || [],
-              contract: event.asset.asset_contract.address,
-              contractAddress: event.asset.asset_contract.address,
-              tokenStandard: event.asset.asset_contract.schema_name || 'ERC721',
-              blockchain: 'polygon',
-              owner: event.asset.owner?.address || '',
-              creator: event.asset.creator?.address || '',
-              price: event.total_price ? (Number(event.total_price) / 1e18).toString() : '0',
-              currency: 'MATIC',
-              isListed: true
-            });
+        for (const contract of popularContracts) {
+          const response = await fetch(
+            `${this.alchemyUrl}/${this.config.alchemyApiKey}/getContractMetadata?contractAddress=${contract}`
+          );
+          
+          if (response.ok) {
+            // Get sample NFTs from collection
+            const nftResponse = await fetch(
+              `${this.alchemyUrl}/${this.config.alchemyApiKey}/getNFTsForCollection?contractAddress=${contract}&limit=${Math.ceil(limit / popularContracts.length)}&withMetadata=true`
+            );
+            
+            if (nftResponse.ok) {
+              const data = await nftResponse.json();
+              const collectionNfts = data.nfts?.map((nft: any) => this.transformAlchemyNFT(nft)) || [];
+              nfts.push(...collectionNfts);
+            }
           }
         }
         
-        return nfts;
+        return nfts.slice(0, limit);
+      }
+      
+      // SimpleHash trending
+      if (this.config.simplehashApiKey) {
+        const response = await fetch(
+          `${this.simplehashUrl}/nfts/trending_collections?chains=base&time_period=24h&limit=${limit}`,
+          {
+            headers: {
+              'X-API-KEY': this.config.simplehashApiKey
+            }
+          }
+        );
+        
+        if (response.ok) {
+          const data = await response.json();
+          const nfts: NFTItem[] = [];
+          
+          // Get sample NFTs from trending collections
+          for (const collection of data.collections || []) {
+            const nftResponse = await fetch(
+              `${this.simplehashUrl}/nfts/collection/${collection.collection_id}?chains=base&limit=5`,
+              {
+                headers: {
+                  'X-API-KEY': this.config.simplehashApiKey!
+                }
+              }
+            );
+            
+            if (nftResponse.ok) {
+              const nftData = await nftResponse.json();
+              const collectionNfts = nftData.nfts?.map((nft: any) => this.transformSimpleHashNFT(nft)) || [];
+              nfts.push(...collectionNfts);
+            }
+            
+            if (nfts.length >= limit) break;
+          }
+          
+          return nfts.slice(0, limit);
+        }
       }
       
       return [];
     } catch (error) {
-      console.warn('Error fetching trending Polygon NFTs:', error);
+      console.warn('Error fetching trending Base NFTs:', error);
       return [];
     }
   }
@@ -439,7 +485,7 @@ export class PolygonNFTProvider implements ChainProvider {
   /**
    * Update configuration
    */
-  updateConfig(newConfig: Partial<PolygonNFTConfig>): void {
+  updateConfig(newConfig: Partial<BaseNFTConfig>): void {
     this.config = { ...this.config, ...newConfig };
     this.isConnected = Boolean(this.config.rpcUrl);
   }
@@ -452,10 +498,32 @@ export class PolygonNFTProvider implements ChainProvider {
 
     if (this.config.alchemyApiKey) {
       try {
-        const response = await fetch(`${this.alchemyUrl}/${this.config.alchemyApiKey}/getNFTs?owner=0x0000000000000000000000000000000000000000&pageSize=1`);
+        const response = await fetch(`${this.alchemyUrl}/${this.config.alchemyApiKey}/isHolderOfCollection?wallet=0x0000000000000000000000000000000000000000&contractAddress=0x0000000000000000000000000000000000000000`);
         if (response.ok) workingApis.push('Alchemy');
       } catch (error) {
-        console.warn('Polygon Alchemy connection test failed:', error);
+        console.warn('Alchemy connection test failed:', error);
+      }
+    }
+
+    if (this.config.simplehashApiKey) {
+      try {
+        const response = await fetch(`${this.simplehashUrl}/nfts/owners?chains=base&wallet_addresses=0x0000000000000000000000000000000000000000&limit=1`, {
+          headers: { 'X-API-KEY': this.config.simplehashApiKey }
+        });
+        if (response.ok) workingApis.push('SimpleHash');
+      } catch (error) {
+        console.warn('SimpleHash connection test failed:', error);
+      }
+    }
+
+    if (this.config.basescanApiKey) {
+      try {
+        const response = await fetch(
+          `${this.basescanUrl}?module=account&action=tokennfttx&address=0x0000000000000000000000000000000000000000&apikey=${this.config.basescanApiKey}`
+        );
+        if (response.ok) workingApis.push('Basescan');
+      } catch (error) {
+        console.warn('Basescan connection test failed:', error);
       }
     }
 
@@ -464,4 +532,4 @@ export class PolygonNFTProvider implements ChainProvider {
       apis: workingApis
     };
   }
-} 
+}

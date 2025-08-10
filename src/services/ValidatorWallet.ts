@@ -1012,13 +1012,20 @@ export class ValidatorWalletService {
     }, 24 * 60 * 60 * 1000);
   }
 
+  /**
+   * Encrypt data using AES-256-GCM with PBKDF2 key derivation
+   * Production-ready implementation with proper salt generation
+   */
   private async encryptData(data: string, password: string): Promise<string> {
-    // Simple encryption implementation - in production use proper encryption
     const encoder = new TextEncoder();
     const dataBuffer = encoder.encode(data);
-    const passwordBuffer = encoder.encode(password);
     
-    const key = await crypto.subtle.importKey(
+    // Generate a random salt for PBKDF2 (NEVER use password as salt)
+    const salt = crypto.getRandomValues(new Uint8Array(32));
+    
+    // Import password for key derivation
+    const passwordBuffer = encoder.encode(password);
+    const baseKey = await crypto.subtle.importKey(
       'raw',
       passwordBuffer,
       { name: 'PBKDF2' },
@@ -1026,44 +1033,63 @@ export class ValidatorWalletService {
       ['deriveBits', 'deriveKey']
     );
     
+    // Derive a 256-bit key using PBKDF2 with 210,000 iterations (OWASP 2023 recommendation)
     const derivedKey = await crypto.subtle.deriveKey(
       {
         name: 'PBKDF2',
-        salt: passwordBuffer,
-        iterations: 100000,
+        salt: salt,
+        iterations: 210000, // OWASP 2023 recommendation for PBKDF2-SHA256
         hash: 'SHA-256'
       },
-      key,
+      baseKey,
       { name: 'AES-GCM', length: 256 },
-      true,
-      ['encrypt', 'decrypt']
+      false, // Don't make key extractable
+      ['encrypt']
     );
     
+    // Generate a random IV for AES-GCM (96 bits / 12 bytes)
     const iv = crypto.getRandomValues(new Uint8Array(12));
+    
+    // Encrypt the data
     const encrypted = await crypto.subtle.encrypt(
-      { name: 'AES-GCM', iv },
+      { 
+        name: 'AES-GCM', 
+        iv: iv,
+        tagLength: 128 // 128-bit authentication tag
+      },
       derivedKey,
       dataBuffer
     );
     
-    const combined = new Uint8Array(iv.length + encrypted.byteLength);
-    combined.set(iv);
-    combined.set(new Uint8Array(encrypted), iv.length);
+    // Combine salt + iv + encrypted data
+    const combined = new Uint8Array(salt.length + iv.length + encrypted.byteLength);
+    combined.set(salt, 0);
+    combined.set(iv, salt.length);
+    combined.set(new Uint8Array(encrypted), salt.length + iv.length);
     
+    // Return base64 encoded result
     return btoa(String.fromCharCode(...combined));
   }
 
+  /**
+   * Decrypt data encrypted with AES-256-GCM
+   * Production-ready implementation matching the encryption method
+   */
   private async decryptData(encryptedData: string, password: string): Promise<string> {
-    // Simple decryption implementation - in production use proper decryption
     const encoder = new TextEncoder();
     const decoder = new TextDecoder();
-    const passwordBuffer = encoder.encode(password);
     
+    // Decode from base64
     const combined = Uint8Array.from(atob(encryptedData), c => c.charCodeAt(0));
-    const iv = combined.slice(0, 12);
-    const encrypted = combined.slice(12);
     
-    const key = await crypto.subtle.importKey(
+    // Extract salt, IV, and encrypted data
+    const salt = combined.slice(0, 32);
+    const iv = combined.slice(32, 44);
+    const encrypted = combined.slice(44);
+    
+    // Import password for key derivation
+    const passwordBuffer = encoder.encode(password);
+    const baseKey = await crypto.subtle.importKey(
       'raw',
       passwordBuffer,
       { name: 'PBKDF2' },
@@ -1071,26 +1097,36 @@ export class ValidatorWalletService {
       ['deriveBits', 'deriveKey']
     );
     
+    // Derive the same key using extracted salt
     const derivedKey = await crypto.subtle.deriveKey(
       {
         name: 'PBKDF2',
-        salt: passwordBuffer,
-        iterations: 100000,
+        salt: salt,
+        iterations: 210000, // Must match encryption iterations
         hash: 'SHA-256'
       },
-      key,
+      baseKey,
       { name: 'AES-GCM', length: 256 },
-      true,
-      ['encrypt', 'decrypt']
+      false,
+      ['decrypt']
     );
     
-    const decrypted = await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv },
-      derivedKey,
-      encrypted
-    );
-    
-    return decoder.decode(decrypted);
+    // Decrypt the data
+    try {
+      const decrypted = await crypto.subtle.decrypt(
+        { 
+          name: 'AES-GCM', 
+          iv: iv,
+          tagLength: 128
+        },
+        derivedKey,
+        encrypted
+      );
+      
+      return decoder.decode(decrypted);
+    } catch (error) {
+      throw new Error('Decryption failed: Invalid password or corrupted data');
+    }
   }
 
   private async calculateChecksum(data: string): Promise<string> {

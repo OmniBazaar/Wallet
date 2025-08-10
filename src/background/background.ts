@@ -4,6 +4,12 @@
 import EthereumProvider from '@/core/chains/ethereum/provider';
 import { ProviderName, ProviderRPCRequest, OnMessageResponse } from '@/types/provider';
 import { EthereumNetworks } from '@/core/chains/ethereum/provider';
+import { KeyringService } from '@/core/keyring/KeyringService';
+import { NFTService } from '@/core/nft/NFTService';
+import { MarketplaceService } from '@/services/marketplace/MarketplaceService';
+import { WalletService } from '@/services/WalletService';
+import { SecureIndexedDB } from '@/core/storage/SecureIndexedDB';
+import { ValidatorWallet } from '@/core/ValidatorWallet';
 
 // Declare global chrome API
 declare const chrome: {
@@ -46,6 +52,16 @@ const providers = new Map<ProviderName, EthereumProvider>();
 let currentTab: number | null = null;
 
 /**
+ * Core service instances
+ */
+let keyringService: KeyringService;
+let nftService: NFTService;
+let marketplaceService: MarketplaceService;
+let walletService: WalletService;
+let validatorWallet: ValidatorWallet;
+let secureStorage: SecureIndexedDB;
+
+/**
  * Initializes blockchain providers for the wallet
  */
 function initializeProviders(): void {
@@ -61,6 +77,40 @@ function initializeProviders(): void {
   
   console.warn('✅ Ethereum provider initialized');
   console.warn(`📊 Total providers: ${providers.size}`);
+}
+
+/**
+ * Initializes all core services
+ */
+async function initializeServices(): Promise<void> {
+  console.warn('🔧 Initializing OmniBazaar Wallet services...');
+  
+  try {
+    // Initialize secure storage
+    secureStorage = SecureIndexedDB.getInstance();
+    await secureStorage.open();
+    
+    // Initialize keyring service
+    keyringService = KeyringService.getInstance();
+    await keyringService.checkInitialization();
+    
+    // Initialize validator wallet
+    validatorWallet = ValidatorWallet.getInstance();
+    
+    // Initialize NFT service
+    nftService = NFTService.getInstance();
+    
+    // Initialize marketplace service
+    marketplaceService = MarketplaceService.getInstance();
+    
+    // Initialize wallet service
+    walletService = WalletService.getInstance();
+    
+    console.warn('✅ All services initialized successfully');
+  } catch (error) {
+    console.error('❌ Service initialization failed:', error);
+    throw error;
+  }
 }
 
 /**
@@ -174,21 +224,48 @@ async function handleProviderRequest(request: ProviderRPCRequest & { provider: P
  */
 async function getWalletState(): Promise<{
   isUnlocked: boolean;
-  currentAccount: null;
+  currentAccount: { address: string; name: string } | null;
   currentNetwork: string;
   supportedNetworks: string[];
   nftCollections: unknown[];
   balance: string;
   transactions: unknown[];
 }> {
+  // Get keyring state
+  const keyringState = keyringService.getState();
+  const activeAccount = keyringService.getActiveAccount();
+  
+  // Get balance if account is active
+  let balance = '0';
+  if (activeAccount) {
+    try {
+      balance = await keyringService.getBalance(activeAccount.address);
+    } catch (error) {
+      console.warn('Failed to get balance:', error);
+    }
+  }
+  
+  // Get NFT collections if account is active
+  let nftCollections: unknown[] = [];
+  if (activeAccount) {
+    try {
+      nftCollections = await nftService.getCollections(activeAccount.address);
+    } catch (error) {
+      console.warn('Failed to get NFT collections:', error);
+    }
+  }
+  
   const state = {
-    isUnlocked: false, // Will be implemented with keyring
-    currentAccount: null,
+    isUnlocked: !keyringState.isLocked,
+    currentAccount: activeAccount ? {
+      address: activeAccount.address,
+      name: activeAccount.name
+    } : null,
     currentNetwork: 'ethereum',
     supportedNetworks: Array.from(providers.keys()),
-    nftCollections: [],
-    balance: '0',
-    transactions: []
+    nftCollections,
+    balance,
+    transactions: [] // TODO: Implement transaction history
   };
   
   console.warn('📊 Wallet state requested:', state);
@@ -199,20 +276,85 @@ async function getWalletState(): Promise<{
  * Connects an account to the wallet
  * @param data - Account connection parameters
  * @returns Promise resolving to connection result
- * @todo Implement keyring integration
  */
-async function connectAccount(data: { address?: string }): Promise<{
+async function connectAccount(data: { 
+  address?: string;
+  password?: string;
+  username?: string;
+  mnemonic?: string;
+  authMethod?: 'web2' | 'web3';
+}): Promise<{
   success: boolean;
+  address?: string;
   error?: string;
 }> {
   console.warn('🔐 Connect account requested:', data);
   
-  // This will be implemented with keyring integration
-  // For now, return a placeholder
-  return {
-    success: false,
-    error: 'Account management not yet implemented - requires keyring integration'
-  };
+  try {
+    const keyringState = keyringService.getState();
+    
+    // Initialize wallet if not already initialized
+    if (!keyringState.isInitialized) {
+      if (data.authMethod === 'web3' && data.password) {
+        // Initialize Web3 wallet with seed phrase
+        const seedPhrase = await keyringService.initializeWeb3Wallet(data.password, data.mnemonic);
+        console.warn('✅ Web3 wallet initialized');
+        
+        const activeAccount = keyringService.getActiveAccount();
+        return {
+          success: true,
+          address: activeAccount?.address
+        };
+      } else if (data.authMethod === 'web2' && data.username && data.password) {
+        // Initialize Web2 wallet with username/password
+        const session = await keyringService.initializeWeb2Wallet(data.username, data.password);
+        console.warn('✅ Web2 wallet initialized for:', session.username);
+        
+        const activeAccount = keyringService.getActiveAccount();
+        return {
+          success: true,
+          address: activeAccount?.address
+        };
+      } else {
+        return {
+          success: false,
+          error: 'Invalid authentication parameters'
+        };
+      }
+    }
+    
+    // Unlock existing wallet
+    if (keyringState.isLocked && data.password) {
+      await keyringService.unlock(data.password, data.username);
+      console.warn('✅ Wallet unlocked');
+      
+      const activeAccount = keyringService.getActiveAccount();
+      return {
+        success: true,
+        address: activeAccount?.address
+      };
+    }
+    
+    // Set active account if specified
+    if (data.address) {
+      keyringService.setActiveAccount(data.address);
+      return {
+        success: true,
+        address: data.address
+      };
+    }
+    
+    return {
+      success: false,
+      error: 'No action taken - wallet already initialized and unlocked'
+    };
+  } catch (error) {
+    console.error('Failed to connect account:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to connect account'
+    };
+  }
 }
 
 /**
@@ -288,61 +430,165 @@ async function getBalance(data: { address: string; network?: string }): Promise<
  * Signs a transaction using the wallet's private key
  * @param data - Transaction data to sign
  * @returns Promise resolving to signing result
- * @todo Implement keyring integration
  */
-async function signTransaction(data: unknown): Promise<{
+async function signTransaction(data: {
+  to: string;
+  value?: string;
+  data?: string;
+  gasLimit?: string;
+  gasPrice?: string;
+  maxFeePerGas?: string;
+  maxPriorityFeePerGas?: string;
+  nonce?: number;
+  chainId?: number;
+}): Promise<{
   success: boolean;
+  signedTransaction?: string;
   error?: string;
 }> {
   console.warn('✍️ Transaction signing requested:', data);
   
-  // This will be implemented with keyring integration
-  return {
-    success: false,
-    error: 'Transaction signing not yet implemented - requires keyring integration'
-  };
+  try {
+    const activeAccount = keyringService.getActiveAccount();
+    if (!activeAccount) {
+      return {
+        success: false,
+        error: 'No active account'
+      };
+    }
+    
+    const signedTx = await keyringService.signTransaction(activeAccount.address, data);
+    
+    return {
+      success: true,
+      signedTransaction: signedTx
+    };
+  } catch (error) {
+    console.error('Failed to sign transaction:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to sign transaction'
+    };
+  }
 }
 
 /**
  * Mints a new NFT on the blockchain
  * @param data - NFT minting parameters
  * @returns Promise resolving to minting result
- * @todo Implement NFT component integration
  */
-async function mintNFT(data: unknown): Promise<{
+async function mintNFT(data: {
+  name: string;
+  description: string;
+  image: string;
+  attributes?: Array<{ trait_type: string; value: string | number }>;
+  recipient?: string;
+  chainId?: number;
+}): Promise<{
   success: boolean;
+  tokenId?: string;
+  transactionHash?: string;
   error?: string;
 }> {
   console.warn('🎨 NFT minting requested:', data);
   
-  // This will be implemented with NFT integration
-  return {
-    success: false,
-    error: 'NFT minting not yet implemented - requires NFT component integration'
-  };
+  try {
+    const activeAccount = keyringService.getActiveAccount();
+    if (!activeAccount) {
+      return {
+        success: false,
+        error: 'No active account'
+      };
+    }
+    
+    // Mint NFT through NFT service
+    const result = await nftService.mintNFT({
+      ...data,
+      recipient: data.recipient || activeAccount.address
+    });
+    
+    return {
+      success: true,
+      tokenId: result.tokenId,
+      transactionHash: result.transactionHash
+    };
+  } catch (error) {
+    console.error('Failed to mint NFT:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to mint NFT'
+    };
+  }
 }
 
 /**
  * Creates a new listing on the OmniBazaar marketplace
  * @param data - Listing creation parameters
  * @returns Promise resolving to listing creation result
- * @todo Implement marketplace integration
  */
-async function createMarketplaceListing(data: unknown): Promise<{
+async function createMarketplaceListing(data: {
+  title: string;
+  description: string;
+  price: string;
+  currency: string;
+  category: string;
+  images: string[];
+  location?: string;
+  tags?: string[];
+  shippingOptions?: Array<{ method: string; price: string; estimatedDays: number }>;
+}): Promise<{
   success: boolean;
+  listingId?: string;
+  nftTokenId?: string;
   error?: string;
 }> {
   console.warn('🏪 Marketplace listing creation requested:', data);
   
-  // This will be implemented with marketplace integration
-  return {
-    success: false,
-    error: 'Marketplace listing not yet implemented - requires marketplace integration'
-  };
+  try {
+    const activeAccount = keyringService.getActiveAccount();
+    if (!activeAccount) {
+      return {
+        success: false,
+        error: 'No active account'
+      };
+    }
+    
+    // Create listing through marketplace service
+    const result = await marketplaceService.createListing({
+      ...data,
+      seller: activeAccount.address
+    });
+    
+    // Mint NFT for the listing
+    const nftResult = await nftService.mintNFT({
+      name: data.title,
+      description: data.description,
+      image: data.images[0] || '',
+      attributes: [
+        { trait_type: 'Category', value: data.category },
+        { trait_type: 'Price', value: data.price },
+        { trait_type: 'Currency', value: data.currency },
+        { trait_type: 'Listing ID', value: result.id }
+      ],
+      recipient: activeAccount.address
+    });
+    
+    return {
+      success: true,
+      listingId: result.id,
+      nftTokenId: nftResult.tokenId
+    };
+  } catch (error) {
+    console.error('Failed to create marketplace listing:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to create listing'
+    };
+  }
 }
 
 // Handle extension installation
-chrome.runtime.onInstalled.addListener((details: chrome.runtime.InstalledDetails) => {
+chrome.runtime.onInstalled.addListener(async (details: chrome.runtime.InstalledDetails) => {
   console.warn('🎉 OmniBazaar Wallet installed:', details.reason);
   
   if (details.reason === 'install') {
@@ -353,12 +599,14 @@ chrome.runtime.onInstalled.addListener((details: chrome.runtime.InstalledDetails
   }
   
   initializeProviders();
+  await initializeServices();
 });
 
 // Handle extension startup
-chrome.runtime.onStartup.addListener(() => {
+chrome.runtime.onStartup.addListener(async () => {
   console.warn('🔄 OmniBazaar Wallet starting up...');
   initializeProviders();
+  await initializeServices();
 });
 
 // Handle tab updates for provider context
@@ -380,6 +628,18 @@ chrome.windows.onFocusChanged.addListener((windowId: number) => {
 // Initialize on script load
 console.warn('🚀 OmniBazaar Wallet background script loaded');
 initializeProviders();
+initializeServices().catch(error => {
+  console.error('Failed to initialize services on load:', error);
+});
 
 // Export for testing
-export { providers, handleProviderRequest, getWalletState }; 
+export { 
+  providers, 
+  handleProviderRequest, 
+  getWalletState,
+  keyringService,
+  nftService,
+  marketplaceService,
+  walletService,
+  validatorWallet
+}; 

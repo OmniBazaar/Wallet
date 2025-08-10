@@ -43,12 +43,12 @@ export class SolanaNFTProvider implements ChainProvider {
         return await this.fetchFromMagicEden(address);
       }
       
-      // Fallback to mock data for development
-      return await this.generateMockNFTs(address);
+      // Fallback to direct RPC query
+      return await this.fetchFromRPC(address);
       
     } catch (error) {
       console.warn('Error fetching Solana NFTs:', error);
-      return await this.generateMockNFTs(address);
+      return [];
     }
   }
 
@@ -73,7 +73,8 @@ export class SolanaNFTProvider implements ChainProvider {
         }
       }
       
-      return await this.generateMockNFT(mintAddress, tokenId, 'unknown');
+      // Return null if no metadata available
+      return null;
     } catch (error) {
       console.warn('Error fetching Solana NFT metadata:', error);
       return null;
@@ -241,62 +242,91 @@ export class SolanaNFTProvider implements ChainProvider {
   }
 
   /**
-   * Generate mock NFTs for development/testing
+   * Fetch NFTs using Solana RPC
    */
-  private async generateMockNFTs(address: string): Promise<NFTItem[]> {
-    const mockNFTs: NFTItem[] = [];
-    const count = Math.floor(Math.random() * 7) + 3; // 3-9 NFTs
-
-    for (let i = 0; i < count; i++) {
-      mockNFTs.push(await this.generateMockNFT(
-        this.generateSolanaMintAddress(),
-        (i + 1).toString(),
-        address
-      ));
+  private async fetchFromRPC(address: string): Promise<NFTItem[]> {
+    try {
+      // Import Solana web3.js dynamically
+      const { Connection, PublicKey } = await import('@solana/web3.js');
+      const { Metadata } = await import('@metaplex-foundation/mpl-token-metadata');
+      
+      const connection = new Connection(this.config.rpcUrl, 'confirmed');
+      const publicKey = new PublicKey(address);
+      
+      // Get token accounts owned by the wallet
+      const tokenAccounts = await connection.getParsedTokenAccountsByOwner(publicKey, {
+        programId: new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA')
+      });
+      
+      const nfts: NFTItem[] = [];
+      
+      for (const tokenAccount of tokenAccounts.value) {
+        const accountData = tokenAccount.account.data.parsed;
+        const info = accountData.info;
+        
+        // Check if it's an NFT (amount = 1, decimals = 0)
+        if (info.tokenAmount.uiAmount === 1 && info.tokenAmount.decimals === 0) {
+          const mintAddress = info.mint;
+          
+          try {
+            // Get metadata account for the mint
+            const metadataPDA = await Metadata.getPDA(new PublicKey(mintAddress));
+            const metadataAccount = await connection.getAccountInfo(metadataPDA);
+            
+            if (metadataAccount) {
+              const metadata = Metadata.deserialize(metadataAccount.data)[0];
+              
+              // Fetch off-chain metadata if URI exists
+              let offChainMetadata: any = {};
+              if (metadata.data.uri) {
+                try {
+                  const response = await fetch(metadata.data.uri);
+                  offChainMetadata = await response.json();
+                } catch {}
+              }
+              
+              nfts.push({
+                id: `solana_${mintAddress}`,
+                tokenId: mintAddress,
+                name: metadata.data.name || offChainMetadata.name || 'Unknown NFT',
+                description: offChainMetadata.description || '',
+                image: offChainMetadata.image || '',
+                imageUrl: offChainMetadata.image || '',
+                attributes: offChainMetadata.attributes || [],
+                contract: mintAddress,
+                contractAddress: mintAddress,
+                tokenStandard: 'SPL',
+                blockchain: 'solana',
+                owner: address,
+                creator: metadata.data.creators?.[0]?.address.toString() || '',
+                isListed: false
+              });
+            }
+          } catch (error) {
+            console.warn(`Failed to fetch metadata for ${mintAddress}:`, error);
+          }
+        }
+      }
+      
+      return nfts;
+    } catch (error) {
+      console.error('Failed to fetch NFTs from Solana RPC:', error);
+      return [];
     }
-
-    return mockNFTs;
   }
 
   /**
-   * Generate a single mock NFT
+   * Generate a Solana mint address for testing
    */
-  private async generateMockNFT(mintAddress: string, tokenId: string, owner: string): Promise<NFTItem> {
-    const collections = [
-      'Solana Monkey Business', 
-      'Degenerate Ape Academy', 
-      'SolPunks', 
-      'Aurory', 
-      'Star Atlas',
-      'Thugbirdz',
-      'Famous Fox Federation'
-    ];
-    const rarities = ['Common', 'Uncommon', 'Rare', 'Epic', 'Legendary', 'Mythic'];
-    const categories = ['PFP', 'Gaming', 'Art', 'Utility', 'Music', 'Metaverse'];
-    
-    const collection = collections[Math.floor(Math.random() * collections.length)];
-    const rarity = rarities[Math.floor(Math.random() * rarities.length)];
-    const category = categories[Math.floor(Math.random() * categories.length)];
-
-    return {
-      id: `solana_${mintAddress}`,
-      tokenId: mintAddress,
-      name: `${collection} #${tokenId}`,
-      description: `A ${rarity} ${collection} NFT on Solana with fast, cheap transactions`,
-      image: `https://api.dicebear.com/7.x/fun-emoji/svg?seed=solana${tokenId}`,
-      imageUrl: `https://api.dicebear.com/7.x/fun-emoji/svg?seed=solana${tokenId}`,
-      attributes: [
-        { trait_type: 'Collection', value: collection },
-        { trait_type: 'Rarity', value: rarity },
-        { trait_type: 'Category', value: category },
-        { trait_type: 'Blockchain', value: 'Solana' },
-        { trait_type: 'Transaction Speed', value: 'Fast' },
-        { trait_type: 'Gas Fee', value: 'Ultra Low' }
-      ],
-      contract: mintAddress,
-      contractAddress: mintAddress,
-      tokenStandard: 'SPL',
-      blockchain: 'solana',
+  private generateSolanaMintAddress(): string {
+    // This is only used internally now, not for mock data
+    const chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+    let result = '';
+    for (let i = 0; i < 44; i++) {
+      result += chars[Math.floor(Math.random() * chars.length)];
+    }
+    return result;
+  }
       owner,
       creator: this.generateSolanaMintAddress(),
       price: (Math.random() * 10 + 0.5).toFixed(2), // 0.5-10.5 SOL
@@ -323,14 +353,59 @@ export class SolanaNFTProvider implements ChainProvider {
    */
   async searchNFTs(query: string, limit = 20): Promise<NFTItem[]> {
     try {
-      // This would implement actual search via Magic Eden or other APIs
-      const mockResults = await this.generateMockNFTs('search');
-      return mockResults
-        .filter(nft => 
-          nft.name.toLowerCase().includes(query.toLowerCase()) ||
-          nft.description.toLowerCase().includes(query.toLowerCase())
-        )
-        .slice(0, limit);
+      // Search via Magic Eden API if available
+      if (this.config.magicEdenApiKey) {
+        const response = await fetch(
+          `${this.magicEdenUrl}/collections/search?q=${encodeURIComponent(query)}&limit=${limit}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${this.config.magicEdenApiKey}`
+            }
+          }
+        );
+        
+        if (response.ok) {
+          const results = await response.json();
+          const nfts: NFTItem[] = [];
+          
+          // Transform search results to NFT items
+          for (const collection of results.collections || []) {
+            // Fetch sample NFTs from each matching collection
+            const collectionResponse = await fetch(
+              `${this.magicEdenUrl}/collections/${collection.symbol}/listings?limit=5`
+            );
+            
+            if (collectionResponse.ok) {
+              const listings = await collectionResponse.json();
+              for (const listing of listings) {
+                nfts.push({
+                  id: `solana_${listing.tokenMint}`,
+                  tokenId: listing.tokenMint,
+                  name: listing.name || collection.name,
+                  description: collection.description || '',
+                  image: listing.image || collection.image || '',
+                  imageUrl: listing.image || collection.image || '',
+                  attributes: listing.attributes || [],
+                  contract: listing.tokenMint,
+                  contractAddress: listing.tokenMint,
+                  tokenStandard: 'SPL',
+                  blockchain: 'solana',
+                  owner: listing.owner || '',
+                  creator: collection.creator || '',
+                  price: listing.price ? (listing.price / 1e9).toString() : '0',
+                  currency: 'SOL',
+                  isListed: true,
+                  marketplaceUrl: `https://magiceden.io/item-details/${listing.tokenMint}`
+                });
+              }
+            }
+          }
+          
+          return nfts.slice(0, limit);
+        }
+      }
+      
+      return [];
     } catch (error) {
       console.warn('Error searching Solana NFTs:', error);
       return [];
@@ -343,15 +418,59 @@ export class SolanaNFTProvider implements ChainProvider {
   async getTrendingNFTs(limit = 20): Promise<NFTItem[]> {
     try {
       if (this.config.magicEdenApiKey) {
-        // Fetch trending from Magic Eden API
-        const response = await fetch(`${this.magicEdenUrl}/collections/trending?limit=${limit}`);
+        // Fetch trending collections from Magic Eden
+        const response = await fetch(
+          `${this.magicEdenUrl}/collections/trending?limit=${Math.ceil(limit / 3)}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${this.config.magicEdenApiKey}`
+            }
+          }
+        );
+        
         if (response.ok) {
-          const _collections = await response.json();
-          // Would transform collection data to NFT items
+          const collections = await response.json();
+          const nfts: NFTItem[] = [];
+          
+          // Get sample NFTs from trending collections
+          for (const collection of collections.slice(0, 5)) {
+            const listingsResponse = await fetch(
+              `${this.magicEdenUrl}/collections/${collection.symbol}/listings?limit=4`
+            );
+            
+            if (listingsResponse.ok) {
+              const listings = await listingsResponse.json();
+              for (const listing of listings) {
+                nfts.push({
+                  id: `solana_${listing.tokenMint}`,
+                  tokenId: listing.tokenMint,
+                  name: listing.name || collection.name,
+                  description: collection.description || '',
+                  image: listing.image || collection.image || '',
+                  imageUrl: listing.image || collection.image || '',
+                  attributes: listing.attributes || [],
+                  contract: listing.tokenMint,
+                  contractAddress: listing.tokenMint,
+                  tokenStandard: 'SPL',
+                  blockchain: 'solana',
+                  owner: listing.seller || '',
+                  creator: collection.creator || '',
+                  price: listing.price ? (listing.price / 1e9).toString() : '0',
+                  currency: 'SOL',
+                  isListed: true,
+                  marketplaceUrl: `https://magiceden.io/item-details/${listing.tokenMint}`
+                });
+              }
+            }
+            
+            if (nfts.length >= limit) break;
+          }
+          
+          return nfts.slice(0, limit);
         }
       }
       
-      return await this.generateMockNFTs('trending');
+      return [];
     } catch (error) {
       console.warn('Error fetching trending Solana NFTs:', error);
       return [];

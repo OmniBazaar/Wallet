@@ -1,27 +1,28 @@
 import type { NFTItem, NFTCollection } from '../../../types/nft';
 import type { ChainProvider } from '../display/multi-chain-display';
 
-export interface PolygonNFTConfig {
+export interface ArbitrumNFTConfig {
   rpcUrl: string;
+  arbiscanApiKey?: string;
   alchemyApiKey?: string;
   moralisApiKey?: string;
-  quickNodeApiKey?: string;
 }
 
 /**
- * Polygon NFT Provider for fetching NFTs from Polygon network
- * Supports multiple APIs for comprehensive NFT data on Polygon
+ * Arbitrum NFT Provider for fetching NFTs from Arbitrum One
+ * Supports Arbiscan, Alchemy, and Moralis APIs for comprehensive NFT data
  */
-export class PolygonNFTProvider implements ChainProvider {
-  chainId = 137;
-  name = 'Polygon';
+export class ArbitrumNFTProvider implements ChainProvider {
+  chainId = 42161; // Arbitrum One mainnet
+  name = 'Arbitrum';
   isConnected = false;
   
-  private config: PolygonNFTConfig;
-  private alchemyUrl = 'https://polygon-mainnet.g.alchemy.com/nft/v2';
-  private openseaUrl = 'https://api.opensea.io/api/v1';
+  private config: ArbitrumNFTConfig;
+  private arbiscanUrl = 'https://api.arbiscan.io/api';
+  private alchemyUrl = 'https://arb-mainnet.g.alchemy.com/nft/v2';
+  private moralisUrl = 'https://deep-index.moralis.io/api/v2';
 
-  constructor(config: PolygonNFTConfig) {
+  constructor(config: ArbitrumNFTConfig) {
     this.config = config;
     this.isConnected = Boolean(config.rpcUrl);
   }
@@ -31,23 +32,23 @@ export class PolygonNFTProvider implements ChainProvider {
    */
   async getNFTs(address: string): Promise<NFTItem[]> {
     try {
-      console.warn(`Fetching Polygon NFTs for address: ${address}`);
+      console.warn(`Fetching Arbitrum NFTs for address: ${address}`);
       
       // Try Alchemy API first if available
       if (this.config.alchemyApiKey) {
         return await this.fetchFromAlchemy(address);
       }
       
-      // Try QuickNode if available
-      if (this.config.quickNodeApiKey) {
-        return await this.fetchFromQuickNode(address);
+      // Try Moralis API if available
+      if (this.config.moralisApiKey) {
+        return await this.fetchFromMoralis(address);
       }
       
       // Fallback to direct blockchain query
       return await this.fetchFromBlockchain(address);
       
     } catch (error) {
-      console.warn('Error fetching Polygon NFTs:', error);
+      console.warn('Error fetching Arbitrum NFTs:', error);
       return [];
     }
   }
@@ -108,7 +109,7 @@ export class PolygonNFTProvider implements ChainProvider {
       }
       
       return {
-        id: `polygon_${contractAddress}_${tokenId}`,
+        id: `arbitrum_${contractAddress}_${tokenId}`,
         tokenId,
         name: metadata.name || `${name} #${tokenId}`,
         description: metadata.description || '',
@@ -118,13 +119,13 @@ export class PolygonNFTProvider implements ChainProvider {
         contract: contractAddress,
         contractAddress,
         tokenStandard: 'ERC721',
-        blockchain: 'polygon',
+        blockchain: 'arbitrum',
         owner,
         creator: '',
         isListed: false
       };
     } catch (error) {
-      console.warn('Error fetching Polygon NFT metadata:', error);
+      console.warn('Error fetching Arbitrum NFT metadata:', error);
       return null;
     }
   }
@@ -134,20 +135,30 @@ export class PolygonNFTProvider implements ChainProvider {
    */
   async getCollections(address: string): Promise<NFTCollection[]> {
     try {
-      return [{
-        id: 'polygon_collection_1',
-        name: 'Polygon NFT Collection',
-        description: 'Sample Polygon collection with low gas fees',
-        contract: '0x0000000000000000000000000000000000000000',
-        contractAddress: '0x0000000000000000000000000000000000000000',
-        tokenStandard: 'ERC721',
-        blockchain: 'polygon',
-        creator: address,
-        verified: true,
-        items: []
-      }];
+      const nfts = await this.getNFTs(address);
+      const collectionMap = new Map<string, NFTCollection>();
+      
+      for (const nft of nfts) {
+        if (!collectionMap.has(nft.contractAddress)) {
+          collectionMap.set(nft.contractAddress, {
+            id: `arbitrum_collection_${nft.contractAddress}`,
+            name: nft.name.split('#')[0].trim() || 'Unknown Collection',
+            description: '',
+            contract: nft.contractAddress,
+            contractAddress: nft.contractAddress,
+            tokenStandard: nft.tokenStandard,
+            blockchain: 'arbitrum',
+            creator: nft.creator || address,
+            verified: false,
+            items: []
+          });
+        }
+        collectionMap.get(nft.contractAddress)!.items.push(nft);
+      }
+      
+      return Array.from(collectionMap.values());
     } catch (error) {
-      console.warn('Error fetching Polygon collections:', error);
+      console.warn('Error fetching Arbitrum collections:', error);
       return [];
     }
   }
@@ -165,91 +176,76 @@ export class PolygonNFTProvider implements ChainProvider {
     }
     
     const data = await response.json();
-    return data.ownedNfts.map((nft: {
-      contract: { address: string };
-      id: { tokenId: string; tokenMetadata?: { tokenType?: string } };
-      metadata?: {
-        name?: string;
-        description?: string;
-        image?: string;
-        attributes?: Array<{ trait_type: string; value: string | number }>;
-        creator?: string;
-      };
-      media?: Array<{ gateway?: string }>;
-    }) => this.transformAlchemyNFT(nft));
+    return data.ownedNfts?.map((nft: any) => this.transformAlchemyNFT(nft)) || [];
+  }
+
+  /**
+   * Fetch NFTs from Moralis API
+   */
+  private async fetchFromMoralis(address: string): Promise<NFTItem[]> {
+    const response = await fetch(
+      `${this.moralisUrl}/${address}/nft?chain=arbitrum&limit=100`,
+      {
+        headers: {
+          'X-API-Key': this.config.moralisApiKey!
+        }
+      }
+    );
+    
+    if (!response.ok) {
+      throw new Error(`Moralis API error: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    return data.result?.map((nft: any) => this.transformMoralisNFT(nft)) || [];
   }
 
   /**
    * Transform Alchemy NFT data to our format
    */
-  private transformAlchemyNFT(nft: {
-    contract: { address: string };
-    id: { tokenId: string; tokenMetadata?: { tokenType?: string } };
-    metadata?: {
-      name?: string;
-      description?: string;
-      image?: string;
-      attributes?: Array<{ trait_type: string; value: string | number }>;
-      creator?: string;
-    };
-    media?: Array<{ gateway?: string }>;
-  }): NFTItem {
+  private transformAlchemyNFT(nft: any): NFTItem {
     const metadata = nft.metadata || {};
     
     return {
-      id: `polygon_${nft.contract.address}_${nft.id.tokenId}`,
+      id: `arbitrum_${nft.contract.address}_${nft.id.tokenId}`,
       tokenId: nft.id.tokenId,
-      name: metadata.name || `Polygon Token #${nft.id.tokenId}`,
-      description: metadata.description || '',
+      name: metadata.name || nft.title || `Arbitrum NFT #${nft.id.tokenId}`,
+      description: metadata.description || nft.description || '',
       image: metadata.image || nft.media?.[0]?.gateway || '',
       imageUrl: metadata.image || nft.media?.[0]?.gateway || '',
       attributes: metadata.attributes || [],
       contract: nft.contract.address,
       contractAddress: nft.contract.address,
       tokenStandard: nft.id.tokenMetadata?.tokenType || 'ERC721',
-      blockchain: 'polygon',
-      owner: 'unknown',
-      creator: metadata.creator || 'unknown',
+      blockchain: 'arbitrum',
+      owner: '',
+      creator: metadata.creator || '',
       isListed: false
     };
   }
 
   /**
-   * Fetch NFTs from QuickNode API
+   * Transform Moralis NFT data to our format
    */
-  private async fetchFromQuickNode(address: string): Promise<NFTItem[]> {
-    try {
-      const response = await fetch(`https://api.quicknode.com/nft/v1/polygon/nfts?wallet=${address}`, {
-        headers: {
-          'x-api-key': this.config.quickNodeApiKey!
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error(`QuickNode API error: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      return data.assets?.map((nft: any) => ({
-        id: `polygon_${nft.contract}_${nft.tokenId}`,
-        tokenId: nft.tokenId,
-        name: nft.name || `Polygon NFT #${nft.tokenId}`,
-        description: nft.description || '',
-        image: nft.imageUrl || '',
-        imageUrl: nft.imageUrl || '',
-        attributes: nft.traits || [],
-        contract: nft.contract,
-        contractAddress: nft.contract,
-        tokenStandard: nft.type || 'ERC721',
-        blockchain: 'polygon',
-        owner: address,
-        creator: nft.creator || '',
-        isListed: false
-      })) || [];
-    } catch (error) {
-      console.warn('QuickNode fetch failed:', error);
-      return [];
-    }
+  private transformMoralisNFT(nft: any): NFTItem {
+    const metadata = nft.metadata ? JSON.parse(nft.metadata) : {};
+    
+    return {
+      id: `arbitrum_${nft.token_address}_${nft.token_id}`,
+      tokenId: nft.token_id,
+      name: nft.name || metadata.name || `Arbitrum NFT #${nft.token_id}`,
+      description: metadata.description || '',
+      image: metadata.image || nft.token_uri || '',
+      imageUrl: metadata.image || nft.token_uri || '',
+      attributes: metadata.attributes || [],
+      contract: nft.token_address,
+      contractAddress: nft.token_address,
+      tokenStandard: nft.contract_type || 'ERC721',
+      blockchain: 'arbitrum',
+      owner: nft.owner_of || '',
+      creator: nft.minter_address || '',
+      isListed: false
+    };
   }
 
   /**
@@ -260,13 +256,13 @@ export class PolygonNFTProvider implements ChainProvider {
       const { ethers } = await import('ethers');
       const provider = new ethers.JsonRpcProvider(this.config.rpcUrl);
       
-      // Popular Polygon NFT contracts to check
+      // Popular Arbitrum NFT contracts to check
       const nftContracts = [
-        '0x9d305a42A3975Ee4c1C57555BeD5919889DCE63F', // Polygon Punks
-        '0x0BEF619Cf38cF0c22967289b8419720fBd1Db9f7', // Aavegotchi
-        '0x3FA0EAC3058828Cc4BA97F51A33597C695bF6F9e', // MATIC Monsters
-        '0x219b8aB790dedB965cA5C1C6C8fb48f5B5b2BeE6', // Polygon Apes
-        '0xC4dF0e539dF923c3e0832196cC3f17e54Dd4d32a'  // PolyDoge
+        '0xfA2FbFc5F8CD91DbC93B6E5BE4E1FA1FA35A4e83', // GMX Blueberry Club
+        '0x53B05eB238E80bBF3e722b008c081725081cd5a9', // Bridgeworld Legions
+        '0x17DaCAD7975960833f374622fad08b90Ed67D1B5', // MAGIC Dragons
+        '0xc3323b2e3bAcBe3E3c5d96351a421F060e97732B', // TreasureDAO NFTs
+        '0xeFe302129b3DCC239Ea8ADCcAE57B3aBB7f8Da2c'  // Smol Brains
       ];
       
       const nfts: NFTItem[] = [];
@@ -326,7 +322,7 @@ export class PolygonNFTProvider implements ChainProvider {
               }
               
               nfts.push({
-                id: `polygon_${contractAddress}_${tokenId}`,
+                id: `arbitrum_${contractAddress}_${tokenId}`,
                 tokenId: tokenId.toString(),
                 name: metadata.name || `${collectionName} #${tokenId}`,
                 description: metadata.description || '',
@@ -336,11 +332,11 @@ export class PolygonNFTProvider implements ChainProvider {
                 contract: contractAddress,
                 contractAddress,
                 tokenStandard: 'ERC721',
-                blockchain: 'polygon',
+                blockchain: 'arbitrum',
                 owner: address,
                 creator: '',
                 price: '0',
-                currency: 'MATIC',
+                currency: 'ETH',
                 isListed: false
               });
             } catch (error) {
@@ -360,78 +356,87 @@ export class PolygonNFTProvider implements ChainProvider {
   }
 
   /**
-   * Search NFTs on Polygon
+   * Search NFTs on Arbitrum
    */
   async searchNFTs(query: string, limit = 20): Promise<NFTItem[]> {
     try {
       // If we have Alchemy API, use it for search
       if (this.config.alchemyApiKey) {
         const response = await fetch(
-          `${this.alchemyUrl}/${this.config.alchemyApiKey}/searchNFTs?query=${encodeURIComponent(query)}&pageSize=${limit}`
+          `${this.alchemyUrl}/${this.config.alchemyApiKey}/getNFTs?contractAddresses[]=${query}&withMetadata=true&pageSize=${limit}`
         );
         
         if (response.ok) {
           const data = await response.json();
-          return data.nfts?.map((nft: any) => this.transformAlchemyNFT(nft)) || [];
+          return data.ownedNfts?.map((nft: any) => this.transformAlchemyNFT(nft)) || [];
         }
       }
       
-      // Fallback to empty array if no search API available
+      // If we have Moralis API, use it for search
+      if (this.config.moralisApiKey) {
+        const response = await fetch(
+          `${this.moralisUrl}/nft/search?chain=arbitrum&q=${encodeURIComponent(query)}&limit=${limit}`,
+          {
+            headers: {
+              'X-API-Key': this.config.moralisApiKey
+            }
+          }
+        );
+        
+        if (response.ok) {
+          const data = await response.json();
+          return data.result?.map((nft: any) => this.transformMoralisNFT(nft)) || [];
+        }
+      }
+      
       return [];
     } catch (error) {
-      console.warn('Error searching Polygon NFTs:', error);
+      console.warn('Error searching Arbitrum NFTs:', error);
       return [];
     }
   }
 
   /**
-   * Get trending NFTs on Polygon
+   * Get trending NFTs on Arbitrum
    */
   async getTrendingNFTs(limit = 20): Promise<NFTItem[]> {
     try {
-      // Fetch from OpenSea trending collections on Polygon
-      const response = await fetch(
-        `https://api.opensea.io/api/v1/events?chain=matic&event_type=sale&limit=${limit}`,
-        {
-          headers: {
-            'Accept': 'application/json'
-          }
-        }
-      );
-      
-      if (response.ok) {
-        const data = await response.json();
+      // Fetch from Treasure Marketplace or other Arbitrum NFT marketplaces
+      // For now, return NFTs from popular collections
+      if (this.config.alchemyApiKey) {
+        // Get NFTs from popular collections
+        const popularContracts = [
+          '0xfA2FbFc5F8CD91DbC93B6E5BE4E1FA1FA35A4e83', // GMX Blueberry Club
+          '0x53B05eB238E80bBF3e722b008c081725081cd5a9'  // Bridgeworld Legions
+        ];
+        
         const nfts: NFTItem[] = [];
         
-        for (const event of data.asset_events || []) {
-          if (event.asset) {
-            nfts.push({
-              id: `polygon_${event.asset.asset_contract.address}_${event.asset.token_id}`,
-              tokenId: event.asset.token_id,
-              name: event.asset.name || `${event.asset.collection.name} #${event.asset.token_id}`,
-              description: event.asset.description || '',
-              image: event.asset.image_url || '',
-              imageUrl: event.asset.image_url || '',
-              attributes: event.asset.traits || [],
-              contract: event.asset.asset_contract.address,
-              contractAddress: event.asset.asset_contract.address,
-              tokenStandard: event.asset.asset_contract.schema_name || 'ERC721',
-              blockchain: 'polygon',
-              owner: event.asset.owner?.address || '',
-              creator: event.asset.creator?.address || '',
-              price: event.total_price ? (Number(event.total_price) / 1e18).toString() : '0',
-              currency: 'MATIC',
-              isListed: true
-            });
+        for (const contract of popularContracts) {
+          const response = await fetch(
+            `${this.alchemyUrl}/${this.config.alchemyApiKey}/getContractMetadata?contractAddress=${contract}`
+          );
+          
+          if (response.ok) {
+            // Get sample NFTs from collection
+            const nftResponse = await fetch(
+              `${this.alchemyUrl}/${this.config.alchemyApiKey}/getNFTsForCollection?contractAddress=${contract}&limit=${Math.ceil(limit / popularContracts.length)}&withMetadata=true`
+            );
+            
+            if (nftResponse.ok) {
+              const data = await nftResponse.json();
+              const collectionNfts = data.nfts?.map((nft: any) => this.transformAlchemyNFT(nft)) || [];
+              nfts.push(...collectionNfts);
+            }
           }
         }
         
-        return nfts;
+        return nfts.slice(0, limit);
       }
       
       return [];
     } catch (error) {
-      console.warn('Error fetching trending Polygon NFTs:', error);
+      console.warn('Error fetching trending Arbitrum NFTs:', error);
       return [];
     }
   }
@@ -439,7 +444,7 @@ export class PolygonNFTProvider implements ChainProvider {
   /**
    * Update configuration
    */
-  updateConfig(newConfig: Partial<PolygonNFTConfig>): void {
+  updateConfig(newConfig: Partial<ArbitrumNFTConfig>): void {
     this.config = { ...this.config, ...newConfig };
     this.isConnected = Boolean(this.config.rpcUrl);
   }
@@ -452,10 +457,32 @@ export class PolygonNFTProvider implements ChainProvider {
 
     if (this.config.alchemyApiKey) {
       try {
-        const response = await fetch(`${this.alchemyUrl}/${this.config.alchemyApiKey}/getNFTs?owner=0x0000000000000000000000000000000000000000&pageSize=1`);
+        const response = await fetch(`${this.alchemyUrl}/${this.config.alchemyApiKey}/isHolderOfCollection?wallet=0x0000000000000000000000000000000000000000&contractAddress=0x0000000000000000000000000000000000000000`);
         if (response.ok) workingApis.push('Alchemy');
       } catch (error) {
-        console.warn('Polygon Alchemy connection test failed:', error);
+        console.warn('Alchemy connection test failed:', error);
+      }
+    }
+
+    if (this.config.moralisApiKey) {
+      try {
+        const response = await fetch(`${this.moralisUrl}/nft?chain=arbitrum&limit=1`, {
+          headers: { 'X-API-Key': this.config.moralisApiKey }
+        });
+        if (response.ok) workingApis.push('Moralis');
+      } catch (error) {
+        console.warn('Moralis connection test failed:', error);
+      }
+    }
+
+    if (this.config.arbiscanApiKey) {
+      try {
+        const response = await fetch(
+          `${this.arbiscanUrl}?module=account&action=tokennfttx&address=0x0000000000000000000000000000000000000000&apikey=${this.config.arbiscanApiKey}`
+        );
+        if (response.ok) workingApis.push('Arbiscan');
+      } catch (error) {
+        console.warn('Arbiscan connection test failed:', error);
       }
     }
 
@@ -464,4 +491,4 @@ export class PolygonNFTProvider implements ChainProvider {
       apis: workingApis
     };
   }
-} 
+}
