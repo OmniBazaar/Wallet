@@ -4,6 +4,7 @@
 
 import { ethers } from 'ethers';
 import { KeyringManager } from '../keyring/KeyringManager';
+import { TransactionDatabase } from '../../services/database/TransactionDatabase';
 
 export interface TransactionRequest {
   to: string;           // Can be address or ENS name
@@ -27,9 +28,11 @@ export interface TransactionResult {
 export class TransactionService {
   private static instance: TransactionService;
   private keyringManager: KeyringManager;
+  private transactionDb: TransactionDatabase;
 
   private constructor() {
     this.keyringManager = KeyringManager.getInstance();
+    this.transactionDb = new TransactionDatabase();
   }
 
   public static getInstance(): TransactionService {
@@ -74,7 +77,31 @@ export class TransactionService {
       const chainType = request.chainType === 'ethereum' ? 'ethereum' : 'ethereum'; // All EVM chains use ethereum account
       const signedTx = await this.keyringManager.signTransaction(transaction, chainType);
 
-      // 5. Return transaction result
+      // 5. Store transaction in database
+      try {
+        await this.transactionDb.storeTransaction({
+          txHash: signedTx,
+          userAddress: session.accounts.ethereum.address,
+          txType: 'send',
+          fromAddress: session.accounts.ethereum.address,
+          toAddress: resolvedAddress,
+          amount: transaction.value,
+          tokenSymbol: 'ETH', // Default to ETH, can be updated for token transfers
+          status: 'pending',
+          gasPrice: transaction.gasPrice,
+          createdAt: new Date(),
+          metadata: {
+            chainType: request.chainType,
+            originalAddress: request.to,
+            resolvedAddress: resolvedAddress
+          }
+        });
+      } catch (dbError) {
+        console.warn('Failed to store transaction in database:', dbError);
+        // Continue even if database storage fails
+      }
+
+      // 6. Return transaction result
       return {
         hash: signedTx,
         from: session.accounts.ethereum.address,
@@ -86,6 +113,103 @@ export class TransactionService {
       };
     } catch (error) {
       console.error('Transaction failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get transaction history for current user
+   */
+  public async getTransactionHistory(filters?: {
+    txType?: 'send' | 'receive' | 'swap' | 'stake' | 'purchase' | 'sale';
+    status?: 'pending' | 'confirmed' | 'failed';
+    fromDate?: Date;
+    toDate?: Date;
+    limit?: number;
+    offset?: number;
+  }) {
+    const session = this.keyringManager.getCurrentSession();
+    if (!session) {
+      throw new Error('User not logged in');
+    }
+
+    try {
+      const result = await this.transactionDb.getUserTransactions(
+        session.accounts.ethereum.address,
+        filters
+      );
+      return result;
+    } catch (error) {
+      console.error('Failed to get transaction history:', error);
+      return { transactions: [], total: 0 };
+    }
+  }
+
+  /**
+   * Get transaction by hash
+   */
+  public async getTransaction(txHash: string) {
+    try {
+      return await this.transactionDb.getTransaction(txHash);
+    } catch (error) {
+      console.error('Failed to get transaction:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Update transaction status (for monitoring)
+   */
+  public async updateTransactionStatus(
+    txHash: string,
+    status: 'pending' | 'confirmed' | 'failed',
+    blockNumber?: number,
+    confirmations?: number
+  ) {
+    try {
+      await this.transactionDb.updateTransactionStatus(
+        txHash,
+        status,
+        blockNumber,
+        confirmations
+      );
+    } catch (error) {
+      console.error('Failed to update transaction status:', error);
+    }
+  }
+
+  /**
+   * Get pending transactions for monitoring
+   */
+  public async getPendingTransactions() {
+    const session = this.keyringManager.getCurrentSession();
+    if (!session) {
+      return [];
+    }
+
+    try {
+      return await this.transactionDb.getPendingTransactions(
+        session.accounts.ethereum.address
+      );
+    } catch (error) {
+      console.error('Failed to get pending transactions:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Add note to transaction
+   */
+  public async addTransactionNote(
+    txHash: string,
+    note: string,
+    category?: string,
+    tags?: string[]
+  ) {
+    try {
+      await this.transactionDb.addTransactionNote(txHash, note, category, tags);
+    } catch (error) {
+      console.error('Failed to add transaction note:', error);
       throw error;
     }
   }

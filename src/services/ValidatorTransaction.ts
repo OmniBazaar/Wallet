@@ -9,6 +9,7 @@ import { OmniCoinBlockchain } from '../../Validator/src/services/blockchain/Omni
 import { FeeDistributionEngine } from '../../Validator/src/services/fees/FeeDistributionEngine';
 import { ethers } from 'ethers';
 import { ref, Ref } from 'vue';
+import { generateTransactionId, generateBatchId } from '../utils/id-generator';
 
 export interface ValidatorTransactionConfig {
   validatorEndpoint: string;
@@ -768,11 +769,11 @@ export class ValidatorTransactionService {
   }
 
   private generateTransactionId(): string {
-    return `tx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return generateTransactionId();
   }
 
   private generateBatchId(): string {
-    return `batch_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return generateBatchId();
   }
 }
 
