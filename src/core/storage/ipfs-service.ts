@@ -1,4 +1,13 @@
-import { create, IPFSHTTPClient } from 'ipfs-http-client';
+// IPFS client type - will be loaded dynamically due to ESM module
+interface IPFSHTTPClient {
+  add: (file: any, options?: any) => Promise<{ cid: { toString: () => string } }>;
+  cat: (cid: string) => AsyncIterable<Uint8Array>;
+  get: (cid: string) => AsyncIterable<any>;
+  pin: {
+    add: (cid: string) => Promise<void>;
+    rm: (cid: string) => Promise<void>;
+  };
+}
 
 export interface IPFSConfig {
   gateway: string;
@@ -15,34 +24,55 @@ export interface UploadResult {
 }
 
 export class IPFSService {
-  private client: IPFSHTTPClient;
+  private client?: IPFSHTTPClient;
   private config: IPFSConfig;
+  private initialized = false;
 
   constructor(config: IPFSConfig) {
     this.config = config;
-    
-    // Default to public IPFS gateway if no host specified
-    const clientConfig = {
-      host: config.host || 'ipfs.infura.io',
-      port: config.port || 5001,
-      protocol: config.protocol || 'https',
-      apiPath: config.apiPath || '/api/v0'
-    };
+  }
 
-    this.client = create(clientConfig);
+  /**
+   * Initialize the IPFS client (must be called before using the service)
+   */
+  async init(): Promise<void> {
+    if (this.initialized) return;
+    
+    try {
+      // Dynamic import for ESM module
+      const { create } = await import('ipfs-http-client');
+      
+      // Default to public IPFS gateway if no host specified
+      const clientConfig = {
+        host: this.config.host || 'ipfs.infura.io',
+        port: this.config.port || 5001,
+        protocol: this.config.protocol || 'https',
+        apiPath: this.config.apiPath || '/api/v0'
+      };
+
+      this.client = create(clientConfig) as unknown as IPFSHTTPClient;
+      this.initialized = true;
+    } catch (error) {
+      console.error('Failed to initialize IPFS client:', error);
+      throw error;
+    }
   }
 
   /**
    * Upload a file to IPFS
    */
   async uploadFile(file: File | Blob, filename?: string): Promise<string> {
+    if (!this.client) {
+      await this.init();
+    }
+    
     try {
       const fileToUpload = {
         path: filename || 'file',
         content: file
       };
 
-      const result = await this.client.add(fileToUpload, {
+      const result = await this.client!.add(fileToUpload, {
         pin: true,
         wrapWithDirectory: false
       });
