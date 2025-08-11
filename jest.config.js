@@ -31,7 +31,8 @@ export default {
     '/DePay/',
     '/source-repos/',
     '/dist/',
-    '/build/'
+    '/build/',
+    '/tests/deprecated/'
   ],
   collectCoverageFrom: [
     'src/**/*.{ts,tsx,vue}',

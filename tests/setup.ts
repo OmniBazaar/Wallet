@@ -1,12 +1,20 @@
 /**
- * Test Setup and Utilities
+ * Wallet Test Environment Setup
+ * Configures global test utilities and mocks for all wallet tests
  */
 
 import { jest } from '@jest/globals';
 import { ethers } from 'ethers';
+import { TextEncoder, TextDecoder } from 'util';
+import crypto from 'crypto';
 
 // Mock environment setup
 process.env.NODE_ENV = 'test';
+process.env.TEST_MNEMONIC = 'test test test test test test test test test test test junk';
+
+// Polyfill for TextEncoder/TextDecoder
+global.TextEncoder = TextEncoder;
+global.TextDecoder = TextDecoder as any;
 
 // Global test utilities
 export const TEST_MNEMONIC = 'test test test test test test test test test test test junk';
