@@ -5,9 +5,7 @@
 
 import { ChainType } from '../keyring/BIP39Keyring';
 
-/**
- *
- */
+/** Types of NFT standards supported */
 export enum NFTType {
   ERC721 = 'ERC721',
   ERC1155 = 'ERC1155',
@@ -17,9 +15,7 @@ export enum NFTType {
   SUBSTRATE_NFT = 'SUBSTRATENFT',
 }
 
-/**
- *
- */
+/** NFT standard identifiers */
 export enum NFTStandard {
   ERC721 = 'ERC-721',
   ERC1155 = 'ERC-1155',
@@ -32,21 +28,13 @@ export enum NFTStandard {
   UNIQUE = 'UNIQUE',
 }
 
-/**
- *
- */
+/** Metadata for an NFT token */
 export interface NFTMetadata {
-  /**
-   *
-   */
+  /** Name of the NFT */
   name: string;
-  /**
-   *
-   */
+  /** Description of the NFT */
   description?: string;
-  /**
-   *
-   */
+  /** Image URL for the NFT */
   image?: string;
   /**
    *

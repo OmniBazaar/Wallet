@@ -9,91 +9,49 @@ import { ChainType } from '../keyring/BIP39Keyring';
 import { providerManager } from '../providers/ProviderManager';
 import { bridgeService } from '../bridge';
 
-/**
- *
- */
+/** Payment route with cross-chain and exchange details */
 export interface PaymentRoute {
-  /**
-   *
-   */
+  /** Target blockchain */
   blockchain: string;
-  /**
-   *
-   */
+  /** Sender address */
   fromAddress: string;
-  /**
-   *
-   */
+  /** Source token information */
   fromToken: TokenInfo;
-  /**
-   *
-   */
+  /** Source amount to send */
   fromAmount: string;
-  /**
-   *
-   */
+  /** Source token decimals */
   fromDecimals: number;
-  /**
-   *
-   */
+  /** Destination token information */
   toToken: TokenInfo;
-  /**
-   *
-   */
+  /** Expected output amount */
   toAmount: string;
-  /**
-   *
-   */
+  /** Destination token decimals */
   toDecimals: number;
-  /**
-   *
-   */
+  /** Recipient address */
   toAddress: string;
-  /**
-   *
-   */
+  /** Exchange routes for swaps */
   exchangeRoutes: ExchangeRoute[];
-  /**
-   *
-   */
+  /** Estimated gas cost (optional) */
   estimatedGas?: string;
-  /**
-   *
-   */
+  /** Estimated transaction fee (optional) */
   estimatedFee?: string;
-  /**
-   *
-   */
+  /** Whether token approval is required */
   approvalRequired?: boolean;
-  /**
-   *
-   */
+  /** Route execution steps */
   steps: RouteStep[];
 }
 
-/**
- *
- */
+/** Token information for routing */
 export interface TokenInfo {
-  /**
-   *
-   */
+  /** Token contract address */
   address: string;
-  /**
-   *
-   */
+  /** Token symbol (e.g., 'ETH', 'USDC') */
   symbol: string;
-  /**
-   *
-   */
+  /** Token name */
   name: string;
-  /**
-   *
-   */
+  /** Token decimal places */
   decimals: number;
-  /**
-   *
-   */
+  /** Chain ID where token exists */
   chainId: number | string;
 }
 
@@ -197,10 +155,11 @@ export interface AcceptedPayment {
   fee?: string | { /**
                     *
                     */
-  amount: string; /**
+    amount: string; /**
                    *
                    */
-  receiver: string };
+    receiver: string
+  };
 }
 
 /**
@@ -324,7 +283,7 @@ export class PaymentRoutingService {
     } else {
       // Find routes across all supported blockchains
       const supportedChains = ['ethereum', 'polygon', 'arbitrum', 'optimism', 'base', 'solana'];
-      
+
       for (const chain of supportedChains) {
         const chainRoutes = await this.findRoutesForBlockchain(
           chain,
@@ -385,7 +344,7 @@ export class PaymentRoutingService {
         accepted.amount || amount,
         accepted.token
       );
-      
+
       if (route) {
         routes.push(route);
       }
@@ -410,7 +369,7 @@ export class PaymentRoutingService {
     tokenAddress?: string
   ): Promise<PaymentRoute | null> {
     try {
-      const token = tokenAddress 
+      const token = tokenAddress
         ? await this.getTokenInfo(blockchain, tokenAddress)
         : this.nativeTokens[blockchain];
 
@@ -448,11 +407,11 @@ export class PaymentRoutingService {
         amount,
         token
       );
-      
+
       if (swapRoute) {
         return swapRoute;
       }
-      
+
       // Try cross-chain routes if different blockchain is acceptable
       const bridgeRoute = await this.findBridgeRoute(
         blockchain,
@@ -461,7 +420,7 @@ export class PaymentRoutingService {
         amount,
         token
       );
-      
+
       return bridgeRoute;
     } catch (error) {
       console.warn('Error finding route:', error);
@@ -554,7 +513,7 @@ export class PaymentRoutingService {
       avalanche: 43114,
       solana: 'solana',
     };
-    
+
     return chainIds[blockchain] || 1;
   }
 
@@ -577,21 +536,21 @@ export class PaymentRoutingService {
       // Get available DEXes for this blockchain
       const exchanges = this.supportedExchanges[blockchain];
       if (!exchanges || exchanges.length === 0) return null;
-      
+
       // TODO: Integrate with actual DEX aggregators
       // For now, return a mock swap route
       const nativeToken = this.nativeTokens[blockchain];
-      const targetToken = tokenAddress 
+      const targetToken = tokenAddress
         ? await this.getTokenInfo(blockchain, tokenAddress)
         : nativeToken;
-      
+
       if (!targetToken || nativeToken.address === targetToken.address) return null;
-      
+
       // Mock swap calculation (would use 1inch, 0x API, etc.)
       const swapRate = 1500; // Mock: 1 ETH = 1500 USDC
       const inputAmount = ethers.utils.parseUnits(amount || '1', nativeToken.decimals);
       const outputAmount = inputAmount.mul(swapRate);
-      
+
       return {
         blockchain,
         fromAddress: from,
@@ -630,7 +589,7 @@ export class PaymentRoutingService {
       return null;
     }
   }
-  
+
   /**
    * Find bridge route for cross-chain transfers
    * @param blockchain
@@ -649,17 +608,17 @@ export class PaymentRoutingService {
     try {
       // Check if we have balances on other chains
       const supportedChains = ['ethereum', 'polygon', 'arbitrum', 'optimism', 'base'];
-      
+
       for (const otherChain of supportedChains) {
         if (otherChain === blockchain) continue;
-        
+
         // Check balance on other chain
         const otherBalance = await this.getTokenBalance(
           otherChain,
           from,
           tokenAddress || this.nativeTokens[otherChain].address
         );
-        
+
         if (parseFloat(otherBalance) > 0) {
           // We have balance on another chain, get bridge quote
           const bridgeQuote = await bridgeService.getQuotes({
@@ -673,10 +632,10 @@ export class PaymentRoutingService {
             fromAddress: from,
             toAddress: to
           });
-          
+
           if (bridgeQuote.bestRoute) {
             const route = bridgeQuote.bestRoute;
-            
+
             return {
               blockchain: otherChain, // Start from the other chain
               fromAddress: from,
@@ -700,14 +659,14 @@ export class PaymentRoutingService {
           }
         }
       }
-      
+
       return null;
     } catch (error) {
       console.warn('Error finding bridge route:', error);
       return null;
     }
   }
-  
+
   /**
    * Execute payment route
    * @param route
@@ -726,7 +685,7 @@ export class PaymentRoutingService {
         case 'approve':
           // TODO: Implement token approval
           break;
-        
+
         case 'transfer':
           // Execute transfer
           return await providerManager.sendTransaction(
@@ -734,11 +693,11 @@ export class PaymentRoutingService {
             route.fromAmount,
             route.blockchain as ChainType
           ) as string;
-        
+
         case 'swap':
           // TODO: Implement swap execution
           break;
-        
+
         case 'bridge':
           // Execute bridge transfer
           if (step.data?.bridgeRoute) {

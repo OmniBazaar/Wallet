@@ -1,6 +1,6 @@
 /**
  * Vue Composable for Validator Wallet Integration
- * 
+ *
  * Provides reactive hooks for wallet operations through the Validator network
  */
 
@@ -43,43 +43,45 @@ export function useValidatorWallet(): {
   const walletService = validatorWallet;
   const transactionService = validatorTransaction;
   const balanceService = validatorBalance;
-  
+
   // Local reactive state
   const isInitializing = ref(false);
   const connectionStatus = ref<'disconnected' | 'connecting' | 'connected' | 'error'>('disconnected');
-  
+
   // Computed properties
   const isConnected = computed(() => connectionStatus.value === 'connected');
   const hasError = computed(() => connectionStatus.value === 'error');
   const accounts = computed(() => walletService.accountsRef.value);
   const activeAccount = computed(() => walletService.activeAccountRef.value);
   const balances = computed(() => walletService.balancesRef.value);
-  
+
   /**
    * Initialize wallet services
-   * @param userId
+   * @param userId User identifier for wallet initialization
+   * @returns Promise that resolves when initialization is complete
+   * @throws Error if initialization fails
    */
   const initializeWallet = async (userId: string): Promise<void> => {
-    if (globalWalletState.isInitialized.value) {
+    if (globalWalletState.isInitialized.value === true) {
       return;
     }
-    
+
     try {
       isInitializing.value = true;
       connectionStatus.value = 'connecting';
       globalWalletState.isConnecting.value = true;
       globalWalletState.error.value = null;
-      
+
       // Update user ID in service configs
       walletService.config.userId = userId;
       transactionService.config.userId = userId;
       balanceService.config.userId = userId;
-      
+
       // Initialize services
       await walletService.initialize();
       await transactionService.initialize();
       await balanceService.initialize();
-      
+
       globalWalletState.isInitialized.value = true;
       connectionStatus.value = 'connected';
       console.warn('Validator wallet services initialized');
@@ -94,7 +96,7 @@ export function useValidatorWallet(): {
       globalWalletState.isConnecting.value = false;
     }
   };
-  
+
   /**
    * Disconnect wallet services
    */
@@ -103,7 +105,7 @@ export function useValidatorWallet(): {
       await walletService.disconnect();
       await transactionService.disconnect();
       await balanceService.disconnect();
-      
+
       globalWalletState.isInitialized.value = false;
       connectionStatus.value = 'disconnected';
       console.warn('Validator wallet services disconnected');
@@ -111,7 +113,7 @@ export function useValidatorWallet(): {
       console.error('Wallet disconnection error:', error);
     }
   };
-  
+
   /**
    * Create new account
    * @param name
@@ -136,17 +138,17 @@ export function useValidatorWallet(): {
   ): Promise<WalletAccount> => {
     try {
       const account = await walletService.createAccount(name, type, chainId, options);
-      
+
       // Update balances for new account
       await balanceService.getBalance(account.address);
-      
+
       return account;
     } catch (error) {
       console.error('Error creating account:', error);
       throw error;
     }
   };
-  
+
   /**
    * Import existing account
    * @param name
@@ -160,17 +162,17 @@ export function useValidatorWallet(): {
   ): Promise<WalletAccount> => {
     try {
       const account = await walletService.importAccount(name, privateKeyOrMnemonic, chainId);
-      
+
       // Update balances for imported account
       await balanceService.getBalance(account.address);
-      
+
       return account;
     } catch (error) {
       console.error('Error importing account:', error);
       throw error;
     }
   };
-  
+
   /**
    * Set active account
    * @param accountId
@@ -178,7 +180,7 @@ export function useValidatorWallet(): {
   const setActiveAccount = (accountId: string): void => {
     walletService.setActiveAccount(accountId);
   };
-  
+
   /**
    * Remove account
    * @param accountId
@@ -191,7 +193,7 @@ export function useValidatorWallet(): {
       throw error;
     }
   };
-  
+
   /**
    * Update account balances
    * @param addresses
@@ -208,7 +210,7 @@ export function useValidatorWallet(): {
       throw error;
     }
   };
-  
+
   return {
     // State
     isInitializing,
@@ -219,7 +221,7 @@ export function useValidatorWallet(): {
     activeAccount,
     balances,
     error: globalWalletState.error,
-    
+
     // Actions
     initializeWallet,
     disconnectWallet,
@@ -248,17 +250,17 @@ export function useValidatorTransaction(): {
   speedUpTransaction: (txId: string, privateKey: string) => Promise<Transaction>;
 } {
   const transactionService = validatorTransaction;
-  
+
   // Reactive state
   const isProcessing = ref(false);
   const lastTransaction = ref<Transaction | null>(null);
   const gasEstimate = ref<GasEstimate | null>(null);
-  
+
   // Computed properties
   const pendingTransactions = computed(() => transactionService.pendingTxRef.value);
   const transactionHistory = computed(() => transactionService.historyRef.value);
   const currentGasEstimate = computed(() => transactionService.gasEstimateRef.value);
-  
+
   /**
    * Send transaction
    * @param request
@@ -266,7 +268,7 @@ export function useValidatorTransaction(): {
   const sendTransaction = async (request: TransactionRequest): Promise<TransactionResult> => {
     try {
       isProcessing.value = true;
-      
+
       const tx = await transactionService.sendTransaction(
         request.from,
         request.to,
@@ -278,9 +280,9 @@ export function useValidatorTransaction(): {
           nonce: request.nonce
         }
       );
-      
+
       lastTransaction.value = tx;
-      
+
       return {
         success: true,
         txHash: tx.hash
@@ -295,7 +297,7 @@ export function useValidatorTransaction(): {
       isProcessing.value = false;
     }
   };
-  
+
   /**
    * Estimate gas for transaction
    * @param from
@@ -318,7 +320,7 @@ export function useValidatorTransaction(): {
       throw error;
     }
   };
-  
+
   /**
    * Get transaction by hash
    * @param txHash
@@ -331,7 +333,7 @@ export function useValidatorTransaction(): {
       return null;
     }
   };
-  
+
   /**
    * Cancel pending transaction
    * @param txId
@@ -345,7 +347,7 @@ export function useValidatorTransaction(): {
       throw error;
     }
   };
-  
+
   /**
    * Speed up pending transaction
    * @param txId
@@ -359,7 +361,7 @@ export function useValidatorTransaction(): {
       throw error;
     }
   };
-  
+
   return {
     // State
     isProcessing,
@@ -368,7 +370,7 @@ export function useValidatorTransaction(): {
     pendingTransactions,
     transactionHistory,
     currentGasEstimate,
-    
+
     // Actions
     sendTransaction,
     estimateGas,
@@ -400,17 +402,17 @@ export function useValidatorBalance(): {
   clearCache: () => void;
 } {
   const balanceService = validatorBalance;
-  
+
   // Reactive state
   const isLoading = ref(false);
   const lastUpdated = ref<number>(0);
-  
+
   // Computed properties
   const balances = computed(() => balanceService.balancesRef.value);
   const prices = computed(() => balanceService.pricesRef.value);
   const history = computed(() => balanceService.historyRef.value);
   const portfolioSummary = computed(() => balanceService.getPortfolioSummary());
-  
+
   /**
    * Get balance for address
    * @param address
@@ -429,7 +431,7 @@ export function useValidatorBalance(): {
       isLoading.value = false;
     }
   };
-  
+
   /**
    * Get multiple balances
    * @param addresses
@@ -447,7 +449,7 @@ export function useValidatorBalance(): {
       isLoading.value = false;
     }
   };
-  
+
   /**
    * Start automatic balance updates
    * @param addresses
@@ -456,7 +458,7 @@ export function useValidatorBalance(): {
   const startBalanceUpdates = (addresses: string[], interval = 30000): void => {
     balanceService.startBalanceUpdates(addresses, interval);
   };
-  
+
   /**
    * Stop automatic balance updates
    * @param address
@@ -464,7 +466,7 @@ export function useValidatorBalance(): {
   const stopBalanceUpdates = (address?: string): void => {
     balanceService.stopBalanceUpdates(address);
   };
-  
+
   /**
    * Get balance history
    * @param address
@@ -477,14 +479,14 @@ export function useValidatorBalance(): {
   }> => {
     return balanceService.getBalanceHistory(address, limit);
   };
-  
+
   /**
    * Clear balance cache
    */
   const clearCache = (): void => {
     balanceService.clearCache();
   };
-  
+
   return {
     // State
     isLoading,
@@ -493,7 +495,7 @@ export function useValidatorBalance(): {
     prices,
     history,
     portfolioSummary,
-    
+
     // Actions
     getBalance,
     getMultipleBalances,
@@ -517,12 +519,12 @@ export function useValidatorWalletStatus(): {
   const connectionStatus = ref<'disconnected' | 'connecting' | 'connected' | 'error'>('disconnected');
   const networkInfo = ref<{ networkId: string; endpoint: string } | null>(null);
   const serviceHealth = ref<Record<string, boolean>>({});
-  
+
   // Computed properties
-  const isHealthy = computed(() => 
+  const isHealthy = computed(() =>
     Object.values(serviceHealth.value).every(healthy => healthy)
   );
-  
+
   /**
    * Check service health
    */
@@ -530,13 +532,13 @@ export function useValidatorWalletStatus(): {
     try {
       // Check wallet service
       serviceHealth.value.wallet = globalWalletState.isInitialized.value;
-      
+
       // Check transaction service
       serviceHealth.value.transaction = true; // TODO: Implement health check
-      
+
       // Check balance service
       serviceHealth.value.balance = true; // TODO: Implement health check
-      
+
       // Update network info
       networkInfo.value = {
         networkId: validatorWallet.config.networkId,
@@ -551,24 +553,24 @@ export function useValidatorWalletStatus(): {
       };
     }
   };
-  
+
   // Start health checks
   onMounted(() => {
     checkHealth();
     const interval = setInterval(checkHealth, 30000); // Check every 30 seconds
-    
+
     onUnmounted(() => {
       clearInterval(interval);
     });
   });
-  
+
   return {
     // State
     connectionStatus,
     networkInfo,
     serviceHealth,
     isHealthy,
-    
+
     // Actions
     checkHealth
   };
@@ -585,11 +587,11 @@ export function useENSResolution(): {
   clearCache: () => void;
 } {
   const walletService = validatorWallet;
-  
+
   // Reactive state
   const isResolving = ref(false);
   const resolutionCache = ref<Record<string, string>>({});
-  
+
   /**
    * Resolve ENS name
    * @param name
@@ -600,14 +602,14 @@ export function useENSResolution(): {
       if (resolutionCache.value[name]) {
         return resolutionCache.value[name];
       }
-      
+
       isResolving.value = true;
       const resolution = await walletService.resolveENS(name);
-      
+
       if (resolution) {
         resolutionCache.value[name] = resolution;
       }
-      
+
       return resolution;
     } catch (error) {
       console.error('Error resolving ENS:', error);
@@ -616,7 +618,7 @@ export function useENSResolution(): {
       isResolving.value = false;
     }
   };
-  
+
   /**
    * Reverse resolve ENS (address to name)
    * @param address
@@ -625,11 +627,11 @@ export function useENSResolution(): {
     try {
       isResolving.value = true;
       const name = await walletService.reverseResolveENS(address);
-      
+
       if (name) {
         resolutionCache.value[address] = name;
       }
-      
+
       return name;
     } catch (error) {
       console.error('Error reverse resolving ENS:', error);
@@ -638,19 +640,19 @@ export function useENSResolution(): {
       isResolving.value = false;
     }
   };
-  
+
   /**
    * Clear resolution cache
    */
   const clearCache = (): void => {
     resolutionCache.value = {};
   };
-  
+
   return {
     // State
     isResolving,
     cache: resolutionCache,
-    
+
     // Actions
     resolveENS,
     reverseResolveENS,
@@ -677,12 +679,12 @@ export function useWalletBackup(): {
   }, password: string) => Promise<void>;
 } {
   const walletService = validatorWallet;
-  
+
   // Reactive state
   const isBackingUp = ref(false);
   const isRestoring = ref(false);
   const lastBackup = ref<string | null>(null);
-  
+
   /**
    * Create wallet backup
    * @param password
@@ -704,7 +706,7 @@ export function useWalletBackup(): {
       isBackingUp.value = false;
     }
   };
-  
+
   /**
    * Restore wallet from backup
    * @param backup
@@ -728,13 +730,13 @@ export function useWalletBackup(): {
       isRestoring.value = false;
     }
   };
-  
+
   return {
     // State
     isBackingUp,
     isRestoring,
     lastBackup,
-    
+
     // Actions
     createBackup,
     restoreFromBackup

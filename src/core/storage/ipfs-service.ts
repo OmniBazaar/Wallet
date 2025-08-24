@@ -1,4 +1,7 @@
-// IPFS client type - will be loaded dynamically due to ESM module
+/**
+ * IPFS Service for distributed storage
+ * IPFS client type - will be loaded dynamically due to ESM module
+ */
 interface IPFSHTTPClient {
   add: (file: any, options?: any) => Promise<{ cid: { toString: () => string } }>;
   cat: (cid: string) => AsyncIterable<Uint8Array>;
@@ -9,61 +12,39 @@ interface IPFSHTTPClient {
   };
 }
 
-/**
- *
- */
+/** IPFS configuration options */
 export interface IPFSConfig {
-  /**
-   *
-   */
+  /** IPFS gateway URL */
   gateway: string;
-  /**
-   *
-   */
+  /** IPFS host (optional) */
   host?: string;
-  /**
-   *
-   */
+  /** IPFS port (optional) */
   port?: number;
-  /**
-   *
-   */
+  /** Protocol (http/https) (optional) */
   protocol?: string;
-  /**
-   *
-   */
+  /** API path (optional) */
   apiPath?: string;
 }
 
-/**
- *
- */
+/** Result of IPFS upload operation */
 export interface UploadResult {
-  /**
-   *
-   */
+  /** IPFS hash/CID */
   hash: string;
-  /**
-   *
-   */
+  /** File size in bytes */
   size: number;
-  /**
-   *
-   */
+  /** IPFS path */
   path: string;
 }
 
-/**
- *
- */
+/** Service for IPFS operations */
 export class IPFSService {
   private client?: IPFSHTTPClient;
   private config: IPFSConfig;
   private initialized = false;
 
   /**
-   *
-   * @param config
+   * Create IPFS service
+   * @param config IPFS configuration
    */
   constructor(config: IPFSConfig) {
     this.config = config;
@@ -74,17 +55,17 @@ export class IPFSService {
    */
   async init(): Promise<void> {
     if (this.initialized) return;
-    
+
     try {
       // Dynamic import for ESM module
       const { create } = await import('ipfs-http-client');
-      
+
       // Default to public IPFS gateway if no host specified
       const clientConfig = {
-        host: this.config.host || 'ipfs.infura.io',
-        port: this.config.port || 5001,
-        protocol: this.config.protocol || 'https',
-        apiPath: this.config.apiPath || '/api/v0'
+        host: this.config.host ?? 'ipfs.infura.io',
+        port: this.config.port ?? 5001,
+        protocol: this.config.protocol ?? 'https',
+        apiPath: this.config.apiPath ?? '/api/v0'
       };
 
       this.client = create(clientConfig) as unknown as IPFSHTTPClient;
@@ -104,7 +85,7 @@ export class IPFSService {
     if (!this.client) {
       await this.init();
     }
-    
+
     try {
       const fileToUpload = {
         path: filename || 'file',
@@ -171,17 +152,17 @@ export class IPFSService {
       for await (const chunk of this.client.cat(hash)) {
         chunks.push(chunk);
       }
-      
+
       // Combine chunks
       const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
       const result = new Uint8Array(totalLength);
       let offset = 0;
-      
+
       for (const chunk of chunks) {
         result.set(chunk, offset);
         offset += chunk.length;
       }
-      
+
       return result;
     } catch (error) {
       throw new Error(`IPFS retrieval failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -289,13 +270,14 @@ export class IPFSService {
   async uploadMultipleFiles(files: Array<{ /**
                                             *
                                             */
-  file: File | Blob; /**
+    file: File | Blob; /**
                       *
                       */
-  filename: string }>): Promise<UploadResult[]> {
+    filename: string
+  }>): Promise<UploadResult[]> {
     try {
       const results: UploadResult[] = [];
-      
+
       for (const { file, filename } of files) {
         const hash = await this.uploadFile(file, filename);
         results.push({
@@ -304,7 +286,7 @@ export class IPFSService {
           path: filename
         });
       }
-      
+
       return results;
     } catch (error) {
       throw new Error(`Multiple file upload failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -318,10 +300,11 @@ export class IPFSService {
   async uploadDirectory(files: Array<{ /**
                                         *
                                         */
-  path: string; /**
+    path: string; /**
                  *
                  */
-  content: File | Blob | string }>): Promise<string> {
+    content: File | Blob | string
+  }>): Promise<string> {
     try {
       const filesToAdd = files.map(file => ({
         path: file.path,
@@ -344,4 +327,4 @@ export class IPFSService {
       throw new Error(`Directory upload failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
-} 
+}

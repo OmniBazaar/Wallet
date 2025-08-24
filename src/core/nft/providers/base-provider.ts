@@ -1,25 +1,15 @@
 import type { NFTItem, NFTCollection } from '../../../types/nft';
 import type { ChainProvider } from '../display/multi-chain-display';
 
-/**
- *
- */
+/** Configuration for Base NFT provider */
 export interface BaseNFTConfig {
-  /**
-   *
-   */
+  /** RPC URL for Base connection */
   rpcUrl: string;
-  /**
-   *
-   */
+  /** Basescan API key for blockchain data (optional) */
   basescanApiKey?: string;
-  /**
-   *
-   */
+  /** Alchemy API key for NFT data (optional) */
   alchemyApiKey?: string;
-  /**
-   *
-   */
+  /** SimpleHash API key for NFT data (optional) */
   simplehashApiKey?: string;
 }
 
@@ -38,17 +28,18 @@ export class BaseNFTProvider implements ChainProvider {
   private simplehashUrl = 'https://api.simplehash.com/api/v0';
 
   /**
-   *
-   * @param config
+   * Create Base NFT provider
+   * @param config Configuration for provider setup
    */
   constructor(config: BaseNFTConfig) {
     this.config = config;
-    this.isConnected = Boolean(config.rpcUrl);
+    this.isConnected = config.rpcUrl != null;
   }
 
   /**
    * Get all NFTs for a wallet address
-   * @param address
+   * @param address Wallet address to fetch NFTs for
+   * @returns Promise resolving to array of NFT items
    */
   async getNFTs(address: string): Promise<NFTItem[]> {
     try {
@@ -75,8 +66,9 @@ export class BaseNFTProvider implements ChainProvider {
 
   /**
    * Get specific NFT metadata
-   * @param contractAddress
-   * @param tokenId
+   * @param contractAddress NFT contract address
+   * @param tokenId Token ID to fetch metadata for
+   * @returns Promise resolving to NFT item or null
    */
   async getNFTMetadata(contractAddress: string, tokenId: string): Promise<NFTItem | null> {
     try {

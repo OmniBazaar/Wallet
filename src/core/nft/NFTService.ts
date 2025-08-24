@@ -1,6 +1,6 @@
 /**
  * NFT Service for Wallet Module
- * 
+ *
  * Integrates NFT functionality from Bazaar module with wallet-specific features.
  * Uses OmniBazaar validators as primary data source via OmniProvider.
  */
@@ -11,55 +11,37 @@ import { createNFTProvider, createAllNFTProviders, type ProviderConfig } from '.
 import type { ChainProvider } from './display/multi-chain-display';
 
 // Import types from Bazaar if available
-/**
- *
- */
+/** Configuration for NFT service */
 export interface NFTServiceConfig {
-  /**
-   *
-   */
+  /** Whether to use OmniBazaar validator as primary provider */
   useOmniProvider?: boolean;
-  /**
-   *
-   */
+  /** URL of the OmniBazaar validator */
   validatorUrl?: string;
-  /**
-   *
-   */
+  /** API keys for various NFT providers */
   apiKeys?: {
-    /**
-     *
-     */
+    /** Alchemy API key */
     alchemy?: string;
-    /**
-     *
-     */
+    /** Moralis API key */
     moralis?: string;
-    /**
-     *
-     */
+    /** OpenSea API key */
     opensea?: string;
-    /**
-     *
-     */
+    /** QuickNode API key */
     quicknode?: string;
-    /**
-     *
-     */
+    /** Infura API key */
     infura?: string;
   };
 }
 
 /**
  * Unified NFT Service for Wallet
- * 
+ *
  * @example
  * ```typescript
  * const nftService = NFTService.getInstance();
- * 
+ *
  * // Get NFTs for active account
  * const nfts = await nftService.getActiveAccountNFTs();
- * 
+ *
  * // Get NFTs for specific chain
  * const ethNfts = await nftService.getNFTsForChain(address, 1);
  * ```
@@ -76,10 +58,10 @@ export class NFTService {
       useOmniProvider: true, // Default to using OmniBazaar validators
       ...config
     };
-    
+
     // Initialize NFT Manager
     this.nftManager = new NFTManager(config.apiKeys);
-    
+
     // Initialize providers with OmniProvider by default
     this.providers = createAllNFTProviders({
       useOmniProvider: this.config.useOmniProvider,
@@ -90,7 +72,8 @@ export class NFTService {
 
   /**
    * Get singleton instance
-   * @param config
+   * @param config Optional configuration for the service
+   * @returns NFTService singleton instance
    */
   public static getInstance(config?: NFTServiceConfig): NFTService {
     if (!NFTService.instance) {
@@ -245,7 +228,7 @@ export class NFTService {
   }): Promise<{ success: boolean; listingId?: string; error?: string }> {
     // This would integrate with the marketplace
     console.log('Listing NFT:', params);
-    
+
     // For now, return success
     return {
       success: true,
@@ -268,11 +251,11 @@ export class NFTService {
     chainId: number;
   }): Promise<{ success: boolean; txHash?: string; error?: string }> {
     console.log('Buying NFT:', params);
-    
+
     // This would integrate with the marketplace
     return {
       success: true,
-      txHash: '0x' + Array(64).fill(0).map(() => 
+      txHash: '0x' + Array(64).fill(0).map(() =>
         Math.floor(Math.random() * 16).toString(16)
       ).join('')
     };
@@ -320,18 +303,18 @@ export class NFTService {
    */
   public async switchProvider(useOmniProvider: boolean): Promise<void> {
     this.config.useOmniProvider = useOmniProvider;
-    
+
     // Recreate providers with new configuration
     this.providers = createAllNFTProviders({
       useOmniProvider,
       validatorUrl: this.config.validatorUrl,
       apiKeys: this.config.apiKeys
     });
-    
+
     // Reinitialize
     this.isInitialized = false;
     await this.initialize();
-    
+
     console.log('Switched to', useOmniProvider ? 'OmniProvider' : 'External APIs');
   }
 

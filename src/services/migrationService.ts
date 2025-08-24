@@ -1,9 +1,15 @@
+/**
+ * Migration service for legacy OmniCoin balance transfers
+ */
+
 import axios from 'axios';
 import { ethers } from 'ethers';
 import { VirtualWitnessNode } from '../../../Migrate/virtual_witness_node';
 
-const API_URL = process.env.REACT_APP_MIGRATION_API_URL || 'http://localhost:3001';
+/** API URL for migration service */
+const API_URL = process.env.REACT_APP_MIGRATION_API_URL ?? 'http://localhost:3001';
 
+/** Result of migration operation */
 interface MigrationResult {
   success: boolean;
   error?: string;
@@ -11,10 +17,11 @@ interface MigrationResult {
 }
 
 /**
- *
- * @param username
- * @param password
- * @param newWalletAddress
+ * Migrate legacy OmniCoin balance to new wallet
+ * @param username Legacy account username
+ * @param password Legacy account password
+ * @param newWalletAddress New wallet address to receive funds
+ * @returns Promise resolving to migration result
  */
 export const migrateLegacyBalance = async (
   username: string,
@@ -27,7 +34,7 @@ export const migrateLegacyBalance = async (
 
     // Verify legacy account
     const account = node.get_account(username);
-    if (!account) {
+    if (account == null) {
       return {
         success: false,
         error: 'Legacy account not found',
@@ -36,7 +43,7 @@ export const migrateLegacyBalance = async (
 
     // Get account balances
     const balances = node.get_balances(account.id);
-    if (!balances || balances.length === 0) {
+    if (balances == null || balances.length === 0) {
       return {
         success: false,
         error: 'No balance found for this account',
@@ -46,10 +53,10 @@ export const migrateLegacyBalance = async (
     // Find OmniCoin balance
     const omnicoinBalance = balances.find(balance => {
       const asset = node.get_asset(balance.asset_id);
-      return asset && asset.symbol === 'OMNI';
+      return asset != null && asset.symbol === 'OMNI';
     });
 
-    if (!omnicoinBalance) {
+    if (omnicoinBalance == null) {
       return {
         success: false,
         error: 'No OmniCoin balance found',
@@ -63,7 +70,7 @@ export const migrateLegacyBalance = async (
       accountId: account.id,
     });
 
-    if (!verifyResponse.data.verified) {
+    if (verifyResponse.data.verified !== true) {
       return {
         success: false,
         error: 'Invalid credentials',
@@ -78,10 +85,10 @@ export const migrateLegacyBalance = async (
       newWalletAddress,
     });
 
-    if (!migrationResponse.data.success) {
+    if (migrationResponse.data.success !== true) {
       return {
         success: false,
-        error: migrationResponse.data.error || 'Migration failed',
+        error: migrationResponse.data.error ?? 'Migration failed',
       };
     }
 
@@ -107,10 +114,11 @@ export const getMigrationStatus = async (
 ): Promise<{ /**
 ))))))))))))) *
 ))))))))))))) */
-status: string; /**
+  status: string; /**
 ssssssssssssssss *
 ssssssssssssssss */
-balance?: string }> => {
+  balance?: string
+}> => {
   try {
     const response = await axios.get(`${API_URL}/status/${username}`);
     return response.data;
@@ -140,10 +148,10 @@ export const convertLegacyBalance = (legacyBalance: string): string => {
   try {
     // Parse the legacy balance (6 decimals)
     const legacyBigInt = BigInt(legacyBalance);
-    
+
     // Multiply by conversion factor (10^12) to get 18 decimals
     const newBalance = legacyBigInt * CONVERSION_FACTOR;
-    
+
     return newBalance.toString();
   } catch (error) {
     console.warn('Failed to convert legacy balance:', error);
@@ -160,10 +168,10 @@ export const convertLegacyAmount = (amount: string): string => {
   try {
     // First parse with 6 decimals to get the base units
     const baseUnits = ethers.parseUnits(amount, LEGACY_DECIMALS);
-    
+
     // Then multiply by conversion factor
     const newBaseUnits = baseUnits * CONVERSION_FACTOR;
-    
+
     return newBaseUnits.toString();
   } catch (error) {
     console.warn('Failed to convert legacy amount:', error);
@@ -181,7 +189,7 @@ export const formatBalance = (balance: string, displayDecimals = 4): string => {
   try {
     // Use ethers to format with 18 decimals
     const formatted = ethers.formatUnits(balance, NEW_DECIMALS);
-    
+
     // Parse and format to desired decimal places
     const num = parseFloat(formatted);
     return num.toFixed(displayDecimals);
@@ -203,16 +211,16 @@ export const migrateLegacyBalanceWithConversion = async (
   newWalletAddress: string
 ): Promise<MigrationResult & { convertedBalance?: string }> => {
   const result = await migrateLegacyBalance(username, password, newWalletAddress);
-  
+
   if (result.success && result.balance) {
     // Convert the 6-decimal balance to 18 decimals
     const convertedBalance = convertLegacyBalance(result.balance);
-    
+
     return {
       ...result,
       convertedBalance,
     };
   }
-  
+
   return result;
-}; 
+};

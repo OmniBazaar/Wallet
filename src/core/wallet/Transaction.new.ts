@@ -1,84 +1,50 @@
 import { TransactionRequest, AbiCoder, concat } from 'ethers';
 
-/**
- *
- */
+/** Core transaction data for blockchain transactions */
 export interface TransactionData {
-    /**
-     *
-     */
+    /** Recipient address (optional) */
     to?: string;
-    /**
-     *
-     */
+    /** Sender address (optional) */
     from?: string;
-    /**
-     *
-     */
+    /** Transaction nonce (optional) */
     nonce?: number;
-    /**
-     *
-     */
+    /** Gas limit for transaction (optional) */
     gasLimit?: bigint;
-    /**
-     *
-     */
+    /** Gas price in wei (optional) */
     gasPrice?: bigint;
-    /**
-     *
-     */
+    /** Transaction data payload (optional) */
     data?: string;
-    /**
-     *
-     */
+    /** Transaction value in wei (optional) */
     value?: bigint;
-    /**
-     *
-     */
+    /** Chain ID (optional) */
     chainId?: number;
 }
 
-/**
- *
- */
+/** Optional parameters for transaction execution */
 export interface TransactionOptions {
-    /**
-     *
-     */
+    /** Number of confirmations to wait for (optional) */
     confirmations?: number;
-    /**
-     *
-     */
+    /** Transaction timeout in milliseconds (optional) */
     timeout?: number;
-    /**
-     *
-     */
+    /** Gas limit override (optional) */
     gasLimit?: bigint;
-    /**
-     *
-     */
+    /** Gas price override (optional) */
     gasPrice?: bigint;
-    /**
-     *
-     */
+    /** Maximum fee per gas for EIP-1559 (optional) */
     maxFeePerGas?: bigint;
-    /**
-     *
-     */
+    /** Maximum priority fee per gas for EIP-1559 (optional) */
     maxPriorityFeePerGas?: bigint;
 }
 
-/**
- *
- */
+/** Represents a blockchain transaction with gas options and utilities */
 export class Transaction {
     private data: TransactionData;
     private options: TransactionOptions;
 
     /**
-     *
-     * @param data
-     * @param options
+     * Creates a new Transaction instance
+     * @param data Core transaction data
+     * @param options Optional transaction parameters with defaults
      */
     constructor(data: TransactionData, options: TransactionOptions = {}) {
         this.data = data;
@@ -90,28 +56,31 @@ export class Transaction {
     }
 
     /**
-     *
+     * Gets a copy of the transaction data
+     * @returns Cloned transaction data object
      */
     getData(): TransactionData {
         return { ...this.data };
     }
 
     /**
-     *
+     * Gets a copy of the transaction options
+     * @returns Cloned transaction options object
      */
     getOptions(): TransactionOptions {
         return { ...this.options };
     }
 
     /**
-     *
+     * Converts to ethers TransactionRequest format
+     * @returns Transaction in ethers format
      */
     toEthersTransaction(): TransactionRequest {
         return {
             to: this.data.to,
             value: this.data.value,
             data: this.data.data,
-            gasLimit: this.options.gasLimit || this.data.gasLimit,
+            gasLimit: this.options.gasLimit ?? this.data.gasLimit,
             maxFeePerGas: this.options.maxFeePerGas,
             maxPriorityFeePerGas: this.options.maxPriorityFeePerGas,
             nonce: this.data.nonce,
@@ -121,9 +90,10 @@ export class Transaction {
 
     // Helper methods for common transaction types
     /**
-     *
-     * @param to
-     * @param value
+     * Creates a simple ETH transfer transaction
+     * @param to Recipient address
+     * @param value Amount to transfer in wei
+     * @returns New Transaction instance for transfer
      */
     static createTransfer(to: string, value: bigint): Transaction {
         return new Transaction({
@@ -175,4 +145,4 @@ export class Transaction {
             ])
         });
     }
-} 
+}

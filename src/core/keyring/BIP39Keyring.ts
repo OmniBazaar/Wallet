@@ -1,6 +1,6 @@
 /**
  * BIP39Keyring - Production-ready BIP-39 HD wallet implementation
- * 
+ *
  * Features:
  * - BIP-39 mnemonic generation and validation
  * - BIP-32 HD key derivation
@@ -9,7 +9,7 @@
  * - Hardware wallet integration support
  * - Transaction signing
  * - Message signing
- * 
+ *
  * Security:
  * - PBKDF2 key derivation with 100,000+ iterations
  * - AES-256-GCM encryption for stored data
@@ -29,21 +29,13 @@ import bs58 from 'bs58';
 import BrowserStorage, { StorageInterface } from '../storage/common/browser-storage';
 
 // Types
-/**
- *
- */
+/** Account information for BIP39 keyring */
 export interface Account {
-  /**
-   *
-   */
+  /** Unique account identifier */
   id: string;
-  /**
-   *
-   */
+  /** User-friendly account name */
   name: string;
-  /**
-   *
-   */
+  /** Blockchain address */
   address: string;
   /**
    *
@@ -211,23 +203,25 @@ export interface BitcoinTransaction {
   inputs: Array<{ /**
                    *
                    */
-  txid: string; /**
+    txid: string; /**
                  *
                  */
-  vout: number; /**
+    vout: number; /**
                  *
                  */
-  amount: number }>;
+    amount: number
+  }>;
   /**
    *
    */
   outputs: Array<{ /**
                     *
                     */
-  address: string; /**
+    address: string; /**
                     *
                     */
-  amount: number }>;
+    amount: number
+  }>;
   /**
    *
    */
@@ -256,13 +250,14 @@ export interface SolanaTransaction {
     keys: Array<{ /**
                    *
                    */
-    pubkey: string; /**
+      pubkey: string; /**
                      *
                      */
-    isSigner: boolean; /**
+      isSigner: boolean; /**
                         *
                         */
-    isWritable: boolean }>;
+      isWritable: boolean
+    }>;
     /**
      *
      */
@@ -301,7 +296,7 @@ export class BIP39Keyring {
   private encryptedMnemonic: EncryptedData | null = null;
   private walletData: WalletData | null = null;
   private derivedKeys: Map<string, HDNodeWallet> = new Map();
-  
+
   private readonly STORAGE_KEYS = {
     ENCRYPTED_MNEMONIC: 'encrypted_mnemonic_v2',
     WALLET_DATA: 'wallet_data_v2',
@@ -329,14 +324,14 @@ export class BIP39Keyring {
     const seedPhraseLength = options.seedPhraseLength || 24;
     const strength = (seedPhraseLength / 3) * 32;
     const mnemonic = options.mnemonic || bip39.generateMnemonic(strength);
-    
+
     if (!bip39.validateMnemonic(mnemonic)) {
       throw new Error('Invalid mnemonic phrase');
     }
 
     // Encrypt mnemonic
     this.encryptedMnemonic = await this.encryptData(mnemonic, options.password);
-    
+
     // Create initial wallet data
     this.walletData = {
       id: this.generateId(),
@@ -352,7 +347,7 @@ export class BIP39Keyring {
 
     // Unlock the wallet
     await this.unlock(options.password);
-    
+
     return mnemonic;
   }
 
@@ -382,7 +377,7 @@ export class BIP39Keyring {
 
       // Decrypt mnemonic
       this.mnemonic = await this.decryptData(this.encryptedMnemonic, password);
-      
+
       // Create root HD node
       const mnemonicObj = Mnemonic.fromPhrase(this.mnemonic);
       this.rootNode = HDNodeWallet.fromMnemonic(mnemonicObj);
@@ -431,14 +426,14 @@ export class BIP39Keyring {
 
     const accountIndex = this.walletData.accounts.filter(acc => acc.chainType === chainType).length;
     const derivationPath = this.getDerivationPath(chainType, accountIndex);
-    
+
     // Derive key for this path
     const childNode = this.rootNode.derivePath(derivationPath);
     this.derivedKeys.set(derivationPath, childNode);
-    
+
     // Get address and public key based on chain type
     const { address, publicKey } = await this.getAddressForChain(chainType, childNode);
-    
+
     const account: Account = {
       id: this.generateId(),
       name: name || `${chainType.charAt(0).toUpperCase() + chainType.slice(1)} Account ${accountIndex + 1}`,
@@ -451,7 +446,7 @@ export class BIP39Keyring {
 
     // Add to wallet data
     this.walletData.accounts.push(account);
-    
+
     // Save to storage
     await this.storage.set(this.STORAGE_KEYS.WALLET_DATA, this.walletData);
 
@@ -467,7 +462,7 @@ export class BIP39Keyring {
       return [];
     }
 
-    return chainType 
+    return chainType
       ? this.walletData.accounts.filter(acc => acc.chainType === chainType)
       : this.walletData.accounts;
   }
@@ -512,13 +507,13 @@ export class BIP39Keyring {
       case 'coti':
       case 'omnicoin':
         return this.signEthereumMessage(childNode, message);
-      
+
       case 'bitcoin':
         return this.signBitcoinMessage(childNode, message);
-      
+
       case 'solana':
         return this.signSolanaMessage(childNode, message);
-      
+
       default:
         throw new Error(`Unsupported chain type: ${account.chainType}`);
     }
@@ -552,13 +547,13 @@ export class BIP39Keyring {
       case 'coti':
       case 'omnicoin':
         return this.signEthereumTransaction(childNode, transaction);
-      
+
       case 'bitcoin':
         return this.signBitcoinTransaction(childNode, transaction);
-      
+
       case 'solana':
         return this.signSolanaTransaction(childNode, transaction);
-      
+
       default:
         throw new Error(`Unsupported chain type: ${account.chainType}`);
     }
@@ -572,7 +567,7 @@ export class BIP39Keyring {
     if (!this.encryptedMnemonic) {
       this.encryptedMnemonic = await this.storage.get(this.STORAGE_KEYS.ENCRYPTED_MNEMONIC);
     }
-    
+
     if (!this.encryptedMnemonic) {
       throw new Error('No mnemonic found');
     }
@@ -601,11 +596,11 @@ export class BIP39Keyring {
     const salt = crypto.randomBytes(SALT_LENGTH);
     const key = crypto.pbkdf2Sync(password, salt, PBKDF2_ITERATIONS, KEY_LENGTH, 'sha256');
     const iv = crypto.randomBytes(IV_LENGTH);
-    
+
     const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
     const encrypted = Buffer.concat([cipher.update(text, 'utf8'), cipher.final()]);
     const authTag = cipher.getAuthTag();
-    
+
     return {
       ciphertext: encrypted.toString('base64'),
       iv: iv.toString('base64'),
@@ -624,15 +619,15 @@ export class BIP39Keyring {
     const key = crypto.pbkdf2Sync(password, salt, PBKDF2_ITERATIONS, KEY_LENGTH, 'sha256');
     const iv = Buffer.from(encryptedData.iv, 'base64');
     const authTag = Buffer.from(encryptedData.authTag, 'base64');
-    
+
     const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
     decipher.setAuthTag(authTag);
-    
+
     const decrypted = Buffer.concat([
       decipher.update(Buffer.from(encryptedData.ciphertext, 'base64')),
       decipher.final()
     ]);
-    
+
     return decrypted.toString('utf8');
   }
 
@@ -654,10 +649,11 @@ export class BIP39Keyring {
   private async getAddressForChain(chainType: ChainType, hdNode: HDNodeWallet): Promise<{ /**
                                                                                            *
                                                                                            */
-  address: string; /**
+    address: string; /**
                     *
                     */
-  publicKey: string }> {
+    publicKey: string
+  }> {
     switch (chainType) {
       case 'ethereum':
       case 'coti':
@@ -666,16 +662,16 @@ export class BIP39Keyring {
           address: hdNode.address,
           publicKey: hdNode.publicKey
         };
-      
+
       case 'bitcoin':
         return this.getBitcoinAddress(hdNode);
-      
+
       case 'solana':
         return this.getSolanaAddress(hdNode);
-      
+
       case 'substrate':
         return this.getSubstrateAddress(hdNode);
-      
+
       default:
         throw new Error(`Unsupported chain type: ${chainType}`);
     }
@@ -688,21 +684,22 @@ export class BIP39Keyring {
   private getBitcoinAddress(hdNode: HDNodeWallet): { /**
                                                       *
                                                       */
-  address: string; /**
+    address: string; /**
                     *
                     */
-  publicKey: string } {
+    publicKey: string
+  } {
     const network = bitcoin.networks.bitcoin;
     const publicKey = Buffer.from(hdNode.publicKey.slice(2), 'hex');
-    const { address } = bitcoin.payments.p2wpkh({ 
+    const { address } = bitcoin.payments.p2wpkh({
       pubkey: publicKey,
       network
     });
-    
+
     if (!address) {
       throw new Error('Failed to generate Bitcoin address');
     }
-    
+
     return {
       address,
       publicKey: hdNode.publicKey
@@ -716,14 +713,15 @@ export class BIP39Keyring {
   private getSolanaAddress(hdNode: HDNodeWallet): { /**
                                                      *
                                                      */
-  address: string; /**
+    address: string; /**
                     *
                     */
-  publicKey: string } {
+    publicKey: string
+  } {
     // Convert HD node private key to Solana keypair
     const privateKey = Buffer.from(hdNode.privateKey.slice(2), 'hex');
     const keypair = Keypair.fromSeed(privateKey.slice(0, 32));
-    
+
     return {
       address: keypair.publicKey.toBase58(),
       publicKey: keypair.publicKey.toBase58()
@@ -747,20 +745,21 @@ export class BIP39Keyring {
   private getSubstrateAddress(hdNode: HDNodeWallet): { /**
                                                         *
                                                         */
-  address: string; /**
+    address: string; /**
                     *
                     */
-  publicKey: string } {
+    publicKey: string
+  } {
     // Create a substrate keyring
     const keyring = new Keyring({ type: 'sr25519' });
-    
+
     // Convert HD node private key to seed
     const privateKey = Buffer.from(hdNode.privateKey.slice(2), 'hex');
     const seed = privateKey.slice(0, 32);
-    
+
     // Create keypair from seed
     const keypair = keyring.addFromSeed(seed);
-    
+
     return {
       address: keypair.address,
       publicKey: u8aToHex(keypair.publicKey)
@@ -775,7 +774,7 @@ export class BIP39Keyring {
   private async signEthereumMessage(hdNode: HDNodeWallet, message: string): Promise<SignatureResult> {
     const signature = await hdNode.signMessage(message);
     const messageHash = crypto.createHash('sha256').update(message).digest('hex');
-    
+
     return {
       signature,
       messageHash: `0x${messageHash}`
@@ -793,15 +792,15 @@ export class BIP39Keyring {
     const messageBuffer = Buffer.from(message, 'utf8');
     const prefixBuffer = Buffer.from(messagePrefix + messageBuffer.length, 'utf8');
     const fullMessage = Buffer.concat([prefixBuffer, messageBuffer]);
-    
+
     const hash = crypto.createHash('sha256').update(fullMessage).digest();
     const doubleHash = crypto.createHash('sha256').update(hash).digest();
-    
+
     const privateKey = Buffer.from(hdNode.privateKey.slice(2), 'hex');
     const ec = new EC('secp256k1');
     const keyPair = ec.keyFromPrivate(privateKey);
     const signature = keyPair.sign(doubleHash);
-    
+
     return {
       signature: signature.toDER('hex'),
       messageHash: doubleHash.toString('hex')
@@ -816,10 +815,10 @@ export class BIP39Keyring {
   private async signSolanaMessage(hdNode: HDNodeWallet, message: string): Promise<SignatureResult> {
     const privateKey = Buffer.from(hdNode.privateKey.slice(2), 'hex');
     const keypair = Keypair.fromSeed(privateKey.slice(0, 32));
-    
+
     const messageBytes = Buffer.from(message, 'utf8');
     const signature = keypair.secretKey.slice(0, 64);
-    
+
     return {
       signature: Buffer.from(signature).toString('base64'),
       messageHash: crypto.createHash('sha256').update(messageBytes).digest('hex')
@@ -834,7 +833,7 @@ export class BIP39Keyring {
   private async signEthereumTransaction(hdNode: HDNodeWallet, transaction: EthereumTransaction): Promise<TransactionSignResult> {
     const signedTx = await hdNode.signTransaction(transaction);
     const txHash = crypto.createHash('sha256').update(signedTx).digest('hex');
-    
+
     return {
       signedTransaction: signedTx,
       transactionHash: `0x${txHash}`
@@ -850,7 +849,7 @@ export class BIP39Keyring {
     // Implement Bitcoin transaction signing
     // This is a placeholder implementation
     const txHash = crypto.createHash('sha256').update(JSON.stringify(transaction)).digest('hex');
-    
+
     return {
       signedTransaction: 'bitcoin_signed_tx_placeholder',
       transactionHash: txHash
@@ -866,7 +865,7 @@ export class BIP39Keyring {
     // Implement Solana transaction signing
     // This is a placeholder implementation
     const txHash = crypto.createHash('sha256').update(JSON.stringify(transaction)).digest('hex');
-    
+
     return {
       signedTransaction: 'solana_signed_tx_placeholder',
       transactionHash: txHash

@@ -1,8 +1,10 @@
-// OmniBazaar Wallet Ethereum Provider
-// Adapted from Enkrypt Ethereum provider for our hybrid architecture
+/**
+ * OmniBazaar Wallet Ethereum Provider
+ * Adapted from Enkrypt Ethereum provider for our hybrid architecture
+ */
 
 import { providers, Contract, BigNumber, utils } from 'ethers';
-import { 
+import {
   ProviderName,
   ProviderRPCRequest,
   OnMessageResponse,
@@ -83,7 +85,7 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
     this.chainId = this.network.chainID;
     this.networkVersion = parseInt(this.network.chainID, 16).toString();
     this.provider = new providers.JsonRpcProvider(this.network.node);
-    
+
     // Set up provider event listeners
     this.setupEventListeners();
   }
@@ -94,7 +96,7 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
   private setupEventListeners(): void {
     // Listen for network changes
     this.provider.on('network', (newNetwork: { chainId: number }, oldNetwork: { chainId: number } | null) => {
-      if (oldNetwork) {
+      if (oldNetwork != null) {
         this.emit('chainChanged', '0x' + newNetwork.chainId.toString(16));
         this.sendNotification(JSON.stringify({
           method: 'chainChanged',
@@ -114,11 +116,11 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
     this.network = ethNetwork;
     this.chainId = ethNetwork.chainID;
     this.networkVersion = parseInt(ethNetwork.chainID, 16).toString();
-    
+
     // Create new provider instance
     this.provider = new providers.JsonRpcProvider(ethNetwork.node);
     this.setupEventListeners();
-    
+
     // Emit chain changed event if different
     if (oldChainId !== this.chainId) {
       this.emit('chainChanged', this.chainId);
@@ -288,7 +290,7 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
   private async handleSubscription(type: string, _params?: string[]): Promise<string> {
     // Generate subscription ID
     const subscriptionId = Math.random().toString(16).slice(2);
-    
+
     // Handle different subscription types
     switch (type) {
       case 'newHeads': {
@@ -301,15 +303,15 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
         });
         break;
       }
-        
+
       case 'logs':
         // Subscribe to logs (will need more sophisticated filtering)
         break;
-        
+
       default:
         throw new Error(`Unsupported subscription type: ${type}`);
     }
-    
+
     return subscriptionId;
   }
 
@@ -356,7 +358,7 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
       'function decimals() view returns (uint8)',
       'function symbol() view returns (string)'
     ];
-    
+
     const contract = new Contract(tokenAddress, tokenABI, this.provider);
     const balance = await contract.balanceOf(userAddress);
     return balance.toString();
@@ -372,7 +374,7 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
   async estimateTokenTransferGas(tokenAddress: string, to: string, amount: string): Promise<string> {
     const tokenABI = ['function transfer(address to, uint256 amount) returns (bool)'];
     const contract = new Contract(tokenAddress, tokenABI, this.provider);
-    
+
     const gasEstimate = await contract.transfer.estimateGas(to, amount);
     return gasEstimate.toString();
   }
@@ -388,13 +390,13 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
       'function tokenURI(uint256 tokenId) view returns (string)',
       'function ownerOf(uint256 tokenId) view returns (address)'
     ];
-    
+
     const contract = new Contract(contractAddress, nftABI, this.provider);
     const [tokenURI, owner] = await Promise.all([
       contract.tokenURI(tokenId),
       contract.ownerOf(tokenId)
     ]);
-    
+
     return { tokenURI, owner };
   }
 
@@ -430,4 +432,4 @@ export { LiveEthereumProvider, createLiveEthereumProvider, liveEthereumProvider 
 export async function getProvider(_networkName?: string): Promise<providers.JsonRpcProvider> {
   const { liveEthereumProvider } = await import('./live-provider');
   return liveEthereumProvider.getProvider();
-} 
+}

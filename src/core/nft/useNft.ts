@@ -7,13 +7,14 @@ import { ChainId } from '~/core/types/chains';
 import { UniqueAsset } from '~/core/types/nfts';
 
 /**
- *
- * @param root0
- * @param root0.contractAddress
- * @param root0.chainId
- * @param root0.tokenId
- * @param root1
- * @param root1.initialData
+ * Hook to fetch NFT data
+ * @param nftIdentifier NFT identification parameters
+ * @param nftIdentifier.contractAddress NFT contract address
+ * @param nftIdentifier.chainId Chain ID where NFT exists
+ * @param nftIdentifier.tokenId Token ID of the NFT
+ * @param options Query options
+ * @param options.initialData Initial NFT data
+ * @returns Query result for NFT data
  */
 export function useNft(
   {
@@ -21,23 +22,17 @@ export function useNft(
     chainId,
     tokenId,
   }: {
-    /**
-     *
-     */
+    /** NFT contract address */
     contractAddress: Address;
-    /**
-     *
-     */
+    /** Chain ID where NFT exists */
     chainId: ChainId;
-    /**
-     *
-     */
+    /** Token ID of the NFT */
     tokenId: string;
   },
-  { initialData }: { /**
-                      *
-                      */
-  initialData: UniqueAsset },
+  { initialData }: {
+    /** Initial NFT data for the query */
+    initialData: UniqueAsset;
+  },
 ): unknown {
   return useQuery({
     queryKey: createQueryKey(
@@ -47,8 +42,8 @@ export function useNft(
     ),
     queryFn: ({ queryKey }) => fetchNft(queryKey[0]),
     initialData,
-    initialDataUpdatedAt: initialData !== undefined ? Date.now() : 0,
-    enabled: !!contractAddress && !!chainId && !!tokenId,
+    initialDataUpdatedAt: initialData != null ? Date.now() : 0,
+    enabled: contractAddress != null && chainId != null && tokenId != null,
     // TODO: restore this when we find a SimpleHash replacement
     // retry: 3,
     staleTime: Infinity, // Keep data in cache indefinitely

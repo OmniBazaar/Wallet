@@ -1,6 +1,6 @@
 /**
  * Multi-Chain NFT Integration Example
- * 
+ *
  * This example demonstrates how to use the OmniBazaar wallet's
  * multi-chain NFT system for marketplace operations.
  */
@@ -17,19 +17,19 @@ class OmniBazaarMarketplaceExample {
   private nftMinter: SimplifiedNFTMinter;
 
   /**
-   *
+   * Create a new marketplace example instance
    */
   constructor() {
     // Initialize the multi-chain NFT display system
     this.nftDisplay = new MultiChainNFTDisplay();
-    
+
     // Initialize the NFT minter for OmniCoin
     this.nftMinter = new SimplifiedNFTMinter({
       blockchain: 'omnicoin',
       rpcUrl: 'http://localhost:8888',
       contractAddress: '0x0000000000000000000000000000000000000000'
     });
-    
+
     this.setupMultiChainProviders();
   }
 
@@ -57,14 +57,15 @@ class OmniBazaarMarketplaceExample {
 
   /**
    * Example: Mint a new marketplace NFT on OmniCoin
-   * @param sellerAddress
-   * @param productData
-   * @param productData.name
-   * @param productData.description
-   * @param productData.imageUrl
-   * @param productData.price
-   * @param productData.category
-   * @param productData.location
+   * @param sellerAddress Address of the seller
+   * @param productData Product information
+   * @param productData.name Product name
+   * @param productData.description Product description
+   * @param productData.imageUrl Product image URL
+   * @param productData.price Product price
+   * @param productData.category Product category
+   * @param productData.location Product location (optional)
+   * @returns Promise resolving to the minted NFT ID
    */
   async mintMarketplaceNFT(sellerAddress: string, productData: {
     name: string;
@@ -97,7 +98,7 @@ class OmniBazaarMarketplaceExample {
       };
 
       const result = await this.nftMinter.mintNFT(mintRequest);
-      
+
       console.warn('✅ NFT minted successfully:', {
         transactionHash: result.transactionHash,
         tokenId: result.tokenId,
@@ -137,15 +138,15 @@ class OmniBazaarMarketplaceExample {
           attributes: Array<{ trait_type: string; value: string }>;
           blockchain: string;
         }>;
-        
+
         if (chainNFTs.length > 0) {
           console.warn(`\n${chainName}: ${chainNFTs.length} NFTs`);
-          
+
           // Show first few NFTs from each chain
           chainNFTs.slice(0, 3).forEach((nft, index) => {
             console.warn(`  ${index + 1}. ${nft.name} - ${nft.price || 'Not Listed'} ${nft.currency || ''}`);
           });
-          
+
           if (chainNFTs.length > 3) {
             console.warn(`  ... and ${chainNFTs.length - 3} more`);
           }
@@ -155,7 +156,7 @@ class OmniBazaarMarketplaceExample {
       // Show some interesting statistics
       const allNFTs = portfolio.nfts;
       const listedNFTs = allNFTs.filter(nft => nft.isListed);
-      const categories = [...new Set(allNFTs.map(nft => 
+      const categories = [...new Set(allNFTs.map(nft =>
         nft.attributes.find(attr => attr.trait_type === 'Category')?.value
       ).filter(Boolean))];
 
@@ -253,7 +254,7 @@ class OmniBazaarMarketplaceExample {
       for (const [chainId, chainStats] of Object.entries(stats)) {
         const status = chainStats.enabled ? '🟢 Enabled' : '🔴 Disabled';
         const connection = chainStats.isConnected ? '🔗 Connected' : '❌ Disconnected';
-        
+
         console.warn(`\n${chainStats.name} (Chain ${chainId}):`);
         console.warn(`  Status: ${status}`);
         console.warn(`  Connection: ${connection}`);
@@ -274,9 +275,9 @@ class OmniBazaarMarketplaceExample {
   async manageChainSupport(chainId: number, enabled: boolean): Promise<void> {
     const chainName = this.getChainName(chainId);
     console.warn(`${enabled ? '🟢 Enabling' : '🔴 Disabling'} ${chainName} support...`);
-    
+
     this.nftDisplay.toggleChain(chainId, enabled);
-    
+
     console.warn(`✅ ${chainName} is now ${enabled ? 'enabled' : 'disabled'}`);
   }
 
@@ -309,7 +310,7 @@ async function demonstrateMultiChainNFT(): Promise<void> {
     // Example 1: Mint a new marketplace NFT
     console.warn('📝 Example 1: Minting Marketplace NFT');
     console.warn('═══════════════════════════════════════');
-    
+
     await marketplace.mintMarketplaceNFT(testUserAddress, {
       name: 'Vintage Leather Jacket',
       description: 'High-quality vintage leather jacket in excellent condition',
@@ -324,7 +325,7 @@ async function demonstrateMultiChainNFT(): Promise<void> {
     // Example 2: Show user's NFT portfolio
     console.warn('\n📱 Example 2: User NFT Portfolio');
     console.warn('═══════════════════════════════════════');
-    
+
     await marketplace.showUserNFTPortfolio(testUserAddress);
 
     await new Promise(resolve => setTimeout(resolve, 1000));
@@ -332,7 +333,7 @@ async function demonstrateMultiChainNFT(): Promise<void> {
     // Example 3: Search marketplace NFTs
     console.warn('\n🔍 Example 3: Marketplace Search');
     console.warn('═══════════════════════════════════════');
-    
+
     await marketplace.searchMarketplaceNFTs('jacket', {
       category: 'Fashion',
       priceRange: { min: 10, max: 100 }
@@ -343,7 +344,7 @@ async function demonstrateMultiChainNFT(): Promise<void> {
     // Example 4: Show marketplace statistics
     console.warn('\n📊 Example 4: Marketplace Statistics');
     console.warn('═══════════════════════════════════════');
-    
+
     await marketplace.showMarketplaceStatistics();
 
     await new Promise(resolve => setTimeout(resolve, 1000));
@@ -351,7 +352,7 @@ async function demonstrateMultiChainNFT(): Promise<void> {
     // Example 5: Chain management
     console.warn('\n🔧 Example 5: Chain Management');
     console.warn('═══════════════════════════════════════');
-    
+
     await marketplace.manageChainSupport(56, false); // Disable BSC
     await marketplace.manageChainSupport(56, true);  // Re-enable BSC
 
@@ -369,4 +370,4 @@ export { OmniBazaarMarketplaceExample, demonstrateMultiChainNFT };
 // Run demo if this file is executed directly
 if (require.main === module) {
   demonstrateMultiChainNFT().catch(console.warn);
-} 
+}

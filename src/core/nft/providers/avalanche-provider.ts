@@ -1,21 +1,13 @@
 import type { NFTItem, NFTCollection } from '../../../types/nft';
 import type { ChainProvider } from '../display/multi-chain-display';
 
-/**
- *
- */
+/** Configuration for Avalanche NFT provider */
 export interface AvalancheNFTConfig {
-  /**
-   *
-   */
+  /** RPC URL for Avalanche connection */
   rpcUrl: string;
-  /**
-   *
-   */
+  /** Snowtrace API key for blockchain data (optional) */
   snowtraceApiKey?: string;
-  /**
-   *
-   */
+  /** Joepegs API key for NFT marketplace data (optional) */
   joepegsApiKey?: string;
 }
 
@@ -33,17 +25,18 @@ export class AvalancheNFTProvider implements ChainProvider {
   private joepegsUrl = 'https://api.joepegs.dev/v2';
 
   /**
-   *
-   * @param config
+   * Create Avalanche NFT provider
+   * @param config Configuration for provider setup
    */
   constructor(config: AvalancheNFTConfig) {
     this.config = config;
-    this.isConnected = Boolean(config.rpcUrl);
+    this.isConnected = config.rpcUrl != null;
   }
 
   /**
    * Get all NFTs for a wallet address
-   * @param address
+   * @param address Wallet address to fetch NFTs for
+   * @returns Promise resolving to array of NFT items
    */
   async getNFTs(address: string): Promise<NFTItem[]> {
     try {
@@ -65,8 +58,9 @@ export class AvalancheNFTProvider implements ChainProvider {
 
   /**
    * Get specific NFT metadata
-   * @param contractAddress
-   * @param tokenId
+   * @param contractAddress NFT contract address
+   * @param tokenId Token ID to fetch metadata for
+   * @returns Promise resolving to NFT item or null
    */
   async getNFTMetadata(contractAddress: string, tokenId: string): Promise<NFTItem | null> {
     try {
@@ -89,8 +83,8 @@ export class AvalancheNFTProvider implements ChainProvider {
       ]);
       
       // Parse metadata
-      let metadata: any = { name: `${name} #${tokenId}`, description: '' };
-      if (tokenURI) {
+      let metadata: { name: string; description: string; image?: string } = { name: `${name} #${tokenId}`, description: '' };
+              if (tokenURI != null && tokenURI !== '') {
         if (tokenURI.startsWith('data:')) {
           const json = tokenURI.split(',')[1];
           metadata = JSON.parse(atob(json));

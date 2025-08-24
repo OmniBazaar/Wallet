@@ -5,97 +5,55 @@
  * Represents an individual NFT with marketplace integration
  */
 export interface NFTItem {
-  /**
-   *
-   */
+  /** Unique identifier for this NFT */
   id: string;
-  /**
-   *
-   */
+  /** Token ID on the blockchain */
   tokenId: string;
-  /**
-   *
-   */
+  /** Human-readable name of the NFT */
   name: string;
-  /**
-   *
-   */
+  /** Description of the NFT */
   description: string;
-  /**
-   *
-   */
+  /** Primary image URL for the NFT */
   image: string;
-  /**
-   *
-   */
+  /** Alternative image URL */
   imageUrl?: string;
-  /**
-   *
-   */
+  /** Animation or video URL */
   animationUrl?: string;
-  /**
-   *
-   */
+  /** External URL for more information */
   externalUrl?: string;
-  /**
-   *
-   */
+  /** Array of trait attributes */
   attributes: NFTAttribute[];
-  /**
-   *
-   */
+  /** Contract name or identifier */
   contract: string;
-  /**
-   *
-   */
+  /** Smart contract address */
   contractAddress: string;
-  /**
-   *
-   */
+  /** NFT token standard */
   tokenStandard: 'ERC721' | 'ERC1155' | 'SPL' | 'other';
-  /**
-   *
-   */
+  /** Blockchain network name */
   blockchain: string;
-  /**
-   *
-   */
+  /** Current owner address */
   owner: string;
-  /**
-   *
-   */
+  /** Original creator address */
   creator?: string;
-  /**
-   *
-   */
+  /** Royalty percentage (0-100) */
   royalties?: number;
   /**
    *
    */
   metadata?: { name?: string; description?: string; image?: string; attributes?: Array<{ trait_type: string; value: unknown }> };
-  
+
   // Marketplace-specific fields
-  /**
-   *
-   */
+  /** Whether this NFT is currently listed for sale */
   isListed?: boolean;
-  /**
-   *
-   */
+  /** Marketplace listing identifier */
   listingId?: string;
-  /**
-   *
-   */
+  /** Listing price as string */
   price?: string;
-  /**
-   *
-   */
+  /** Currency for the listing price */
   currency?: string;
-  /**
-   *
-   */
+  /** URL to view on marketplace */
   marketplaceUrl?: string;
-  
+
   // IPFS fields
   /**
    *
@@ -133,53 +91,29 @@ export interface NFTAttribute {
  * Represents an NFT collection with marketplace data
  */
 export interface NFTCollection {
-  /**
-   *
-   */
+  /** Unique collection identifier */
   id: string;
-  /**
-   *
-   */
+  /** Collection name */
   name: string;
-  /**
-   *
-   */
+  /** Collection description */
   description?: string;
-  /**
-   *
-   */
+  /** Collection logo/image */
   image?: string;
-  /**
-   *
-   */
+  /** Collection banner image */
   banner?: string;
-  /**
-   *
-   */
+  /** Contract name or identifier */
   contract: string;
-  /**
-   *
-   */
+  /** Smart contract address */
   contractAddress: string;
-  /**
-   *
-   */
+  /** NFT standard used by this collection */
   tokenStandard: 'ERC721' | 'ERC1155' | 'SPL' | 'other';
-  /**
-   *
-   */
+  /** Blockchain network */
   blockchain: string;
-  /**
-   *
-   */
+  /** Collection creator address */
   creator: string;
-  /**
-   *
-   */
+  /** Whether collection is verified */
   verified: boolean;
-  /**
-   *
-   */
+  /** Total number of tokens in collection */
   totalSupply?: number;
   /**
    *
@@ -193,7 +127,7 @@ export interface NFTCollection {
    *
    */
   items: NFTItem[];
-  
+
   // Marketplace-specific fields
   /**
    *
@@ -203,17 +137,11 @@ export interface NFTCollection {
    *
    */
   tags?: string[];
-  /**
-   *
-   */
+  /** Default royalty percentage for collection */
   royalties?: number;
-  /**
-   *
-   */
+  /** Official website URL */
   website?: string;
-  /**
-   *
-   */
+  /** Social media links */
   social?: {
     twitter?: string;
     discord?: string;
@@ -225,29 +153,17 @@ export interface NFTCollection {
  * Standard NFT metadata with OmniBazaar marketplace extensions
  */
 export interface NFTMetadata {
-  /**
-   *
-   */
+  /** NFT name */
   name: string;
-  /**
-   *
-   */
+  /** NFT description */
   description: string;
-  /**
-   *
-   */
+  /** Primary image URL */
   image: string;
-  /**
-   *
-   */
+  /** Animation or video URL */
   animation_url?: string;
-  /**
-   *
-   */
+  /** External link for more info */
   external_url?: string;
-  /**
-   *
-   */
+  /** Array of trait attributes */
   attributes: NFTAttribute[];
   /**
    *
@@ -259,7 +175,7 @@ export interface NFTMetadata {
       share: number;
     }>;
   };
-  
+
   // OmniBazaar marketplace extensions
   /**
    *
@@ -318,7 +234,7 @@ export interface MarketplaceListing {
    *
    */
   listingType: 'fixed_price' | 'auction' | 'best_offer';
-  
+
   // Auction-specific fields
   /**
    *
@@ -336,7 +252,7 @@ export interface MarketplaceListing {
    *
    */
   reservePrice?: string;
-  
+
   // Listing metadata
   /**
    *
@@ -366,7 +282,7 @@ export interface MarketplaceListing {
    *
    */
   location?: string;
-  
+
   // Marketplace features
   /**
    *
@@ -384,7 +300,7 @@ export interface MarketplaceListing {
    *
    */
   instantPurchase: boolean;
-  
+
   // Timestamps
   /**
    *
@@ -398,7 +314,7 @@ export interface MarketplaceListing {
    *
    */
   expiresAt?: number;
-  
+
   // Analytics
   /**
    *
@@ -496,7 +412,7 @@ export interface NFTMintRequest {
    *
    */
   collection?: string;
-  
+
   // Marketplace listing options
   /**
    *
@@ -514,7 +430,7 @@ export interface NFTMintRequest {
    *
    */
   category?: string;
-  
+
   // IPFS storage options
   /**
    *
@@ -612,4 +528,4 @@ export interface NFTSearchResult {
     blockchains: Array<{ id: string; name: string; count: number }>;
     priceRange: { min: number; max: number };
   };
-} 
+}

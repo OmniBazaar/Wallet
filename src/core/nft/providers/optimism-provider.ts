@@ -1,25 +1,15 @@
 import type { NFTItem, NFTCollection } from '../../../types/nft';
 import type { ChainProvider } from '../display/multi-chain-display';
 
-/**
- *
- */
+/** Configuration for Optimism NFT provider */
 export interface OptimismNFTConfig {
-  /**
-   *
-   */
+  /** RPC URL for Optimism connection */
   rpcUrl: string;
-  /**
-   *
-   */
+  /** Optimistic Etherscan API key for blockchain data (optional) */
   optimisticEtherscanApiKey?: string;
-  /**
-   *
-   */
+  /** Alchemy API key for NFT data (optional) */
   alchemyApiKey?: string;
-  /**
-   *
-   */
+  /** SimpleHash API key for NFT data (optional) */
   simplehashApiKey?: string;
 }
 
@@ -38,17 +28,18 @@ export class OptimismNFTProvider implements ChainProvider {
   private simplehashUrl = 'https://api.simplehash.com/api/v0';
 
   /**
-   *
-   * @param config
+   * Create Optimism NFT provider
+   * @param config Configuration for provider setup
    */
   constructor(config: OptimismNFTConfig) {
     this.config = config;
-    this.isConnected = Boolean(config.rpcUrl);
+    this.isConnected = config.rpcUrl != null;
   }
 
   /**
    * Get all NFTs for a wallet address
-   * @param address
+   * @param address Wallet address to fetch NFTs for
+   * @returns Promise resolving to array of NFT items
    */
   async getNFTs(address: string): Promise<NFTItem[]> {
     try {
@@ -75,8 +66,9 @@ export class OptimismNFTProvider implements ChainProvider {
 
   /**
    * Get specific NFT metadata
-   * @param contractAddress
-   * @param tokenId
+   * @param contractAddress NFT contract address
+   * @param tokenId Token ID to fetch metadata for
+   * @returns Promise resolving to NFT item or null
    */
   async getNFTMetadata(contractAddress: string, tokenId: string): Promise<NFTItem | null> {
     try {

@@ -1,5 +1,7 @@
-// OmniBazaar Wallet Background Service Worker
-// Main coordination point for wallet functionality
+/**
+ * OmniBazaar Wallet Background Service Worker
+ * Main coordination point for wallet functionality
+ */
 
 import EthereumProvider from '@/core/chains/ethereum/provider';
 import { ProviderName, ProviderRPCRequest, OnMessageResponse } from '@/types/provider';
@@ -66,15 +68,15 @@ let secureStorage: SecureIndexedDB;
  */
 function initializeProviders(): void {
   console.warn('🚀 Initializing OmniBazaar Wallet providers...');
-  
+
   // Initialize Ethereum provider
   const ethereumProvider = new EthereumProvider(
     (message: string) => sendToContentScript(message),
     EthereumNetworks.ethereum
   );
-  
+
   providers.set(ProviderName.ethereum, ethereumProvider);
-  
+
   console.warn('✅ Ethereum provider initialized');
   console.warn(`📊 Total providers: ${providers.size}`);
 }
@@ -84,28 +86,28 @@ function initializeProviders(): void {
  */
 async function initializeServices(): Promise<void> {
   console.warn('🔧 Initializing OmniBazaar Wallet services...');
-  
+
   try {
     // Initialize secure storage
     secureStorage = SecureIndexedDB.getInstance();
     await secureStorage.open();
-    
+
     // Initialize keyring service
     keyringService = KeyringService.getInstance();
     await keyringService.checkInitialization();
-    
+
     // Initialize validator wallet
     validatorWallet = ValidatorWallet.getInstance();
-    
+
     // Initialize NFT service
     nftService = NFTService.getInstance();
-    
+
     // Initialize marketplace service
     marketplaceService = MarketplaceService.getInstance();
-    
+
     // Initialize wallet service
     walletService = WalletService.getInstance();
-    
+
     console.warn('✅ All services initialized successfully');
   } catch (error) {
     console.error('❌ Service initialization failed:', error);
@@ -133,63 +135,63 @@ async function sendToContentScript(message: string): Promise<void> {
 // Handle messages from content scripts and popup
 chrome.runtime.onMessage.addListener(async (message: { type: string; data?: unknown }, sender: chrome.runtime.MessageSender, sendResponse: (response?: unknown) => void) => {
   console.warn('📨 Background received message:', message.type);
-  
+
   // Track current tab
   if (sender.tab?.id) {
     currentTab = sender.tab.id;
   }
-  
+
   try {
     let response;
-    
+
     switch (message.type) {
       case 'PROVIDER_REQUEST':
         response = await handleProviderRequest(message.data);
         break;
-        
+
       case 'GET_WALLET_STATE':
         response = await getWalletState();
         break;
-        
+
       case 'CONNECT_ACCOUNT':
         response = await connectAccount(message.data);
         break;
-        
+
       case 'DISCONNECT_ACCOUNT':
         response = await disconnectAccount();
         break;
-        
+
       case 'SWITCH_NETWORK':
         response = await switchNetwork(message.data);
         break;
-        
+
       case 'GET_BALANCE':
         response = await getBalance(message.data);
         break;
-        
+
       case 'SIGN_TRANSACTION':
         response = await signTransaction(message.data);
         break;
-        
+
       case 'MINT_NFT':
         response = await mintNFT(message.data);
         break;
-        
+
       case 'CREATE_LISTING':
         response = await createMarketplaceListing(message.data);
         break;
-        
+
       default:
         console.warn('Unknown message type:', message.type);
         response = { error: 'Unknown message type' };
     }
-    
+
     sendResponse(response);
   } catch (error: unknown) {
     console.error('Background script error:', error);
     sendResponse({ error: error instanceof Error ? error.message : 'Internal error' });
   }
-  
+
   return true; // Will respond asynchronously
 });
 
@@ -200,14 +202,14 @@ chrome.runtime.onMessage.addListener(async (message: { type: string; data?: unkn
  */
 async function handleProviderRequest(request: ProviderRPCRequest & { provider: ProviderName }): Promise<OnMessageResponse> {
   const { provider: providerName, ...rpcRequest } = request;
-  
+
   console.warn(`🔗 Provider request: ${providerName}.${rpcRequest.method}`);
-  
+
   const provider = providers.get(providerName);
   if (!provider) {
     return { error: `Provider ${providerName} not found` };
   }
-  
+
   try {
     const response = await provider.request(rpcRequest);
     console.warn(`✅ Provider response: ${providerName}.${rpcRequest.method}`);
@@ -234,7 +236,7 @@ async function getWalletState(): Promise<{
   // Get keyring state
   const keyringState = keyringService.getState();
   const activeAccount = keyringService.getActiveAccount();
-  
+
   // Get balance if account is active
   let balance = '0';
   if (activeAccount) {
@@ -244,7 +246,7 @@ async function getWalletState(): Promise<{
       console.warn('Failed to get balance:', error);
     }
   }
-  
+
   // Get NFT collections if account is active
   let nftCollections: unknown[] = [];
   if (activeAccount) {
@@ -254,7 +256,7 @@ async function getWalletState(): Promise<{
       console.warn('Failed to get NFT collections:', error);
     }
   }
-  
+
   const state = {
     isUnlocked: !keyringState.isLocked,
     currentAccount: activeAccount ? {
@@ -267,7 +269,7 @@ async function getWalletState(): Promise<{
     balance,
     transactions: [] // TODO: Implement transaction history
   };
-  
+
   console.warn('📊 Wallet state requested:', state);
   return state;
 }
@@ -282,7 +284,7 @@ async function getWalletState(): Promise<{
  * @param data.authMethod
  * @returns Promise resolving to connection result
  */
-async function connectAccount(data: { 
+async function connectAccount(data: {
   address?: string;
   password?: string;
   username?: string;
@@ -294,17 +296,17 @@ async function connectAccount(data: {
   error?: string;
 }> {
   console.warn('🔐 Connect account requested:', data);
-  
+
   try {
     const keyringState = keyringService.getState();
-    
+
     // Initialize wallet if not already initialized
     if (!keyringState.isInitialized) {
       if (data.authMethod === 'web3' && data.password) {
         // Initialize Web3 wallet with seed phrase
         const seedPhrase = await keyringService.initializeWeb3Wallet(data.password, data.mnemonic);
         console.warn('✅ Web3 wallet initialized');
-        
+
         const activeAccount = keyringService.getActiveAccount();
         return {
           success: true,
@@ -314,7 +316,7 @@ async function connectAccount(data: {
         // Initialize Web2 wallet with username/password
         const session = await keyringService.initializeWeb2Wallet(data.username, data.password);
         console.warn('✅ Web2 wallet initialized for:', session.username);
-        
+
         const activeAccount = keyringService.getActiveAccount();
         return {
           success: true,
@@ -327,19 +329,19 @@ async function connectAccount(data: {
         };
       }
     }
-    
+
     // Unlock existing wallet
     if (keyringState.isLocked && data.password) {
       await keyringService.unlock(data.password, data.username);
       console.warn('✅ Wallet unlocked');
-      
+
       const activeAccount = keyringService.getActiveAccount();
       return {
         success: true,
         address: activeAccount?.address
       };
     }
-    
+
     // Set active account if specified
     if (data.address) {
       keyringService.setActiveAccount(data.address);
@@ -348,7 +350,7 @@ async function connectAccount(data: {
         address: data.address
       };
     }
-    
+
     return {
       success: false,
       error: 'No action taken - wallet already initialized and unlocked'
@@ -368,7 +370,7 @@ async function connectAccount(data: {
  */
 async function disconnectAccount(): Promise<{ success: boolean }> {
   console.warn('🔓 Disconnect account requested');
-  
+
   // Clear current account state
   return { success: true };
 }
@@ -386,12 +388,12 @@ async function switchNetwork(data: { network: string; chainId?: string }): Promi
   error?: string;
 }> {
   console.warn('🔄 Switch network requested:', data);
-  
+
   const provider = providers.get(data.network as ProviderName);
   if (!provider) {
     return { error: `Network ${data.network} not supported` };
   }
-  
+
   // This will be enhanced with actual network switching
   return { success: true, network: data.network };
 }
@@ -409,25 +411,25 @@ async function getBalance(data: { address: string; network?: string }): Promise<
   error?: string;
 }> {
   console.warn('💰 Balance requested:', data);
-  
+
   const networkName = data.network || ProviderName.ethereum;
   const provider = providers.get(networkName as ProviderName);
-  
+
   if (!provider) {
     return { error: `Network ${networkName} not supported` };
   }
-  
+
   try {
     const response = await provider.request({
       id: Date.now(),
       method: 'eth_getBalance',
       params: [data.address, 'latest']
     });
-    
+
     if (response.error) {
       return { error: response.error };
     }
-    
+
     const balance = response.result ? JSON.parse(response.result) : '0';
     return { balance, network: networkName };
   } catch (error: unknown) {
@@ -465,7 +467,7 @@ async function signTransaction(data: {
   error?: string;
 }> {
   console.warn('✍️ Transaction signing requested:', data);
-  
+
   try {
     const activeAccount = keyringService.getActiveAccount();
     if (!activeAccount) {
@@ -474,9 +476,9 @@ async function signTransaction(data: {
         error: 'No active account'
       };
     }
-    
+
     const signedTx = await keyringService.signTransaction(activeAccount.address, data);
-    
+
     return {
       success: true,
       signedTransaction: signedTx
@@ -515,7 +517,7 @@ async function mintNFT(data: {
   error?: string;
 }> {
   console.warn('🎨 NFT minting requested:', data);
-  
+
   try {
     const activeAccount = keyringService.getActiveAccount();
     if (!activeAccount) {
@@ -524,13 +526,13 @@ async function mintNFT(data: {
         error: 'No active account'
       };
     }
-    
+
     // Mint NFT through NFT service
     const result = await nftService.mintNFT({
       ...data,
       recipient: data.recipient || activeAccount.address
     });
-    
+
     return {
       success: true,
       tokenId: result.tokenId,
@@ -576,7 +578,7 @@ async function createMarketplaceListing(data: {
   error?: string;
 }> {
   console.warn('🏪 Marketplace listing creation requested:', data);
-  
+
   try {
     const activeAccount = keyringService.getActiveAccount();
     if (!activeAccount) {
@@ -585,13 +587,13 @@ async function createMarketplaceListing(data: {
         error: 'No active account'
       };
     }
-    
+
     // Create listing through marketplace service
     const result = await marketplaceService.createListing({
       ...data,
       seller: activeAccount.address
     });
-    
+
     // Mint NFT for the listing
     const nftResult = await nftService.mintNFT({
       name: data.title,
@@ -605,7 +607,7 @@ async function createMarketplaceListing(data: {
       ],
       recipient: activeAccount.address
     });
-    
+
     return {
       success: true,
       listingId: result.id,
@@ -623,14 +625,14 @@ async function createMarketplaceListing(data: {
 // Handle extension installation
 chrome.runtime.onInstalled.addListener(async (details: chrome.runtime.InstalledDetails) => {
   console.warn('🎉 OmniBazaar Wallet installed:', details.reason);
-  
+
   if (details.reason === 'install') {
     // Open welcome page
     chrome.tabs.create({
       url: chrome.runtime.getURL('popup.html#/welcome')
     });
   }
-  
+
   initializeProviders();
   await initializeServices();
 });
@@ -666,13 +668,13 @@ initializeServices().catch(error => {
 });
 
 // Export for testing
-export { 
-  providers, 
-  handleProviderRequest, 
+export {
+  providers,
+  handleProviderRequest,
   getWalletState,
   keyringService,
   nftService,
   marketplaceService,
   walletService,
   validatorWallet
-}; 
+};

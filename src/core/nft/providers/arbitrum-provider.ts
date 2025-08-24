@@ -1,25 +1,15 @@
 import type { NFTItem, NFTCollection } from '../../../types/nft';
 import type { ChainProvider } from '../display/multi-chain-display';
 
-/**
- *
- */
+/** Configuration for Arbitrum NFT provider */
 export interface ArbitrumNFTConfig {
-  /**
-   *
-   */
+  /** RPC URL for Arbitrum connection */
   rpcUrl: string;
-  /**
-   *
-   */
+  /** Arbiscan API key for blockchain data (optional) */
   arbiscanApiKey?: string;
-  /**
-   *
-   */
+  /** Alchemy API key for NFT data (optional) */
   alchemyApiKey?: string;
-  /**
-   *
-   */
+  /** Moralis API key for NFT data (optional) */
   moralisApiKey?: string;
 }
 
@@ -38,17 +28,18 @@ export class ArbitrumNFTProvider implements ChainProvider {
   private moralisUrl = 'https://deep-index.moralis.io/api/v2';
 
   /**
-   *
-   * @param config
+   * Create Arbitrum NFT provider
+   * @param config Configuration for provider setup
    */
   constructor(config: ArbitrumNFTConfig) {
     this.config = config;
-    this.isConnected = Boolean(config.rpcUrl);
+    this.isConnected = config.rpcUrl != null;
   }
 
   /**
    * Get all NFTs for a wallet address
-   * @param address
+   * @param address Wallet address to fetch NFTs for
+   * @returns Promise resolving to array of NFT items
    */
   async getNFTs(address: string): Promise<NFTItem[]> {
     try {
@@ -75,8 +66,9 @@ export class ArbitrumNFTProvider implements ChainProvider {
 
   /**
    * Get specific NFT metadata
-   * @param contractAddress
-   * @param tokenId
+   * @param contractAddress NFT contract address
+   * @param tokenId Token ID to fetch metadata for
+   * @returns Promise resolving to NFT item or null
    */
   async getNFTMetadata(contractAddress: string, tokenId: string): Promise<NFTItem | null> {
     try {

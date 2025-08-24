@@ -6,31 +6,19 @@ import { ethers } from 'ethers';
 import OmniNameRegistryArtifact from '../../../contract-tests/artifacts/contracts/OmniNameRegistry.sol/OmniNameRegistry.json';
 import OmniStatelessResolverArtifact from '../../../contract-tests/artifacts/contracts/OmniStatelessResolver.sol/OmniStatelessResolver.json';
 
-/**
- *
- */
+/** Configuration for contract addresses and RPC endpoints */
 export interface ContractConfig {
-  /**
-   *
-   */
+  /** OmniNameRegistry contract address */
   registryAddress: string;
-  /**
-   *
-   */
+  /** OmniStatelessResolver contract address */
   resolverAddress: string;
-  /**
-   *
-   */
+  /** COTI network RPC URL */
   cotiRpcUrl: string;
-  /**
-   *
-   */
+  /** Ethereum network RPC URL */
   ethereumRpcUrl: string;
 }
 
-/**
- *
- */
+/** Manages contract instances and provider connections */
 export class ContractManager {
   private static instance: ContractManager;
   private config: ContractConfig;
@@ -43,14 +31,14 @@ export class ContractManager {
     this.config = config;
     this.cotiProvider = new ethers.JsonRpcProvider(config.cotiRpcUrl);
     this.ethereumProvider = new ethers.JsonRpcProvider(config.ethereumRpcUrl);
-    
+
     // Initialize contracts with ABIs
     this.registryContract = new ethers.Contract(
       config.registryAddress,
       OmniNameRegistryArtifact.abi,
       this.cotiProvider
     );
-    
+
     this.resolverContract = new ethers.Contract(
       config.resolverAddress,
       OmniStatelessResolverArtifact.abi,
@@ -59,42 +47,48 @@ export class ContractManager {
   }
 
   /**
-   *
-   * @param config
+   * Initialize the contract manager singleton
+   * @param config Contract configuration
+   * @returns ContractManager instance
    */
   public static initialize(config: ContractConfig): ContractManager {
-    if (!ContractManager.instance) {
+    if (ContractManager.instance == null) {
       ContractManager.instance = new ContractManager(config);
     }
     return ContractManager.instance;
   }
 
   /**
-   *
+   * Get the contract manager singleton instance
+   * @returns ContractManager instance
+   * @throws Error if not initialized
    */
   public static getInstance(): ContractManager {
-    if (!ContractManager.instance) {
+    if (ContractManager.instance == null) {
       throw new Error('ContractManager not initialized. Call initialize() first.');
     }
     return ContractManager.instance;
   }
 
   /**
-   *
+   * Get the OmniNameRegistry contract instance
+   * @returns Ethers contract instance
    */
   public getRegistryContract(): ethers.Contract {
     return this.registryContract;
   }
 
   /**
-   *
+   * Get the OmniStatelessResolver contract instance
+   * @returns Ethers contract instance
    */
   public getResolverContract(): ethers.Contract {
     return this.resolverContract;
   }
 
   /**
-   *
+   * Get the COTI network provider
+   * @returns COTI JsonRpcProvider instance
    */
   public getCotiProvider(): ethers.JsonRpcProvider {
     return this.cotiProvider;

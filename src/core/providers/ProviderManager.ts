@@ -1,6 +1,6 @@
 /**
  * ProviderManager - Unified provider management for all supported chains
- * 
+ *
  * This manager handles provider initialization, switching, and access
  * for all supported blockchains in the OmniBazaar wallet.
  */
@@ -15,62 +15,34 @@ import { LivePolkadotProvider, POLKADOT_NETWORKS } from '../chains/polkadot';
 import { LiveSolanaProvider, SOLANA_NETWORKS } from '../chains/solana';
 import { keyringService, ChainType } from '../keyring/KeyringService';
 
-/**
- *
- */
+/** Network type for blockchain environments */
 export type NetworkType = 'mainnet' | 'testnet';
-/**
- *
- */
+/** Union type of all supported blockchain providers */
 export type ProviderType = LiveEthereumProvider | LiveCOTIProvider | LiveOmniCoinProvider | LiveBitcoinProvider | MultiChainEVMProvider | LivePolkadotProvider | LiveSolanaProvider;
 
-/**
- *
- */
+/** Configuration for a blockchain chain */
 export interface ChainConfig {
-  /**
-   *
-   */
+  /** Type of blockchain (ethereum, bitcoin, etc.) */
   chainType: ChainType;
-  /**
-   *
-   */
+  /** Human-readable name of the chain */
   name: string;
-  /**
-   *
-   */
+  /** Icon URL or identifier for the chain */
   icon: string;
-  /**
-   *
-   */
+  /** Available network names for this chain */
   networks: string[];
-  /**
-   *
-   */
+  /** Default network to use for this chain */
   defaultNetwork: string;
-  /**
-   *
-   */
+  /** Supported features for this chain */
   features: {
-    /**
-     *
-     */
+    /** Supports privacy features */
     privacy?: boolean;
-    /**
-     *
-     */
+    /** Supports staking operations */
     staking?: boolean;
-    /**
-     *
-     */
+    /** Supports marketplace functionality */
     marketplace?: boolean;
-    /**
-     *
-     */
+    /** Supports NFT operations */
     nft?: boolean;
-    /**
-     *
-     */
+    /** Supports DeFi protocols */
     defi?: boolean;
   };
 }
@@ -143,7 +115,8 @@ export const SUPPORTED_CHAINS: Record<ChainType, ChainConfig> = {
 };
 
 /**
- *
+ * Manages blockchain providers for all supported chains
+ * Provides unified access to different blockchain networks
  */
 export class ProviderManager {
   private static instance: ProviderManager;
@@ -153,11 +126,12 @@ export class ProviderManager {
   private activeNetwork = 'ethereum'; // For EVM chain switching
   private networkType: NetworkType = 'mainnet';
   private initialized = false;
-  
-  private constructor() {}
+
+  private constructor() { }
 
   /**
-   *
+   * Get the singleton instance of ProviderManager
+   * @returns The ProviderManager instance
    */
   public static getInstance(): ProviderManager {
     if (!ProviderManager.instance) {
@@ -168,7 +142,7 @@ export class ProviderManager {
 
   /**
    * Initialize all providers
-   * @param networkType
+   * @param networkType Network type to initialize (mainnet or testnet)
    */
   async initialize(networkType: NetworkType = 'mainnet'): Promise<void> {
     if (this.initialized) {
@@ -189,7 +163,7 @@ export class ProviderManager {
         // Skip testnets in mainnet mode and vice versa
         if (networkType === 'mainnet' && network.testnet) continue;
         if (networkType === 'testnet' && !network.testnet) continue;
-        
+
         const evmProvider = new MultiChainEVMProvider(networkKey);
         this.evmProviders.set(networkKey, evmProvider);
       }
@@ -251,7 +225,7 @@ export class ProviderManager {
       if (!network) {
         throw new Error(`Unknown EVM network: ${networkKey}`);
       }
-      
+
       const newProvider = new MultiChainEVMProvider(networkKey);
       this.evmProviders.set(networkKey, newProvider);
       this.activeNetwork = networkKey;
@@ -350,7 +324,7 @@ export class ProviderManager {
   async getBalance(chainType?: ChainType): Promise<string> {
     const chain = chainType || this.activeChain;
     const provider = this.getProvider(chain);
-    
+
     if (!provider) {
       throw new Error(`No provider for chain: ${chain}`);
     }
@@ -367,15 +341,15 @@ export class ProviderManager {
           const ethProvider = provider as LiveEthereumProvider;
           return await ethProvider.getFormattedBalance();
         }
-        
+
         case 'coti': {
           const cotiProvider = provider as LiveCOTIProvider;
           const balances = await cotiProvider.getFormattedBalance(undefined, true);
-          return balances.private 
+          return balances.private
             ? `Public: ${balances.public}, Private: ${balances.private}`
             : balances.public;
         }
-        
+
         case 'omnicoin': {
           const omniProvider = provider as LiveOmniCoinProvider;
           const balances = await omniProvider.getFormattedBalance(undefined, true);
@@ -384,31 +358,31 @@ export class ProviderManager {
           if (balances.staked) result += `, Staked: ${balances.staked}`;
           return result;
         }
-        
+
         case 'bitcoin': {
           const btcProvider = provider as LiveBitcoinProvider;
           return await btcProvider.getFormattedBalance();
         }
-        
+
         case 'substrate': {
           const polkadotProvider = provider as LivePolkadotProvider;
           return await polkadotProvider.getActiveFormattedBalance();
         }
-        
+
         case 'solana': {
           const solanaProvider = provider as LiveSolanaProvider;
           const balance = await solanaProvider.getActiveFormattedBalance();
           // Also get SPL tokens
           const tokens = await solanaProvider.getActiveTokenBalances();
           if (tokens.length > 0) {
-            const tokenList = tokens.map(t => 
+            const tokenList = tokens.map(t =>
               `${parseInt(t.amount) / Math.pow(10, t.decimals)} ${t.symbol || 'Unknown'}`
             ).join(', ');
             return `${balance}, Tokens: ${tokenList}`;
           }
           return balance;
         }
-        
+
         default:
           return '0';
       }
@@ -451,7 +425,7 @@ export class ProviderManager {
   ): Promise<ethers.providers.TransactionResponse | string> {
     const chain = chainType || this.activeChain;
     const provider = this.getProvider(chain);
-    
+
     if (!provider) {
       throw new Error(`No provider for chain: ${chain}`);
     }
@@ -514,18 +488,18 @@ export class ProviderManager {
         const ethProvider = provider as LiveEthereumProvider;
         return await ethProvider.sendTransaction(transaction);
       }
-      
+
       case 'coti': {
         const cotiProvider = provider as LiveCOTIProvider;
         return await cotiProvider.sendTransaction(transaction);
       }
-      
+
       case 'omnicoin': {
         const omniProvider = provider as LiveOmniCoinProvider;
         const signer = await omniProvider.getSigner();
         return await signer.sendTransaction(transaction);
       }
-      
+
       default:
         throw new Error(`Transaction not supported for chain: ${chain}`);
     }
@@ -539,7 +513,7 @@ export class ProviderManager {
   async signMessage(message: string, chainType?: ChainType): Promise<string> {
     const chain = chainType || this.activeChain;
     const activeAccount = keyringService.getActiveAccount();
-    
+
     if (!activeAccount || activeAccount.chainType !== chain) {
       throw new Error(`No active account for chain: ${chain}`);
     }
@@ -560,7 +534,7 @@ export class ProviderManager {
   ): Promise<unknown[]> {
     const chain = chainType || this.activeChain;
     const provider = this.getProvider(chain);
-    
+
     if (!provider) {
       throw new Error(`No provider for chain: ${chain}`);
     }
@@ -577,7 +551,7 @@ export class ProviderManager {
    */
   async enablePrivacyMode(chainType: ChainType): Promise<void> {
     const provider = this.getProvider(chainType);
-    
+
     if (chainType === 'coti') {
       const cotiProvider = provider as LiveCOTIProvider;
       cotiProvider.setPrivacyMode(true);
@@ -595,7 +569,7 @@ export class ProviderManager {
    */
   async disablePrivacyMode(chainType: ChainType): Promise<void> {
     const provider = this.getProvider(chainType);
-    
+
     if (chainType === 'coti') {
       const cotiProvider = provider as LiveCOTIProvider;
       cotiProvider.setPrivacyMode(false);

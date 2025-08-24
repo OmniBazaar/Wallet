@@ -11,33 +11,22 @@ const ERC20_ABI = [
 ];
 
 /**
- *
- * @param tokenAddress
+ * Hook for fetching and managing ERC-20 token balance
+ * @param tokenAddress Contract address of the token
+ * @returns Token balance information and refresh function
  */
 export const useTokenBalance = (tokenAddress: string): {
-    /**
-     *
-     */
+    /** Token metadata information */
     tokenInfo: TokenInfo | null;
-    /**
-     *
-     */
+    /** Raw balance in wei */
     balance: string;
-    /**
-     *
-     */
+    /** Human-readable formatted balance */
     formattedBalance: string;
-    /**
-     *
-     */
+    /** Whether balance is currently loading */
     isLoading: boolean;
-    /**
-     *
-     */
+    /** Error message if fetch failed */
     error: string | null;
-    /**
-     *
-     */
+    /** Function to manually refresh balance */
     refreshBalance: () => void;
 } => {
     const { provider, address } = useWallet();
@@ -119,4 +108,4 @@ export const useTokenBalance = (tokenAddress: string): {
         error,
         refreshBalance
     };
-}; 
+};

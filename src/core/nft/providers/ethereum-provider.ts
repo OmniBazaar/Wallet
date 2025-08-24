@@ -2,30 +2,18 @@ import type { NFTItem, NFTCollection } from '../../../types/nft';
 import type { ChainProvider } from '../display/multi-chain-display';
 import { OmniProvider } from '../../providers/OmniProvider';
 
-/**
- *
- */
+/** Configuration for Ethereum NFT provider */
 export interface EthereumNFTConfig {
-  /**
-   *
-   */
+  /** RPC URL for Ethereum connection */
   rpcUrl: string;
-  /**
-   *
-   */
+  /** Alchemy API key for NFT data (optional) */
   alchemyApiKey?: string;
-  /**
-   *
-   */
+  /** Moralis API key for NFT data (optional) */
   moralisApiKey?: string;
-  /**
-   *
-   */
+  /** OpenSea API key for NFT data (optional) */
   openseaApiKey?: string;
-  /**
-   *
-   */
-  useOmniProvider?: boolean; // Use OmniBazaar validators instead of external RPCs
+  /** Use OmniBazaar validators instead of external RPCs (optional) */
+  useOmniProvider?: boolean;
 }
 
 /**
@@ -36,20 +24,20 @@ export class EthereumNFTProvider implements ChainProvider {
   chainId = 1;
   name = 'Ethereum';
   isConnected = false;
-  
+
   private config: EthereumNFTConfig;
   private baseUrl = 'https://api.opensea.io/api/v1';
   private alchemyUrl = 'https://eth-mainnet.g.alchemy.com/nft/v2';
   private omniProvider?: OmniProvider;
 
   /**
-   *
-   * @param config
+   * Create Ethereum NFT provider
+   * @param config Configuration for provider setup
    */
   constructor(config: EthereumNFTConfig) {
     this.config = config;
-    this.isConnected = Boolean(config.rpcUrl);
-    
+    this.isConnected = config.rpcUrl != null;
+
     // Initialize OmniProvider if configured
     if (config.useOmniProvider) {
       this.omniProvider = new OmniProvider(1, {
@@ -62,37 +50,38 @@ export class EthereumNFTProvider implements ChainProvider {
 
   /**
    * Get all NFTs for a wallet address
-   * @param address
+   * @param address Wallet address to fetch NFTs for
+   * @returns Promise resolving to array of NFT items
    */
   async getNFTs(address: string): Promise<NFTItem[]> {
     try {
       console.warn(`Fetching Ethereum NFTs for address: ${address}`);
-      
+
       // Try OmniProvider first if available
       if (this.omniProvider) {
         try {
           const nfts = await this.omniProvider.send('omni_getNFTs', [address]);
-          if (nfts && nfts.length > 0) {
+          if (nfts != null && nfts.length > 0) {
             return nfts;
           }
         } catch (error) {
           console.warn('OmniProvider failed, falling back to external APIs:', error);
         }
       }
-      
+
       // Try Alchemy API if available
       if (this.config.alchemyApiKey) {
         return await this.fetchFromAlchemy(address);
       }
-      
+
       // Fallback to OpenSea API
       if (this.config.openseaApiKey) {
         return await this.fetchFromOpenSea(address);
       }
-      
+
       // Fallback to direct blockchain query
       return await this.fetchFromBlockchain(address);
-      
+
     } catch (error) {
       console.warn('Error fetching Ethereum NFTs:', error);
       return [];
@@ -110,13 +99,13 @@ export class EthereumNFTProvider implements ChainProvider {
         const response = await fetch(
           `${this.alchemyUrl}/${this.config.alchemyApiKey}/getNFTMetadata?contractAddress=${contractAddress}&tokenId=${tokenId}`
         );
-        
+
         if (response.ok) {
           const data = await response.json();
           return this.transformAlchemyNFT(data);
         }
       }
-      
+
       return null;
     } catch (error) {
       console.warn('Error fetching NFT metadata:', error);
@@ -157,11 +146,11 @@ export class EthereumNFTProvider implements ChainProvider {
     const response = await fetch(
       `${this.alchemyUrl}/${this.config.alchemyApiKey}/getNFTs?owner=${address}&withMetadata=true&pageSize=100`
     );
-    
+
     if (!response.ok) {
       throw new Error(`Alchemy API error: ${response.status}`);
     }
-    
+
     const data = await response.json();
     return data.ownedNfts.map((nft: {
       contract: { address: string };
@@ -185,7 +174,7 @@ export class EthereumNFTProvider implements ChainProvider {
     const headers: HeadersInit = {
       'Accept': 'application/json'
     };
-    
+
     if (this.config.openseaApiKey) {
       headers['X-API-KEY'] = this.config.openseaApiKey;
     }
@@ -194,11 +183,11 @@ export class EthereumNFTProvider implements ChainProvider {
       `${this.baseUrl}/assets?owner=${address}&limit=200`,
       { headers }
     );
-    
+
     if (!response.ok) {
       throw new Error(`OpenSea API error: ${response.status}`);
     }
-    
+
     const data = await response.json();
     return data.assets.map((asset: {
       asset_contract: { address: string; schema_name?: string };
@@ -246,7 +235,7 @@ export class EthereumNFTProvider implements ChainProvider {
     media?: Array<{ gateway?: string }>;
   }): NFTItem {
     const metadata = nft.metadata || {};
-    
+
     return {
       id: `ethereum_${nft.contract.address}_${nft.id.tokenId}`,
       tokenId: nft.id.tokenId,
@@ -314,7 +303,7 @@ export class EthereumNFTProvider implements ChainProvider {
       blockchain: 'ethereum',
       owner: asset.owner?.address || 'unknown',
       creator: asset.creator?.address || 'unknown',
-      price: asset.last_sale?.total_price ? 
+      price: asset.last_sale?.total_price ?
         (parseInt(asset.last_sale.total_price) / 1e18).toString() : undefined,
       currency: 'ETH',
       isListed: Boolean(asset.sell_orders?.length),
@@ -331,7 +320,7 @@ export class EthereumNFTProvider implements ChainProvider {
       // Use OmniProvider instead of external RPC
       const { ProviderFactory } = await import('../../providers/provider-factory');
       const provider = ProviderFactory.getProvider(1); // Ethereum chainId = 1
-      
+
       // Try OmniBazaar's cached NFT data first
       try {
         const cachedNFTs = await provider.getNFTs(address, 1);
@@ -342,7 +331,7 @@ export class EthereumNFTProvider implements ChainProvider {
       } catch (error) {
         console.warn('Failed to get cached NFTs, falling back to direct query');
       }
-      
+
       // Common NFT contracts to check
       const nftContracts = [
         '0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D', // BAYC
@@ -351,9 +340,9 @@ export class EthereumNFTProvider implements ChainProvider {
         '0xED5AF388653567Af2F388E6224dC7C4b3241C544', // Azuki
         '0x8a90CAb2b38dba80c64b7734e58Ee1dB38B8992e'  // Doodles
       ];
-      
+
       const nfts: NFTItem[] = [];
-      
+
       // ERC721 ABI for balanceOf and tokenOfOwnerByIndex
       const erc721Abi = [
         'function balanceOf(address owner) view returns (uint256)',
@@ -363,26 +352,26 @@ export class EthereumNFTProvider implements ChainProvider {
         'function symbol() view returns (string)',
         'function ownerOf(uint256 tokenId) view returns (address)'
       ];
-      
+
       for (const contractAddress of nftContracts) {
         try {
           const contract = new ethers.Contract(contractAddress, erc721Abi, provider);
-          
+
           // Get balance
           const balance = await contract.balanceOf(address);
           if (balance === 0n) continue;
-          
+
           // Get collection name
           const collectionName = await contract.name().catch(() => 'Unknown Collection');
-          
+
           // Get up to 10 NFTs from this collection
           const limit = Math.min(Number(balance), 10);
-          
+
           for (let i = 0; i < limit; i++) {
             try {
               const tokenId = await contract.tokenOfOwnerByIndex(address, i);
               const tokenURI = await contract.tokenURI(tokenId).catch(() => '');
-              
+
               // Parse metadata if available
               let metadata: any = {};
               if (tokenURI.startsWith('data:')) {
@@ -408,7 +397,7 @@ export class EthereumNFTProvider implements ChainProvider {
                   metadata = { name: `${collectionName} #${tokenId}`, description: '' };
                 }
               }
-              
+
               nfts.push({
                 id: `ethereum_${contractAddress}_${tokenId}`,
                 tokenId: tokenId.toString(),
@@ -435,7 +424,7 @@ export class EthereumNFTProvider implements ChainProvider {
           console.warn(`Failed to query contract ${contractAddress}:`, error);
         }
       }
-      
+
       return nfts;
     } catch (error) {
       console.error('Failed to fetch NFTs from blockchain:', error);
@@ -456,13 +445,13 @@ export class EthereumNFTProvider implements ChainProvider {
         const response = await fetch(
           `${this.alchemyUrl}/${this.config.alchemyApiKey}/getNFTs?contractAddresses[]=${query}&withMetadata=true&pageSize=${limit}`
         );
-        
+
         if (response.ok) {
           const data = await response.json();
           return data.ownedNfts?.map((nft: any) => this.transformAlchemyNFT(nft)) || [];
         }
       }
-      
+
       // Return empty array if no search API available
       return [];
     } catch (error) {
@@ -484,11 +473,11 @@ export class EthereumNFTProvider implements ChainProvider {
             'X-API-KEY': this.config.openseaApiKey
           }
         });
-        
+
         if (response.ok) {
           const data = await response.json();
           const nfts: NFTItem[] = [];
-          
+
           for (const event of data.asset_events || []) {
             if (event.asset) {
               nfts.push({
@@ -511,11 +500,11 @@ export class EthereumNFTProvider implements ChainProvider {
               });
             }
           }
-          
+
           return nfts;
         }
       }
-      
+
       // Fallback to empty array if no API available
       return [];
     } catch (error) {
@@ -564,4 +553,4 @@ export class EthereumNFTProvider implements ChainProvider {
       apis: workingApis
     };
   }
-} 
+}

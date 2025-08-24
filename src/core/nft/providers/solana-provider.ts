@@ -1,10 +1,15 @@
 import type { NFTItem, NFTCollection } from '../../../types/nft';
 import type { ChainProvider } from '../display/multi-chain-display';
 
+/** Configuration for Solana NFT provider */
 export interface SolanaNFTConfig {
+  /** RPC URL for Solana connection */
   rpcUrl: string;
+  /** Helius API key for NFT data (optional) */
   heliusApiKey?: string;
+  /** Magic Eden API key for marketplace data (optional) */
   magicEdenApiKey?: string;
+  /** QuickNode API key for RPC access (optional) */
   quickNodeApiKey?: string;
 }
 
@@ -21,13 +26,19 @@ export class SolanaNFTProvider implements ChainProvider {
   private heliusUrl = 'https://api.helius.xyz/v0';
   private magicEdenUrl = 'https://api-mainnet.magiceden.dev/v2';
 
+  /**
+   * Create Solana NFT provider
+   * @param config Configuration for provider setup
+   */
   constructor(config: SolanaNFTConfig) {
     this.config = config;
-    this.isConnected = Boolean(config.rpcUrl);
+    this.isConnected = config.rpcUrl != null;
   }
 
   /**
    * Get all NFTs for a wallet address
+   * @param address Wallet address to fetch NFTs for
+   * @returns Promise resolving to array of NFT items
    */
   async getNFTs(address: string): Promise<NFTItem[]> {
     try {
@@ -54,6 +65,9 @@ export class SolanaNFTProvider implements ChainProvider {
 
   /**
    * Get specific NFT metadata
+   * @param mintAddress Solana mint address
+   * @param tokenId Token ID (unused in Solana)
+   * @returns Promise resolving to NFT item or null
    */
   async getNFTMetadata(mintAddress: string, tokenId: string): Promise<NFTItem | null> {
     try {
@@ -83,6 +97,8 @@ export class SolanaNFTProvider implements ChainProvider {
 
   /**
    * Get NFT collections for an address
+   * @param address Wallet address to fetch collections for
+   * @returns Promise resolving to array of NFT collections
    */
   async getCollections(address: string): Promise<NFTCollection[]> {
     try {

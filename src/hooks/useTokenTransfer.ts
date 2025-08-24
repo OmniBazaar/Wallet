@@ -58,7 +58,7 @@ export const useTokenTransfer = (tokenAddress: string): {
 
         } catch (err) {
             const error = err as Error;
-            setError(error.message || 'Failed to transfer token');
+            setError(error.message ?? 'Failed to transfer token');
             throw error;
         } finally {
             setIsTransferring(false);
@@ -85,7 +85,7 @@ export const useTokenTransfer = (tokenAddress: string): {
 
         } catch (err) {
             const error = err as Error;
-            setError(error.message || 'Failed to transfer token');
+            setError(error.message ?? 'Failed to transfer token');
             throw error;
         } finally {
             setIsTransferring(false);
@@ -99,4 +99,4 @@ export const useTokenTransfer = (tokenAddress: string): {
         transfer,
         transferFrom
     };
-}; 
+};

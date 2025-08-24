@@ -1,5 +1,7 @@
-// OmniBazaar Wallet Base Network Types
-// Adapted from Enkrypt base network interfaces
+/**
+ * OmniBazaar Wallet Base Network Types
+ * Adapted from Enkrypt base network interfaces
+ */
 
 import { ProviderName } from './provider';
 
@@ -7,65 +9,35 @@ import { ProviderName } from './provider';
  * Base network configuration interface for all blockchain networks
  */
 export interface BaseNetwork {
-  /**
-   *
-   */
+  /** Network identifier */
   name: string;
-  /**
-   *
-   */
+  /** Full network name */
   name_long: string;
-  /**
-   *
-   */
+  /** Network homepage URL */
   homePage: string;
-  /**
-   *
-   */
+  /** Block explorer transaction URL template */
   blockExplorerTX: string;
-  /**
-   *
-   */
+  /** Block explorer address URL template */
   blockExplorerAddr: string;
-  /**
-   *
-   */
+  /** Whether this is a test network */
   isTestNetwork: boolean;
-  /**
-   *
-   */
+  /** Native currency name */
   currencyName: string;
-  /**
-   *
-   */
+  /** Network icon identifier */
   icon: string;
-  /**
-   *
-   */
+  /** RPC node URL */
   node: string;
-  /**
-   *
-   */
+  /** Chain ID (optional) */
   chainID?: string;
-  /**
-   *
-   */
+  /** CoinGecko ID for price data (optional) */
   coingeckoID?: string;
-  /**
-   *
-   */
+  /** Provider type */
   provider: ProviderName;
-  /**
-   *
-   */
+  /** Function to format addresses for display */
   displayAddress: (address: string) => string;
-  /**
-   *
-   */
+  /** Function to generate identicon URLs */
   identicon: (address: string, options?: { size?: number; background?: string }) => string;
-  /**
-   *
-   */
+  /** Base derivation path for HD wallets */
   basePath: string;
 }
 
@@ -73,21 +45,13 @@ export interface BaseNetwork {
  * Ethereum-specific network configuration
  */
 export interface EthereumNetwork extends BaseNetwork {
-  /**
-   *
-   */
+  /** Ethereum chain ID */
   chainID: string;
-  /**
-   *
-   */
+  /** SLIP-44 coin type */
   slip44: number;
-  /**
-   *
-   */
+  /** ENS resolver contract address (optional) */
   ensResolver?: string;
-  /**
-   *
-   */
+  /** Multicall contract address (optional) */
   multicall?: string;
 }
 
@@ -95,9 +59,7 @@ export interface EthereumNetwork extends BaseNetwork {
  * Bitcoin-specific network configuration
  */
 export interface BitcoinNetwork extends BaseNetwork {
-  /**
-   *
-   */
+  /** Bitcoin network type */
   networkType: 'mainnet' | 'testnet';
   /**
    *
@@ -169,4 +131,4 @@ export interface COTINetwork extends BaseNetwork {
    *
    */
   garbledCircuits: boolean;
-} 
+}

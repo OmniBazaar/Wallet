@@ -1,14 +1,14 @@
 /**
  * OmniBazaar Wallet COTI Provider
- * 
+ *
  * Extends Ethereum provider with COTI V2 privacy features using Garbled Circuits.
  * Supports both XOM (public) and pXOM (private) tokens with MPC-based privacy.
- * 
+ *
  * @module coti/provider
  */
 
 import { ethers } from 'ethers';
-import { 
+import {
   ProviderName,
   ProviderRPCRequest,
   OnMessageResponse
@@ -17,7 +17,7 @@ import { EthereumNetwork, BaseNetwork } from '@/types/base-network';
 import { EthereumProvider } from '../ethereum/provider';
 
 // COTI SDK imports (when available)
-let cotiSDK: any = null;
+let cotiSDK: typeof import('@coti-io/coti-sdk-typescript') | null = null;
 try {
   // Dynamic import to avoid build errors if SDK not installed
   import('@coti-io/coti-sdk-typescript').then(module => {
@@ -30,74 +30,44 @@ try {
 }
 
 // COTI Privacy Types (COTI V2 Garbled Circuits)
-/**
- *
- */
+/** Encrypted boolean value for COTI privacy operations */
 export interface ItBool {
-  /**
-   *
-   */
+  /** Encrypted ciphertext value */
   ciphertext: bigint;
-  /**
-   *
-   */
+  /** Cryptographic signature */
   signature: Uint8Array | string;
 }
 
-/**
- *
- */
+/** Encrypted unsigned integer for COTI privacy operations */
 export interface ItUint {
-  /**
-   *
-   */
+  /** Encrypted ciphertext value */
   ciphertext: bigint;
-  /**
-   *
-   */
+  /** Cryptographic signature */
   signature: Uint8Array | string;
 }
 
-/**
- *
- */
-export interface ItString { 
-  /**
-   *
-   */
-  ciphertext: { /**
-                 *
-                 */
-  value: Array<bigint> }; 
-  /**
-   *
-   */
+/** Encrypted string for COTI privacy operations */
+export interface ItString {
+  /** Encrypted string ciphertext */
+  ciphertext: { /** Array of encrypted bigint values */
+    value: Array<bigint>
+  };
+  /** Array of cryptographic signatures */
   signature: Array<Uint8Array | string>;
 }
 
-/**
- *
- */
+/** Encrypted boolean type for circuits */
 export type CtBool = bigint;
-/**
- *
- */
+/** Encrypted unsigned integer type for circuits */
 export type CtUint = bigint;
-/**
- *
- */
+/** 64-bit encrypted unsigned integer */
 export type CtUint64 = bigint; // 64-bit encrypted values
-/**
- *
- */
+/** Unsigned encrypted 64-bit value */
 export type UtUint64 = bigint; // Unsigned encrypted values
-/**
- *
- */
-export interface CtString { /**
-eeeeeeeeeeeeeeeeeeeeeeeeeeee *
-eeeeeeeeeeeeeeeeeeeeeeeeeeee */
-value: Array<bigint> }
+/** Encrypted string type for circuits */
+export interface CtString { /** Array of encrypted bigint values */
+  value: Array<bigint>
+}
 
 // Privacy token types
 /**
@@ -282,7 +252,7 @@ export class CotiProvider extends EthereumProvider {
         }
         return { result: JSON.stringify(result) };
       } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         return { error: JSON.stringify(errorMessage) };
       }
     }
@@ -302,14 +272,14 @@ export class CotiProvider extends EthereumProvider {
     try {
       // Generate RSA key pair for secure key sharing
       const rsaKeyPair = this.generateRSAKeyPair();
-      
+
       // If COTI SDK is available, use it
       if (cotiSDK) {
         const onboardResult = await cotiSDK.onboard({
           provider: this.ethersProvider,
           contractAddress
         });
-        
+
         this.userOnboardInfo = {
           rsaKey: rsaKeyPair,
           txHash: onboardResult.txHash,
@@ -320,14 +290,14 @@ export class CotiProvider extends EthereumProvider {
       } else {
         // Fallback implementation
         const onboardTx = await this.createOnboardTransaction(rsaKeyPair.publicKey, contractAddress);
-        
+
         this.userOnboardInfo = {
           rsaKey: rsaKeyPair,
           txHash: onboardTx.hash,
           mpcNodeUrl: 'https://mpc.coti.io',
           isOnboarded: true
         };
-        
+
         await this.recoverAESFromTransaction(onboardTx.hash);
       }
 
@@ -345,7 +315,7 @@ export class CotiProvider extends EthereumProvider {
     // Generate a random 128-bit AES key
     const randomBytes = new Uint8Array(16);
     crypto.getRandomValues(randomBytes);
-    
+
     const aesKey = Array.from(randomBytes)
       .map(b => b.toString(16).padStart(2, '0'))
       .join('');
@@ -361,8 +331,8 @@ export class CotiProvider extends EthereumProvider {
    * @param functionSelector
    */
   async encryptValue(
-    plaintextValue: bigint | number | string, 
-    contractAddress: string, 
+    plaintextValue: bigint | number | string,
+    contractAddress: string,
     functionSelector: string
   ): Promise<ItUint | ItString> {
     if (!this.userOnboardInfo?.aesKey) {
@@ -443,7 +413,7 @@ export class CotiProvider extends EthereumProvider {
     const privateKey = new Uint8Array(32);
     crypto.getRandomValues(publicKey);
     crypto.getRandomValues(privateKey);
-    
+
     return { publicKey, privateKey };
   }
 
@@ -488,11 +458,11 @@ export class CotiProvider extends EthereumProvider {
     // Simplified string encryption - in production, use COTI SDK crypto_utils
     const encoder = new TextEncoder();
     const bytes = encoder.encode(plaintext);
-    
+
     const ciphertext = {
       value: Array.from(bytes, (byte, i) => BigInt(byte) ^ BigInt(i + 1))
     };
-    
+
     const signature = Array.from({ length: bytes.length }, () => {
       const sig = new Uint8Array(32);
       crypto.getRandomValues(sig);
@@ -515,7 +485,7 @@ export class CotiProvider extends EthereumProvider {
     const bytes = new Uint8Array(
       ciphertext.value.map((val, i) => Number(BigInt(val) ^ BigInt(i + 1)))
     );
-    
+
     const decoder = new TextDecoder();
     return decoder.decode(bytes).replace(/\0/g, '');
   }
@@ -527,10 +497,10 @@ export class CotiProvider extends EthereumProvider {
    */
   async setRequestProvider(network: BaseNetwork): Promise<void> {
     await super.setRequestProvider(network);
-    
+
     // Clear onboard info when switching networks
     this.clearOnboardInfo();
-    
+
     // Emit COTI-specific network change event
     this.emit('coti_networkChanged', this.chainId);
   }
@@ -560,17 +530,17 @@ export class CotiProvider extends EthereumProvider {
     try {
       // Get XOM balance (public)
       const xomBalance = await this.ethersProvider.getBalance(address);
-      
+
       // Get pXOM balance (encrypted)
       let pxomBalance = '0';
       let pxomDecrypted: string | undefined;
-      
+
       if (this.privacyEnabled && this.userOnboardInfo?.isOnboarded) {
         // Use COTI SDK if available
         if (cotiSDK) {
           const encryptedBalance = await cotiSDK.getEncryptedBalance(address);
           pxomBalance = encryptedBalance.toString();
-          
+
           // Decrypt if owner
           if (this.userOnboardInfo.aesKey) {
             pxomDecrypted = (await this.decryptValue(encryptedBalance)).toString();
@@ -580,7 +550,7 @@ export class CotiProvider extends EthereumProvider {
           pxomBalance = '0'; // Would query pXOM contract
         }
       }
-      
+
       return {
         xom: ethers.formatEther(xomBalance),
         pxom: pxomBalance,
@@ -603,15 +573,15 @@ export class CotiProvider extends EthereumProvider {
       const amountWei = ethers.parseEther(amount);
       const fee = amountWei * BigInt(5) / BigInt(1000); // 0.5% fee
       const netAmount = amountWei - fee;
-      
+
       // Call OmniBridge contract to swap
       const bridgeAddress = '0x...'; // OmniBridge contract
       const bridgeAbi = ['function swapToPrivate(uint256 amount)'];
       const bridgeContract = new ethers.Contract(bridgeAddress, bridgeAbi, this.ethersProvider);
-      
+
       const tx = await bridgeContract.swapToPrivate(amountWei);
       await tx.wait();
-      
+
       console.log(`Converted ${amount} XOM to ${ethers.formatEther(netAmount)} pXOM`);
       return tx.hash;
     } catch (error) {
@@ -628,15 +598,15 @@ export class CotiProvider extends EthereumProvider {
   async convertPXOMToXOM(amount: string, address: string): Promise<string> {
     try {
       const amountWei = ethers.parseEther(amount);
-      
+
       // Call OmniBridge contract to swap
       const bridgeAddress = '0x...'; // OmniBridge contract
       const bridgeAbi = ['function swapToPublic(uint256 amount)'];
       const bridgeContract = new ethers.Contract(bridgeAddress, bridgeAbi, this.ethersProvider);
-      
+
       const tx = await bridgeContract.swapToPublic(amountWei);
       await tx.wait();
-      
+
       console.log(`Converted ${amount} pXOM to ${amount} XOM`);
       return tx.hash;
     } catch (error) {
@@ -656,16 +626,16 @@ export class CotiProvider extends EthereumProvider {
       if (!this.privacyEnabled || !this.userOnboardInfo?.isOnboarded) {
         throw new Error('Privacy not enabled. Please onboard first.');
       }
-      
+
       const amountWei = ethers.parseEther(amount);
-      
+
       // Encrypt the amount using Garbled Circuits
       const encryptedAmount = await this.encryptValue(
         amountWei,
         '0x...', // pXOM contract
         'transfer'
       );
-      
+
       // Execute private transfer
       if (cotiSDK) {
         const tx = await cotiSDK.privateTransfer({
@@ -694,7 +664,7 @@ export class CotiProvider extends EthereumProvider {
       if (!this.userOnboardInfo?.isOnboarded) {
         await this.onboardUser();
       }
-      
+
       this.privacyEnabled = true;
       console.log(`Privacy enabled for ${address}`);
       return true;
@@ -717,4 +687,4 @@ export { LiveCOTIProvider, createLiveCOTIProvider, liveCOTIProvider } from './li
 export async function getCotiProvider(_networkName?: string): Promise<ethers.providers.JsonRpcProvider> {
   const { liveCOTIProvider } = await import('./live-provider');
   return liveCOTIProvider.getProvider();
-} 
+}

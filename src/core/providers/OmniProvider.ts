@@ -1,6 +1,6 @@
 /**
  * OmniProvider - Custom provider for OmniBazaar wallets
- * 
+ *
  * Connects exclusively to OmniBazaar validators instead of external RPC providers.
  * Features built-in authentication to ensure only our wallets can use our network.
  */
@@ -8,6 +8,7 @@
 import { ethers } from 'ethers';
 import * as crypto from 'crypto';
 
+/** Request structure for OmniBazaar validator communication */
 interface OmniRequest {
   id: string;
   method: string;
@@ -20,6 +21,7 @@ interface OmniRequest {
   };
 }
 
+/** Response structure from OmniBazaar validators */
 interface OmniResponse {
   id: string;
   result?: any;
@@ -31,22 +33,16 @@ interface OmniResponse {
   servedBy?: string;
 }
 
-/**
- *
- */
+/** Custom provider that connects exclusively to OmniBazaar validators */
 export class OmniProvider extends ethers.JsonRpcProvider {
   private ws: WebSocket | null = null;
   private pendingRequests = new Map<string, {
-    /**
-     *
-     */
-    resolve: (result: any) => void;
-    /**
-     *
-     */
-    reject: (error: any) => void;
+    /** Promise resolve function */
+    resolve: (result: unknown) => void;
+    /** Promise reject function */
+    reject: (error: unknown) => void;
   }>();
-  
+
   private readonly walletId: string;
   private readonly walletSecret = 'omnibazaar-wallet-v1'; // Must match validator
   private readonly version = '1.0.0';
@@ -54,36 +50,38 @@ export class OmniProvider extends ethers.JsonRpcProvider {
   private currentValidatorIndex = 0;
   private reconnectAttempts = 0;
   private readonly maxReconnectAttempts = 5;
-  
+
   /**
-   *
-   * @param walletId
+   * Create OmniProvider instance
+   * @param walletId Unique wallet identifier (optional)
    */
   constructor(walletId?: string) {
     // Initialize with dummy URL (we override all methods)
     super('http://localhost:8545');
-    
+
     // Generate or use provided wallet ID
-    this.walletId = walletId || this.generateWalletId();
-    
+    this.walletId = walletId ?? this.generateWalletId();
+
     // Load validator endpoints
     this.loadValidatorEndpoints();
-    
+
     // Connect to validator network
     this.connect();
   }
-  
+
   /**
    * Generate unique wallet ID
+   * @returns Generated wallet ID string
    */
   private generateWalletId(): string {
     const timestamp = Date.now().toString(36);
     const random = crypto.randomBytes(8).toString('hex');
     return `omni_${timestamp}_${random}`;
   }
-  
+
   /**
    * Load validator endpoints (would come from discovery service)
+   * In production these would be discovered dynamically
    */
   private loadValidatorEndpoints(): void {
     // In production, these would be discovered dynamically
@@ -96,7 +94,7 @@ export class OmniProvider extends ethers.JsonRpcProvider {
       'ws://localhost:8546'
     ];
   }
-  
+
   /**
    * Connect to validator network
    */
@@ -104,37 +102,37 @@ export class OmniProvider extends ethers.JsonRpcProvider {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       return;
     }
-    
+
     const endpoint = this.selectValidator();
     console.log(`Connecting to OmniBazaar validator: ${endpoint}`);
-    
+
     try {
       this.ws = new WebSocket(endpoint);
-      
+
       this.ws.onopen = () => {
         console.log('Connected to OmniBazaar validator network');
         this.reconnectAttempts = 0;
       };
-      
+
       this.ws.onmessage = (event) => {
         this.handleMessage(event.data);
       };
-      
+
       this.ws.onerror = (error) => {
         console.error('Validator connection error:', error);
       };
-      
+
       this.ws.onclose = () => {
         console.log('Disconnected from validator');
         this.handleDisconnect();
       };
-      
+
     } catch (error) {
       console.error('Failed to connect to validator:', error);
       this.handleDisconnect();
     }
   }
-  
+
   /**
    * Select best validator endpoint
    */
@@ -144,18 +142,18 @@ export class OmniProvider extends ethers.JsonRpcProvider {
     this.currentValidatorIndex = (this.currentValidatorIndex + 1) % this.validators.length;
     return validator;
   }
-  
+
   /**
    * Handle disconnection and reconnect
    */
   private handleDisconnect(): void {
     this.ws = null;
-    
+
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectAttempts++;
       const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
       console.log(`Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
-      
+
       setTimeout(() => {
         this.connect();
       }, delay);
@@ -168,7 +166,7 @@ export class OmniProvider extends ethers.JsonRpcProvider {
       this.pendingRequests.clear();
     }
   }
-  
+
   /**
    * Handle incoming message from validator
    * @param data
@@ -176,15 +174,15 @@ export class OmniProvider extends ethers.JsonRpcProvider {
   private handleMessage(data: string): void {
     try {
       const response: OmniResponse = JSON.parse(data);
-      
+
       const pending = this.pendingRequests.get(response.id);
       if (!pending) {
         console.warn('Received response for unknown request:', response.id);
         return;
       }
-      
+
       this.pendingRequests.delete(response.id);
-      
+
       if (response.error) {
         pending.reject(new Error(response.error.message));
       } else {
@@ -194,12 +192,12 @@ export class OmniProvider extends ethers.JsonRpcProvider {
         }
         pending.resolve(response.result);
       }
-      
+
     } catch (error) {
       console.error('Failed to parse validator response:', error);
     }
   }
-  
+
   /**
    * Create authenticated request
    * @param method
@@ -208,14 +206,14 @@ export class OmniProvider extends ethers.JsonRpcProvider {
   private createRequest(method: string, params: any): OmniRequest {
     const id = crypto.randomBytes(16).toString('hex');
     const timestamp = Date.now();
-    
+
     // Create signature for authentication
     const message = `${this.walletId}:${method}:${timestamp}:${this.walletSecret}`;
     const signature = crypto
       .createHmac('sha256', this.walletSecret)
       .update(message)
       .digest('hex');
-    
+
     return {
       id,
       method,
@@ -228,7 +226,7 @@ export class OmniProvider extends ethers.JsonRpcProvider {
       }
     };
   }
-  
+
   /**
    * Send request to validator
    * @param method
@@ -240,20 +238,20 @@ export class OmniProvider extends ethers.JsonRpcProvider {
       await this.connect();
       // Wait for connection
       await new Promise(resolve => setTimeout(resolve, 1000));
-      
+
       if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
         throw new Error('Not connected to validator network');
       }
     }
-    
+
     const request = this.createRequest(method, params);
-    
+
     return new Promise((resolve, reject) => {
       this.pendingRequests.set(request.id, { resolve, reject });
-      
+
       // Send request
       this.ws!.send(JSON.stringify(request));
-      
+
       // Timeout after 30 seconds
       setTimeout(() => {
         if (this.pendingRequests.has(request.id)) {
@@ -263,9 +261,9 @@ export class OmniProvider extends ethers.JsonRpcProvider {
       }, 30000);
     });
   }
-  
+
   // Override ethers.js methods to use our validator network
-  
+
   /**
    *
    * @param address
@@ -279,7 +277,7 @@ export class OmniProvider extends ethers.JsonRpcProvider {
     ]);
     return BigInt(result);
   }
-  
+
   /**
    *
    * @param address
@@ -292,7 +290,7 @@ export class OmniProvider extends ethers.JsonRpcProvider {
       this.network.chainId
     ]);
   }
-  
+
   /**
    *
    * @param transaction
@@ -305,7 +303,7 @@ export class OmniProvider extends ethers.JsonRpcProvider {
       this.network.chainId
     ]);
   }
-  
+
   /**
    *
    * @param transaction
@@ -317,7 +315,7 @@ export class OmniProvider extends ethers.JsonRpcProvider {
     ]);
     return BigInt(result);
   }
-  
+
   /**
    *
    * @param signedTransaction
@@ -327,16 +325,16 @@ export class OmniProvider extends ethers.JsonRpcProvider {
       signedTransaction,
       this.network.chainId
     ]);
-    
+
     // Create transaction response
     return new ethers.TransactionResponse(
       ethers.Transaction.from(signedTransaction),
       this
     );
   }
-  
+
   // OmniBazaar-specific methods
-  
+
   /**
    * Get NFTs for address (uses validator cache)
    * @param address
@@ -348,7 +346,7 @@ export class OmniProvider extends ethers.JsonRpcProvider {
       chainId: chainId || this.network.chainId
     });
   }
-  
+
   /**
    * Get NFT metadata (uses validator cache)
    * @param contract
@@ -362,7 +360,7 @@ export class OmniProvider extends ethers.JsonRpcProvider {
       chainId: chainId || this.network.chainId
     });
   }
-  
+
   /**
    * Get NFT collections (uses validator cache)
    * @param address
@@ -374,7 +372,7 @@ export class OmniProvider extends ethers.JsonRpcProvider {
       chainId: chainId || this.network.chainId
     });
   }
-  
+
   /**
    * Get marketplace listings (from validator network)
    * @param params
@@ -382,7 +380,7 @@ export class OmniProvider extends ethers.JsonRpcProvider {
   async getMarketplaceListings(params: any): Promise<any[]> {
     return await this.sendRequest('omni_getMarketplaceListings', params);
   }
-  
+
   /**
    * Get price oracle data (from validator network)
    * @param tokens
@@ -390,14 +388,14 @@ export class OmniProvider extends ethers.JsonRpcProvider {
   async getPriceOracle(tokens: string[]): Promise<any> {
     return await this.sendRequest('omni_getPriceOracle', { tokens });
   }
-  
+
   /**
    * Get validator status
    */
   async getValidatorStatus(): Promise<any> {
     return await this.sendRequest('omni_getValidatorStatus', {});
   }
-  
+
   /**
    * Disconnect from validator network
    */
@@ -406,7 +404,7 @@ export class OmniProvider extends ethers.JsonRpcProvider {
       this.ws.close();
       this.ws = null;
     }
-    
+
     // Clear pending requests
     for (const [id, pending] of this.pendingRequests) {
       pending.reject(new Error('Provider disconnected'));

@@ -1,6 +1,6 @@
 /**
  * Validator Wallet Service Integration
- * 
+ *
  * Integrates wallet operations with the Validator service network
  */
 
@@ -10,43 +10,25 @@ import { ethers } from 'ethers';
 import { nanoid } from 'nanoid';
 import { ref, Ref } from 'vue';
 
-/**
- *
- */
+/** Configuration for validator wallet service */
 export interface ValidatorWalletConfig {
-  /**
-   *
-   */
+  /** Validator node endpoint URL */
   validatorEndpoint: string;
-  /**
-   *
-   */
+  /** WebSocket endpoint for real-time updates */
   wsEndpoint?: string;
-  /**
-   *
-   */
+  /** API key for validator authentication */
   apiKey?: string;
-  /**
-   *
-   */
+  /** Network identifier */
   networkId: string;
-  /**
-   *
-   */
+  /** User identifier */
   userId: string;
-  /**
-   *
-   */
+  /** Whether to enable secure storage */
   enableSecureStorage: boolean;
-  /**
-   *
-   */
+  /** Whether to enable automatic backups */
   autoBackup: boolean;
 }
 
-/**
- *
- */
+/** Represents a wallet account */
 export interface WalletAccount {
   /**
    *
@@ -252,15 +234,15 @@ export class ValidatorWalletService {
       if (!health.data?.health?.healthy) {
         throw new Error('Validator service is not healthy');
       }
-      
+
       // Load existing accounts from secure storage
       await this.loadAccountsFromStorage();
-      
+
       // Set up auto-backup if enabled
       if (this.config.autoBackup) {
         this.setupAutoBackup();
       }
-      
+
       this.isInitialized = true;
       console.warn('Validator Wallet Service initialized successfully');
     } catch (error) {
@@ -315,19 +297,19 @@ export class ValidatorWalletService {
           }
           derivationPath = options?.derivationPath || "m/44'/60'/0'/0/0";
           break;
-          
+
         case 'private-key':
           if (!options?.privateKey) {
             throw new Error('Private key required');
           }
           wallet = new ethers.Wallet(options.privateKey);
           break;
-          
+
         case 'ledger':
         case 'trezor':
           // Hardware wallet support requires additional implementation
           throw new Error(`${type} support not yet implemented`);
-          
+
         default:
           throw new Error(`Unsupported account type: ${type}`);
       }
@@ -349,16 +331,16 @@ export class ValidatorWalletService {
 
       // Store account
       this.accounts.set(account.id, account);
-      
+
       // Update reactive references
       this.updateReactiveData();
-      
+
       // Save to secure storage
       await this.saveAccountToStorage(account, wallet.privateKey);
-      
+
       // Update balance
       await this.updateAccountBalance(account.id);
-      
+
       console.warn(`Created new ${type} account: ${account.address}`);
       return account;
     } catch (error) {
@@ -381,7 +363,7 @@ export class ValidatorWalletService {
     try {
       // Determine if input is mnemonic or private key
       const isMnemonic = privateKeyOrMnemonic.trim().split(' ').length >= 12;
-      
+
       return await this.createAccount(
         name,
         isMnemonic ? 'mnemonic' : 'private-key',
@@ -420,10 +402,10 @@ export class ValidatorWalletService {
     if (!account) {
       throw new Error('Account not found');
     }
-    
+
     this.activeAccountId = accountId;
     this.activeAccountRef.value = account;
-    
+
     // Update last used timestamp
     account.metadata.lastUsed = Date.now();
     this.saveAccountToStorage(account);
@@ -461,18 +443,18 @@ export class ValidatorWalletService {
         `,
         variables: { address: account.address }
       });
-      
+
       const balance = result.data?.account?.balance || '0';
-      
+
       // Update account balance
       account.balance = balance;
-      
+
       // Update reactive balance
       this.balancesRef.value = {
         ...this.balancesRef.value,
         [account.address]: account.balance
       };
-      
+
       return account.balance;
     } catch (error) {
       console.error('Error updating account balance:', error);
@@ -485,10 +467,10 @@ export class ValidatorWalletService {
    */
   async updateAllBalances(): Promise<void> {
     try {
-      const updatePromises = Array.from(this.accounts.keys()).map(accountId => 
+      const updatePromises = Array.from(this.accounts.keys()).map(accountId =>
         this.updateAccountBalance(accountId)
       );
-      
+
       await Promise.all(updatePromises);
       console.warn('Updated all account balances');
     } catch (error) {
@@ -508,25 +490,25 @@ export class ValidatorWalletService {
 
       // Validate request
       this.validateTransactionRequest(request);
-      
+
       // Get account for signing
       const account = Array.from(this.accounts.values())
         .find(acc => acc.address.toLowerCase() === request.from.toLowerCase());
-      
+
       if (!account) {
         throw new Error('Account not found for signing');
       }
 
       // Get private key from secure storage
       const privateKey = await this.getAccountPrivateKey(account.id);
-      
+
       if (!privateKey) {
         throw new Error('Private key not available');
       }
 
       // Create wallet for signing
       const wallet = new ethers.Wallet(privateKey);
-      
+
       // Prepare transaction
       const tx = {
         to: request.to,
@@ -541,7 +523,7 @@ export class ValidatorWalletService {
 
       // Sign transaction
       const signedTx = await wallet.signTransaction(tx);
-      
+
       // Submit to validator via GraphQL
       const mutation = gql`
         mutation SendTransaction($signedTx: String!) {
@@ -554,21 +536,21 @@ export class ValidatorWalletService {
           }
         }
       `;
-      
+
       const mutationResult = await this.client.mutate({
         mutation,
         variables: { signedTx }
       });
-      
+
       const result = mutationResult.data?.sendRawTransaction || {
         success: false,
         error: 'Transaction submission failed'
       };
-      
+
       if (result.success) {
         // Update balance after successful transaction
         await this.updateAccountBalance(account.id);
-        
+
         return {
           success: true,
           txHash: result.transactionHash,
@@ -604,7 +586,7 @@ export class ValidatorWalletService {
 
       // Get private key from secure storage
       const privateKey = await this.getAccountPrivateKey(accountId);
-      
+
       if (!privateKey) {
         throw new Error('Private key not available');
       }
@@ -612,7 +594,7 @@ export class ValidatorWalletService {
       // Create wallet and sign message
       const wallet = new ethers.Wallet(privateKey);
       const signature = await wallet.signMessage(message);
-      
+
       return signature;
     } catch (error) {
       console.error('Error signing message:', error);
@@ -629,14 +611,14 @@ export class ValidatorWalletService {
       // Check if it's an OmniBazaar username (no domain extension)
       const isOmniName = !name.includes('.');
       const fullName = isOmniName ? name : name.replace('.omnibazaar', '');
-      
+
       // Use validator's ENS resolution
       const address = await this.client.resolveUsername(fullName);
-      
+
       if (!address) {
         return null;
       }
-      
+
       // Get user metadata
       const query = gql`
         query GetUserMetadata($username: String!) {
@@ -651,14 +633,14 @@ export class ValidatorWalletService {
           }
         }
       `;
-      
+
       const result = await this.client.query({
         query,
         variables: { username: fullName }
       });
-      
+
       const metadata = result.data?.usernameRegistration?.metadata || {};
-      
+
       return {
         address,
         name: fullName,
@@ -728,7 +710,7 @@ export class ValidatorWalletService {
       );
 
       console.warn(`Wallet backup created with hash: ${backupHash}`);
-      
+
       return backup;
     } catch (error) {
       console.error('Error backing up wallet:', error);
@@ -763,13 +745,13 @@ export class ValidatorWalletService {
 
       // Restore active account
       this.activeAccountId = backupData.activeAccountId;
-      
+
       // Update reactive data
       this.updateReactiveData();
-      
+
       // Update all balances
       await this.updateAllBalances();
-      
+
       console.warn('Wallet restored successfully');
     } catch (error) {
       console.error('Error restoring wallet:', error);
@@ -786,14 +768,14 @@ export class ValidatorWalletService {
     try {
       // Verify password
       await this.verifyPassword(password);
-      
+
       // Get private key from secure storage
       const privateKey = await this.getAccountPrivateKey(accountId);
-      
+
       if (!privateKey) {
         throw new Error('Private key not available');
       }
-      
+
       return privateKey;
     } catch (error) {
       console.error('Error exporting private key:', error);
@@ -814,19 +796,19 @@ export class ValidatorWalletService {
 
       // Remove from accounts map
       this.accounts.delete(accountId);
-      
+
       // Update active account if necessary
       if (this.activeAccountId === accountId) {
         const remainingAccounts = Array.from(this.accounts.values());
         this.activeAccountId = remainingAccounts.length > 0 ? remainingAccounts[0].id : null;
       }
-      
+
       // Remove from secure storage
       await this.removeAccountFromStorage(accountId);
-      
+
       // Update reactive data
       this.updateReactiveData();
-      
+
       console.warn(`Account removed: ${account.address}`);
     } catch (error) {
       console.error('Error removing account:', error);
@@ -916,7 +898,7 @@ export class ValidatorWalletService {
           }
         }
       `;
-      
+
       const result = await this.client.query({
         query,
         variables: {
@@ -925,7 +907,7 @@ export class ValidatorWalletService {
           offset: options?.offset || 0
         }
       });
-      
+
       return result.data?.transactionHistory?.transactions || [];
     } catch (error) {
       console.error('Error getting transaction history:', error);
@@ -944,7 +926,7 @@ export class ValidatorWalletService {
           estimateGas(from: $from, to: $to, value: $value, data: $data)
         }
       `;
-      
+
       const result = await this.client.query({
         query,
         variables: {
@@ -954,7 +936,7 @@ export class ValidatorWalletService {
           data: request.data || '0x'
         }
       });
-      
+
       return result.data?.estimateGas || '21000';
     } catch (error) {
       console.error('Error estimating gas:', error);
@@ -972,11 +954,11 @@ export class ValidatorWalletService {
           gasPrice
         }
       `;
-      
+
       const result = await this.client.query({
         query
       });
-      
+
       return result.data?.gasPrice || '1000000000'; // 1 gwei default
     } catch (error) {
       console.error('Error getting gas price:', error);
@@ -991,15 +973,15 @@ export class ValidatorWalletService {
     try {
       // Save any pending data
       await this.saveAllAccountsToStorage();
-      
+
       // Clear local data
       this.accounts.clear();
       this.activeAccountId = null;
       this.isInitialized = false;
-      
+
       // Update reactive data
       this.updateReactiveData();
-      
+
       console.warn('Validator Wallet Service disconnected');
     } catch (error) {
       console.error('Error disconnecting wallet service:', error);
@@ -1021,21 +1003,21 @@ export class ValidatorWalletService {
           }
         }
       `;
-      
+
       const result = await this.client.query({
         query,
         variables: { userId: `wallet_index_${this.config.userId}` }
       });
-      
+
       const indexData = result.data?.document?.content;
-      
+
       if (!indexData) {
         console.warn('No existing wallet data found');
         return;
       }
 
       const accountIds = JSON.parse(indexData) as string[];
-      
+
       // Load individual accounts
       for (const accountId of accountIds) {
         try {
@@ -1046,12 +1028,12 @@ export class ValidatorWalletService {
               }
             }
           `;
-          
+
           const accountResult = await this.client.query({
             query: accountQuery,
             variables: { accountId: `wallet_account_${accountId}` }
           });
-          
+
           const accountData = accountResult.data?.document?.content;
           if (accountData) {
             const account = JSON.parse(accountData) as WalletAccount;
@@ -1064,7 +1046,7 @@ export class ValidatorWalletService {
 
       // Update reactive data
       this.updateReactiveData();
-      
+
       console.warn(`Loaded ${this.accounts.size} accounts from storage`);
     } catch (error) {
       console.error('Error loading accounts from storage:', error);
@@ -1124,10 +1106,10 @@ export class ValidatorWalletService {
 
   private async saveAllAccountsToStorage(): Promise<void> {
     try {
-      const savePromises = Array.from(this.accounts.values()).map(account => 
+      const savePromises = Array.from(this.accounts.values()).map(account =>
         this.saveAccountToStorage(account)
       );
-      
+
       await Promise.all(savePromises);
     } catch (error) {
       console.error('Error saving all accounts:', error);
@@ -1184,14 +1166,14 @@ export class ValidatorWalletService {
           }
         }
       `;
-      
+
       const keyResult = await this.client.query({
         query: keyQuery,
         variables: { keyId: `wallet_key_${accountId}` }
       });
-      
+
       const encryptedKey = keyResult.data?.document?.content;
-      
+
       if (!encryptedKey) {
         return null;
       }
@@ -1208,15 +1190,15 @@ export class ValidatorWalletService {
     if (!request.from || !ethers.isAddress(request.from)) {
       throw new Error('Invalid from address');
     }
-    
+
     if (!request.to || !ethers.isAddress(request.to)) {
       throw new Error('Invalid to address');
     }
-    
+
     if (!request.value || isNaN(parseFloat(request.value))) {
       throw new Error('Invalid transaction value');
     }
-    
+
     if (!request.chainId) {
       throw new Error('Chain ID required');
     }
@@ -1224,7 +1206,7 @@ export class ValidatorWalletService {
 
   private updateReactiveData(): void {
     this.accountsRef.value = Array.from(this.accounts.values());
-    this.activeAccountRef.value = this.activeAccountId ? 
+    this.activeAccountRef.value = this.activeAccountId ?
       this.accounts.get(this.activeAccountId) || null : null;
   }
 
@@ -1246,10 +1228,10 @@ export class ValidatorWalletService {
   private async encryptData(data: string, password: string): Promise<string> {
     const encoder = new TextEncoder();
     const dataBuffer = encoder.encode(data);
-    
+
     // Generate a random salt for PBKDF2 (NEVER use password as salt)
     const salt = crypto.getRandomValues(new Uint8Array(32));
-    
+
     // Import password for key derivation
     const passwordBuffer = encoder.encode(password);
     const baseKey = await crypto.subtle.importKey(
@@ -1259,7 +1241,7 @@ export class ValidatorWalletService {
       false,
       ['deriveBits', 'deriveKey']
     );
-    
+
     // Derive a 256-bit key using PBKDF2 with 210,000 iterations (OWASP 2023 recommendation)
     const derivedKey = await crypto.subtle.deriveKey(
       {
@@ -1273,27 +1255,27 @@ export class ValidatorWalletService {
       false, // Don't make key extractable
       ['encrypt']
     );
-    
+
     // Generate a random IV for AES-GCM (96 bits / 12 bytes)
     const iv = crypto.getRandomValues(new Uint8Array(12));
-    
+
     // Encrypt the data
     const encrypted = await crypto.subtle.encrypt(
-      { 
-        name: 'AES-GCM', 
+      {
+        name: 'AES-GCM',
         iv: iv,
         tagLength: 128 // 128-bit authentication tag
       },
       derivedKey,
       dataBuffer
     );
-    
+
     // Combine salt + iv + encrypted data
     const combined = new Uint8Array(salt.length + iv.length + encrypted.byteLength);
     combined.set(salt, 0);
     combined.set(iv, salt.length);
     combined.set(new Uint8Array(encrypted), salt.length + iv.length);
-    
+
     // Return base64 encoded result
     return btoa(String.fromCharCode(...combined));
   }
@@ -1307,15 +1289,15 @@ export class ValidatorWalletService {
   private async decryptData(encryptedData: string, password: string): Promise<string> {
     const encoder = new TextEncoder();
     const decoder = new TextDecoder();
-    
+
     // Decode from base64
     const combined = Uint8Array.from(atob(encryptedData), c => c.charCodeAt(0));
-    
+
     // Extract salt, IV, and encrypted data
     const salt = combined.slice(0, 32);
     const iv = combined.slice(32, 44);
     const encrypted = combined.slice(44);
-    
+
     // Import password for key derivation
     const passwordBuffer = encoder.encode(password);
     const baseKey = await crypto.subtle.importKey(
@@ -1325,7 +1307,7 @@ export class ValidatorWalletService {
       false,
       ['deriveBits', 'deriveKey']
     );
-    
+
     // Derive the same key using extracted salt
     const derivedKey = await crypto.subtle.deriveKey(
       {
@@ -1339,19 +1321,19 @@ export class ValidatorWalletService {
       false,
       ['decrypt']
     );
-    
+
     // Decrypt the data
     try {
       const decrypted = await crypto.subtle.decrypt(
-        { 
-          name: 'AES-GCM', 
+        {
+          name: 'AES-GCM',
           iv: iv,
           tagLength: 128
         },
         derivedKey,
         encrypted
       );
-      
+
       return decoder.decode(decrypted);
     } catch (error) {
       throw new Error('Decryption failed: Invalid password or corrupted data');

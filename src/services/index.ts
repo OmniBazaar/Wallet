@@ -1,6 +1,6 @@
 /**
  * Validator Services Export Index
- * 
+ *
  * Central export point for all Validator service integrations
  */
 
@@ -47,8 +47,10 @@ export {
 
 // Service initialization helper
 /**
- *
- * @param userId
+ * Initialize all validator services for a specific user
+ * @param userId User identifier for service initialization
+ * @returns Promise that resolves when all services are initialized
+ * @throws Error if initialization fails
  */
 export async function initializeValidatorServices(userId: string): Promise<void> {
   try {
@@ -56,12 +58,12 @@ export async function initializeValidatorServices(userId: string): Promise<void>
     validatorWallet.config.userId = userId;
     validatorTransaction.config.userId = userId;
     validatorBalance.config.userId = userId;
-    
+
     // Initialize services
     await validatorWallet.initialize();
     await validatorTransaction.initialize();
     await validatorBalance.initialize();
-    
+
     console.warn('All validator services initialized successfully');
   } catch (error) {
     console.error('Error initializing validator services:', error);
@@ -78,7 +80,7 @@ export async function disconnectValidatorServices(): Promise<void> {
     await validatorWallet.disconnect();
     await validatorTransaction.disconnect();
     await validatorBalance.disconnect();
-    
+
     console.warn('All validator services disconnected successfully');
   } catch (error) {
     console.error('Error disconnecting validator services:', error);
@@ -115,31 +117,31 @@ export async function checkValidatorServiceHealth(): Promise<{
       balance: false,
       overall: false
     };
-    
+
     // Check wallet service
     try {
       health.wallet = validatorWallet.accountsRef.value !== null;
     } catch (error) {
       health.wallet = false;
     }
-    
+
     // Check transaction service
     try {
       health.transaction = validatorTransaction.pendingTxRef.value !== null;
     } catch (error) {
       health.transaction = false;
     }
-    
+
     // Check balance service
     try {
       health.balance = validatorBalance.balancesRef.value !== null;
     } catch (error) {
       health.balance = false;
     }
-    
+
     // Overall health
     health.overall = health.wallet && health.transaction && health.balance;
-    
+
     return health;
   } catch (error) {
     console.error('Error checking service health:', error);
@@ -158,7 +160,7 @@ export default {
   validatorWallet,
   validatorTransaction,
   validatorBalance,
-  
+
   // Helpers
   initializeValidatorServices,
   disconnectValidatorServices,

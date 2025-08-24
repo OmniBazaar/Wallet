@@ -1,5 +1,7 @@
-// OmniBazaar Wallet Provider Types
-// Adapted from Enkrypt provider interfaces for our hybrid architecture
+/**
+ * OmniBazaar Wallet Provider Types
+ * Adapted from Enkrypt provider interfaces for our hybrid architecture
+ */
 
 import EventEmitter from 'eventemitter3';
 import { BaseNetwork } from './base-network';
@@ -52,21 +54,13 @@ export type StorageNamespace = ProviderName | InternalStorageNamespace;
  * Standard RPC request format for provider communication
  */
 export interface ProviderRPCRequest {
-  /**
-   *
-   */
+  /** Request identifier */
   id: string | number;
-  /**
-   *
-   */
+  /** RPC method name */
   method: string;
-  /**
-   *
-   */
+  /** Method parameters */
   params?: unknown[];
-  /**
-   *
-   */
+  /** Request options including tab info */
   options?: {
     url: string;
     domain: string;
@@ -80,13 +74,9 @@ export interface ProviderRPCRequest {
  * Standard response format for provider messages
  */
 export interface OnMessageResponse {
-  /**
-   *
-   */
+  /** Response result data */
   result?: string;
-  /**
-   *
-   */
+  /** Error message if request failed */
   error?: string;
 }
 
@@ -94,9 +84,7 @@ export interface OnMessageResponse {
  * Configuration options for provider initialization
  */
 export interface ProviderOptions {
-  /**
-   *
-   */
+  /** Provider name identifier */
   name: ProviderName;
   /**
    *
@@ -160,7 +148,7 @@ export abstract class BackgroundProviderInterface extends EventEmitter {
  */
 export abstract class ProviderAPIInterface {
   abstract node: string;
-  
+
   /**
    *
    * @param node
@@ -169,7 +157,7 @@ export abstract class ProviderAPIInterface {
   constructor(node: string, _options?: unknown) {
     this.node = node;
   }
-  
+
   abstract init(): Promise<void>;
   abstract getBalance(address: string): Promise<string>;
   abstract getTransactionStatus(hash: string): Promise<{ status: string; confirmations: number }>;
@@ -258,7 +246,7 @@ export interface OmniBazaarProviderInterface extends BackgroundProviderInterface
    *
    */
   privacyProvider?: PrivacyProviderInterface;
-  
+
   // Marketplace methods
   /**
    *
@@ -272,7 +260,7 @@ export interface OmniBazaarProviderInterface extends BackgroundProviderInterface
    *
    */
   searchMarketplace(query: string): Promise<{ id: string; name: string; price: string }[]>;
-  
+
   // Node discovery methods
   /**
    *
@@ -282,7 +270,7 @@ export interface OmniBazaarProviderInterface extends BackgroundProviderInterface
    *
    */
   connectToNode(nodeUrl: string): Promise<boolean>;
-  
+
   // IPFS methods
   /**
    *
@@ -297,10 +285,10 @@ export interface OmniBazaarProviderInterface extends BackgroundProviderInterface
 /**
  * Union type for all supported blockchain providers
  */
-export type Provider = 
-  | EthereumProviderInterface 
-  | BitcoinProviderInterface 
-  | SolanaProviderInterface 
+export type Provider =
+  | EthereumProviderInterface
+  | BitcoinProviderInterface
+  | SolanaProviderInterface
   | PolkadotProviderInterface
   | COTIProviderInterface;
 
@@ -376,4 +364,4 @@ export interface COTIProviderInterface extends BackgroundProviderInterface {
    *
    */
   mpcEnabled: boolean;
-} 
+}

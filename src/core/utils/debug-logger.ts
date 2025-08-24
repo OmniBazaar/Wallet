@@ -1,5 +1,12 @@
-// Tiny, configurable debug logging
+/**
+ * Tiny, configurable debug logging utility
+ */
 
+/**
+ * Format timestamp as YYYY:MM:DD HH:mm:ss.SSS
+ * @param timestamp Date to format
+ * @returns Formatted timestamp string
+ */
 function ymdhms(timestamp: Date): string {
   return (
     timestamp.getFullYear().toString().padStart(4, "0") +
@@ -18,6 +25,7 @@ function ymdhms(timestamp: Date): string {
   );
 }
 
+/** Log level constants */
 const LogLevel = {
   DISABLED: -1,
   SILENT: 0,
@@ -28,6 +36,11 @@ const LogLevel = {
   ERROR: 5,
 } as const;
 
+/**
+ * Convert log level string to number
+ * @param level Log level as string or number
+ * @returns Numeric log level
+ */
 function levelToNumber(level: string | number): number {
   if (typeof level === "number") return level;
   switch (level?.toLowerCase()) {
@@ -45,6 +58,7 @@ function levelToNumber(level: string | number): number {
   return LogLevel.INFO;
 }
 
+/** Configuration for wildcard search */
 type WildcardSearchConfig = {
   prefix: string;
   forceAllow: boolean;

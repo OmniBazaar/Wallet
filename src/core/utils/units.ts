@@ -1,10 +1,12 @@
-/*
-Primary Attribution
-Richard Moore <ricmoo@me.com>
-https://github.com/ethers-io
-
-Note, Richard is a god of ether gods. Follow and respect him, and use Ethers.io!
-*/
+/**
+ * Unit conversion utilities
+ *
+ * Primary Attribution:
+ * Richard Moore <ricmoo@me.com>
+ * https://github.com/ethers-io
+ *
+ * Note: Richard is a god of ether gods. Follow and respect him, and use Ethers.io!
+ */
 
 import { toBN } from "web3-utils";
 
@@ -13,14 +15,18 @@ const negative1 = toBN(-1);
 
 /**
  * Returns value of unit in Wei
- *
- * @function getValueOfUnit
- * @param {number} decimals the unit to convert to, default ether
- * @returns {BN} value of the unit (in Wei)
- * @throws error if the unit is not correct:w
+ * @param decimals The decimal places for the unit
+ * @returns Value of the unit (in Wei)
+ * @throws Error if the unit is not correct
  */
 const getValueOfUnit = (decimals: number): ReturnType<typeof toBN> => toBN(10).pow(toBN(decimals));
 
+/**
+ * Convert various number types to string representation
+ * @param arg Number to convert (string, number, or BN-like object)
+ * @returns String representation of the number
+ * @throws Error if conversion fails
+ */
 const numberToString = (arg: string | number | { toString(): string; toPrecision?(): string; toTwos?: boolean; dividedToIntegerBy?: boolean }): string => {
   if (typeof arg === "string") {
     if (!arg.match(/^-?[0-9.]+$/)) {
@@ -36,9 +42,9 @@ const numberToString = (arg: string | number | { toString(): string; toPrecision
   if (
     typeof arg === "object" &&
     arg.toString &&
-    (arg.toTwos || arg.dividedToIntegerBy)
+    (arg.toTwos === true || arg.dividedToIntegerBy === true)
   ) {
-    if (arg.toPrecision) {
+    if (arg.toPrecision != null) {
       return String(arg.toPrecision());
     }
     return arg.toString(10);

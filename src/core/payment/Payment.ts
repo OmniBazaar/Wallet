@@ -3,58 +3,36 @@ import { Wallet } from '../wallet/Wallet';
 import { Transaction } from '../wallet/Transaction';
 import { OmniCoinMetadata } from '../blockchain/OmniCoin';
 
-/**
- *
- */
+/** Payment request parameters */
 export interface PaymentRequest {
-  /**
-   *
-   */
+  /** Recipient address or ENS name */
   to: string;
-  /**
-   *
-   */
+  /** Payment amount (in human-readable format) */
   amount: string;
-  /**
-   *
-   */
+  /** Optional payment description */
   description?: string;
-  /**
-   *
-   */
+  /** Optional payment metadata */
   metadata?: Record<string, unknown>;
 }
 
-/**
- *
- */
+/** Payment transaction response */
 export interface PaymentResponse {
-  /**
-   *
-   */
+  /** Transaction hash */
   transactionHash: string;
-  /**
-   *
-   */
+  /** Transaction status */
   status: 'pending' | 'confirmed' | 'failed';
-  /**
-   *
-   */
+  /** Block number (optional) */
   blockNumber?: number;
-  /**
-   *
-   */
+  /** Number of confirmations (optional) */
   confirmations?: number;
 }
 
-/**
- *
- */
+/** Payment-specific error class */
 export class PaymentError extends Error {
   /**
-   *
-   * @param message
-   * @param code
+   * Create a new payment error
+   * @param message Error message
+   * @param code Error code
    */
   constructor(message: string, public code: string) {
     super(message);
@@ -159,4 +137,4 @@ export class Payment {
       );
     }
   }
-} 
+}

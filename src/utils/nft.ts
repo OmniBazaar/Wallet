@@ -19,33 +19,19 @@ const ERC1155_ABI = [
     'function safeTransferFrom(address from, address to, uint256 id, uint256 amount, bytes data)'
 ];
 
-/**
- *
- */
+/** Standard NFT metadata structure */
 export interface NFTMetadata {
-    /**
-     *
-     */
+    /** NFT name */
     name: string;
-    /**
-     *
-     */
+    /** NFT description */
     description: string;
-    /**
-     *
-     */
+    /** Primary image URL */
     image: string;
-    /**
-     *
-     */
+    /** Array of trait attributes */
     attributes?: Array<{
-        /**
-         *
-         */
+        /** Trait category name */
         trait_type: string;
-        /**
-         *
-         */
+        /** Trait value */
         value: string | number;
     }>;
 }
@@ -223,4 +209,4 @@ export const getOwnedNFTs = async (
     }
 
     return nfts;
-}; 
+};

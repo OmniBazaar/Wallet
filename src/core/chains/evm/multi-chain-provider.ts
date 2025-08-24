@@ -11,19 +11,19 @@ export class MultiChainEVMProvider extends LiveEthereumProvider {
   private providers: Map<number, ethers.JsonRpcProvider> = new Map();
 
   /**
-   *
-   * @param networkKey
+   * Create a new multi-chain EVM provider
+   * @param networkKey Network identifier to initialize with
    */
   constructor(networkKey = 'ethereum') {
     // Initialize with Ethereum mainnet as base
     super('mainnet');
-    
+
     // Load the requested network
     const network = ALL_NETWORKS[networkKey];
-    if (!network) {
+    if (network == null) {
       throw new Error(`Unknown network: ${networkKey}`);
     }
-    
+
     this.currentNetwork = network;
     this.initializeProvider();
   }
@@ -37,24 +37,24 @@ export class MultiChainEVMProvider extends LiveEthereumProvider {
       chainId: this.currentNetwork.chainId,
       name: this.currentNetwork.name
     });
-    
+
     this.providers.set(this.currentNetwork.chainId, provider);
     this.provider = provider;
   }
 
   /**
    * Switch to a different EVM network
-   * @param networkKey
+   * @param networkKey Network identifier to switch to
    */
   async switchNetwork(networkKey: string): Promise<void> {
     const network = ALL_NETWORKS[networkKey];
-    if (!network) {
+    if (network == null) {
       throw new Error(`Unknown network: ${networkKey}`);
     }
 
     // Check if we already have a provider for this network
     let provider = this.providers.get(network.chainId);
-    if (!provider) {
+    if (provider == null) {
       const rpcUrl = getRpcUrl(network);
       provider = new ethers.JsonRpcProvider(rpcUrl, {
         chainId: network.chainId,
@@ -69,6 +69,7 @@ export class MultiChainEVMProvider extends LiveEthereumProvider {
 
   /**
    * Get current network info
+   * @returns Current network configuration
    */
   getCurrentNetwork(): EVMNetworkConfig {
     return this.currentNetwork;
@@ -76,6 +77,7 @@ export class MultiChainEVMProvider extends LiveEthereumProvider {
 
   /**
    * Get native currency symbol
+   * @returns Native currency symbol
    */
   getNativeCurrency(): string {
     return this.currentNetwork.currency;
@@ -83,6 +85,7 @@ export class MultiChainEVMProvider extends LiveEthereumProvider {
 
   /**
    * Get chain ID
+   * @returns Chain ID number
    */
   getChainId(): number {
     return this.currentNetwork.chainId;
@@ -90,7 +93,8 @@ export class MultiChainEVMProvider extends LiveEthereumProvider {
 
   /**
    * Get explorer URL for transaction
-   * @param txHash
+   * @param txHash Transaction hash
+   * @returns Explorer URL for the transaction
    */
   getExplorerUrl(txHash: string): string {
     return `${this.currentNetwork.explorer}/tx/${txHash}`;
@@ -119,7 +123,7 @@ export class MultiChainEVMProvider extends LiveEthereumProvider {
     try {
       await provider.getNetwork();
       this.providers.set(network.chainId, provider);
-      
+
       // Add to ALL_NETWORKS for future use
       ALL_NETWORKS[network.shortName] = network;
     } catch (error) {
@@ -132,17 +136,17 @@ export class MultiChainEVMProvider extends LiveEthereumProvider {
    */
   async getGasPrice(): Promise<ethers.BigNumber> {
     const gasPrice = await this.provider.getGasPrice();
-    
+
     // Apply network-specific adjustments
     switch (this.currentNetwork.shortName) {
       case 'bsc':
         // BSC often needs slightly higher gas price
         return gasPrice.mul(110).div(100); // +10%
-      
+
       case 'polygon':
         // Polygon can use lower gas price
         return gasPrice.mul(90).div(100); // -10%
-      
+
       default:
         return gasPrice;
     }
@@ -154,14 +158,14 @@ export class MultiChainEVMProvider extends LiveEthereumProvider {
    */
   async estimateGas(transaction: ethers.TransactionRequest): Promise<ethers.BigNumber> {
     const estimate = await this.provider.estimateGas(transaction);
-    
+
     // Apply network-specific adjustments
     switch (this.currentNetwork.shortName) {
       case 'arbitrum':
       case 'optimism':
         // L2s might need higher gas limits
         return estimate.mul(120).div(100); // +20%
-      
+
       default:
         return estimate.mul(110).div(100); // +10% buffer
     }
@@ -193,13 +197,13 @@ export class MultiChainEVMProvider extends LiveEthereumProvider {
   async sendTransaction(transaction: ethers.TransactionRequest): Promise<ethers.TransactionResponse> {
     // Add chain ID to prevent replay attacks
     transaction.chainId = this.currentNetwork.chainId;
-    
+
     // Handle network-specific requirements
     if (this.currentNetwork.shortName === 'bsc' && !transaction.gasPrice) {
       // BSC requires gasPrice
       transaction.gasPrice = await this.getGasPrice();
     }
-    
+
     return super.sendTransaction(transaction);
   }
 

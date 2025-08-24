@@ -1,6 +1,6 @@
 /**
  * Staking Service for OmniCoin
- * 
+ *
  * Provides interface to the OmniCoinStaking smart contract for staking XOM tokens.
  * Supports both privacy-enabled and standard staking with tier-based rewards.
  */
@@ -19,14 +19,14 @@ const STAKING_ABI = [
   'function baseRewardRate() view returns (uint256)',
   'function isStakingEnabled() view returns (bool)',
   'function getParticipationScore(address user) view returns (uint256)',
-  
+
   // Write functions
   'function stake(uint256 amount, uint256 duration, bool usePrivacy) returns (bool)',
   'function unstake(uint256 amount) returns (bool)',
   'function claimRewards() returns (uint256)',
   'function compound() returns (bool)',
   'function emergencyWithdraw() returns (bool)',
-  
+
   // Events
   'event Staked(address indexed user, uint256 amount, uint256 tier, uint256 duration, bool usePrivacy)',
   'event Unstaked(address indexed user, uint256 amount)',
@@ -41,13 +41,9 @@ const TOKEN_ABI = [
   'function balanceOf(address account) view returns (uint256)'
 ];
 
-/**
- *
- */
+/** Information about a user's stake */
 export interface StakeInfo {
-  /**
-   *
-   */
+  /** Staking tier (0-3) */
   tier: number;
   /**
    *
@@ -145,17 +141,17 @@ export interface StakingTier {
 
 /**
  * Staking Service
- * 
+ *
  * @example
  * ```typescript
  * const stakingService = StakingService.getInstance();
- * 
+ *
  * // Stake tokens
  * await stakingService.stake('1000', 30, false); // 1000 XOM for 30 days
- * 
+ *
  * // Check rewards
  * const rewards = await stakingService.getPendingRewards(address);
- * 
+ *
  * // Claim rewards
  * await stakingService.claimRewards();
  * ```
@@ -166,11 +162,11 @@ export class StakingService {
   private omniProvider: OmniProvider | null = null;
   private stakingContract: ethers.Contract | null = null;
   private tokenContract: ethers.Contract | null = null;
-  
+
   // Contract addresses (would be loaded from config)
   private readonly STAKING_CONTRACT_ADDRESS = process.env.STAKING_CONTRACT || '0x0000000000000000000000000000000000000000';
   private readonly XOM_TOKEN_ADDRESS = process.env.XOM_TOKEN || '0x0000000000000000000000000000000000000000';
-  
+
   // Staking tiers
   private readonly STAKING_TIERS: StakingTier[] = [
     {
@@ -219,11 +215,11 @@ export class StakingService {
       totalWeight: 0
     }
   ];
-  
+
   private constructor() {
     this.initializeProvider();
   }
-  
+
   /**
    * Get singleton instance
    */
@@ -233,7 +229,7 @@ export class StakingService {
     }
     return StakingService.instance;
   }
-  
+
   /**
    * Initialize provider and contracts
    */
@@ -245,35 +241,35 @@ export class StakingService {
         walletId: 'staking-service',
         authKey: process.env.OMNI_AUTH_KEY
       });
-      
+
       // Initialize contracts
       this.stakingContract = new ethers.Contract(
         this.STAKING_CONTRACT_ADDRESS,
         STAKING_ABI,
         this.omniProvider
       );
-      
+
       this.tokenContract = new ethers.Contract(
         this.XOM_TOKEN_ADDRESS,
         TOKEN_ABI,
         this.omniProvider
       );
-      
+
       console.log('StakingService initialized with OmniProvider');
     } catch (error) {
       console.warn('Failed to initialize with OmniProvider, using fallback:', error);
-      
+
       // Fallback to standard provider
       this.provider = new ethers.JsonRpcProvider(
         process.env.RPC_URL || 'https://ethereum.publicnode.com'
       );
-      
+
       this.stakingContract = new ethers.Contract(
         this.STAKING_CONTRACT_ADDRESS,
         STAKING_ABI,
         this.provider
       );
-      
+
       this.tokenContract = new ethers.Contract(
         this.XOM_TOKEN_ADDRESS,
         TOKEN_ABI,
@@ -281,7 +277,7 @@ export class StakingService {
       );
     }
   }
-  
+
   /**
    * Stake XOM tokens
    * @param amount
@@ -299,20 +295,20 @@ export class StakingService {
       if (!this.stakingContract || !this.tokenContract) {
         throw new Error('Contracts not initialized');
       }
-      
+
       const amountWei = ethers.parseEther(amount);
       const durationSeconds = durationDays * 24 * 60 * 60;
-      
+
       // Get contract with signer
       const stakingWithSigner = this.stakingContract.connect(signer || this.provider);
       const tokenWithSigner = this.tokenContract.connect(signer || this.provider);
-      
+
       // Check allowance
       const allowance = await tokenWithSigner.allowance(
         await signer?.getAddress(),
         this.STAKING_CONTRACT_ADDRESS
       );
-      
+
       // Approve if needed
       if (allowance < amountWei) {
         const approveTx = await tokenWithSigner.approve(
@@ -321,11 +317,11 @@ export class StakingService {
         );
         await approveTx.wait();
       }
-      
+
       // Stake tokens
       const tx = await stakingWithSigner.stake(amountWei, durationSeconds, usePrivacy);
       const receipt = await tx.wait();
-      
+
       return {
         success: true,
         txHash: receipt.hash
@@ -338,7 +334,7 @@ export class StakingService {
       };
     }
   }
-  
+
   /**
    * Unstake tokens
    * @param amount
@@ -352,13 +348,13 @@ export class StakingService {
       if (!this.stakingContract) {
         throw new Error('Contract not initialized');
       }
-      
+
       const amountWei = ethers.parseEther(amount);
       const stakingWithSigner = this.stakingContract.connect(signer || this.provider);
-      
+
       const tx = await stakingWithSigner.unstake(amountWei);
       const receipt = await tx.wait();
-      
+
       return {
         success: true,
         txHash: receipt.hash
@@ -371,7 +367,7 @@ export class StakingService {
       };
     }
   }
-  
+
   /**
    * Claim staking rewards
    * @param signer
@@ -383,19 +379,19 @@ export class StakingService {
       if (!this.stakingContract) {
         throw new Error('Contract not initialized');
       }
-      
+
       const stakingWithSigner = this.stakingContract.connect(signer || this.provider);
-      
+
       const tx = await stakingWithSigner.claimRewards();
       const receipt = await tx.wait();
-      
+
       // Get claimed amount from events
-      const event = receipt.logs.find((log: any) => 
+      const event = receipt.logs.find((log: any) =>
         log.topics[0] === ethers.id('RewardsClaimed(address,uint256)')
       );
-      
+
       const amount = event ? ethers.formatEther(event.data) : '0';
-      
+
       return {
         success: true,
         amount,
@@ -409,7 +405,7 @@ export class StakingService {
       };
     }
   }
-  
+
   /**
    * Compound rewards back into stake
    * @param signer
@@ -421,12 +417,12 @@ export class StakingService {
       if (!this.stakingContract) {
         throw new Error('Contract not initialized');
       }
-      
+
       const stakingWithSigner = this.stakingContract.connect(signer || this.provider);
-      
+
       const tx = await stakingWithSigner.compound();
       const receipt = await tx.wait();
-      
+
       return {
         success: true,
         txHash: receipt.hash
@@ -439,7 +435,7 @@ export class StakingService {
       };
     }
   }
-  
+
   /**
    * Get stake info for an address
    * @param address
@@ -457,16 +453,16 @@ export class StakingService {
           console.warn('OmniProvider failed, using contract:', error);
         }
       }
-      
+
       // Fallback to direct contract call
       if (!this.stakingContract) {
         throw new Error('Contract not initialized');
       }
-      
+
       const info = await this.stakingContract.getStakeInfo(address);
       const rewards = await this.stakingContract.calculateReward(address);
       const participationScore = await this.stakingContract.getParticipationScore(address);
-      
+
       return {
         tier: Number(info.tier),
         startTime: Number(info.startTime),
@@ -482,7 +478,7 @@ export class StakingService {
       return null;
     }
   }
-  
+
   /**
    * Get pending rewards for an address
    * @param address
@@ -492,7 +488,7 @@ export class StakingService {
       if (!this.stakingContract) {
         throw new Error('Contract not initialized');
       }
-      
+
       const rewards = await this.stakingContract.calculateReward(address);
       return ethers.formatEther(rewards);
     } catch (error) {
@@ -500,7 +496,7 @@ export class StakingService {
       return '0';
     }
   }
-  
+
   /**
    * Get staking statistics
    * @param userAddress
@@ -518,31 +514,31 @@ export class StakingService {
           console.warn('OmniProvider failed for stats:', error);
         }
       }
-      
+
       // Fallback to calculating from contract
       if (!this.stakingContract) {
         throw new Error('Contract not initialized');
       }
-      
+
       const isEnabled = await this.stakingContract.isStakingEnabled();
-      
+
       // Get tier info
       let totalStaked = BigInt(0);
       let totalStakers = 0;
-      
+
       for (let i = 1; i <= 5; i++) {
         const tierInfo = await this.stakingContract.getTierInfo(i);
         totalStakers += Number(tierInfo.totalStakers);
         // Note: actual staked amount is encrypted, using estimate
         totalStaked += BigInt(tierInfo.totalTierWeight) * BigInt(10 ** 18);
       }
-      
+
       // Get user stake if address provided
       let userStake;
       if (userAddress) {
         userStake = await this.getStakeInfo(userAddress);
       }
-      
+
       return {
         totalStaked: ethers.formatEther(totalStaked),
         totalStakers,
@@ -560,14 +556,14 @@ export class StakingService {
       };
     }
   }
-  
+
   /**
    * Get staking tiers
    */
   public getTiers(): StakingTier[] {
     return this.STAKING_TIERS;
   }
-  
+
   /**
    * Calculate estimated APY for an amount and duration
    * @param amount
@@ -575,18 +571,18 @@ export class StakingService {
    */
   public calculateAPY(amount: string, durationDays: number): number {
     const amountNum = parseFloat(amount);
-    
+
     // Find appropriate tier
-    const tier = this.STAKING_TIERS.find(t => 
+    const tier = this.STAKING_TIERS.find(t =>
       amountNum >= parseFloat(t.minStake) && amountNum <= parseFloat(t.maxStake)
     );
-    
+
     if (!tier) {
       return 0;
     }
-    
+
     let apy = tier.baseAPY;
-    
+
     // Add duration bonuses
     if (durationDays >= 730) { // 2 years
       apy += 5;
@@ -595,10 +591,10 @@ export class StakingService {
     } else if (durationDays >= 30) { // 1 month
       apy += 1;
     }
-    
+
     return apy;
   }
-  
+
   /**
    * Emergency withdraw (forfeits rewards)
    * @param signer
@@ -610,12 +606,12 @@ export class StakingService {
       if (!this.stakingContract) {
         throw new Error('Contract not initialized');
       }
-      
+
       const stakingWithSigner = this.stakingContract.connect(signer || this.provider);
-      
+
       const tx = await stakingWithSigner.emergencyWithdraw();
       const receipt = await tx.wait();
-      
+
       return {
         success: true,
         txHash: receipt.hash

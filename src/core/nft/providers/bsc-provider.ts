@@ -1,21 +1,13 @@
 import type { NFTItem, NFTCollection } from '../../../types/nft';
 import type { ChainProvider } from '../display/multi-chain-display';
 
-/**
- *
- */
+/** Configuration for BSC NFT provider */
 export interface BSCNFTConfig {
-  /**
-   *
-   */
+  /** RPC URL for BSC connection */
   rpcUrl: string;
-  /**
-   *
-   */
+  /** BSCScan API key for blockchain data (optional) */
   bscscanApiKey?: string;
-  /**
-   *
-   */
+  /** Moralis API key for NFT data (optional) */
   moralisApiKey?: string;
 }
 
@@ -33,17 +25,18 @@ export class BSCNFTProvider implements ChainProvider {
   private moralisUrl = 'https://deep-index.moralis.io/api/v2';
 
   /**
-   *
-   * @param config
+   * Create BSC NFT provider
+   * @param config Configuration for provider setup
    */
   constructor(config: BSCNFTConfig) {
     this.config = config;
-    this.isConnected = Boolean(config.rpcUrl);
+    this.isConnected = config.rpcUrl != null;
   }
 
   /**
    * Get all NFTs for a wallet address
-   * @param address
+   * @param address Wallet address to fetch NFTs for
+   * @returns Promise resolving to array of NFT items
    */
   async getNFTs(address: string): Promise<NFTItem[]> {
     try {
@@ -65,8 +58,9 @@ export class BSCNFTProvider implements ChainProvider {
 
   /**
    * Get specific NFT metadata
-   * @param contractAddress
-   * @param tokenId
+   * @param contractAddress NFT contract address
+   * @param tokenId Token ID to fetch metadata for
+   * @returns Promise resolving to NFT item or null
    */
   async getNFTMetadata(contractAddress: string, tokenId: string): Promise<NFTItem | null> {
     try {

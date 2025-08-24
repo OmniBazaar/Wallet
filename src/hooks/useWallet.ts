@@ -4,61 +4,33 @@ import { WalletState, WalletError } from '../types';
 import { getProvider, getAvailableProviders } from '../config/providers';
 import { getNetworkByChainId } from '../config/networks';
 
-/**
- *
- */
+/** Hook for managing wallet connection state and operations */
 export const useWallet = (): {
-    /**
-     *
-     */
+    /** Current connected wallet address */
     address: string | null;
-    /**
-     *
-     */
+    /** Current chain ID */
     chainId: number | null;
-    /**
-     *
-     */
+    /** Browser provider instance */
     provider: ethers.BrowserProvider | null;
-    /**
-     *
-     */
+    /** Whether connection is in progress */
     isConnecting: boolean;
-    /**
-     *
-     */
+    /** Connection error message */
     error: string | null;
-    /**
-     *
-     */
+    /** Connect to a wallet provider */
     connect: (providerId: string) => Promise<void>;
-    /**
-     *
-     */
+    /** Disconnect from current wallet */
     disconnect: () => void;
-    /**
-     *
-     */
+    /** Switch to a different network */
     switchNetwork: (chainId: number) => Promise<void>;
-    /**
-     *
-     */
+    /** Get list of available wallet providers */
     getAvailableWallets: () => Array<{
-        /**
-         *
-         */
+        /** Wallet provider ID */
         id: string;
-        /**
-         *
-         */
+        /** Human-readable wallet name */
         name: string;
-        /**
-         *
-         */
+        /** Wallet icon URL or identifier */
         icon: string;
-        /**
-         *
-         */
+        /** Whether wallet is installed in browser */
         isInstalled: boolean;
     }>;
 } => {
@@ -167,7 +139,8 @@ export const useWallet = (): {
                 if ((switchError as { /**
                                        *
                                        */
-                code?: number }).code === 4902) {
+                    code?: number
+                }).code === 4902) {
                     await provider.request({
                         method: 'wallet_addEthereumChain',
                         params: [{
@@ -210,4 +183,4 @@ export const useWallet = (): {
         switchNetwork,
         getAvailableWallets
     };
-}; 
+};

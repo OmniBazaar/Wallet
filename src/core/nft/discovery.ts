@@ -17,24 +17,23 @@ import {
   SPECIAL_NFT_CONTRACTS,
 } from './types';
 
-/**
- *
- */
+/** Multi-chain NFT discovery service */
 export class NFTDiscoveryService {
   private apiKeys: Record<string, string> = {};
 
   /**
-   *
-   * @param apiKeys
+   * Create NFT discovery service
+   * @param apiKeys API keys for various NFT services
    */
   constructor(apiKeys?: Record<string, string>) {
-    this.apiKeys = apiKeys || {};
+    this.apiKeys = apiKeys ?? {};
   }
 
   /**
    * Discover NFTs across multiple chains
-   * @param address
-   * @param options
+   * @param address Wallet address to discover NFTs for
+   * @param options Discovery options and filters
+   * @returns Promise resolving to discovery result
    */
   async discoverNFTs(
     address: string,
@@ -42,7 +41,7 @@ export class NFTDiscoveryService {
   ): Promise<NFTDiscoveryResult> {
     const chains = options.chains || ['ethereum', 'polygon', 'solana'];
     const allNFTs: NFT[] = [];
-    
+
     // Discover NFTs on each chain in parallel
     const discoveries = chains.map(chain => {
       switch (chain) {
@@ -54,13 +53,13 @@ export class NFTDiscoveryService {
         case 'avalanche':
         case 'bsc':
           return this.discoverEVMNFTs(address, chain, options);
-        
+
         case 'solana':
           return this.discoverSolanaNFTs(address, options);
-        
+
         case 'substrate':
           return this.discoverSubstrateNFTs(address, options);
-        
+
         default:
           return Promise.resolve([]);
       }
@@ -70,12 +69,12 @@ export class NFTDiscoveryService {
     results.forEach(nfts => allNFTs.push(...nfts));
 
     // Filter out spam if requested
-    const filteredNFTs = options.includeSpam 
-      ? allNFTs 
+    const filteredNFTs = options.includeSpam === true
+      ? allNFTs
       : allNFTs.filter(nft => !this.isSpamNFT(nft));
 
     // Apply limit
-    const limitedNFTs = options.limit 
+    const limitedNFTs = options.limit != null
       ? filteredNFTs.slice(0, options.limit)
       : filteredNFTs;
 
@@ -88,9 +87,10 @@ export class NFTDiscoveryService {
 
   /**
    * Discover NFTs on EVM chains using SimpleHash API
-   * @param address
-   * @param chain
-   * @param _options
+   * @param address Wallet address
+   * @param chain EVM chain name
+   * @param _options Discovery options
+   * @returns Promise resolving to array of NFTs
    */
   private async discoverEVMNFTs(
     address: string,
@@ -110,7 +110,7 @@ export class NFTDiscoveryService {
 
       const simpleHashChain = chainMapping[chain] || chain;
       const url = `${NFT_API_ENDPOINTS.simplehash}/nfts/owners?chains=${simpleHashChain}&wallet_addresses=${address}`;
-      
+
       const response = await fetch(url, {
         headers: {
           'X-API-KEY': this.apiKeys.simplehash || '',
@@ -141,7 +141,7 @@ export class NFTDiscoveryService {
   ): Promise<SolanaNFT[]> {
     try {
       const url = `${NFT_API_ENDPOINTS.helius}/addresses/${address}/nfts`;
-      
+
       const response = await fetch(url, {
         headers: {
           'api-key': this.apiKeys.helius || '',
@@ -219,14 +219,16 @@ export class NFTDiscoveryService {
     collection?: { /**
                     *
                     */
-    name?: string };
+      name?: string
+    };
     /**
      *
      */
     contract?: { /**
                   *
                   */
-    type?: string };
+      type?: string
+    };
   }>, chain: string): NFT[] {
     return nfts.map(nft => ({
       id: `${chain}_${nft.contract_address}_${nft.token_id}`,
@@ -256,7 +258,8 @@ export class NFTDiscoveryService {
         verified: nft.collection.marketplace_pages?.some((m: { /**
                                                                 *
                                                                 */
-        verified?: boolean }) => m.verified),
+          verified?: boolean
+        }) => m.verified),
         spam_score: nft.collection.spam_score,
         floor_price: nft.collection.floor_prices?.[0] ? {
           value: nft.collection.floor_prices[0].value,
@@ -291,7 +294,8 @@ export class NFTDiscoveryService {
     ownership: { /**
                   *
                   */
-    owner: string };
+      owner: string
+    };
     /**
      *
      */
@@ -330,10 +334,11 @@ export class NFTDiscoveryService {
         attributes?: Array<{ /**
                               *
                               */
-        trait_type: string; /**
+          trait_type: string; /**
                              *
                              */
-        value: string | number }>;
+          value: string | number
+        }>;
       };
     };
     /**
@@ -355,13 +360,14 @@ export class NFTDiscoveryService {
     creators?: Array<{ /**
                         *
                         */
-    address: string; /**
+      address: string; /**
                       *
                       */
-    verified: boolean; /**
+      verified: boolean; /**
                         *
                         */
-    share: number }>;
+      share: number
+    }>;
   }>): SolanaNFT[] {
     return nfts.map(nft => ({
       id: `solana_${nft.id}`,
@@ -380,10 +386,11 @@ export class NFTDiscoveryService {
         attributes: nft.content?.metadata?.attributes?.map((attr: { /**
                                                                      *
                                                                      */
-        trait_type: string; /**
+          trait_type: string; /**
                              *
                              */
-        value: string | number }) => ({
+          value: string | number
+        }) => ({
           trait_type: attr.trait_type,
           value: attr.value,
         })) || [],
@@ -399,13 +406,14 @@ export class NFTDiscoveryService {
       creators: nft.creators?.map((creator: { /**
                                                *
                                                */
-      address: string; /**
+        address: string; /**
                         *
                         */
-      verified: boolean; /**
+        verified: boolean; /**
                           *
                           */
-      share: number }) => ({
+        share: number
+      }) => ({
         address: creator.address,
         verified: creator.verified,
         share: creator.share,
@@ -461,7 +469,7 @@ export class NFTDiscoveryService {
     // Check for common spam indicators
     const name = nft.metadata.name?.toLowerCase() || '';
     const spamKeywords = ['airdrop', 'claim', 'voucher', 'test', '$'];
-    
+
     return spamKeywords.some(keyword => name.includes(keyword));
   }
 
@@ -478,7 +486,7 @@ export class NFTDiscoveryService {
   ): Promise<NFT | null> {
     try {
       const url = `${NFT_API_ENDPOINTS.simplehash}/nfts/${chain}/${contractAddress}/${tokenId}`;
-      
+
       const response = await fetch(url, {
         headers: {
           'X-API-KEY': this.apiKeys.simplehash || '',
@@ -511,7 +519,7 @@ export class NFTDiscoveryService {
   ): Promise<NFT[]> {
     try {
       const url = `${NFT_API_ENDPOINTS.simplehash}/nfts/collection/${chain}/${collectionAddress}?limit=${limit}`;
-      
+
       const response = await fetch(url, {
         headers: {
           'X-API-KEY': this.apiKeys.simplehash || '',
@@ -536,13 +544,13 @@ export class NFTDiscoveryService {
    */
   isSpecialNFTContract(contractAddress: string): string | null {
     const lowercased = contractAddress.toLowerCase();
-    
+
     for (const [name, address] of Object.entries(SPECIAL_NFT_CONTRACTS)) {
       if (lowercased === address.toLowerCase()) {
         return name;
       }
     }
-    
+
     return null;
   }
 }

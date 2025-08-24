@@ -8,34 +8,23 @@ const ERC20_ABI = [
 ];
 
 /**
- *
- * @param tokenAddress
- * @param spenderAddress
+ * Hook for ERC-20 token approvals
+ * @param tokenAddress Contract address of the token
+ * @param spenderAddress Address that will be approved to spend tokens
+ * @returns Token approval utilities and state
  */
 export const useTokenApproval = (tokenAddress: string, spenderAddress: string): {
-    /**
-     *
-     */
+    /** Whether an approval is currently in progress */
     isApproving: boolean;
-    /**
-     *
-     */
+    /** Error message if approval failed */
     error: string | null;
-    /**
-     *
-     */
+    /** Current allowance amount */
     allowance: string;
-    /**
-     *
-     */
+    /** Approve specific amount of tokens */
     approve: (amount: string) => Promise<ethers.TransactionResponse>;
-    /**
-     *
-     */
+    /** Approve maximum amount of tokens */
     approveMax: () => Promise<ethers.TransactionResponse>;
-    /**
-     *
-     */
+    /** Check current allowance */
     checkAllowance: () => Promise<void>;
 } => {
     const { provider, address } = useWallet();
@@ -44,7 +33,7 @@ export const useTokenApproval = (tokenAddress: string, spenderAddress: string): 
     const [allowance, setAllowance] = useState<string>('0');
 
     const checkAllowance = useCallback(async () => {
-        if (!provider || !address || !tokenAddress || !spenderAddress) return;
+        if (provider == null || address == null || tokenAddress == null || spenderAddress == null) return;
 
         try {
             const contract = new ethers.Contract(tokenAddress, ERC20_ABI, provider);
@@ -57,7 +46,7 @@ export const useTokenApproval = (tokenAddress: string, spenderAddress: string): 
     }, [provider, address, tokenAddress, spenderAddress]);
 
     const approve = useCallback(async (amount: string) => {
-        if (!provider || !address || !tokenAddress || !spenderAddress) {
+        if (provider == null || address == null || tokenAddress == null || spenderAddress == null) {
             throw new Error('Missing required parameters for approval');
         }
 
@@ -76,7 +65,7 @@ export const useTokenApproval = (tokenAddress: string, spenderAddress: string): 
 
         } catch (err) {
             const error = err as Error;
-            setError(error.message || 'Failed to approve token');
+            setError(error.message ?? 'Failed to approve token');
             throw error;
         } finally {
             setIsApproving(false);
@@ -95,4 +84,4 @@ export const useTokenApproval = (tokenAddress: string, spenderAddress: string): 
         approveMax,
         checkAllowance
     };
-}; 
+};

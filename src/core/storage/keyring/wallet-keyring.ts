@@ -12,90 +12,54 @@ interface HDKeyLike {
 }
 import BrowserStorage, { StorageInterface } from '../common/browser-storage';
 
-/**
- *
- */
+/** Represents a wallet account */
 export interface Account {
-  /**
-   *
-   */
+  /** Unique account identifier */
   id: string;
-  /**
-   *
-   */
+  /** User-friendly account name */
   name: string;
-  /**
-   *
-   */
+  /** Blockchain address for this account */
   address: string;
-  /**
-   *
-   */
+  /** Public key for this account */
   publicKey: string;
-  /**
-   *
-   */
+  /** HD wallet derivation path */
   derivationPath: string;
-  /**
-   *
-   */
+  /** Type of blockchain this account belongs to */
   chainType: 'ethereum' | 'bitcoin' | 'solana' | 'coti' | 'omnicoin';
-  /**
-   *
-   */
+  /** Timestamp when account was created */
   createdAt: number;
 }
 
-/**
- *
- */
+/** Wallet data structure containing accounts and metadata */
 export interface WalletData {
-  /**
-   *
-   */
+  /** Unique wallet identifier */
   id: string;
-  /**
-   *
-   */
+  /** User-friendly wallet name */
   name: string;
-  /**
-   *
-   */
+  /** Timestamp when wallet was created */
   createdAt: number;
-  /**
-   *
-   */
+  /** Array of accounts in this wallet */
   accounts: Account[];
 }
 
-/**
- *
- */
+/** Options for keyring initialization */
 export interface KeyringOptions {
-  /**
-   *
-   */
+  /** Optional mnemonic phrase (generated if not provided) */
   mnemonic?: string;
-  /**
-   *
-   */
+  /** Password for encrypting the keyring */
   password: string;
-  /**
-   *
-   */
+  /** Optional extra word for additional security */
   extraWord?: string;
 }
 
-/**
- *
- */
+/** Wallet keyring for managing HD wallet accounts and encryption */
 class WalletKeyring {
   private storage: StorageInterface;
   private isUnlocked = false;
   private masterHDKey: HDKeyLike | null = null;
   private encryptedMnemonic: string | null = null;
   private walletData: WalletData | null = null;
-  
+
   private readonly STORAGE_KEYS = {
     ENCRYPTED_MNEMONIC: 'encrypted_mnemonic',
     WALLET_DATA: 'wallet_data',
@@ -103,8 +67,8 @@ class WalletKeyring {
   };
 
   /**
-   *
-   * @param namespace
+   * Create a new wallet keyring
+   * @param namespace Storage namespace for this keyring
    */
   constructor(namespace = 'omnibazaar-wallet') {
     this.storage = new BrowserStorage(namespace);
@@ -127,7 +91,7 @@ class WalletKeyring {
 
     // Create encrypted mnemonic
     this.encryptedMnemonic = this.encrypt(mnemonic, options.password);
-    
+
     // Create initial wallet data
     this.walletData = {
       id: this.generateId(),
@@ -172,7 +136,7 @@ class WalletKeyring {
 
       // Decrypt mnemonic
       const mnemonic = this.decrypt(this.encryptedMnemonic, password);
-      
+
       // Create master HD key
       const _seed = _mnemonicToSeedSync(mnemonic);
       // Note: HDKey import needed - this is a placeholder interface
@@ -222,13 +186,13 @@ class WalletKeyring {
 
     const accountIndex = this.walletData.accounts.filter(acc => acc.chainType === chainType).length;
     const derivationPath = this.getDerivationPath(chainType, accountIndex);
-    
+
     // Derive key for this path
     const childKey = this.masterHDKey.derive(derivationPath);
-    
+
     // Get address based on chain type
     const address = this.getAddressForChain(chainType, childKey);
-    
+
     const account: Account = {
       id: this.generateId(),
       name: name || `${chainType.charAt(0).toUpperCase() + chainType.slice(1)} Account ${accountIndex + 1}`,
@@ -241,7 +205,7 @@ class WalletKeyring {
 
     // Add to wallet data
     this.walletData.accounts.push(account);
-    
+
     // Save to storage
     await this.storage.set(this.STORAGE_KEYS.WALLET_DATA, this.walletData);
 
@@ -258,7 +222,7 @@ class WalletKeyring {
       return [];
     }
 
-    return chainType 
+    return chainType
       ? this.walletData.accounts.filter(acc => acc.chainType === chainType)
       : this.walletData.accounts;
   }
@@ -293,7 +257,7 @@ class WalletKeyring {
     }
 
     const _childKey = this.masterHDKey.derive(account.derivationPath);
-    
+
     // For now, return a simple signature (implement proper signing based on chain type)
     const messageHash = createHash('sha256').update(message).digest();
     return `0x${messageHash.toString('hex')}`;
@@ -308,7 +272,7 @@ class WalletKeyring {
     if (!this.encryptedMnemonic) {
       this.encryptedMnemonic = await this.storage.get(this.STORAGE_KEYS.ENCRYPTED_MNEMONIC);
     }
-    
+
     if (!this.encryptedMnemonic) {
       throw new Error('No mnemonic found');
     }
@@ -335,18 +299,18 @@ class WalletKeyring {
   private decrypt(encryptedText: string, password: string): string {
     const bytes = CryptoJS.AES.decrypt(encryptedText, password);
     const decrypted = bytes.toString(CryptoJS.enc.Utf8);
-    
+
     if (!decrypted) {
       throw new Error('Failed to decrypt');
     }
-    
+
     return decrypted;
   }
 
   private getDerivationPath(chainType: Account['chainType'], accountIndex: number): string {
     const coinTypes = {
       ethereum: "60",
-      bitcoin: "0", 
+      bitcoin: "0",
       solana: "501",
       coti: "60", // Using Ethereum's coin type for now
       omnicoin: "60" // Using Ethereum's coin type for now
@@ -394,4 +358,4 @@ class WalletKeyring {
   }
 }
 
-export default WalletKeyring; 
+export default WalletKeyring;

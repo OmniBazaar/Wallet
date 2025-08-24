@@ -9,7 +9,7 @@ import {
 import { hexToBuffer, utf8ToHex } from ".";
 
 /** NaCl encryption version identifier */
-const NACL_VERSION = "x25519-xsalsa20-poly1305";
+export const NACL_VERSION = "x25519-xsalsa20-poly1305";
 
 /**
  * Decodes a hex string using NaCl base64 decoding
@@ -79,7 +79,7 @@ const naclDecrypt = ({
       );
       let output;
       try {
-        output = encodeUTF8(decryptedMessage);
+        output = encodeUTF8(decryptedMessage as Uint8Array);
         return output;
       } catch (err) {
         throw new Error("Decryption failed.");

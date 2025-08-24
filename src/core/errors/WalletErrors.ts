@@ -8,9 +8,9 @@
  */
 export class WalletError extends Error {
   /**
-   *
-   * @param message
-   * @param code
+   * Create a new wallet error
+   * @param message Error message
+   * @param code Error code
    */
   constructor(message: string, public readonly code: string) {
     super(message);
@@ -23,8 +23,8 @@ export class WalletError extends Error {
  */
 export class WalletConnectionError extends WalletError {
   /**
-   *
-   * @param message
+   * Create a new wallet connection error
+   * @param message Error message
    */
   constructor(message: string) {
     super(message, 'WALLET_CONNECTION_FAILED');
@@ -37,8 +37,8 @@ export class WalletConnectionError extends WalletError {
  */
 export class InsufficientFundsError extends WalletError {
   /**
-   *
-   * @param message
+   * Create a new insufficient funds error
+   * @param message Error message
    */
   constructor(message: string) {
     super(message, 'INSUFFICIENT_FUNDS');
@@ -51,9 +51,9 @@ export class InsufficientFundsError extends WalletError {
  */
 export class ContractError extends WalletError {
   /**
-   *
-   * @param message
-   * @param originalError
+   * Create a new contract error
+   * @param message Error message
+   * @param originalError Original error that caused this error
    */
   constructor(message: string, public readonly originalError?: unknown) {
     super(message, 'CONTRACT_ERROR');
@@ -66,9 +66,9 @@ export class ContractError extends WalletError {
  */
 export class NetworkError extends WalletError {
   /**
-   *
-   * @param message
-   * @param networkName
+   * Create a new network error
+   * @param message Error message
+   * @param networkName Name of the network that failed
    */
   constructor(message: string, public readonly networkName?: string) {
     super(message, 'NETWORK_ERROR');
@@ -81,8 +81,8 @@ export class NetworkError extends WalletError {
  */
 export class TransactionSigningError extends WalletError {
   /**
-   *
-   * @param message
+   * Create a new transaction signing error
+   * @param message Error message
    */
   constructor(message: string) {
     super(message, 'TRANSACTION_SIGNING_FAILED');

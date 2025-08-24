@@ -6,73 +6,41 @@ import { ethers } from 'ethers';
 import { KeyringManager } from '../keyring/KeyringManager';
 import { TransactionDatabase } from '../../services/database/TransactionDatabase';
 
-/**
- *
- */
+/** Transaction request parameters */
 export interface TransactionRequest {
-  /**
-   *
-   */
+  /** Recipient address or ENS name */
   to: string;           // Can be address or ENS name
-  /**
-   *
-   */
+  /** Transaction value in wei */
   value?: string;       // Amount in wei
-  /**
-   *
-   */
+  /** Transaction data payload */
   data?: string;        // Transaction data
-  /**
-   *
-   */
+  /** Target blockchain network */
   chainType: 'ethereum' | 'polygon' | 'arbitrum' | 'optimism';
-  /**
-   *
-   */
+  /** Gas limit for transaction */
   gasLimit?: number;
-  /**
-   *
-   */
+  /** Gas price in wei */
   gasPrice?: string;
 }
 
-/**
- *
- */
+/** Result of a completed transaction */
 export interface TransactionResult {
-  /**
-   *
-   */
+  /** Transaction hash */
   hash: string;
-  /**
-   *
-   */
+  /** Sender address */
   from: string;
-  /**
-   *
-   */
+  /** Recipient address */
   to: string;
-  /**
-   *
-   */
+  /** Transaction value */
   value: string;
-  /**
-   *
-   */
+  /** Blockchain network */
   chainType: string;
-  /**
-   *
-   */
+  /** Address after ENS resolution */
   resolvedAddress: string;
-  /**
-   *
-   */
+  /** Original input address/ENS name */
   originalAddress: string;
 }
 
-/**
- *
- */
+/** Service for handling multi-chain transactions with ENS resolution */
 export class TransactionService {
   private static instance: TransactionService;
   private keyringManager: KeyringManager;
@@ -84,10 +52,11 @@ export class TransactionService {
   }
 
   /**
-   *
+   * Get singleton instance of TransactionService
+   * @returns TransactionService instance
    */
   public static getInstance(): TransactionService {
-    if (!TransactionService.instance) {
+    if (TransactionService.instance == null) {
       TransactionService.instance = new TransactionService();
     }
     return TransactionService.instance;
@@ -325,7 +294,7 @@ export class TransactionService {
       // Estimate gas (simplified - would need actual provider)
       const baseGas = 21000; // Basic transfer
       const dataGas = request.data ? (request.data.length - 2) / 2 * 68 : 0; // Data cost
-      
+
       return baseGas + dataGas;
     } catch (error) {
       console.error('Gas estimation failed:', error);

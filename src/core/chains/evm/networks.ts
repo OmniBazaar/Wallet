@@ -3,41 +3,23 @@
  * Consolidated from Enkrypt and DePay sources
  */
 
-/**
- *
- */
+/** EVM network configuration */
 export interface EVMNetworkConfig {
-  /**
-   *
-   */
+  /** Chain ID number */
   chainId: number;
-  /**
-   *
-   */
+  /** Network name */
   name: string;
-  /**
-   *
-   */
+  /** Short network identifier */
   shortName: string;
-  /**
-   *
-   */
+  /** Native currency symbol */
   currency: string;
-  /**
-   *
-   */
+  /** RPC URL(s) for the network */
   rpcUrl: string | string[];
-  /**
-   *
-   */
+  /** Block explorer base URL */
   explorer: string;
-  /**
-   *
-   */
+  /** Network icon identifier (optional) */
   icon?: string;
-  /**
-   *
-   */
+  /** Whether this is a testnet (optional) */
   testnet?: boolean;
 }
 
@@ -56,7 +38,7 @@ export const TIER1_NETWORKS: Record<string, EVMNetworkConfig> = {
     explorer: 'https://arbiscan.io',
     icon: 'arbitrum'
   },
-  
+
   optimism: {
     chainId: 10,
     name: 'Optimism',
@@ -70,7 +52,7 @@ export const TIER1_NETWORKS: Record<string, EVMNetworkConfig> = {
     explorer: 'https://optimistic.etherscan.io',
     icon: 'optimism'
   },
-  
+
   base: {
     chainId: 8453,
     name: 'Base',
@@ -84,7 +66,7 @@ export const TIER1_NETWORKS: Record<string, EVMNetworkConfig> = {
     explorer: 'https://basescan.org',
     icon: 'base'
   },
-  
+
   polygon: {
     chainId: 137,
     name: 'Polygon',
@@ -98,7 +80,7 @@ export const TIER1_NETWORKS: Record<string, EVMNetworkConfig> = {
     explorer: 'https://polygonscan.com',
     icon: 'polygon'
   },
-  
+
   avalanche: {
     chainId: 43114,
     name: 'Avalanche C-Chain',
@@ -129,7 +111,7 @@ export const TIER2_NETWORKS: Record<string, EVMNetworkConfig> = {
     explorer: 'https://bscscan.com',
     icon: 'bsc'
   },
-  
+
   fantom: {
     chainId: 250,
     name: 'Fantom',
@@ -143,7 +125,7 @@ export const TIER2_NETWORKS: Record<string, EVMNetworkConfig> = {
     explorer: 'https://ftmscan.com',
     icon: 'fantom'
   },
-  
+
   gnosis: {
     chainId: 100,
     name: 'Gnosis Chain',
@@ -157,7 +139,7 @@ export const TIER2_NETWORKS: Record<string, EVMNetworkConfig> = {
     explorer: 'https://gnosisscan.io',
     icon: 'gnosis'
   },
-  
+
   moonbeam: {
     chainId: 1284,
     name: 'Moonbeam',
@@ -171,7 +153,7 @@ export const TIER2_NETWORKS: Record<string, EVMNetworkConfig> = {
     explorer: 'https://moonscan.io',
     icon: 'moonbeam'
   },
-  
+
   aurora: {
     chainId: 1313161554,
     name: 'Aurora',
@@ -184,7 +166,7 @@ export const TIER2_NETWORKS: Record<string, EVMNetworkConfig> = {
     explorer: 'https://explorer.aurora.dev',
     icon: 'aurora'
   },
-  
+
   celo: {
     chainId: 42220,
     name: 'Celo',
@@ -197,7 +179,7 @@ export const TIER2_NETWORKS: Record<string, EVMNetworkConfig> = {
     explorer: 'https://celoscan.io',
     icon: 'celo'
   },
-  
+
   harmony: {
     chainId: 1666600000,
     name: 'Harmony',
@@ -210,7 +192,7 @@ export const TIER2_NETWORKS: Record<string, EVMNetworkConfig> = {
     explorer: 'https://explorer.harmony.one',
     icon: 'harmony'
   },
-  
+
   cronos: {
     chainId: 25,
     name: 'Cronos',
@@ -239,7 +221,7 @@ export const TIER3_NETWORKS: Record<string, EVMNetworkConfig> = {
     explorer: 'https://explorer.zksync.io',
     icon: 'zksync'
   },
-  
+
   linea: {
     chainId: 59144,
     name: 'Linea',
@@ -252,7 +234,7 @@ export const TIER3_NETWORKS: Record<string, EVMNetworkConfig> = {
     explorer: 'https://lineascan.build',
     icon: 'linea'
   },
-  
+
   scroll: {
     chainId: 534352,
     name: 'Scroll',
@@ -265,7 +247,7 @@ export const TIER3_NETWORKS: Record<string, EVMNetworkConfig> = {
     explorer: 'https://scrollscan.com',
     icon: 'scroll'
   },
-  
+
   metis: {
     chainId: 1088,
     name: 'Metis',
@@ -278,7 +260,7 @@ export const TIER3_NETWORKS: Record<string, EVMNetworkConfig> = {
     explorer: 'https://andromeda-explorer.metis.io',
     icon: 'metis'
   },
-  
+
   worldchain: {
     chainId: 480,
     name: 'World Chain',
@@ -306,7 +288,7 @@ export const TESTNET_NETWORKS: Record<string, EVMNetworkConfig> = {
     icon: 'ethereum',
     testnet: true
   },
-  
+
   arbitrumSepolia: {
     chainId: 421614,
     name: 'Arbitrum Sepolia',
@@ -317,7 +299,7 @@ export const TESTNET_NETWORKS: Record<string, EVMNetworkConfig> = {
     icon: 'arbitrum',
     testnet: true
   },
-  
+
   optimismSepolia: {
     chainId: 11155420,
     name: 'Optimism Sepolia',
@@ -328,7 +310,7 @@ export const TESTNET_NETWORKS: Record<string, EVMNetworkConfig> = {
     icon: 'optimism',
     testnet: true
   },
-  
+
   baseSepolia: {
     chainId: 84532,
     name: 'Base Sepolia',
@@ -339,7 +321,7 @@ export const TESTNET_NETWORKS: Record<string, EVMNetworkConfig> = {
     icon: 'base',
     testnet: true
   },
-  
+
   polygonMumbai: {
     chainId: 80001,
     name: 'Polygon Mumbai',

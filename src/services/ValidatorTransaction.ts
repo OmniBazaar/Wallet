@@ -1,6 +1,6 @@
 /**
  * Validator Transaction Service Integration
- * 
+ *
  * Manages transaction processing through the Validator network
  */
 
@@ -11,91 +11,49 @@ import { ethers } from 'ethers';
 import { ref, Ref } from 'vue';
 import { generateTransactionId, generateBatchId } from '../utils/id-generator';
 
-/**
- *
- */
+/** Configuration for validator transaction service */
 export interface ValidatorTransactionConfig {
-  /**
-   *
-   */
+  /** URL endpoint for validator node */
   validatorEndpoint: string;
-  /**
-   *
-   */
+  /** Network identifier */
   networkId: string;
-  /**
-   *
-   */
+  /** User identifier */
   userId: string;
-  /**
-   *
-   */
+  /** Whether to enable fee distribution */
   enableFeeDistribution: boolean;
-  /**
-   *
-   */
+  /** Maximum number of retry attempts */
   maxRetries: number;
 }
 
-/**
- *
- */
+/** Represents a blockchain transaction */
 export interface Transaction {
-  /**
-   *
-   */
+  /** Unique transaction identifier */
   id: string;
-  /**
-   *
-   */
+  /** Transaction hash on blockchain */
   hash: string;
-  /**
-   *
-   */
+  /** Sender address */
   from: string;
-  /**
-   *
-   */
+  /** Recipient address */
   to: string;
-  /**
-   *
-   */
+  /** Transaction value in wei */
   value: string;
-  /**
-   *
-   */
+  /** Transaction data payload */
   data?: string;
-  /**
-   *
-   */
+  /** Chain identifier */
   chainId: string;
-  /**
-   *
-   */
+  /** Transaction nonce */
   nonce: number;
-  /**
-   *
-   */
+  /** Gas limit for transaction */
   gasLimit: string;
-  /**
-   *
-   */
+  /** Gas price in wei */
   gasPrice: string;
-  /**
-   *
-   */
+  /** Current transaction status */
   status: 'pending' | 'confirmed' | 'failed';
-  /**
-   *
-   */
+  /** Block number where transaction was mined */
   blockNumber?: number;
-  /**
-   *
-   */
+  /** Number of confirmations */
   confirmations: number;
-  /**
-   *
-   */
+  /** Transaction timestamp */
   timestamp: number;
   /**
    *
@@ -137,55 +95,31 @@ export interface TransactionBatch {
   timestamp: number;
 }
 
-/**
- *
- */
+/** Gas estimation for a transaction */
 export interface GasEstimate {
-  /**
-   *
-   */
+  /** Estimated gas limit */
   gasLimit: string;
-  /**
-   *
-   */
+  /** Gas price in wei */
   gasPrice: string;
-  /**
-   *
-   */
+  /** Maximum fee per gas (EIP-1559) */
   maxFeePerGas?: string;
-  /**
-   *
-   */
+  /** Maximum priority fee per gas (EIP-1559) */
   maxPriorityFeePerGas?: string;
-  /**
-   *
-   */
+  /** Total estimated cost in wei */
   totalCost: string;
 }
 
-/**
- *
- */
+/** Transaction receipt from blockchain */
 export interface TransactionReceipt {
-  /**
-   *
-   */
+  /** Transaction hash */
   transactionHash: string;
-  /**
-   *
-   */
+  /** Block number where transaction was mined */
   blockNumber: number;
-  /**
-   *
-   */
+  /** Hash of the block containing the transaction */
   blockHash: string;
-  /**
-   *
-   */
+  /** Sender address */
   from: string;
-  /**
-   *
-   */
+  /** Recipient address */
   to: string;
   /**
    *
@@ -279,7 +213,7 @@ export class ValidatorTransactionService {
   private pendingTransactions: Map<string, Transaction> = new Map();
   private transactionWatchers: Map<string, TransactionWatcher> = new Map();
   private transactionHistory: Transaction[] = [];
-  
+
   // Reactive references for Vue integration
   public pendingTxRef: Ref<Transaction[]> = ref([]);
   public historyRef: Ref<Transaction[]> = ref([]);
@@ -303,13 +237,13 @@ export class ValidatorTransactionService {
     try {
       // Initialize validator client
       await this.validatorClient.initialize();
-      
+
       // Load transaction history
       await this.loadTransactionHistory();
-      
+
       // Start transaction monitoring
       this.startTransactionMonitoring();
-      
+
       console.warn('Validator Transaction Service initialized successfully');
     } catch (error) {
       console.error('Failed to initialize Validator Transaction Service:', error);
@@ -405,7 +339,7 @@ export class ValidatorTransactionService {
       if (result.success && result.transactionHash) {
         // Update transaction with hash
         tx.hash = result.transactionHash;
-        
+
         // Start watching for confirmations
         this.watchTransaction(tx.hash, (receipt) => {
           this.handleTransactionReceipt(tx.id, receipt);
@@ -477,7 +411,7 @@ export class ValidatorTransactionService {
             txData.value,
             txData.data
           );
-          
+
           batch.transactions.push(tx);
           totalValue += ethers.parseEther(tx.value);
           totalFee += ethers.parseEther(tx.fee || '0');
@@ -490,7 +424,7 @@ export class ValidatorTransactionService {
 
       batch.totalValue = ethers.formatEther(totalValue);
       batch.totalFee = ethers.formatEther(totalFee);
-      
+
       if (batch.transactions.length === transactions.length) {
         batch.status = 'processing';
       }
@@ -541,7 +475,7 @@ export class ValidatorTransactionService {
   async getTransactionReceipt(txHash: string): Promise<TransactionReceipt | null> {
     try {
       const receipt = await this.blockchain.getTransactionReceipt(txHash);
-      
+
       if (!receipt) {
         return null;
       }
@@ -763,8 +697,8 @@ export class ValidatorTransactionService {
     // Filter by address if provided
     if (options?.address) {
       const address = options.address.toLowerCase();
-      history = history.filter(tx => 
-        tx.from.toLowerCase() === address || 
+      history = history.filter(tx =>
+        tx.from.toLowerCase() === address ||
         tx.to.toLowerCase() === address
       );
     }
@@ -772,7 +706,7 @@ export class ValidatorTransactionService {
     // Apply pagination
     const offset = options?.offset || 0;
     const limit = options?.limit || 50;
-    
+
     return history.slice(offset, offset + limit);
   }
 
@@ -804,12 +738,12 @@ export class ValidatorTransactionService {
         tx.blockNumber || '',
         new Date(tx.timestamp).toISOString()
       ]);
-      
+
       return [headers, ...rows]
         .map(row => row.join(','))
         .join('\n');
     }
-    
+
     throw new Error('Unsupported export format');
   }
 
@@ -834,7 +768,7 @@ export class ValidatorTransactionService {
       interval: setInterval(async () => {
         try {
           const receipt = await this.getTransactionReceipt(txHash);
-          
+
           if (receipt) {
             // Transaction confirmed
             callback(receipt);
@@ -956,12 +890,12 @@ export class ValidatorTransactionService {
       // Move to history
       this.transactionHistory.unshift(tx);
       this.pendingTransactions.delete(txId);
-      
+
       // Keep history size manageable
       if (this.transactionHistory.length > 1000) {
         this.transactionHistory = this.transactionHistory.slice(0, 1000);
       }
-      
+
       await this.saveTransactionHistory();
     }
 

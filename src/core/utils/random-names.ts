@@ -1,7 +1,9 @@
-// Docker names generator, JavaScript/TypeScript port
-// https://github.com/shamrin/namesgenerator
-// Copyright (c) 2017 Alexey Shamrin
-// MIT License
+/**
+ * Docker names generator, JavaScript/TypeScript port
+ * https://github.com/shamrin/namesgenerator
+ * Copyright (c) 2017 Alexey Shamrin
+ * MIT License
+ */
 
 const left = [
   "admiring",

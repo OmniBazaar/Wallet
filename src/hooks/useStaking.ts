@@ -1,6 +1,6 @@
 /**
  * React hook for staking operations
- * 
+ *
  * Provides easy access to staking functionality from React components
  */
 
@@ -9,78 +9,49 @@ import { ethers } from 'ethers';
 import { useWallet } from './useWallet';
 import { StakingService, StakeInfo, StakingStats, StakingTier } from '../services/StakingService';
 
-/**
- *
- */
+/** Return type for useStaking hook */
 export interface UseStakingReturn {
   // State
-  /**
-   *
-   */
+  /** Current stake information */
   stakeInfo: StakeInfo | null;
-  /**
-   *
-   */
+  /** Overall staking statistics */
   stakingStats: StakingStats | null;
-  /**
-   *
-   */
+  /** Pending rewards amount */
   pendingRewards: string;
-  /**
-   *
-   */
+  /** Available staking tiers */
   tiers: StakingTier[];
-  /**
-   *
-   */
+  /** Whether operations are loading */
   isLoading: boolean;
-  /**
-   *
-   */
+  /** Error message if any */
   error: string | null;
-  
+
   // Actions
-  /**
-   *
-   */
+  /** Stake tokens */
   stake: (amount: string, durationDays: number, usePrivacy?: boolean) => Promise<boolean>;
-  /**
-   *
-   */
+  /** Unstake tokens */
   unstake: (amount: string) => Promise<boolean>;
-  /**
-   *
-   */
-  claimRewards: () => Promise<{ /**
-                                 *
-                                 */
-  success: boolean; /**
-                     *
-                     */
-  amount?: string }>;
-  /**
-   *
-   */
+  /** Claim staking rewards */
+  claimRewards: () => Promise<{
+    /** Whether claim was successful */
+    success: boolean;
+    /** Amount claimed */
+    amount?: string;
+  }>;
+  /** Compound rewards back into stake */
   compound: () => Promise<boolean>;
-  /**
-   *
-   */
+  /** Emergency withdraw all staked tokens */
   emergencyWithdraw: () => Promise<boolean>;
-  
+
   // Helpers
-  /**
-   *
-   */
+  /** Calculate APY for given amount and duration */
   calculateAPY: (amount: string, durationDays: number) => number;
-  /**
-   *
-   */
+  /** Refresh all staking data */
   refresh: () => Promise<void>;
 }
 
 /**
  * useStaking Hook
- * 
+ *
  * @example
  * ```typescript
  * const {
@@ -89,10 +60,10 @@ export interface UseStakingReturn {
  *   stake,
  *   claimRewards
  * } = useStaking();
- * 
+ *
  * // Stake 1000 XOM for 30 days
  * await stake('1000', 30);
- * 
+ *
  * // Claim rewards
  * const result = await claimRewards();
  * console.log(`Claimed ${result.amount} XOM`);
@@ -101,24 +72,24 @@ export interface UseStakingReturn {
 export const useStaking = (): UseStakingReturn => {
   const { address, signer, provider } = useWallet();
   const [stakingService] = useState(() => StakingService.getInstance());
-  
+
   const [stakeInfo, setStakeInfo] = useState<StakeInfo | null>(null);
   const [stakingStats, setStakingStats] = useState<StakingStats | null>(null);
   const [pendingRewards, setPendingRewards] = useState<string>('0');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Fetch stake info
   const fetchStakeInfo = useCallback(async () => {
     if (!address) return;
-    
+
     try {
       setIsLoading(true);
       setError(null);
-      
+
       const info = await stakingService.getStakeInfo(address);
       setStakeInfo(info);
-      
+
       if (info?.isActive) {
         const rewards = await stakingService.getPendingRewards(address);
         setPendingRewards(rewards);
@@ -130,7 +101,7 @@ export const useStaking = (): UseStakingReturn => {
       setIsLoading(false);
     }
   }, [address, stakingService]);
-  
+
   // Fetch staking statistics
   const fetchStakingStats = useCallback(async () => {
     try {
@@ -140,7 +111,7 @@ export const useStaking = (): UseStakingReturn => {
       console.error('Failed to fetch staking stats:', err);
     }
   }, [address, stakingService]);
-  
+
   // Refresh all data
   const refresh = useCallback(async () => {
     await Promise.all([
@@ -148,22 +119,22 @@ export const useStaking = (): UseStakingReturn => {
       fetchStakingStats()
     ]);
   }, [fetchStakeInfo, fetchStakingStats]);
-  
+
   // Initial load
   useEffect(() => {
     if (address) {
       refresh();
     }
   }, [address, refresh]);
-  
+
   // Auto-refresh every 30 seconds
   useEffect(() => {
     if (!address) return;
-    
+
     const interval = setInterval(refresh, 30000);
     return () => clearInterval(interval);
   }, [address, refresh]);
-  
+
   // Stake tokens
   const stake = useCallback(async (
     amount: string,
@@ -174,13 +145,13 @@ export const useStaking = (): UseStakingReturn => {
       setError('No wallet connected');
       return false;
     }
-    
+
     try {
       setIsLoading(true);
       setError(null);
-      
+
       const result = await stakingService.stake(amount, durationDays, usePrivacy, signer);
-      
+
       if (result.success) {
         await refresh();
         return true;
@@ -197,20 +168,20 @@ export const useStaking = (): UseStakingReturn => {
       setIsLoading(false);
     }
   }, [signer, stakingService, refresh]);
-  
+
   // Unstake tokens
   const unstake = useCallback(async (amount: string): Promise<boolean> => {
     if (!signer) {
       setError('No wallet connected');
       return false;
     }
-    
+
     try {
       setIsLoading(true);
       setError(null);
-      
+
       const result = await stakingService.unstake(amount, signer);
-      
+
       if (result.success) {
         await refresh();
         return true;
@@ -227,20 +198,20 @@ export const useStaking = (): UseStakingReturn => {
       setIsLoading(false);
     }
   }, [signer, stakingService, refresh]);
-  
+
   // Claim rewards
   const claimRewards = useCallback(async (): Promise<{ success: boolean; amount?: string }> => {
     if (!signer) {
       setError('No wallet connected');
       return { success: false };
     }
-    
+
     try {
       setIsLoading(true);
       setError(null);
-      
+
       const result = await stakingService.claimRewards(signer);
-      
+
       if (result.success) {
         await refresh();
         return { success: true, amount: result.amount };
@@ -257,20 +228,20 @@ export const useStaking = (): UseStakingReturn => {
       setIsLoading(false);
     }
   }, [signer, stakingService, refresh]);
-  
+
   // Compound rewards
   const compound = useCallback(async (): Promise<boolean> => {
     if (!signer) {
       setError('No wallet connected');
       return false;
     }
-    
+
     try {
       setIsLoading(true);
       setError(null);
-      
+
       const result = await stakingService.compound(signer);
-      
+
       if (result.success) {
         await refresh();
         return true;
@@ -287,24 +258,24 @@ export const useStaking = (): UseStakingReturn => {
       setIsLoading(false);
     }
   }, [signer, stakingService, refresh]);
-  
+
   // Emergency withdraw
   const emergencyWithdraw = useCallback(async (): Promise<boolean> => {
     if (!signer) {
       setError('No wallet connected');
       return false;
     }
-    
+
     if (!window.confirm('Emergency withdraw will forfeit all pending rewards. Continue?')) {
       return false;
     }
-    
+
     try {
       setIsLoading(true);
       setError(null);
-      
+
       const result = await stakingService.emergencyWithdraw(signer);
-      
+
       if (result.success) {
         await refresh();
         return true;
@@ -321,12 +292,12 @@ export const useStaking = (): UseStakingReturn => {
       setIsLoading(false);
     }
   }, [signer, stakingService, refresh]);
-  
+
   // Calculate APY
   const calculateAPY = useCallback((amount: string, durationDays: number): number => {
     return stakingService.calculateAPY(amount, durationDays);
   }, [stakingService]);
-  
+
   return {
     // State
     stakeInfo,
@@ -335,14 +306,14 @@ export const useStaking = (): UseStakingReturn => {
     tiers: stakingService.getTiers(),
     isLoading,
     error,
-    
+
     // Actions
     stake,
     unstake,
     claimRewards,
     compound,
     emergencyWithdraw,
-    
+
     // Helpers
     calculateAPY,
     refresh

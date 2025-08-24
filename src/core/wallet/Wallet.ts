@@ -7,17 +7,11 @@ import { getOmniCoinBalance, OmniCoinMetadata } from '../blockchain/OmniCoin';
  * Configuration parameters for wallet network setup
  */
 export interface WalletConfig {
-  /**
-   *
-   */
+  /** Network name (e.g., 'mainnet', 'testnet') */
   network: string;
-  /**
-   *
-   */
+  /** RPC endpoint URL for blockchain connection */
   rpcUrl: string;
-  /**
-   *
-   */
+  /** Unique chain identifier */
   chainId: number;
 }
 
@@ -25,21 +19,13 @@ export interface WalletConfig {
  * Current state of the wallet including address and balances
  */
 export interface WalletState {
-  /**
-   *
-   */
+  /** Wallet's blockchain address */
   address: string;
-  /**
-   *
-   */
+  /** Current balance in wei */
   balance: bigint;
-  /**
-   *
-   */
+  /** Transaction nonce for this address */
   nonce: number;
-  /**
-   *
-   */
+  /** Chain ID of the connected network */
   chainId: number;
 }
 
@@ -47,17 +33,11 @@ export interface WalletState {
  * Represents an action in a governance proposal
  */
 export interface GovernanceAction {
-  /**
-   *
-   */
+  /** Target contract address for the action */
   target: string;
-  /**
-   *
-   */
+  /** Value to send with the action (in wei) */
   value: bigint;
-  /**
-   *
-   */
+  /** Encoded function call data */
   data: string;
 }
 
@@ -67,117 +47,67 @@ export interface GovernanceAction {
  */
 export interface Wallet {
   // Core Wallet Functions
-  /**
-   *
-   */
+  /** Get the wallet's current address */
   getAddress(): Promise<string>;
-  /**
-   *
-   */
+  /** Get balance for specified asset or native token */
   getBalance(assetSymbol?: string): Promise<bigint | string>;
-  /**
-   *
-   */
+  /** Get the current chain ID */
   getChainId(): Promise<number>;
-  /**
-   *
-   */
+  /** Get the underlying provider instance */
   getProvider(): BrowserProvider;
 
   // Transaction Management
-  /**
-   *
-   */
+  /** Send a transaction to the blockchain */
   sendTransaction(transaction: Transaction): Promise<TransactionResponse>;
-  /**
-   *
-   */
+  /** Sign a transaction without sending it */
   signTransaction(transaction: Transaction): Promise<string>;
-  /**
-   *
-   */
+  /** Sign an arbitrary message */
   signMessage(message: string): Promise<string>;
 
   // Token Management
-  /**
-   *
-   */
+  /** Get balance of a specific ERC-20 token */
   getTokenBalance(tokenAddress: string): Promise<bigint>;
-  /**
-   *
-   */
+  /** Approve spending of a token by another address */
   approveToken(tokenAddress: string, spender: string, amount: bigint): Promise<TransactionResponse>;
 
   // Network Management
-  /**
-   *
-   */
+  /** Switch to a different blockchain network */
   switchNetwork(chainId: number): Promise<void>;
-  /**
-   *
-   */
+  /** Add a new network configuration */
   addNetwork(config: WalletConfig): Promise<void>;
 
   // Event Handlers
-  /**
-   *
-   */
+  /** Register callback for account changes */
   onAccountChange(callback: (address: string) => void): void;
-  /**
-   *
-   */
+  /** Register callback for network changes */
   onNetworkChange(callback: (chainId: number) => void): void;
-  /**
-   *
-   */
+  /** Register callback for balance changes */
   onBalanceChange(callback: (balance: bigint) => void): void;
 
   // State Management
-  /**
-   *
-   */
+  /** Get current wallet state */
   getState(): Promise<WalletState>;
-  /**
-   *
-   */
+  /** Connect to wallet provider */
   connect(): Promise<void>;
-  /**
-   *
-   */
+  /** Disconnect from wallet provider */
   disconnect(): Promise<void>;
 
   // Advanced OmniCoin Features
-  /**
-   *
-   */
+  /** Stake OmniCoin for rewards */
   stakeOmniCoin(amount: bigint): Promise<TransactionResponse>;
-  /**
-   *
-   */
+  /** Unstake OmniCoin and claim rewards */
   unstakeOmniCoin(amount: bigint): Promise<TransactionResponse>;
-  /**
-   *
-   */
+  /** Get current staked OmniCoin balance */
   getStakedBalance(): Promise<bigint>;
-  /**
-   *
-   */
+  /** Create a new privacy account for confidential transactions */
   createPrivacyAccount(): Promise<TransactionResponse>;
-  /**
-   *
-   */
+  /** Close the privacy account and retrieve remaining funds */
   closePrivacyAccount(): Promise<TransactionResponse>;
-  /**
-   *
-   */
+  /** Get balance in the privacy account */
   getPrivacyBalance(): Promise<bigint>;
-  /**
-   *
-   */
+  /** Propose a new governance action */
   proposeGovernanceAction(description: string, actions: GovernanceAction[]): Promise<TransactionResponse>;
-  /**
-   *
-   */
+  /** Vote on an existing governance proposal */
   voteOnProposal(proposalId: number, support: boolean): Promise<TransactionResponse>;
 }
 
@@ -186,9 +116,9 @@ export interface Wallet {
  */
 export class WalletError extends Error {
   /**
-   *
-   * @param message
-   * @param code
+   * Create a new wallet error
+   * @param message Error message
+   * @param code Error code
    */
   constructor(message: string, public code: string) {
     super(message);
@@ -202,8 +132,8 @@ export class WalletError extends Error {
  */
 export class WalletImpl implements Wallet {
   private provider: BrowserProvider;
-  private signer: { 
-    sendTransaction: (transaction: { to?: string; value?: bigint; data?: string; gasLimit?: bigint; gasPrice?: bigint }) => Promise<TransactionResponse>; 
+  private signer: {
+    sendTransaction: (transaction: { to?: string; value?: bigint; data?: string; gasLimit?: bigint; gasPrice?: bigint }) => Promise<TransactionResponse>;
     getAddress: () => Promise<string>;
     signTransaction: (transaction: { to?: string; value?: bigint; data?: string; gasLimit?: bigint; gasPrice?: bigint }) => Promise<string>;
     signMessage: (message: string) => Promise<string>;
@@ -483,10 +413,10 @@ export class WalletImpl implements Wallet {
   async stakeOmniCoin(amount: bigint): Promise<TransactionResponse> {
     if (!this.state) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
     if (!this.provider) throw new WalletError('Provider not initialized', 'NO_PROVIDER');
-    
+
     // Get staking contract address from network config
     const stakingContract = '0x1234567890123456789012345678901234567890'; // TODO: Get from config
-    
+
     // Create staking transaction
     const tx: TransactionRequest = {
       to: stakingContract,
@@ -495,19 +425,19 @@ export class WalletImpl implements Wallet {
       data: '0x3ccfd60b', // stake() function selector
       chainId: this.state.chainId
     };
-    
+
     // Estimate gas
     const gasLimit = await this.provider.estimateGas(tx);
     tx.gasLimit = gasLimit;
-    
+
     // Get gas price
     const gasPrice = await this.provider.getGasPrice();
     tx.gasPrice = gasPrice;
-    
+
     // Sign and send transaction
     const signedTx = await this.signer?.sendTransaction(tx);
     if (!signedTx) throw new WalletError('Failed to send transaction', 'TX_FAILED');
-    
+
     return signedTx;
   }
 
@@ -518,16 +448,16 @@ export class WalletImpl implements Wallet {
   async unstakeOmniCoin(amount: bigint): Promise<TransactionResponse> {
     if (!this.state) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
     if (!this.provider) throw new WalletError('Provider not initialized', 'NO_PROVIDER');
-    
+
     // Get staking contract address from network config
     const stakingContract = '0x1234567890123456789012345678901234567890'; // TODO: Get from config
-    
+
     // Encode unstake function call
     const functionSignature = 'unstake(uint256)';
     const functionHash = ethers.id(functionSignature).substring(0, 10);
     const encodedAmount = ethers.AbiCoder.defaultAbiCoder().encode(['uint256'], [amount]);
     const data = functionHash + encodedAmount.substring(2);
-    
+
     // Create unstaking transaction
     const tx: TransactionRequest = {
       to: stakingContract,
@@ -535,19 +465,19 @@ export class WalletImpl implements Wallet {
       data: data,
       chainId: this.state.chainId
     };
-    
+
     // Estimate gas
     const gasLimit = await this.provider.estimateGas(tx);
     tx.gasLimit = gasLimit;
-    
+
     // Get gas price
     const gasPrice = await this.provider.getGasPrice();
     tx.gasPrice = gasPrice;
-    
+
     // Sign and send transaction
     const signedTx = await this.signer?.sendTransaction(tx);
     if (!signedTx) throw new WalletError('Failed to send transaction', 'TX_FAILED');
-    
+
     return signedTx;
   }
 
@@ -557,22 +487,22 @@ export class WalletImpl implements Wallet {
   async getStakedBalance(): Promise<bigint> {
     if (!this.state) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
     if (!this.provider) throw new WalletError('Provider not initialized', 'NO_PROVIDER');
-    
+
     // Get staking contract address from network config
     const stakingContract = '0x1234567890123456789012345678901234567890'; // TODO: Get from config
-    
+
     // Encode balanceOf function call
     const functionSignature = 'balanceOf(address)';
     const functionHash = ethers.id(functionSignature).substring(0, 10);
     const encodedAddress = ethers.AbiCoder.defaultAbiCoder().encode(['address'], [this.state.address]);
     const data = functionHash + encodedAddress.substring(2);
-    
+
     // Call contract to get balance
     const result = await this.provider.call({
       to: stakingContract,
       data: data
     });
-    
+
     // Decode the result
     const decoded = ethers.AbiCoder.defaultAbiCoder().decode(['uint256'], result);
     return BigInt(decoded[0].toString());
@@ -584,20 +514,20 @@ export class WalletImpl implements Wallet {
   async createPrivacyAccount(): Promise<TransactionResponse> {
     if (!this.state) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
     if (!this.provider) throw new WalletError('Provider not initialized', 'NO_PROVIDER');
-    
+
     // COTI V2 privacy contract address
     const privacyContract = '0x2345678901234567890123456789012345678901'; // TODO: Get from config
-    
+
     // Generate privacy keys using COTI's MPC
     const privacyKey = ethers.randomBytes(32);
     const commitment = ethers.keccak256(privacyKey);
-    
+
     // Encode createAccount function call
     const functionSignature = 'createPrivacyAccount(bytes32)';
     const functionHash = ethers.id(functionSignature).substring(0, 10);
     const encodedCommitment = ethers.AbiCoder.defaultAbiCoder().encode(['bytes32'], [commitment]);
     const data = functionHash + encodedCommitment.substring(2);
-    
+
     // Create transaction
     const tx: TransactionRequest = {
       to: privacyContract,
@@ -606,22 +536,22 @@ export class WalletImpl implements Wallet {
       value: ethers.parseEther('0.01'), // Minimum deposit for privacy account
       chainId: this.state.chainId
     };
-    
+
     // Estimate gas
     const gasLimit = await this.provider.estimateGas(tx);
     tx.gasLimit = gasLimit;
-    
+
     // Get gas price
     const gasPrice = await this.provider.getGasPrice();
     tx.gasPrice = gasPrice;
-    
+
     // Sign and send transaction
     const signedTx = await this.signer?.sendTransaction(tx);
     if (!signedTx) throw new WalletError('Failed to send transaction', 'TX_FAILED');
-    
+
     // Store privacy key securely (would use SecureIndexedDB in production)
     localStorage.setItem(`privacy_key_${this.state.address}`, ethers.hexlify(privacyKey));
-    
+
     return signedTx;
   }
 
@@ -631,24 +561,24 @@ export class WalletImpl implements Wallet {
   async closePrivacyAccount(): Promise<TransactionResponse> {
     if (!this.state) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
     if (!this.provider) throw new WalletError('Provider not initialized', 'NO_PROVIDER');
-    
+
     // COTI V2 privacy contract address
     const privacyContract = '0x2345678901234567890123456789012345678901'; // TODO: Get from config
-    
+
     // Get stored privacy key
     const privacyKeyHex = localStorage.getItem(`privacy_key_${this.state.address}`);
     if (!privacyKeyHex) throw new WalletError('Privacy account not found', 'NO_PRIVACY_ACCOUNT');
-    
+
     // Generate proof for account closure
     const privacyKey = ethers.getBytes(privacyKeyHex);
     const proof = ethers.keccak256(privacyKey); // Simplified - real implementation would use ZK proof
-    
+
     // Encode closeAccount function call
     const functionSignature = 'closePrivacyAccount(bytes32)';
     const functionHash = ethers.id(functionSignature).substring(0, 10);
     const encodedProof = ethers.AbiCoder.defaultAbiCoder().encode(['bytes32'], [proof]);
     const data = functionHash + encodedProof.substring(2);
-    
+
     // Create transaction
     const tx: TransactionRequest = {
       to: privacyContract,
@@ -656,22 +586,22 @@ export class WalletImpl implements Wallet {
       data: data,
       chainId: this.state.chainId
     };
-    
+
     // Estimate gas
     const gasLimit = await this.provider.estimateGas(tx);
     tx.gasLimit = gasLimit;
-    
+
     // Get gas price
     const gasPrice = await this.provider.getGasPrice();
     tx.gasPrice = gasPrice;
-    
+
     // Sign and send transaction
     const signedTx = await this.signer?.sendTransaction(tx);
     if (!signedTx) throw new WalletError('Failed to send transaction', 'TX_FAILED');
-    
+
     // Remove privacy key from storage
     localStorage.removeItem(`privacy_key_${this.state.address}`);
-    
+
     return signedTx;
   }
 
@@ -681,18 +611,18 @@ export class WalletImpl implements Wallet {
   async getPrivacyBalance(): Promise<bigint> {
     if (!this.state) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
     if (!this.provider) throw new WalletError('Provider not initialized', 'NO_PROVIDER');
-    
+
     // COTI V2 privacy contract address
     const privacyContract = '0x2345678901234567890123456789012345678901'; // TODO: Get from config
-    
+
     // Get stored privacy key for generating view key
     const privacyKeyHex = localStorage.getItem(`privacy_key_${this.state.address}`);
     if (!privacyKeyHex) return BigInt(0); // No privacy account
-    
+
     // Generate view key from privacy key
     const privacyKey = ethers.getBytes(privacyKeyHex);
     const viewKey = ethers.keccak256(privacyKey);
-    
+
     // Encode getPrivateBalance function call
     const functionSignature = 'getPrivateBalance(address,bytes32)';
     const functionHash = ethers.id(functionSignature).substring(0, 10);
@@ -701,16 +631,16 @@ export class WalletImpl implements Wallet {
       [this.state.address, viewKey]
     );
     const data = functionHash + encodedParams.substring(2);
-    
+
     // Call contract to get encrypted balance
     const result = await this.provider.call({
       to: privacyContract,
       data: data
     });
-    
+
     // Decode the encrypted result
     const decoded = ethers.AbiCoder.defaultAbiCoder().decode(['uint256'], result);
-    
+
     // In real implementation, would decrypt using MPC/garbled circuits
     return BigInt(decoded[0].toString());
   }
@@ -723,16 +653,16 @@ export class WalletImpl implements Wallet {
   async proposeGovernanceAction(description: string, actions: GovernanceAction[]): Promise<TransactionResponse> {
     if (!this.state) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
     if (!this.provider) throw new WalletError('Provider not initialized', 'NO_PROVIDER');
-    
+
     // Governance contract address
     const governanceContract = '0x3456789012345678901234567890123456789012'; // TODO: Get from config
-    
+
     // Encode proposal data
     const targets = actions.map(a => a.target);
     const values = actions.map(a => a.value || BigInt(0));
     const calldatas = actions.map(a => a.calldata || '0x');
     const descriptionHash = ethers.keccak256(ethers.toUtf8Bytes(description));
-    
+
     // Encode propose function call
     const functionSignature = 'propose(address[],uint256[],bytes[],string)';
     const functionHash = ethers.id(functionSignature).substring(0, 10);
@@ -741,7 +671,7 @@ export class WalletImpl implements Wallet {
       [targets, values, calldatas, description]
     );
     const data = functionHash + encodedParams.substring(2);
-    
+
     // Create transaction
     const tx: TransactionRequest = {
       to: governanceContract,
@@ -749,19 +679,19 @@ export class WalletImpl implements Wallet {
       data: data,
       chainId: this.state.chainId
     };
-    
+
     // Estimate gas
     const gasLimit = await this.provider.estimateGas(tx);
     tx.gasLimit = gasLimit;
-    
+
     // Get gas price
     const gasPrice = await this.provider.getGasPrice();
     tx.gasPrice = gasPrice;
-    
+
     // Sign and send transaction
     const signedTx = await this.signer?.sendTransaction(tx);
     if (!signedTx) throw new WalletError('Failed to send transaction', 'TX_FAILED');
-    
+
     return signedTx;
   }
 
@@ -773,10 +703,10 @@ export class WalletImpl implements Wallet {
   async voteOnProposal(proposalId: number, support: boolean): Promise<TransactionResponse> {
     if (!this.state) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
     if (!this.provider) throw new WalletError('Provider not initialized', 'NO_PROVIDER');
-    
+
     // Governance contract address
     const governanceContract = '0x3456789012345678901234567890123456789012'; // TODO: Get from config
-    
+
     // Encode castVote function call
     const functionSignature = 'castVote(uint256,uint8)';
     const functionHash = ethers.id(functionSignature).substring(0, 10);
@@ -786,7 +716,7 @@ export class WalletImpl implements Wallet {
       [proposalId, voteType]
     );
     const data = functionHash + encodedParams.substring(2);
-    
+
     // Create transaction
     const tx: TransactionRequest = {
       to: governanceContract,
@@ -794,19 +724,19 @@ export class WalletImpl implements Wallet {
       data: data,
       chainId: this.state.chainId
     };
-    
+
     // Estimate gas
     const gasLimit = await this.provider.estimateGas(tx);
     tx.gasLimit = gasLimit;
-    
+
     // Get gas price
     const gasPrice = await this.provider.getGasPrice();
     tx.gasPrice = gasPrice;
-    
+
     // Sign and send transaction
     const signedTx = await this.signer?.sendTransaction(tx);
     if (!signedTx) throw new WalletError('Failed to send transaction', 'TX_FAILED');
-    
+
     return signedTx;
   }
 }
@@ -825,4 +755,4 @@ export async function sendOmniCoin(wallet: Wallet, to: string, amount: string): 
     data: `0x${Buffer.from(amount).toString('hex')}`
   });
   return wallet.sendTransaction(transaction);
-} 
+}

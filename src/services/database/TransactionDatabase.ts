@@ -1,9 +1,9 @@
 /**
  * Transaction Database Service for YugabyteDB Integration
- * 
+ *
  * Provides database persistence for wallet transaction history using YugabyteDB.
  * Stores all transaction records for easy querying and reporting.
- * 
+ *
  * @module services/database/TransactionDatabase
  */
 
@@ -11,91 +11,49 @@
  * Transaction record
  */
 export interface TransactionRecord {
-  /**
-   *
-   */
+  /** Unique database record ID (optional) */
   id?: string;
-  /**
-   *
-   */
+  /** Transaction hash */
   txHash: string;
-  /**
-   *
-   */
+  /** Block number where transaction was mined (optional) */
   blockNumber?: number;
-  /**
-   *
-   */
+  /** Block hash where transaction was mined (optional) */
   blockHash?: string;
-  /**
-   *
-   */
+  /** User's wallet address */
   userAddress: string;
-  /**
-   *
-   */
-  txType: 'send' | 'receive' | 'swap' | 'stake' | 'unstake' | 'claim_rewards' | 
-          'provide_liquidity' | 'remove_liquidity' | 'purchase' | 'sale' | 'fee' | 'bridge';
-  /**
-   *
-   */
+  /** Type of transaction */
+  txType: 'send' | 'receive' | 'swap' | 'stake' | 'unstake' | 'claim_rewards' |
+  'provide_liquidity' | 'remove_liquidity' | 'purchase' | 'sale' | 'fee' | 'bridge';
+  /** Sender address */
   fromAddress: string;
-  /**
-   *
-   */
+  /** Recipient address */
   toAddress: string;
-  /**
-   *
-   */
+  /** Smart contract address (optional) */
   contractAddress?: string;
-  /**
-   *
-   */
+  /** Transaction amount */
   amount: string;
-  /**
-   *
-   */
+  /** Token contract address (optional) */
   tokenAddress?: string;
-  /**
-   *
-   */
+  /** Token symbol */
   tokenSymbol: string;
-  /**
-   *
-   */
+  /** Token decimal places (optional) */
   tokenDecimals?: number;
-  /**
-   *
-   */
+  /** Gas units used (optional) */
   gasUsed?: string;
-  /**
-   *
-   */
+  /** Gas price in wei (optional) */
   gasPrice?: string;
-  /**
-   *
-   */
+  /** Total transaction fee (optional) */
   txFee?: string;
-  /**
-   *
-   */
+  /** Transaction status */
   status: 'pending' | 'confirmed' | 'failed' | 'dropped';
-  /**
-   *
-   */
+  /** Number of confirmations (optional) */
   confirmations?: number;
-  /**
-   *
-   */
+  /** When transaction was created */
   createdAt: Date;
-  /**
-   *
-   */
+  /** When transaction was confirmed (optional) */
   confirmedAt?: Date;
-  /**
-   *
-   */
-  metadata?: any;
+  /** Additional transaction metadata */
+  metadata?: Record<string, unknown>;
   /**
    *
    */
@@ -192,13 +150,13 @@ export interface TransactionStats {
 
 /**
  * Transaction Database Service
- * 
+ *
  * Handles database operations for wallet transaction history.
  * Uses YugabyteDB for distributed SQL with PostgreSQL compatibility.
  */
 export class TransactionDatabase {
   private apiEndpoint: string;
-  
+
   /**
    *
    * @param apiEndpoint
@@ -206,7 +164,7 @@ export class TransactionDatabase {
   constructor(apiEndpoint?: string) {
     this.apiEndpoint = apiEndpoint || '/api/wallet';
   }
-  
+
   /**
    * Store a new transaction
    * @param transaction
@@ -219,12 +177,12 @@ export class TransactionDatabase {
       },
       body: JSON.stringify(transaction)
     });
-    
+
     if (!response.ok) {
       throw new Error(`Failed to store transaction: ${response.statusText}`);
     }
   }
-  
+
   /**
    * Update transaction status
    * @param txHash
@@ -250,31 +208,31 @@ export class TransactionDatabase {
         confirmedAt: status === 'confirmed' ? new Date().toISOString() : undefined
       })
     });
-    
+
     if (!response.ok) {
       throw new Error(`Failed to update transaction: ${response.statusText}`);
     }
   }
-  
+
   /**
    * Get transaction by hash
    * @param txHash
    */
   async getTransaction(txHash: string): Promise<TransactionRecord | null> {
     const response = await fetch(`${this.apiEndpoint}/transactions/${txHash}`);
-    
+
     if (response.status === 404) {
       return null;
     }
-    
+
     if (!response.ok) {
       throw new Error(`Failed to get transaction: ${response.statusText}`);
     }
-    
+
     const data = await response.json();
     return this.mapToTransactionRecord(data);
   }
-  
+
   /**
    * Get user's transaction history
    * @param userAddress
@@ -289,7 +247,7 @@ export class TransactionDatabase {
   }> {
     const params = new URLSearchParams();
     params.set('user', userAddress);
-    
+
     if (filters) {
       if (filters.txType) params.set('type', filters.txType);
       if (filters.status) params.set('status', filters.status);
@@ -303,35 +261,35 @@ export class TransactionDatabase {
       params.set('limit', (filters.limit || 50).toString());
       params.set('offset', (filters.offset || 0).toString());
     }
-    
+
     const response = await fetch(`${this.apiEndpoint}/transactions?${params}`);
-    
+
     if (!response.ok) {
       throw new Error(`Failed to get transactions: ${response.statusText}`);
     }
-    
+
     const data = await response.json();
-    
+
     return {
       transactions: data.transactions.map((t: any) => this.mapToTransactionRecord(t)),
       total: data.total
     };
   }
-  
+
   /**
    * Get transaction statistics for a user
    * @param userAddress
    */
   async getUserStats(userAddress: string): Promise<TransactionStats> {
     const response = await fetch(`${this.apiEndpoint}/transactions/stats?user=${userAddress}`);
-    
+
     if (!response.ok) {
       throw new Error(`Failed to get statistics: ${response.statusText}`);
     }
-    
+
     return await response.json();
   }
-  
+
   /**
    * Add a note to a transaction
    * @param txHash
@@ -356,12 +314,12 @@ export class TransactionDatabase {
         tags
       })
     });
-    
+
     if (!response.ok) {
       throw new Error(`Failed to add note: ${response.statusText}`);
     }
   }
-  
+
   /**
    * Get pending transactions for monitoring
    * @param userAddress
@@ -370,17 +328,17 @@ export class TransactionDatabase {
     const params = new URLSearchParams();
     params.set('status', 'pending');
     if (userAddress) params.set('user', userAddress);
-    
+
     const response = await fetch(`${this.apiEndpoint}/transactions/pending?${params}`);
-    
+
     if (!response.ok) {
       throw new Error(`Failed to get pending transactions: ${response.statusText}`);
     }
-    
+
     const data = await response.json();
     return data.map((t: any) => this.mapToTransactionRecord(t));
   }
-  
+
   /**
    * Bulk update transaction confirmations
    * @param updates
@@ -397,12 +355,12 @@ export class TransactionDatabase {
       },
       body: JSON.stringify({ updates })
     });
-    
+
     if (!response.ok) {
       throw new Error(`Failed to update confirmations: ${response.statusText}`);
     }
   }
-  
+
   /**
    * Export transactions for a date range
    * @param userAddress
@@ -421,16 +379,16 @@ export class TransactionDatabase {
     params.set('from_date', fromDate.toISOString());
     params.set('to_date', toDate.toISOString());
     params.set('format', format);
-    
+
     const response = await fetch(`${this.apiEndpoint}/transactions/export?${params}`);
-    
+
     if (!response.ok) {
       throw new Error(`Failed to export transactions: ${response.statusText}`);
     }
-    
+
     return await response.blob();
   }
-  
+
   /**
    * Map database row to TransactionRecord
    * @param row
@@ -462,7 +420,7 @@ export class TransactionDatabase {
       tags: row.tags
     };
   }
-  
+
   /**
    * Check database connectivity
    */

@@ -81,7 +81,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }): JSX
     try {
       dispatch({ type: 'CONNECT_START' });
 
-      if (!window.ethereum) {
+      if (window.ethereum == null) {
         throw new Error('Please install MetaMask or another Web3 wallet');
       }
 
@@ -257,4 +257,4 @@ export function useWallet(): WalletContextType {
     throw new Error('useWallet must be used within a WalletProvider');
   }
   return context;
-} 
+}

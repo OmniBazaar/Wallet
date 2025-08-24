@@ -2,25 +2,15 @@
  * Represents a geographic location for listings and sellers
  */
 export interface Location {
-    /**
-     *
-     */
+    /** Country name or code */
     country: string;
-    /**
-     *
-     */
+    /** State or province */
     state?: string;
-    /**
-     *
-     */
+    /** City name */
     city?: string;
-    /**
-     *
-     */
+    /** Postal or ZIP code */
     postalCode?: string;
-    /**
-     *
-     */
+    /** GPS coordinates */
     coordinates?: {
         latitude: number;
         longitude: number;
@@ -31,21 +21,13 @@ export interface Location {
  * Contact information for sellers in the marketplace
  */
 export interface ContactInfo {
-    /**
-     *
-     */
+    /** Email address */
     email: string;
-    /**
-     *
-     */
+    /** Phone number */
     phone?: string;
-    /**
-     *
-     */
+    /** Website URL */
     website?: string;
-    /**
-     *
-     */
+    /** Social media profiles */
     socialMedia?: {
         twitter?: string;
         facebook?: string;
@@ -58,41 +40,23 @@ export interface ContactInfo {
  * Represents a seller in the OmniBazaar marketplace
  */
 export interface Seller {
-    /**
-     *
-     */
+    /** Seller's blockchain address */
     address: string;
-    /**
-     *
-     */
+    /** Seller's display name */
     name: string;
-    /**
-     *
-     */
+    /** Optional seller description */
     description?: string;
-    /**
-     *
-     */
+    /** Geographic location */
     location: Location;
-    /**
-     *
-     */
+    /** Contact information */
     contactInfo: ContactInfo;
-    /**
-     *
-     */
+    /** Average rating (0-5) */
     rating?: number;
-    /**
-     *
-     */
+    /** Total number of completed sales */
     totalSales?: number;
-    /**
-     *
-     */
+    /** Date when seller joined marketplace */
     joinedDate: string;
-    /**
-     *
-     */
+    /** Whether seller is verified */
     verified: boolean;
 }
 
@@ -356,4 +320,4 @@ export interface SearchFilters {
      *
      */
     limit?: number;
-} 
+}

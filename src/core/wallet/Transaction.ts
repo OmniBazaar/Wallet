@@ -4,37 +4,21 @@ import { TransactionRequest, AbiCoder, concat } from 'ethers';
  * Core transaction data for blockchain transactions
  */
 export interface TransactionData {
-  /**
-   *
-   */
+  /** Recipient address (optional) */
   to?: string;
-  /**
-   *
-   */
+  /** Sender address (optional) */
   from?: string;
-  /**
-   *
-   */
+  /** Transaction nonce (optional) */
   nonce?: number;
-  /**
-   *
-   */
+  /** Gas limit for transaction (optional) */
   gasLimit?: bigint;
-  /**
-   *
-   */
+  /** Gas price in wei (optional) */
   gasPrice?: bigint;
-  /**
-   *
-   */
+  /** Transaction data payload (optional) */
   data?: string;
-  /**
-   *
-   */
+  /** Transaction value in wei (optional) */
   value?: bigint;
-  /**
-   *
-   */
+  /** Chain ID (optional) */
   chainId?: number;
 }
 
@@ -42,29 +26,17 @@ export interface TransactionData {
  * Optional parameters for transaction execution
  */
 export interface TransactionOptions {
-  /**
-   *
-   */
+  /** Number of confirmations to wait for (optional) */
   confirmations?: number;
-  /**
-   *
-   */
+  /** Transaction timeout in milliseconds (optional) */
   timeout?: number;
-  /**
-   *
-   */
+  /** Gas limit override (optional) */
   gasLimit?: bigint;
-  /**
-   *
-   */
+  /** Gas price override (optional) */
   gasPrice?: bigint;
-  /**
-   *
-   */
+  /** Maximum fee per gas for EIP-1559 (optional) */
   maxFeePerGas?: bigint;
-  /**
-   *
-   */
+  /** Maximum priority fee per gas for EIP-1559 (optional) */
   maxPriorityFeePerGas?: bigint;
 }
 
@@ -115,7 +87,7 @@ export class Transaction {
       to: this.data.to,
       value: this.data.value,
       data: this.data.data,
-      gasLimit: this.options.gasLimit || this.data.gasLimit,
+      gasLimit: this.options.gasLimit ?? this.data.gasLimit,
       maxFeePerGas: this.options.maxFeePerGas,
       maxPriorityFeePerGas: this.options.maxPriorityFeePerGas,
       nonce: this.data.nonce,
@@ -181,4 +153,4 @@ export class Transaction {
       ])
     });
   }
-} 
+}

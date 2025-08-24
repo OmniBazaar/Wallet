@@ -27,25 +27,15 @@ const EMPTY_WALLET_ADDRESS = '0x3637f053D542E6D00Eee42D656dD7C59Fa33a62F';
 // ///////////////////////////////////////////////
 // Query Types
 
-/**
- *
- */
+/** Arguments for gallery NFTs query */
 export type GalleryNftsArgs = {
-  /**
-   *
-   */
+  /** Wallet address to fetch NFTs for */
   address: Address;
-  /**
-   *
-   */
+  /** Sort order for NFTs */
   sort: NftSort;
-  /**
-   *
-   */
+  /** Whether to include testnet NFTs */
   testnetMode: boolean;
-  /**
-   *
-   */
+  /** User's enabled chains */
   userChains: Chain[];
 };
 
@@ -79,7 +69,7 @@ async function galleryNftsQueryFunction({
   }
   const activeChainIds = userChains
     .filter((chain) => {
-      return !testnetMode ? !chain.testnet : chain.testnet;
+      return testnetMode === false ? chain.testnet !== true : chain.testnet === true;
     })
     .map((chain) => chain.id);
   const simplehashChainNames = !testnetMode

@@ -1,5 +1,7 @@
-// OmniBazaar Wallet Store
-// Manages wallet state and communication with background script
+/**
+ * OmniBazaar Wallet Store
+ * Manages wallet state and communication with background script
+ */
 
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
@@ -12,89 +14,49 @@ declare const chrome: {
   };
 };
 
-/**
- *
- */
+/** Wallet account information */
 export interface WalletAccount {
-  /**
-   *
-   */
+  /** Account address */
   address: string;
-  /**
-   *
-   */
+  /** Account display name */
   name: string;
-  /**
-   *
-   */
+  /** Account balance */
   balance: string;
-  /**
-   *
-   */
+  /** Network identifier */
   network: string;
 }
 
-/**
- *
- */
+/** NFT collection information */
 export interface NFTCollection {
-  /**
-   *
-   */
+  /** Collection ID */
   id: string;
-  /**
-   *
-   */
+  /** Collection name */
   name: string;
-  /**
-   *
-   */
+  /** Collection description */
   description: string;
-  /**
-   *
-   */
+  /** Collection image URL */
   image: string;
-  /**
-   *
-   */
+  /** Number of items in collection */
   itemCount: number;
 }
 
-/**
- *
- */
+/** Transaction information */
 export interface Transaction {
-  /**
-   *
-   */
+  /** Transaction ID */
   id: string;
-  /**
-   *
-   */
+  /** Transaction type */
   type: 'send' | 'receive' | 'mint' | 'listing';
-  /**
-   *
-   */
+  /** Transaction amount */
   amount: string;
-  /**
-   *
-   */
+  /** Recipient address (optional) */
   to?: string;
-  /**
-   *
-   */
+  /** Sender address (optional) */
   from?: string;
-  /**
-   *
-   */
+  /** Transaction status */
   status: 'pending' | 'confirmed' | 'failed';
-  /**
-   *
-   */
+  /** Transaction timestamp */
   timestamp: number;
-  /**
-   *
-   */
+  /** Network identifier */
   network: string;
 }
 
@@ -140,9 +102,9 @@ export const useWalletStore = defineStore('wallet', () => {
 
     try {
       console.warn('🔄 Initializing wallet store...');
-      
+
       const state = await sendToBackground('GET_WALLET_STATE');
-      
+
       if (state.error) {
         throw new Error(state.error);
       }
@@ -178,7 +140,7 @@ export const useWalletStore = defineStore('wallet', () => {
 
     try {
       const response = await sendToBackground('CONNECT_ACCOUNT', { address });
-      
+
       if (response.error) {
         throw new Error(response.error);
       }
@@ -204,11 +166,11 @@ export const useWalletStore = defineStore('wallet', () => {
 
     try {
       await sendToBackground('DISCONNECT_ACCOUNT');
-      
+
       // Clear current account
       currentAccount.value = null;
       isUnlocked.value = false;
-      
+
     } catch (err: unknown) {
       console.error('❌ Failed to disconnect account:', err);
       error.value = (err as Error).message || 'Failed to disconnect account';
@@ -224,7 +186,7 @@ export const useWalletStore = defineStore('wallet', () => {
 
     try {
       const response = await sendToBackground('SWITCH_NETWORK', { network });
-      
+
       if (response.error) {
         throw new Error(response.error);
       }
@@ -248,11 +210,11 @@ export const useWalletStore = defineStore('wallet', () => {
   // Get balance for address
   async function getBalance(address: string, network?: string): Promise<string> {
     try {
-      const response = await sendToBackground('GET_BALANCE', { 
-        address, 
-        network: network || currentNetwork.value 
+      const response = await sendToBackground('GET_BALANCE', {
+        address,
+        network: network || currentNetwork.value
       });
-      
+
       if (response.error) {
         throw new Error(response.error);
       }
@@ -292,7 +254,7 @@ export const useWalletStore = defineStore('wallet', () => {
 
     try {
       const response = await sendToBackground('SIGN_TRANSACTION', transaction);
-      
+
       if (response.error) {
         throw new Error(response.error);
       }
@@ -332,17 +294,18 @@ export const useWalletStore = defineStore('wallet', () => {
     attributes?: Array<{ /**
                           *
                           */
-    trait_type: string; /**
+      trait_type: string; /**
                          *
                          */
-    value: string | number }>;
+      value: string | number
+    }>;
   }): Promise<string | null> {
     isLoading.value = true;
     error.value = null;
 
     try {
       const response = await sendToBackground('MINT_NFT', metadata);
-      
+
       if (response.error) {
         throw new Error(response.error);
       }
@@ -390,7 +353,7 @@ export const useWalletStore = defineStore('wallet', () => {
 
     try {
       const response = await sendToBackground('CREATE_LISTING', listing);
-      
+
       if (response.error) {
         throw new Error(response.error);
       }
@@ -414,7 +377,7 @@ export const useWalletStore = defineStore('wallet', () => {
   async function refreshWalletState(): Promise<void> {
     try {
       const state = await sendToBackground('GET_WALLET_STATE');
-      
+
       if (!state.error) {
         isUnlocked.value = state.isUnlocked || false;
         currentNetwork.value = state.currentNetwork || 'ethereum';
@@ -443,11 +406,11 @@ export const useWalletStore = defineStore('wallet', () => {
     transactions,
     isLoading,
     error,
-    
+
     // Computed
     hasAccounts,
     currentBalance,
-    
+
     // Actions
     initialize,
     connectAccount,
@@ -460,4 +423,4 @@ export const useWalletStore = defineStore('wallet', () => {
     refreshWalletState,
     clearError
   };
-}); 
+});

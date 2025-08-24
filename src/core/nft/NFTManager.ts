@@ -9,9 +9,7 @@ import { providerManager } from '../providers/ProviderManager';
 import { keyringService } from '../keyring/KeyringService';
 import { ChainType } from '../keyring/BIP39Keyring';
 
-/**
- *
- */
+/** Manages NFT discovery, caching, and operations across all chains */
 export class NFTManager {
   private discoveryService: NFTDiscoveryService;
   private nftCache: Map<string, NFT[]> = new Map();
@@ -19,8 +17,8 @@ export class NFTManager {
   private cacheTimeout = 5 * 60 * 1000; // 5 minutes
 
   /**
-   *
-   * @param apiKeys
+   * Create a new NFT manager
+   * @param apiKeys Optional API keys for NFT providers
    */
   constructor(apiKeys?: Record<string, string>) {
     this.discoveryService = new NFTDiscoveryService(apiKeys);
@@ -32,7 +30,7 @@ export class NFTManager {
    */
   async getActiveAccountNFTs(options: NFTDiscoveryOptions = {}): Promise<NFT[]> {
     const activeAccount = keyringService.getActiveAccount();
-    if (!activeAccount) {
+    if (activeAccount == null) {
       throw new Error('No active account');
     }
 
@@ -47,14 +45,14 @@ export class NFTManager {
   async getNFTs(address: string, options: NFTDiscoveryOptions = {}): Promise<NFT[]> {
     const cacheKey = `${address}_${JSON.stringify(options)}`;
     const cached = this.getCached(cacheKey);
-    
-    if (cached) {
+
+    if (cached != null) {
       return cached;
     }
 
     const result = await this.discoveryService.discoverNFTs(address, options);
     this.setCache(cacheKey, result.nfts);
-    
+
     return result.nfts;
   }
 
@@ -64,7 +62,7 @@ export class NFTManager {
    */
   async getNFTsByChain(chain: ChainType | string): Promise<NFT[]> {
     const activeAccount = keyringService.getActiveAccount();
-    if (!activeAccount) {
+    if (activeAccount == null) {
       throw new Error('No active account');
     }
 
@@ -91,7 +89,7 @@ export class NFTManager {
    */
   async transferNFT(request: NFTTransferRequest): Promise<string> {
     const { nft, to, amount } = request;
-    
+
     switch (nft.chain) {
       case 'ethereum':
       case 'polygon':
@@ -99,10 +97,10 @@ export class NFTManager {
       case 'optimism':
       case 'base':
         return this.transferEVMNFT(nft, to, amount);
-      
+
       case 'solana':
         return this.transferSolanaNFT(nft as SolanaNFT, to);
-      
+
       default:
         throw new Error(`NFT transfers not supported on ${nft.chain}`);
     }
@@ -135,7 +133,7 @@ export class NFTManager {
     }
 
     let data: string;
-    
+
     if (nft.type === 'ERC721') {
       // ERC721 safeTransferFrom(from, to, tokenId)
       const iface = new ethers.utils.Interface([
@@ -181,7 +179,8 @@ export class NFTManager {
     const solanaProvider = providerManager.getProvider('solana') as { /**
                                                                        *
                                                                        */
-    sendTransaction: (transaction: unknown) => Promise<string> } | null;
+      sendTransaction: (transaction: unknown) => Promise<string>
+    } | null;
     if (!solanaProvider) {
       throw new Error('Solana provider not initialized');
     }
@@ -211,8 +210,8 @@ export class NFTManager {
     // Check if recipient has token account
     const connection = solanaProvider.connection;
     const toAccountInfo = await connection.getAccountInfo(toTokenAccount);
-    
-    if (!toAccountInfo) {
+
+    if (toAccountInfo == null) {
       // Create associated token account for recipient
       transaction.add(
         createAssociatedTokenAccountInstruction(
@@ -256,23 +255,24 @@ export class NFTManager {
 
   /**
    * Get cached NFTs
-   * @param key
+   * @param key Cache key to lookup
+   * @returns Cached NFTs or null if not found/expired
    */
   private getCached(key: string): NFT[] | null {
     const cached = this.nftCache.get(key);
     const lastUpdate = this.lastUpdate.get(key);
-    
-    if (cached && lastUpdate && Date.now() - lastUpdate < this.cacheTimeout) {
+
+    if (cached != null && lastUpdate != null && Date.now() - lastUpdate < this.cacheTimeout) {
       return cached;
     }
-    
+
     return null;
   }
 
   /**
    * Set cache
-   * @param key
-   * @param nfts
+   * @param key Cache key
+   * @param nfts NFTs to cache
    */
   private setCache(key: string, nfts: NFT[]): void {
     this.nftCache.set(key, nfts);
@@ -285,26 +285,26 @@ export class NFTManager {
   async getCollections(): Promise<Map<string, NFT[]>> {
     const nfts = await this.getActiveAccountNFTs();
     const collections = new Map<string, NFT[]>();
-    
+
     for (const nft of nfts) {
-      const collectionId = nft.collection?.id || 'uncategorized';
-      const existing = collections.get(collectionId) || [];
+      const collectionId = nft.collection?.id ?? 'uncategorized';
+      const existing = collections.get(collectionId) ?? [];
       existing.push(nft);
       collections.set(collectionId, existing);
     }
-    
+
     return collections;
   }
 
   /**
    * Search NFTs by name
-   * @param query
+   * @param query Search query string
    */
   async searchNFTs(query: string): Promise<NFT[]> {
     const nfts = await this.getActiveAccountNFTs();
     const lowercaseQuery = query.toLowerCase();
-    
-    return nfts.filter(nft => 
+
+    return nfts.filter(nft =>
       nft.metadata.name?.toLowerCase().includes(lowercaseQuery) ||
       nft.collection?.name?.toLowerCase().includes(lowercaseQuery)
     );
@@ -332,26 +332,26 @@ export class NFTManager {
     totalFloorValue?: number;
   }> {
     const nfts = await this.getActiveAccountNFTs();
-    
+
     const byChain: Record<string, number> = {};
     const byCollection: Record<string, number> = {};
     let totalFloorValue = 0;
-    
+
     for (const nft of nfts) {
       // Count by chain
       byChain[nft.chain] = (byChain[nft.chain] || 0) + 1;
-      
+
       // Count by collection
       if (nft.collection?.name) {
         byCollection[nft.collection.name] = (byCollection[nft.collection.name] || 0) + 1;
       }
-      
+
       // Sum floor values
       if (nft.collection?.floor_price?.value) {
         totalFloorValue += nft.collection.floor_price.value;
       }
     }
-    
+
     return {
       totalNFTs: nfts.length,
       byChain,

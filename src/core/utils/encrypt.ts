@@ -1,4 +1,7 @@
-// TODO: these are from node crypto, do we use web crypto instead or something?
+/**
+ * Encryption utilities using Node.js crypto
+ * TODO: Evaluate if we should use web crypto instead for browser compatibility
+ */
 import {
   randomBytes,
   createCipheriv,

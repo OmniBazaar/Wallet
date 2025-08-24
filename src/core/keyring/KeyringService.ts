@@ -1,6 +1,6 @@
 /**
  * KeyringService - Unified keyring management service
- * 
+ *
  * This service provides a unified interface for keyring operations,
  * supporting both Web2-style (username/password) and Web3-style (seed phrase) authentication.
  * It integrates with the wallet's existing infrastructure and provider system.
@@ -13,90 +13,50 @@ import { getProvider } from '../chains/ethereum/provider';
 import { getCotiProvider } from '../chains/coti/provider';
 import { getOmniCoinProvider } from '../chains/omnicoin/provider';
 
-/**
- *
- */
+/** Authentication method type */
 export type AuthMethod = 'web2' | 'web3';
 
-/**
- *
- */
+/** Account information with authentication details */
 export interface KeyringAccount {
-  /**
-   *
-   */
+  /** Unique account identifier */
   id: string;
-  /**
-   *
-   */
+  /** Human-readable account name */
   name: string;
-  /**
-   *
-   */
+  /** Blockchain address */
   address: string;
-  /**
-   *
-   */
+  /** Public key in hex format */
   publicKey: string;
-  /**
-   *
-   */
+  /** Blockchain type */
   chainType: ChainType;
-  /**
-   *
-   */
+  /** Account balance (optional) */
   balance?: string;
-  /**
-   *
-   */
+  /** Authentication method used */
   authMethod: AuthMethod;
-  /**
-   *
-   */
+  /** HD wallet derivation path (optional) */
   derivationPath?: string;
-  /**
-   *
-   */
+  /** Whether account is from hardware wallet */
   isHardware?: boolean;
 }
 
-/**
- *
- */
+/** Current keyring state */
 export interface KeyringState {
-  /**
-   *
-   */
+  /** Whether keyring has been initialized */
   isInitialized: boolean;
-  /**
-   *
-   */
+  /** Whether keyring is currently locked */
   isLocked: boolean;
-  /**
-   *
-   */
+  /** Current authentication method */
   authMethod: AuthMethod | null;
-  /**
-   *
-   */
+  /** All managed accounts */
   accounts: KeyringAccount[];
-  /**
-   *
-   */
+  /** Currently active account */
   activeAccount: KeyringAccount | null;
-  /**
-   *
-   */
+  /** Active user session */
   session?: UserSession;
 }
 
-/**
- *
- */
+/** Transaction request parameters */
 export interface TransactionRequest {
-  /**
-   *
-   */
+  /** Transaction recipient address */
   to: string;
   /**
    *
@@ -156,7 +116,7 @@ export class KeyringService {
     }
     return this.bip39Keyring.getMnemonic(password);
   }
-  
+
   private constructor() {
     this.bip39Keyring = new BIP39Keyring();
     this.keyringManager = KeyringManager.getInstance();
@@ -167,7 +127,7 @@ export class KeyringService {
       accounts: [],
       activeAccount: null
     };
-    
+
     this.initializeProviders();
   }
 
@@ -214,19 +174,19 @@ export class KeyringService {
    * @param mnemonic
    */
   async initializeWeb3Wallet(password: string, mnemonic?: string): Promise<string> {
-    const seedPhrase = await this.bip39Keyring.initialize({ 
-      password, 
+    const seedPhrase = await this.bip39Keyring.initialize({
+      password,
       mnemonic,
-      seedPhraseLength: 24 
+      seedPhraseLength: 24
     });
-    
+
     this.state.isInitialized = true;
     this.state.isLocked = false;
     this.state.authMethod = 'web3';
-    
+
     // Create default accounts for each chain
     await this.createDefaultAccounts();
-    
+
     return seedPhrase;
   }
 
@@ -237,15 +197,15 @@ export class KeyringService {
    */
   async initializeWeb2Wallet(username: string, password: string): Promise<UserSession> {
     const session = await this.keyringManager.registerUser({ username, password });
-    
+
     this.state.isInitialized = true;
     this.state.isLocked = false;
     this.state.authMethod = 'web2';
     this.state.session = session;
-    
+
     // Convert Web2 accounts to unified format
     await this.syncWeb2Accounts();
-    
+
     return session;
   }
 
@@ -255,7 +215,7 @@ export class KeyringService {
   async checkInitialization(): Promise<void> {
     const web3Initialized = await this.bip39Keyring.isInitialized();
     const web2Session = this.keyringManager.getCurrentSession();
-    
+
     if (web3Initialized) {
       this.state.isInitialized = true;
       this.state.authMethod = 'web3';
@@ -302,7 +262,7 @@ export class KeyringService {
     } else if (this.state.authMethod === 'web2') {
       this.keyringManager.logout();
     }
-    
+
     this.state.isLocked = true;
     this.state.activeAccount = null;
   }
@@ -321,11 +281,11 @@ export class KeyringService {
       const account = await this.bip39Keyring.createAccount(chainType, name);
       const keyringAccount = await this.convertBIP39Account(account);
       this.state.accounts.push(keyringAccount);
-      
+
       if (!this.state.activeAccount) {
         this.state.activeAccount = keyringAccount;
       }
-      
+
       return keyringAccount;
     } else {
       throw new Error('Web2 wallets use fixed accounts');
@@ -483,7 +443,7 @@ export class KeyringService {
           return address;
         }
       }
-      
+
       // Check if it's an OmniCoin username (.omnibazaar or no extension)
       const isOmniName = !username.includes('.') || username.endsWith('.omnibazaar');
       if (isOmniName) {
@@ -492,14 +452,14 @@ export class KeyringService {
           const cleanName = username.replace('.omnibazaar', '');
           return await this.keyringManager.resolveUsername(cleanName);
         }
-        
+
         // Fallback to validator client if available
         if (this.validatorClient) {
           const cleanName = username.replace('.omnibazaar', '');
           return await this.validatorClient.resolveUsername(cleanName);
         }
       }
-      
+
       return null;
     } catch (error) {
       console.warn('Error resolving username:', error);
@@ -540,7 +500,7 @@ export class KeyringService {
     if (this.state.authMethod === 'web3') {
       await this.bip39Keyring.reset();
     }
-    
+
     this.state = {
       isInitialized: false,
       isLocked: true,

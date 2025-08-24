@@ -4,29 +4,17 @@ import { BrowserProvider } from 'ethers';
  * Current state of the wallet connection
  */
 export interface WalletState {
-    /**
-     *
-     */
+    /** Current wallet address */
     address: string | null;
-    /**
-     *
-     */
+    /** Current chain ID */
     chainId: number | null;
-    /**
-     *
-     */
+    /** Browser provider instance */
     provider: BrowserProvider | null;
-    /**
-     *
-     */
+    /** Whether wallet is connected */
     isConnected: boolean;
-    /**
-     *
-     */
+    /** Whether connection is in progress */
     isConnecting: boolean;
-    /**
-     *
-     */
+    /** Connection error message */
     error: string | null;
 }
 
@@ -34,17 +22,11 @@ export interface WalletState {
  * Information about an ERC-20 token or native currency
  */
 export interface TokenInfo {
-    /**
-     *
-     */
+    /** Token contract address */
     address: string;
-    /**
-     *
-     */
+    /** Token symbol (e.g., 'ETH', 'XOM') */
     symbol: string;
-    /**
-     *
-     */
+    /** Full token name */
     name: string;
     /**
      *
@@ -118,4 +100,4 @@ export interface WalletContextType {
      *
      */
     getTransactions: () => Promise<Transaction[]>;
-} 
+}

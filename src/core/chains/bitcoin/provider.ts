@@ -3,57 +3,32 @@ import { NetworkConfig, Transaction, TransactionRequest } from '@/types';
 // Removed bitcoin dependencies - mock implementation for now
 // import axios from 'axios';
 
-/**
- *
- */
+/** Bitcoin network configuration parameters */
 export interface BitcoinNetwork {
-  /**
-   *
-   */
+  /** Message prefix for signed messages */
   messagePrefix: string;
-  /**
-   *
-   */
+  /** Bech32 address prefix */
   bech32: string;
-  /**
-   *
-   */
-  bip32: { /**
-            *
-            */
-  public: number; /**
-                   *
-                   */
-  private: number };
-  /**
-   *
-   */
+  /** BIP32 extended key parameters */
+  bip32: { /** Public key version */
+    public: number; /** Private key version */
+    private: number
+  };
+  /** Public key hash version */
   pubKeyHash: number;
-  /**
-   *
-   */
+  /** Script hash version */
   scriptHash: number;
-  /**
-   *
-   */
+  /** Wallet Import Format version */
   wif: number;
 }
 
-/**
- *
- */
+/** Bitcoin network configuration */
 export interface BitcoinNetworkConfig extends NetworkConfig {
-  /**
-   *
-   */
+  /** Bitcoin network parameters */
   network: BitcoinNetwork;
-  /**
-   *
-   */
+  /** API endpoint URL */
   apiUrl: string;
-  /**
-   *
-   */
+  /** Block explorer URL */
   explorer: string;
   /**
    *
@@ -120,15 +95,16 @@ export class BitcoinProvider extends BaseProvider {
   async getAccount(privateKey: string, _derivationPath = "m/84'/0'/0'/0/0"): Promise<{ /**
                                                                                         *
                                                                                         */
-  address: string; /**
+    address: string; /**
                     *
                     */
-  publicKey: string }> {
+    publicKey: string
+  }> {
     try {
       // Mock implementation - in production would use bitcoin libraries
       const mockAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa';
       const mockPublicKey = '0x' + Buffer.from(privateKey.slice(0, 32), 'hex').toString('hex');
-      
+
       return {
         address: mockAddress,
         publicKey: mockPublicKey
@@ -172,22 +148,24 @@ export class BitcoinProvider extends BaseProvider {
       return response.data.map((utxo: { /**
                                          *
                                          */
-      txid: string; /**
+        txid: string; /**
                      *
                      */
-      vout: number; /**
+        vout: number; /**
                      *
                      */
-      value: number; /**
+        value: number; /**
                       *
                       */
-      status: { /**
+        status: { /**
                  *
                  */
-      confirmed: boolean; /**
+          confirmed: boolean; /**
                            *
                            */
-      block_height: number } }) => ({
+          block_height: number
+        }
+      }) => ({
         txid: utxo.txid,
         vout: utxo.vout,
         value: utxo.value,
@@ -210,13 +188,13 @@ export class BitcoinProvider extends BaseProvider {
       // Mock fee response
       const feeResponse = { data: { '1': 10 } };
       const feeRate = feeResponse.data['1'] || 10; // sat/vB
-      
+
       // Estimate transaction size (simplified)
       // P2WPKH input: ~68 vBytes, P2WPKH output: ~31 vBytes
       const inputs = 1; // Simplified - would need to calculate based on amount
       const outputs = 2; // Recipient + change
       const estimatedSize = (inputs * 68) + (outputs * 31) + 10; // +10 for overhead
-      
+
       const fee = Math.ceil(estimatedSize * feeRate);
       return fee.toString();
     } catch (error) {
@@ -264,7 +242,7 @@ export class BitcoinProvider extends BaseProvider {
   async getTransaction(txHash: string): Promise<Transaction> {
     try {
       // Mock transaction response
-      const response = { 
+      const response = {
         data: {
           txid: txHash,
           vin: [{ prevout: { scriptpubkey_address: '' } }],
@@ -274,7 +252,7 @@ export class BitcoinProvider extends BaseProvider {
         }
       };
       const tx = response.data;
-      
+
       return {
         hash: tx.txid,
         from: tx.vin[0]?.prevout?.scriptpubkey_address || '',
@@ -300,44 +278,49 @@ export class BitcoinProvider extends BaseProvider {
       // Mock transaction history response
       const response = { data: [] };
       const txs = response.data.slice(0, limit);
-      
+
       return txs.map((tx: { /**
                              *
                              */
-      txid: string; /**
+        txid: string; /**
                      *
                      */
-      vin: Array<{ /**
+        vin: Array<{ /**
                     *
                     */
-      prevout?: { /**
+          prevout?: { /**
                    *
                    */
-      scriptpubkey_address?: string } }>; /**
+            scriptpubkey_address?: string
+          }
+        }>; /**
                                            *
                                            */
-      vout: Array<{ /**
+        vout: Array<{ /**
                      *
                      */
-      scriptpubkey_address?: string; /**
+          scriptpubkey_address?: string; /**
                                       *
                                       */
-      value?: number }>; /**
+          value?: number
+        }>; /**
                           *
                           */
-      fee?: number; /**
+        fee?: number; /**
                      *
                      */
-      status: { /**
+        status: { /**
                  *
                  */
-      block_height: number; /**
+          block_height: number; /**
                              *
                              */
-      block_time: number; /**
+          block_time: number; /**
                            *
                            */
-      confirmed: boolean } }) => ({
+          confirmed: boolean
+        }
+      }) => ({
         hash: tx.txid,
         from: tx.vin[0]?.prevout?.scriptpubkey_address || '',
         to: tx.vout[0]?.scriptpubkey_address || '',
@@ -365,7 +348,7 @@ export class BitcoinProvider extends BaseProvider {
         // Mock block height response
         const response = { data: '800000' };
         const currentBlock = parseInt(response.data);
-        
+
         if (currentBlock > lastBlock) {
           lastBlock = currentBlock;
           callback(currentBlock);

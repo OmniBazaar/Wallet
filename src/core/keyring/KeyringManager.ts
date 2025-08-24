@@ -1,12 +1,12 @@
 /**
  * KeyringManager - Web2-style keyring implementation for OmniBazaar
- * 
+ *
  * This implementation abstracts away blockchain complexity from users by:
- * - Using familiar username/password authentication 
+ * - Using familiar username/password authentication
  * - Deterministically generating seed phrases from credentials
  * - Managing multiple blockchain accounts from single login
  * - Providing Web2-like user experience
- * 
+ *
  * Based on legacy OmniCoin login algorithms with modern security enhancements
  */
 
@@ -17,83 +17,47 @@ import * as crypto from 'crypto';
 import { ContractManager, defaultConfig } from '../contracts/ContractConfig';
 import { ENSService } from '../ens/ENSService';
 
-/**
- *
- */
+/** User login credentials */
 export interface UserCredentials {
-  /**
-   *
-   */
+  /** User's unique username */
   username: string;
-  /**
-   *
-   */
+  /** User's password */
   password: string;
 }
 
-/**
- *
- */
+/** Cryptographic keys for a blockchain account */
 export interface AccountKeys {
-  /**
-   *
-   */
+  /** BIP39 mnemonic phrase */
   mnemonic: string;
-  /**
-   *
-   */
+  /** Private key in hex format */
   privateKey: string;
-  /**
-   *
-   */
+  /** Public key in hex format */
   publicKey: string;
-  /**
-   *
-   */
+  /** Blockchain address */
   address: string;
-  /**
-   *
-   */
+  /** Human-readable address in username.omnicoin format */
   omniAddress: string; // username.omnicoin format
 }
 
-/**
- *
- */
+/** Keys for multiple blockchain networks */
 export interface MultiChainKeys {
-  /**
-   *
-   */
+  /** Ethereum account keys */
   ethereum: AccountKeys;
-  /**
-   *
-   */
+  /** OmniCoin account keys */
   omnicoin: AccountKeys;
-  /**
-   *
-   */
+  /** Bitcoin account keys (optional) */
   bitcoin?: AccountKeys;
-  /**
-   *
-   */
+  /** Solana account keys (optional) */
   solana?: AccountKeys;
 }
 
-/**
- *
- */
+/** Active user session information */
 export interface UserSession {
-  /**
-   *
-   */
+  /** Logged in username */
   username: string;
-  /**
-   *
-   */
+  /** Whether user is currently logged in */
   isLoggedIn: boolean;
-  /**
-   *
-   */
+  /** Multi-chain account keys */
   accounts: MultiChainKeys;
   /**
    *
@@ -114,7 +78,7 @@ export class KeyringManager {
   private readonly SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes
   private readonly MIN_PASSWORD_LENGTH = 12;
   private readonly SALT_ROUNDS = 100000; // PBKDF2 iterations
-  
+
   // Contract manager
   private contractManager: ContractManager;
   private ensService: ENSService;
@@ -142,7 +106,7 @@ export class KeyringManager {
    */
   public async registerUser(credentials: UserCredentials): Promise<UserSession> {
     this.validateCredentials(credentials);
-    
+
     // Check username uniqueness (to be implemented with backend)
     const isUnique = await this.isUsernameUnique(credentials.username);
     if (!isUnique) {
@@ -151,19 +115,19 @@ export class KeyringManager {
 
     // Generate deterministic seed phrase from username/password
     const seedPhrase = this.generateDeterministicSeed(credentials);
-    
+
     // Create multi-chain accounts from seed
     const accounts = await this.createMultiChainAccounts(seedPhrase, credentials.username);
-    
+
     // Create session
     const session = this.createSession(credentials.username, accounts);
-    
+
     // Store encrypted account data (implementation depends on storage strategy)
     await this.storeUserData(credentials, accounts);
-    
+
     // Register username on blockchain
     await this.registerUsernameOnChain(credentials.username, accounts.omnicoin.address);
-    
+
     this.currentSession = session;
     return session;
   }
@@ -178,19 +142,19 @@ export class KeyringManager {
 
     // Regenerate seed phrase from credentials (deterministic)
     const seedPhrase = this.generateDeterministicSeed(credentials);
-    
+
     // Recreate accounts from seed
     const accounts = await this.createMultiChainAccounts(seedPhrase, credentials.username);
-    
+
     // Verify account exists (optional backend check)
     const accountExists = await this.verifyAccountExists(accounts.omnicoin.address);
     if (!accountExists) {
       throw new Error('Invalid username or password.');
     }
-    
+
     // Create session
     const session = this.createSession(credentials.username, accounts);
-    
+
     this.currentSession = session;
     return session;
   }
@@ -204,20 +168,20 @@ export class KeyringManager {
     // Legacy-compatible seed generation with enhanced security
     // Original: seed = username + role + password
     // Enhanced: Use PBKDF2 for key stretching and add salt
-    
+
     const normalizedUsername = credentials.username.toLowerCase().trim();
     const baseString = `${normalizedUsername}active${credentials.password}`;
-    
+
     // Use PBKDF2 for key stretching (more secure than simple concatenation)
     const salt = crypto.createHash('sha256').update(normalizedUsername).digest();
     const derivedKey = crypto.pbkdf2Sync(baseString, salt, this.SALT_ROUNDS, 64, 'sha512');
-    
+
     // Convert to entropy for BIP39 mnemonic
     const entropy = derivedKey.slice(0, 32); // 256 bits for 24-word mnemonic
-    
+
     // Generate BIP39 mnemonic from entropy
     const mnemonic = bip39.entropyToMnemonic(entropy.toString('hex'));
-    
+
     return mnemonic;
   }
 
@@ -234,7 +198,7 @@ export class KeyringManager {
 
     // Create HD wallet from mnemonic
     const hdNode = HDNode.fromMnemonic(seedPhrase);
-    
+
     // Generate accounts for different chains
     const accounts: MultiChainKeys = {
       ethereum: await this.createEthereumAccount(hdNode, username),
@@ -253,10 +217,10 @@ export class KeyringManager {
     // Standard Ethereum derivation path: m/44'/60'/0'/0/0
     const ethPath = "m/44'/60'/0'/0/0";
     const ethNode = hdNode.derivePath(ethPath);
-    
+
     const privateKey = ethNode.privateKey;
     const wallet = new ethers.Wallet(privateKey);
-    
+
     return {
       mnemonic: hdNode.mnemonic,
       privateKey: privateKey,
@@ -275,11 +239,11 @@ export class KeyringManager {
     // Custom OmniCoin derivation path: m/44'/9999'/0'/0/0 (9999 = custom coin type)
     const omniPath = "m/44'/9999'/0'/0/0";
     const omniNode = hdNode.derivePath(omniPath);
-    
+
     const privateKey = omniNode.privateKey;
     // Note: OmniCoin address generation will need custom implementation
     const address = this.generateOmniCoinAddress(omniNode.publicKey);
-    
+
     return {
       mnemonic: hdNode.mnemonic,
       privateKey: privateKey,
@@ -307,7 +271,7 @@ export class KeyringManager {
    */
   private createSession(username: string, accounts: MultiChainKeys): UserSession {
     const sessionToken = crypto.randomBytes(32).toString('hex');
-    
+
     return {
       username,
       isLoggedIn: true,
@@ -386,12 +350,12 @@ export class KeyringManager {
       // since we don't want users to pay gas fees directly
       // For now, we'll just log the registration request
       console.warn(`Registration request for ${username} -> ${address}`);
-      
+
       // In production, this would:
       // 1. Submit registration request to OmniBazaar backend
       // 2. Backend would fund the transaction and register the name
       // 3. User gets their username.omnicoin address without paying gas
-      
+
       // TODO: Implement backend API call for name registration
       // await this.submitRegistrationRequest(username, address);
     } catch (error) {
@@ -426,10 +390,10 @@ export class KeyringManager {
    */
   private isSessionValid(): boolean {
     if (!this.currentSession) return false;
-    
+
     const now = Date.now();
     const timeSinceLastActivity = now - this.currentSession.lastActivity;
-    
+
     return timeSinceLastActivity < this.SESSION_TIMEOUT;
   }
 
@@ -513,7 +477,7 @@ export class KeyringManager {
       if (ethers.isAddress(addressOrName)) {
         return addressOrName;
       }
-      
+
       // Use ENS service to resolve
       return await this.ensService.resolveAddress(addressOrName);
     } catch (error) {
@@ -533,7 +497,7 @@ export class KeyringManager {
       if (ethers.isAddress(addressOrName)) {
         return addressOrName;
       }
-      
+
       // Map chain types to coin types
       const coinTypes = {
         ethereum: 60,
@@ -541,7 +505,7 @@ export class KeyringManager {
         arbitrum: 60,  // Uses ETH format
         optimism: 60   // Uses ETH format
       };
-      
+
       return await this.ensService.resolveAddressForCoin(addressOrName, coinTypes[chainType]);
     } catch (error) {
       console.warn('Error resolving address for chain:', error);
@@ -561,13 +525,14 @@ export class KeyringManager {
   public async signTransaction(transaction: { /**
                                                *
                                                */
-  to: string; /**
+    to: string; /**
                *
                */
-  value: string; /**
+    value: string; /**
                   *
                   */
-  data?: string }, chainType: 'ethereum' | 'omnicoin'): Promise<string> {
+    data?: string
+  }, chainType: 'ethereum' | 'omnicoin'): Promise<string> {
     const session = this.getCurrentSession();
     if (!session) {
       throw new Error('User not logged in');
