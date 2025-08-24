@@ -1,29 +1,85 @@
 import { TransactionRequest, AbiCoder, concat } from 'ethers';
 
+/**
+ *
+ */
 export interface TransactionData {
+    /**
+     *
+     */
     to?: string;
+    /**
+     *
+     */
     from?: string;
+    /**
+     *
+     */
     nonce?: number;
+    /**
+     *
+     */
     gasLimit?: bigint;
+    /**
+     *
+     */
     gasPrice?: bigint;
+    /**
+     *
+     */
     data?: string;
+    /**
+     *
+     */
     value?: bigint;
+    /**
+     *
+     */
     chainId?: number;
 }
 
+/**
+ *
+ */
 export interface TransactionOptions {
+    /**
+     *
+     */
     confirmations?: number;
+    /**
+     *
+     */
     timeout?: number;
+    /**
+     *
+     */
     gasLimit?: bigint;
+    /**
+     *
+     */
     gasPrice?: bigint;
+    /**
+     *
+     */
     maxFeePerGas?: bigint;
+    /**
+     *
+     */
     maxPriorityFeePerGas?: bigint;
 }
 
+/**
+ *
+ */
 export class Transaction {
     private data: TransactionData;
     private options: TransactionOptions;
 
+    /**
+     *
+     * @param data
+     * @param options
+     */
     constructor(data: TransactionData, options: TransactionOptions = {}) {
         this.data = data;
         this.options = {
@@ -33,14 +89,23 @@ export class Transaction {
         };
     }
 
+    /**
+     *
+     */
     getData(): TransactionData {
         return { ...this.data };
     }
 
+    /**
+     *
+     */
     getOptions(): TransactionOptions {
         return { ...this.options };
     }
 
+    /**
+     *
+     */
     toEthersTransaction(): TransactionRequest {
         return {
             to: this.data.to,
@@ -55,6 +120,11 @@ export class Transaction {
     }
 
     // Helper methods for common transaction types
+    /**
+     *
+     * @param to
+     * @param value
+     */
     static createTransfer(to: string, value: bigint): Transaction {
         return new Transaction({
             to,
@@ -63,6 +133,12 @@ export class Transaction {
         });
     }
 
+    /**
+     *
+     * @param to
+     * @param data
+     * @param value
+     */
     static createContractCall(
         to: string,
         data: string,
@@ -75,6 +151,12 @@ export class Transaction {
         });
     }
 
+    /**
+     *
+     * @param tokenAddress
+     * @param to
+     * @param amount
+     */
     static createTokenTransfer(
         tokenAddress: string,
         to: string,

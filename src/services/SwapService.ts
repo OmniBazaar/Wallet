@@ -14,13 +14,37 @@ import { OmniProvider } from '../core/providers/OmniProvider';
  * Swap route information
  */
 export interface SwapRoute {
+  /**
+   *
+   */
   fromToken: string;
+  /**
+   *
+   */
   toToken: string;
+  /**
+   *
+   */
   inputAmount: string;
+  /**
+   *
+   */
   outputAmount: string;
+  /**
+   *
+   */
   estimatedSlippage: number;
+  /**
+   *
+   */
   path: string[];
+  /**
+   *
+   */
   dex: string;
+  /**
+   *
+   */
   gasEstimate: string;
 }
 
@@ -28,9 +52,21 @@ export interface SwapRoute {
  * Swap execution options
  */
 export interface SwapOptions {
+  /**
+   *
+   */
   skipConfirmation?: boolean;
+  /**
+   *
+   */
   maxSlippage?: number;
+  /**
+   *
+   */
   deadline?: number;
+  /**
+   *
+   */
   recipient?: string;
 }
 
@@ -53,6 +89,7 @@ export class SwapService {
   
   /**
    * Initialize swap service
+   * @param provider
    */
   constructor(provider: OmniProvider) {
     this.provider = provider;
@@ -91,6 +128,9 @@ export class SwapService {
   
   /**
    * Get best swap route
+   * @param fromToken
+   * @param toToken
+   * @param amount
    */
   public async getBestRoute(
     fromToken: string,
@@ -106,7 +146,7 @@ export class SwapService {
       ]);
       
       // Filter out null routes
-      const validRoutes = routes.filter(r => r !== null) as SwapRoute[];
+      const validRoutes = routes.filter(r => r !== null);
       
       if (validRoutes.length === 0) {
         return null;
@@ -126,6 +166,9 @@ export class SwapService {
   
   /**
    * Get OmniDEX route
+   * @param fromToken
+   * @param toToken
+   * @param amount
    */
   private async getOmniDexRoute(
     fromToken: string,
@@ -163,6 +206,9 @@ export class SwapService {
   
   /**
    * Get Uniswap route
+   * @param fromToken
+   * @param toToken
+   * @param amount
    */
   private async getUniswapRoute(
     fromToken: string,
@@ -238,6 +284,9 @@ export class SwapService {
   
   /**
    * Get Trader Joe route
+   * @param fromToken
+   * @param toToken
+   * @param amount
    */
   private async getTraderJoeRoute(
     fromToken: string,
@@ -292,6 +341,8 @@ export class SwapService {
   
   /**
    * Execute swap
+   * @param route
+   * @param options
    */
   public async executeSwap(
     route: SwapRoute,
@@ -331,6 +382,10 @@ export class SwapService {
   
   /**
    * Execute OmniDEX swap
+   * @param route
+   * @param recipient
+   * @param deadline
+   * @param skipConfirmation
    */
   private async executeOmniDexSwap(
     route: SwapRoute,
@@ -372,6 +427,11 @@ export class SwapService {
   
   /**
    * Execute Uniswap swap
+   * @param route
+   * @param recipient
+   * @param deadline
+   * @param maxSlippage
+   * @param skipConfirmation
    */
   private async executeUniswapSwap(
     route: SwapRoute,
@@ -417,6 +477,11 @@ export class SwapService {
   
   /**
    * Execute Trader Joe swap
+   * @param route
+   * @param recipient
+   * @param deadline
+   * @param maxSlippage
+   * @param skipConfirmation
    */
   private async executeTraderJoeSwap(
     route: SwapRoute,
@@ -458,6 +523,9 @@ export class SwapService {
   
   /**
    * Approve token if needed
+   * @param token
+   * @param spender
+   * @param amount
    */
   private async approveTokenIfNeeded(
     token: string,
@@ -486,6 +554,7 @@ export class SwapService {
   
   /**
    * Get token price in USD
+   * @param token
    */
   public async getTokenPrice(token: string): Promise<number> {
     try {
@@ -504,6 +573,7 @@ export class SwapService {
   
   /**
    * Estimate gas for swap
+   * @param route
    */
   public async estimateGas(route: SwapRoute): Promise<string> {
     try {

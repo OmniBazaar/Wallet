@@ -6,6 +6,10 @@ const bip32Like = (path: string): boolean => {
 };
 const HARDENED = 0x80000000;
 // https://github.com/shapeshift/hdwallet/blob/805617c2018543d611522d69d6b4e063ec9755b5/packages/hdwallet-core/src/utils.ts#L68
+/**
+ *
+ * @param path
+ */
 const bip32ToAddressNList = (path: string): number[] => {
   if (!bip32Like(path)) {
     throw new Error(`Not a bip32 path: '${path}'`);

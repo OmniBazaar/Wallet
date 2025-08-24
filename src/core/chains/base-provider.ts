@@ -6,6 +6,10 @@ import { NetworkConfig, Transaction, TransactionRequest } from '@/types';
 export abstract class BaseProvider {
   protected config: NetworkConfig;
 
+  /**
+   *
+   * @param config
+   */
   constructor(config: NetworkConfig) {
     this.config = config;
   }

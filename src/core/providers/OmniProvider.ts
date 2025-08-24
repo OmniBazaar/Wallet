@@ -31,10 +31,19 @@ interface OmniResponse {
   servedBy?: string;
 }
 
+/**
+ *
+ */
 export class OmniProvider extends ethers.JsonRpcProvider {
   private ws: WebSocket | null = null;
   private pendingRequests = new Map<string, {
+    /**
+     *
+     */
     resolve: (result: any) => void;
+    /**
+     *
+     */
     reject: (error: any) => void;
   }>();
   
@@ -46,6 +55,10 @@ export class OmniProvider extends ethers.JsonRpcProvider {
   private reconnectAttempts = 0;
   private readonly maxReconnectAttempts = 5;
   
+  /**
+   *
+   * @param walletId
+   */
   constructor(walletId?: string) {
     // Initialize with dummy URL (we override all methods)
     super('http://localhost:8545');
@@ -158,6 +171,7 @@ export class OmniProvider extends ethers.JsonRpcProvider {
   
   /**
    * Handle incoming message from validator
+   * @param data
    */
   private handleMessage(data: string): void {
     try {
@@ -188,6 +202,8 @@ export class OmniProvider extends ethers.JsonRpcProvider {
   
   /**
    * Create authenticated request
+   * @param method
+   * @param params
    */
   private createRequest(method: string, params: any): OmniRequest {
     const id = crypto.randomBytes(16).toString('hex');
@@ -215,6 +231,8 @@ export class OmniProvider extends ethers.JsonRpcProvider {
   
   /**
    * Send request to validator
+   * @param method
+   * @param params
    */
   private async sendRequest(method: string, params: any): Promise<any> {
     // Ensure connected
@@ -248,6 +266,11 @@ export class OmniProvider extends ethers.JsonRpcProvider {
   
   // Override ethers.js methods to use our validator network
   
+  /**
+   *
+   * @param address
+   * @param blockTag
+   */
   async getBalance(address: string, blockTag?: string | number): Promise<bigint> {
     const result = await this.sendRequest('eth_getBalance', [
       address,
@@ -257,6 +280,11 @@ export class OmniProvider extends ethers.JsonRpcProvider {
     return BigInt(result);
   }
   
+  /**
+   *
+   * @param address
+   * @param blockTag
+   */
   async getTransactionCount(address: string, blockTag?: string | number): Promise<number> {
     return await this.sendRequest('eth_getTransactionCount', [
       address,
@@ -265,6 +293,11 @@ export class OmniProvider extends ethers.JsonRpcProvider {
     ]);
   }
   
+  /**
+   *
+   * @param transaction
+   * @param blockTag
+   */
   async call(transaction: any, blockTag?: string | number): Promise<string> {
     return await this.sendRequest('eth_call', [
       transaction,
@@ -273,6 +306,10 @@ export class OmniProvider extends ethers.JsonRpcProvider {
     ]);
   }
   
+  /**
+   *
+   * @param transaction
+   */
   async estimateGas(transaction: any): Promise<bigint> {
     const result = await this.sendRequest('eth_estimateGas', [
       transaction,
@@ -281,6 +318,10 @@ export class OmniProvider extends ethers.JsonRpcProvider {
     return BigInt(result);
   }
   
+  /**
+   *
+   * @param signedTransaction
+   */
   async broadcastTransaction(signedTransaction: string): Promise<ethers.TransactionResponse> {
     const hash = await this.sendRequest('eth_sendRawTransaction', [
       signedTransaction,
@@ -298,6 +339,8 @@ export class OmniProvider extends ethers.JsonRpcProvider {
   
   /**
    * Get NFTs for address (uses validator cache)
+   * @param address
+   * @param chainId
    */
   async getNFTs(address: string, chainId?: number): Promise<any[]> {
     return await this.sendRequest('omni_getNFTs', {
@@ -308,6 +351,9 @@ export class OmniProvider extends ethers.JsonRpcProvider {
   
   /**
    * Get NFT metadata (uses validator cache)
+   * @param contract
+   * @param tokenId
+   * @param chainId
    */
   async getNFTMetadata(contract: string, tokenId: string, chainId?: number): Promise<any> {
     return await this.sendRequest('omni_getNFTMetadata', {
@@ -319,6 +365,8 @@ export class OmniProvider extends ethers.JsonRpcProvider {
   
   /**
    * Get NFT collections (uses validator cache)
+   * @param address
+   * @param chainId
    */
   async getCollections(address: string, chainId?: number): Promise<any[]> {
     return await this.sendRequest('omni_getCollections', {
@@ -329,6 +377,7 @@ export class OmniProvider extends ethers.JsonRpcProvider {
   
   /**
    * Get marketplace listings (from validator network)
+   * @param params
    */
   async getMarketplaceListings(params: any): Promise<any[]> {
     return await this.sendRequest('omni_getMarketplaceListings', params);
@@ -336,6 +385,7 @@ export class OmniProvider extends ethers.JsonRpcProvider {
   
   /**
    * Get price oracle data (from validator network)
+   * @param tokens
    */
   async getPriceOracle(tokens: string[]): Promise<any> {
     return await this.sendRequest('omni_getPriceOracle', { tokens });

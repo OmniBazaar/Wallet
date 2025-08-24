@@ -25,20 +25,62 @@ export interface ValidatorClient {
   sendPrivateTransaction(signedTx: string): Promise<ethers.providers.TransactionResponse | null>;
 }
 
+/**
+ *
+ */
 export interface OmniCoinNetwork {
+  /**
+   *
+   */
   name: string;
+  /**
+   *
+   */
   chainId: number;
+  /**
+   *
+   */
   rpcUrl: string;
+  /**
+   *
+   */
   validatorUrl: string;
+  /**
+   *
+   */
   blockExplorer?: string;
+  /**
+   *
+   */
   nativeCurrency: {
+    /**
+     *
+     */
     name: string;
+    /**
+     *
+     */
     symbol: string;
+    /**
+     *
+     */
     decimals: number;
   };
+  /**
+   *
+   */
   features: {
+    /**
+     *
+     */
     privacy: boolean;
+    /**
+     *
+     */
     staking: boolean;
+    /**
+     *
+     */
     marketplace: boolean;
   };
 }
@@ -81,6 +123,9 @@ export const OMNICOIN_NETWORKS = {
   }
 } as const;
 
+/**
+ *
+ */
 export class LiveOmniCoinProvider {
   private provider: ethers.providers.JsonRpcProvider;
   private network: OmniCoinNetwork;
@@ -88,6 +133,10 @@ export class LiveOmniCoinProvider {
   private validatorClient: ValidatorClient | null = null;
   private privacyMode = false;
   
+  /**
+   *
+   * @param networkName
+   */
   constructor(networkName = 'testnet') {
     const network = OMNICOIN_NETWORKS[networkName];
     if (!network) {
@@ -145,6 +194,7 @@ export class LiveOmniCoinProvider {
 
   /**
    * Enable/disable privacy mode (XOMP)
+   * @param enabled
    */
   setPrivacyMode(enabled: boolean): void {
     if (!this.network.features.privacy) {
@@ -162,6 +212,7 @@ export class LiveOmniCoinProvider {
 
   /**
    * Switch to a different network
+   * @param networkName
    */
   async switchNetwork(networkName: string): Promise<void> {
     const network = OMNICOIN_NETWORKS[networkName];
@@ -204,10 +255,21 @@ export class LiveOmniCoinProvider {
 
   /**
    * Get account balance (XOM and XOMP)
+   * @param address
+   * @param includePrivate
    */
   async getBalance(address?: string, includePrivate = false): Promise<{
+    /**
+     *
+     */
     public: ethers.BigNumber;
+    /**
+     *
+     */
     private?: ethers.BigNumber;
+    /**
+     *
+     */
     staked?: ethers.BigNumber;
   }> {
     const targetAddress = address || keyringService.getActiveAccount()?.address;
@@ -219,8 +281,17 @@ export class LiveOmniCoinProvider {
     const publicBalance = await this.provider.getBalance(targetAddress);
     
     const result: { 
+      /**
+       *
+       */
       public: ethers.BigNumber; 
+      /**
+       *
+       */
       private?: ethers.BigNumber; 
+      /**
+       *
+       */
       staked?: ethers.BigNumber; 
     } = { public: publicBalance };
     
@@ -251,6 +322,7 @@ export class LiveOmniCoinProvider {
 
   /**
    * Get private balance (XOMP)
+   * @param address
    */
   private async getPrivateBalance(address: string): Promise<ethers.BigNumber> {
     // Query private balance through validator
@@ -264,10 +336,21 @@ export class LiveOmniCoinProvider {
 
   /**
    * Get formatted balance
+   * @param address
+   * @param includePrivate
    */
   async getFormattedBalance(address?: string, includePrivate = false): Promise<{
+    /**
+     *
+     */
     public: string;
+    /**
+     *
+     */
     private?: string;
+    /**
+     *
+     */
     staked?: string;
   }> {
     const balances = await this.getBalance(address, includePrivate);
@@ -277,7 +360,16 @@ export class LiveOmniCoinProvider {
       return ethers.utils.formatUnits(value, this.network.nativeCurrency.decimals);
     };
     
-    const result: { public: string; private?: string; staked?: string } = {
+    const result: { /**
+                     *
+                     */
+    public: string; /**
+                     *
+                     */
+    private?: string; /**
+                       *
+                       */
+    staked?: string } = {
       public: formatOmniCoin(balances.public)
     };
     
@@ -294,6 +386,8 @@ export class LiveOmniCoinProvider {
 
   /**
    * Stake OmniCoin
+   * @param amount
+   * @param duration
    */
   async stakeOmniCoin(amount: ethers.BigNumber, duration: number): Promise<ethers.providers.TransactionResponse> {
     if (!this.network.features.staking) {
@@ -317,6 +411,7 @@ export class LiveOmniCoinProvider {
 
   /**
    * Unstake OmniCoin
+   * @param amount
    */
   async unstakeOmniCoin(amount: ethers.BigNumber): Promise<ethers.providers.TransactionResponse> {
     if (!this.network.features.staking) {
@@ -338,6 +433,7 @@ export class LiveOmniCoinProvider {
 
   /**
    * Convert XOM to XOMP (private)
+   * @param amount
    */
   async convertToPrivate(amount: ethers.BigNumber): Promise<ethers.providers.TransactionResponse> {
     if (!this.network.features.privacy) {
@@ -361,6 +457,7 @@ export class LiveOmniCoinProvider {
 
   /**
    * Convert XOMP to XOM (public)
+   * @param amount
    */
   async convertToPublic(amount: ethers.BigNumber): Promise<ethers.providers.TransactionResponse> {
     if (!this.network.features.privacy) {
@@ -381,6 +478,7 @@ export class LiveOmniCoinProvider {
 
   /**
    * Resolve OmniCoin username (e.g., "johndoe.omnicoin")
+   * @param username
    */
   async resolveUsername(username: string): Promise<string | null> {
     if (!this.validatorClient) {
@@ -394,6 +492,7 @@ export class LiveOmniCoinProvider {
 
   /**
    * Get user's marketplace listings
+   * @param address
    */
   async getUserListings(address?: string): Promise<unknown[]> {
     if (!this.validatorClient) {
@@ -410,6 +509,7 @@ export class LiveOmniCoinProvider {
 
   /**
    * Get user's reputation score
+   * @param address
    */
   async getReputationScore(address?: string): Promise<number> {
     if (!this.validatorClient) {
@@ -427,6 +527,8 @@ export class LiveOmniCoinProvider {
 
   /**
    * Create contract instance
+   * @param address
+   * @param abi
    */
   getContract(address: string, abi: ethers.ContractInterface): ethers.Contract {
     return new ethers.Contract(address, abi, this.provider);
@@ -434,6 +536,8 @@ export class LiveOmniCoinProvider {
 
   /**
    * Create contract instance with signer
+   * @param address
+   * @param abi
    */
   async getContractWithSigner(address: string, abi: ethers.ContractInterface): Promise<ethers.Contract> {
     const signer = await this.getSigner();
@@ -516,6 +620,10 @@ class OmniCoinKeyringSigner extends ethers.Signer {
 }
 
 // Factory function to create provider
+/**
+ *
+ * @param networkName
+ */
 export function createLiveOmniCoinProvider(networkName?: string): LiveOmniCoinProvider {
   return new LiveOmniCoinProvider(networkName);
 }

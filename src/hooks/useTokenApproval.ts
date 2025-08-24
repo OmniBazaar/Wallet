@@ -7,12 +7,35 @@ const ERC20_ABI = [
     'function allowance(address owner, address spender) view returns (uint256)'
 ];
 
+/**
+ *
+ * @param tokenAddress
+ * @param spenderAddress
+ */
 export const useTokenApproval = (tokenAddress: string, spenderAddress: string): {
+    /**
+     *
+     */
     isApproving: boolean;
+    /**
+     *
+     */
     error: string | null;
+    /**
+     *
+     */
     allowance: string;
+    /**
+     *
+     */
     approve: (amount: string) => Promise<ethers.TransactionResponse>;
+    /**
+     *
+     */
     approveMax: () => Promise<ethers.TransactionResponse>;
+    /**
+     *
+     */
     checkAllowance: () => Promise<void>;
 } => {
     const { provider, address } = useWallet();

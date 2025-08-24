@@ -6,13 +6,31 @@ import { ethers } from 'ethers';
 import OmniNameRegistryArtifact from '../../../contract-tests/artifacts/contracts/OmniNameRegistry.sol/OmniNameRegistry.json';
 import OmniStatelessResolverArtifact from '../../../contract-tests/artifacts/contracts/OmniStatelessResolver.sol/OmniStatelessResolver.json';
 
+/**
+ *
+ */
 export interface ContractConfig {
+  /**
+   *
+   */
   registryAddress: string;
+  /**
+   *
+   */
   resolverAddress: string;
+  /**
+   *
+   */
   cotiRpcUrl: string;
+  /**
+   *
+   */
   ethereumRpcUrl: string;
 }
 
+/**
+ *
+ */
 export class ContractManager {
   private static instance: ContractManager;
   private config: ContractConfig;
@@ -40,6 +58,10 @@ export class ContractManager {
     );
   }
 
+  /**
+   *
+   * @param config
+   */
   public static initialize(config: ContractConfig): ContractManager {
     if (!ContractManager.instance) {
       ContractManager.instance = new ContractManager(config);
@@ -47,6 +69,9 @@ export class ContractManager {
     return ContractManager.instance;
   }
 
+  /**
+   *
+   */
   public static getInstance(): ContractManager {
     if (!ContractManager.instance) {
       throw new Error('ContractManager not initialized. Call initialize() first.');
@@ -54,22 +79,37 @@ export class ContractManager {
     return ContractManager.instance;
   }
 
+  /**
+   *
+   */
   public getRegistryContract(): ethers.Contract {
     return this.registryContract;
   }
 
+  /**
+   *
+   */
   public getResolverContract(): ethers.Contract {
     return this.resolverContract;
   }
 
+  /**
+   *
+   */
   public getCotiProvider(): ethers.JsonRpcProvider {
     return this.cotiProvider;
   }
 
+  /**
+   *
+   */
   public getEthereumProvider(): ethers.JsonRpcProvider {
     return this.ethereumProvider;
   }
 
+  /**
+   *
+   */
   public getConfig(): ContractConfig {
     return this.config;
   }

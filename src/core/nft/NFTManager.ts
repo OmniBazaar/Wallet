@@ -9,18 +9,26 @@ import { providerManager } from '../providers/ProviderManager';
 import { keyringService } from '../keyring/KeyringService';
 import { ChainType } from '../keyring/BIP39Keyring';
 
+/**
+ *
+ */
 export class NFTManager {
   private discoveryService: NFTDiscoveryService;
   private nftCache: Map<string, NFT[]> = new Map();
   private lastUpdate: Map<string, number> = new Map();
   private cacheTimeout = 5 * 60 * 1000; // 5 minutes
 
+  /**
+   *
+   * @param apiKeys
+   */
   constructor(apiKeys?: Record<string, string>) {
     this.discoveryService = new NFTDiscoveryService(apiKeys);
   }
 
   /**
    * Get NFTs for the active account
+   * @param options
    */
   async getActiveAccountNFTs(options: NFTDiscoveryOptions = {}): Promise<NFT[]> {
     const activeAccount = keyringService.getActiveAccount();
@@ -33,6 +41,8 @@ export class NFTManager {
 
   /**
    * Get NFTs for a specific address
+   * @param address
+   * @param options
    */
   async getNFTs(address: string, options: NFTDiscoveryOptions = {}): Promise<NFT[]> {
     const cacheKey = `${address}_${JSON.stringify(options)}`;
@@ -50,6 +60,7 @@ export class NFTManager {
 
   /**
    * Get NFTs by chain
+   * @param chain
    */
   async getNFTsByChain(chain: ChainType | string): Promise<NFT[]> {
     const activeAccount = keyringService.getActiveAccount();
@@ -62,6 +73,9 @@ export class NFTManager {
 
   /**
    * Get a specific NFT
+   * @param chain
+   * @param contractAddress
+   * @param tokenId
    */
   async getNFT(
     chain: string,
@@ -73,6 +87,7 @@ export class NFTManager {
 
   /**
    * Transfer NFT
+   * @param request
    */
   async transferNFT(request: NFTTransferRequest): Promise<string> {
     const { nft, to, amount } = request;
@@ -95,6 +110,9 @@ export class NFTManager {
 
   /**
    * Transfer EVM NFT (ERC721/ERC1155)
+   * @param nft
+   * @param to
+   * @param amount
    */
   private async transferEVMNFT(
     nft: NFT,
@@ -153,12 +171,17 @@ export class NFTManager {
 
   /**
    * Transfer Solana NFT
+   * @param nft
+   * @param to
    */
   private async transferSolanaNFT(
     nft: SolanaNFT,
     to: string
   ): Promise<string> {
-    const solanaProvider = providerManager.getProvider('solana') as { sendTransaction: (transaction: unknown) => Promise<string> } | null;
+    const solanaProvider = providerManager.getProvider('solana') as { /**
+                                                                       *
+                                                                       */
+    sendTransaction: (transaction: unknown) => Promise<string> } | null;
     if (!solanaProvider) {
       throw new Error('Solana provider not initialized');
     }
@@ -233,6 +256,7 @@ export class NFTManager {
 
   /**
    * Get cached NFTs
+   * @param key
    */
   private getCached(key: string): NFT[] | null {
     const cached = this.nftCache.get(key);
@@ -247,6 +271,8 @@ export class NFTManager {
 
   /**
    * Set cache
+   * @param key
+   * @param nfts
    */
   private setCache(key: string, nfts: NFT[]): void {
     this.nftCache.set(key, nfts);
@@ -272,6 +298,7 @@ export class NFTManager {
 
   /**
    * Search NFTs by name
+   * @param query
    */
   async searchNFTs(query: string): Promise<NFT[]> {
     const nfts = await this.getActiveAccountNFTs();
@@ -287,9 +314,21 @@ export class NFTManager {
    * Get NFT statistics
    */
   async getStatistics(): Promise<{
+    /**
+     *
+     */
     totalNFTs: number;
+    /**
+     *
+     */
     byChain: Record<string, number>;
+    /**
+     *
+     */
     byCollection: Record<string, number>;
+    /**
+     *
+     */
     totalFloorValue?: number;
   }> {
     const nfts = await this.getActiveAccountNFTs();

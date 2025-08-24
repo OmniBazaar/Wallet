@@ -7,8 +7,17 @@ import { getOmniCoinBalance, OmniCoinMetadata } from '../blockchain/OmniCoin';
  * Configuration parameters for wallet network setup
  */
 export interface WalletConfig {
+  /**
+   *
+   */
   network: string;
+  /**
+   *
+   */
   rpcUrl: string;
+  /**
+   *
+   */
   chainId: number;
 }
 
@@ -16,9 +25,21 @@ export interface WalletConfig {
  * Current state of the wallet including address and balances
  */
 export interface WalletState {
+  /**
+   *
+   */
   address: string;
+  /**
+   *
+   */
   balance: bigint;
+  /**
+   *
+   */
   nonce: number;
+  /**
+   *
+   */
   chainId: number;
 }
 
@@ -26,8 +47,17 @@ export interface WalletState {
  * Represents an action in a governance proposal
  */
 export interface GovernanceAction {
+  /**
+   *
+   */
   target: string;
+  /**
+   *
+   */
   value: bigint;
+  /**
+   *
+   */
   data: string;
 }
 
@@ -37,42 +67,117 @@ export interface GovernanceAction {
  */
 export interface Wallet {
   // Core Wallet Functions
+  /**
+   *
+   */
   getAddress(): Promise<string>;
+  /**
+   *
+   */
   getBalance(assetSymbol?: string): Promise<bigint | string>;
+  /**
+   *
+   */
   getChainId(): Promise<number>;
+  /**
+   *
+   */
   getProvider(): BrowserProvider;
 
   // Transaction Management
+  /**
+   *
+   */
   sendTransaction(transaction: Transaction): Promise<TransactionResponse>;
+  /**
+   *
+   */
   signTransaction(transaction: Transaction): Promise<string>;
+  /**
+   *
+   */
   signMessage(message: string): Promise<string>;
 
   // Token Management
+  /**
+   *
+   */
   getTokenBalance(tokenAddress: string): Promise<bigint>;
+  /**
+   *
+   */
   approveToken(tokenAddress: string, spender: string, amount: bigint): Promise<TransactionResponse>;
 
   // Network Management
+  /**
+   *
+   */
   switchNetwork(chainId: number): Promise<void>;
+  /**
+   *
+   */
   addNetwork(config: WalletConfig): Promise<void>;
 
   // Event Handlers
+  /**
+   *
+   */
   onAccountChange(callback: (address: string) => void): void;
+  /**
+   *
+   */
   onNetworkChange(callback: (chainId: number) => void): void;
+  /**
+   *
+   */
   onBalanceChange(callback: (balance: bigint) => void): void;
 
   // State Management
+  /**
+   *
+   */
   getState(): Promise<WalletState>;
+  /**
+   *
+   */
   connect(): Promise<void>;
+  /**
+   *
+   */
   disconnect(): Promise<void>;
 
   // Advanced OmniCoin Features
+  /**
+   *
+   */
   stakeOmniCoin(amount: bigint): Promise<TransactionResponse>;
+  /**
+   *
+   */
   unstakeOmniCoin(amount: bigint): Promise<TransactionResponse>;
+  /**
+   *
+   */
   getStakedBalance(): Promise<bigint>;
+  /**
+   *
+   */
   createPrivacyAccount(): Promise<TransactionResponse>;
+  /**
+   *
+   */
   closePrivacyAccount(): Promise<TransactionResponse>;
+  /**
+   *
+   */
   getPrivacyBalance(): Promise<bigint>;
+  /**
+   *
+   */
   proposeGovernanceAction(description: string, actions: GovernanceAction[]): Promise<TransactionResponse>;
+  /**
+   *
+   */
   voteOnProposal(proposalId: number, support: boolean): Promise<TransactionResponse>;
 }
 
@@ -80,6 +185,11 @@ export interface Wallet {
  * Custom error class for wallet operations
  */
 export class WalletError extends Error {
+  /**
+   *
+   * @param message
+   * @param code
+   */
   constructor(message: string, public code: string) {
     super(message);
     this.name = 'WalletError';
@@ -366,6 +476,10 @@ export class WalletImpl implements Wallet {
     this.networkChangeCallbacks.forEach(callback => callback(newChainId));
   }
 
+  /**
+   *
+   * @param amount
+   */
   async stakeOmniCoin(amount: bigint): Promise<TransactionResponse> {
     if (!this.state) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
     if (!this.provider) throw new WalletError('Provider not initialized', 'NO_PROVIDER');
@@ -397,6 +511,10 @@ export class WalletImpl implements Wallet {
     return signedTx;
   }
 
+  /**
+   *
+   * @param amount
+   */
   async unstakeOmniCoin(amount: bigint): Promise<TransactionResponse> {
     if (!this.state) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
     if (!this.provider) throw new WalletError('Provider not initialized', 'NO_PROVIDER');
@@ -433,6 +551,9 @@ export class WalletImpl implements Wallet {
     return signedTx;
   }
 
+  /**
+   *
+   */
   async getStakedBalance(): Promise<bigint> {
     if (!this.state) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
     if (!this.provider) throw new WalletError('Provider not initialized', 'NO_PROVIDER');
@@ -457,6 +578,9 @@ export class WalletImpl implements Wallet {
     return BigInt(decoded[0].toString());
   }
 
+  /**
+   *
+   */
   async createPrivacyAccount(): Promise<TransactionResponse> {
     if (!this.state) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
     if (!this.provider) throw new WalletError('Provider not initialized', 'NO_PROVIDER');
@@ -501,6 +625,9 @@ export class WalletImpl implements Wallet {
     return signedTx;
   }
 
+  /**
+   *
+   */
   async closePrivacyAccount(): Promise<TransactionResponse> {
     if (!this.state) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
     if (!this.provider) throw new WalletError('Provider not initialized', 'NO_PROVIDER');
@@ -548,6 +675,9 @@ export class WalletImpl implements Wallet {
     return signedTx;
   }
 
+  /**
+   *
+   */
   async getPrivacyBalance(): Promise<bigint> {
     if (!this.state) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
     if (!this.provider) throw new WalletError('Provider not initialized', 'NO_PROVIDER');
@@ -585,6 +715,11 @@ export class WalletImpl implements Wallet {
     return BigInt(decoded[0].toString());
   }
 
+  /**
+   *
+   * @param description
+   * @param actions
+   */
   async proposeGovernanceAction(description: string, actions: GovernanceAction[]): Promise<TransactionResponse> {
     if (!this.state) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
     if (!this.provider) throw new WalletError('Provider not initialized', 'NO_PROVIDER');
@@ -630,6 +765,11 @@ export class WalletImpl implements Wallet {
     return signedTx;
   }
 
+  /**
+   *
+   * @param proposalId
+   * @param support
+   */
   async voteOnProposal(proposalId: number, support: boolean): Promise<TransactionResponse> {
     if (!this.state) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
     if (!this.provider) throw new WalletError('Provider not initialized', 'NO_PROVIDER');

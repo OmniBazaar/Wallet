@@ -17,6 +17,9 @@ import {
 import { supportedPaths } from "./configs";
 import ConnectToLedger from "../ledgerConnect";
 
+/**
+ *
+ */
 class LedgerSolana implements HWWalletProvider {
   transport: Transport | null;
 
@@ -24,12 +27,19 @@ class LedgerSolana implements HWWalletProvider {
 
   HDNodes: Record<string, HDKey>;
 
+  /**
+   *
+   * @param network
+   */
   constructor(network: NetworkNames) {
     this.transport = null;
     this.network = network;
     this.HDNodes = {};
   }
 
+  /**
+   *
+   */
   async init(): Promise<boolean> {
     if (!this.transport) {
       const support = await webUsbTransport.isSupported();
@@ -47,6 +57,10 @@ class LedgerSolana implements HWWalletProvider {
     return true;
   }
 
+  /**
+   *
+   * @param options
+   */
   async getAddress(options: getAddressRequest): Promise<AddressResponse> {
     if (!supportedPaths[this.network])
       return Promise.reject(new Error("ledger-solana: Invalid network name"));
@@ -62,6 +76,10 @@ class LedgerSolana implements HWWalletProvider {
       }));
   }
 
+  /**
+   *
+   * @param options
+   */
   async signPersonalMessage(options: SignMessageRequest): Promise<string> {
     const connection = new SolApp(this.transport);
     return connection
@@ -72,6 +90,10 @@ class LedgerSolana implements HWWalletProvider {
       .then((result) => bufferToHex(result.signature));
   }
 
+  /**
+   *
+   * @param options
+   */
   async signTransaction(options: SignTransactionRequest): Promise<string> {
     const connection = new SolApp(this.transport);
     return connection
@@ -82,29 +104,49 @@ class LedgerSolana implements HWWalletProvider {
       .then((result) => bufferToHex(result.signature));
   }
 
+  /**
+   *
+   * @param _request
+   */
   signTypedMessage(_request: SignTypedMessageRequest): Promise<string> {
     return Promise.reject(
       new Error("ledger-solana: signTypedMessage not supported"),
     );
   }
 
+  /**
+   *
+   */
   getSupportedPaths(): PathType[] {
     return supportedPaths[this.network];
   }
 
+  /**
+   *
+   */
   close(): Promise<void> {
     // eslint-disable-next-line @typescript-eslint/no-empty-function
     return this.transport.close().catch(() => {});
   }
 
+  /**
+   *
+   * @param networkName
+   */
   isConnected(networkName: NetworkNames): Promise<boolean> {
     return ConnectToLedger.bind(this)(networkName);
   }
 
+  /**
+   *
+   */
   static getSupportedNetworks(): NetworkNames[] {
     return Object.keys(supportedPaths) as NetworkNames[];
   }
 
+  /**
+   *
+   */
   static getCapabilities(): string[] {
     return [HWwalletCapabilities.signMessage, HWwalletCapabilities.signTx];
   }

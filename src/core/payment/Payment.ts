@@ -3,34 +3,83 @@ import { Wallet } from '../wallet/Wallet';
 import { Transaction } from '../wallet/Transaction';
 import { OmniCoinMetadata } from '../blockchain/OmniCoin';
 
+/**
+ *
+ */
 export interface PaymentRequest {
+  /**
+   *
+   */
   to: string;
+  /**
+   *
+   */
   amount: string;
+  /**
+   *
+   */
   description?: string;
+  /**
+   *
+   */
   metadata?: Record<string, unknown>;
 }
 
+/**
+ *
+ */
 export interface PaymentResponse {
+  /**
+   *
+   */
   transactionHash: string;
+  /**
+   *
+   */
   status: 'pending' | 'confirmed' | 'failed';
+  /**
+   *
+   */
   blockNumber?: number;
+  /**
+   *
+   */
   confirmations?: number;
 }
 
+/**
+ *
+ */
 export class PaymentError extends Error {
+  /**
+   *
+   * @param message
+   * @param code
+   */
   constructor(message: string, public code: string) {
     super(message);
     this.name = 'PaymentError';
   }
 }
 
+/**
+ *
+ */
 export class Payment {
   private wallet: Wallet;
 
+  /**
+   *
+   * @param wallet
+   */
   constructor(wallet: Wallet) {
     this.wallet = wallet;
   }
 
+  /**
+   *
+   * @param request
+   */
   async sendPayment(request: PaymentRequest): Promise<PaymentResponse> {
     try {
       // Convert amount to wei
@@ -59,6 +108,10 @@ export class Payment {
     }
   }
 
+  /**
+   *
+   * @param transactionHash
+   */
   async getPaymentStatus(transactionHash: string): Promise<PaymentResponse> {
     try {
       const provider = this.wallet.getProvider();
@@ -83,6 +136,10 @@ export class Payment {
     }
   }
 
+  /**
+   *
+   * @param request
+   */
   async estimateGas(request: PaymentRequest): Promise<ethers.BigNumber> {
     try {
       const amount = ethers.utils.parseUnits(request.amount, OmniCoinMetadata.decimals);

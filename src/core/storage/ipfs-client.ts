@@ -22,47 +22,134 @@ interface IPFSHTTPClient {
   addAll: (files: any[], options?: any) => AsyncIterable<{ cid: { toString: () => string } }>;
 }
 
+/**
+ *
+ */
 export interface IPFSUploadResult {
+  /**
+   *
+   */
   hash: string;
+  /**
+   *
+   */
   url: string;
+  /**
+   *
+   */
   size: number;
 }
 
+/**
+ *
+ */
 export interface NFTMetadata {
+  /**
+   *
+   */
   name: string;
+  /**
+   *
+   */
   description: string;
+  /**
+   *
+   */
   image: string;
+  /**
+   *
+   */
   attributes?: Array<{
+    /**
+     *
+     */
     trait_type: string;
+    /**
+     *
+     */
     value: string | number;
   }>;
+  /**
+   *
+   */
   external_url?: string;
+  /**
+   *
+   */
   animation_url?: string;
 }
 
+/**
+ *
+ */
 export interface MarketplaceListing {
+  /**
+   *
+   */
   id: string;
+  /**
+   *
+   */
   seller: string;
+  /**
+   *
+   */
   tokenContract: string;
+  /**
+   *
+   */
   tokenId: string;
+  /**
+   *
+   */
   price: string;
+  /**
+   *
+   */
   currency: string;
+  /**
+   *
+   */
   metadata: NFTMetadata;
+  /**
+   *
+   */
   timestamp: number;
 }
 
+/**
+ *
+ */
 export class IPFSClient {
   private gateway: string;
   private pinningService?: string;
   private client?: IPFSHTTPClient;
   private initialized = false;
   private apiConfig: {
+    /**
+     *
+     */
     host: string;
+    /**
+     *
+     */
     port: number;
+    /**
+     *
+     */
     protocol: string;
+    /**
+     *
+     */
     apiPath: string;
   };
 
+  /**
+   *
+   * @param gateway
+   * @param pinningService
+   * @param apiConfig
+   */
   constructor(
     gateway = 'https://ipfs.io/ipfs/',
     pinningService?: string,
@@ -99,6 +186,10 @@ export class IPFSClient {
   }
 
   // Upload file to IPFS
+  /**
+   *
+   * @param file
+   */
   async uploadFile(file: File): Promise<IPFSUploadResult> {
     try {
       console.log('📤 Uploading file to IPFS:', file.name);
@@ -151,6 +242,10 @@ export class IPFSClient {
   }
 
   // Upload JSON metadata to IPFS
+  /**
+   *
+   * @param data
+   */
   async uploadJSON(data: NFTMetadata | MarketplaceListing): Promise<IPFSUploadResult> {
     try {
       console.warn('📤 Uploading JSON to IPFS');
@@ -168,10 +263,27 @@ export class IPFSClient {
   }
 
   // Upload NFT metadata with image
+  /**
+   *
+   * @param metadata
+   * @param imageFile
+   */
   async uploadNFTMetadata(metadata: NFTMetadata, imageFile?: File): Promise<{
+    /**
+     *
+     */
     metadataHash: string;
+    /**
+     *
+     */
     metadataUrl: string;
+    /**
+     *
+     */
     imageHash?: string;
+    /**
+     *
+     */
     imageUrl?: string;
   }> {
     try {
@@ -206,6 +318,10 @@ export class IPFSClient {
   }
 
   // Get content from IPFS
+  /**
+   *
+   * @param hash
+   */
   async getContent(hash: string): Promise<NFTMetadata | MarketplaceListing> {
     try {
       console.log('📥 Fetching content from IPFS:', hash);
@@ -250,6 +366,10 @@ export class IPFSClient {
   }
 
   // Upload marketplace listing
+  /**
+   *
+   * @param listing
+   */
   async uploadMarketplaceListing(listing: MarketplaceListing): Promise<IPFSUploadResult> {
     try {
       console.warn('🏪 Uploading marketplace listing to IPFS');
@@ -263,9 +383,33 @@ export class IPFSClient {
   }
 
   // Search for listings (simplified implementation)
+  /**
+   *
+   * @param query
+   * @param query.seller
+   * @param query.priceRange
+   * @param query.priceRange.min
+   * @param query.priceRange.max
+   * @param query.category
+   */
   async searchListings(query: {
+    /**
+     *
+     */
     seller?: string;
-    priceRange?: { min: string; max: string };
+    /**
+     *
+     */
+    priceRange?: { /**
+                    *
+                    */
+    min: string; /**
+                  *
+                  */
+    max: string };
+    /**
+     *
+     */
     category?: string;
   }): Promise<MarketplaceListing[]> {
     try {
@@ -299,6 +443,10 @@ export class IPFSClient {
   }
 
   // Pin content to prevent garbage collection
+  /**
+   *
+   * @param hash
+   */
   async pinContent(hash: string): Promise<boolean> {
     try {
       console.log('📌 Pinning content to IPFS:', hash);
@@ -330,6 +478,7 @@ export class IPFSClient {
 
   /**
    * Unpin content from IPFS
+   * @param hash
    */
   async unpinContent(hash: string): Promise<boolean> {
     try {
@@ -382,11 +531,24 @@ export class IPFSClient {
 
   /**
    * Get content statistics
+   * @param hash
    */
   async getContentStats(hash: string): Promise<{
+    /**
+     *
+     */
     hash: string;
+    /**
+     *
+     */
     size: number;
+    /**
+     *
+     */
     cumulativeSize: number;
+    /**
+     *
+     */
     blocks: number;
   } | null> {
     try {
@@ -432,17 +594,28 @@ export class IPFSClient {
   }
 
   // Utility: Format IPFS URL
+  /**
+   *
+   * @param hash
+   */
   formatURL(hash: string): string {
     return `${this.gateway}${hash}`;
   }
 
   // Utility: Extract hash from IPFS URL
+  /**
+   *
+   * @param url
+   */
   extractHash(url: string): string | null {
     const match = url.match(/\/ipfs\/([a-zA-Z0-9]+)/);
     return match ? match[1] : null;
   }
 
   // Test IPFS connectivity
+  /**
+   *
+   */
   async testConnectivity(): Promise<boolean> {
     try {
       console.log('🔗 Testing IPFS connectivity...');

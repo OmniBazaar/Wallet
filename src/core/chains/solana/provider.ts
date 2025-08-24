@@ -25,32 +25,105 @@ import { BaseProvider } from '../base-provider';
 import { NetworkConfig, Transaction as BaseTransaction, TransactionRequest } from '@/types';
 import bs58 from 'bs58';
 
+/**
+ *
+ */
 export interface SolanaNetworkConfig extends NetworkConfig {
+  /**
+   *
+   */
   commitment?: 'processed' | 'confirmed' | 'finalized';
+  /**
+   *
+   */
   wsUrl?: string;
 }
 
+/**
+ *
+ */
 export interface SolanaTransaction extends TransactionRequest {
-  instructions?: { programId: string; keys: Array<{ pubkey: string; isSigner: boolean; isWritable: boolean }>; data: string }[];
+  /**
+   *
+   */
+  instructions?: { /**
+                    *
+                    */
+  programId: string; /**
+                      *
+                      */
+  keys: Array<{ /**
+                 *
+                 */
+  pubkey: string; /**
+                   *
+                   */
+  isSigner: boolean; /**
+                      *
+                      */
+  isWritable: boolean }>; /**
+                           *
+                           */
+  data: string }[];
+  /**
+   *
+   */
   feePayer?: string;
+  /**
+   *
+   */
   recentBlockhash?: string;
+  /**
+   *
+   */
   signatures?: string[];
 }
 
+/**
+ *
+ */
 export interface SPLToken {
+  /**
+   *
+   */
   mint: string;
+  /**
+   *
+   */
   address: string;
+  /**
+   *
+   */
   amount: string;
+  /**
+   *
+   */
   decimals: number;
+  /**
+   *
+   */
   symbol?: string;
+  /**
+   *
+   */
   name?: string;
+  /**
+   *
+   */
   logoURI?: string;
 }
 
+/**
+ *
+ */
 export class SolanaProvider extends BaseProvider {
   protected connection: Connection;
   protected commitment: 'processed' | 'confirmed' | 'finalized';
 
+  /**
+   *
+   * @param config
+   */
   constructor(config: SolanaNetworkConfig) {
     super(config);
     this.commitment = config.commitment || 'confirmed';
@@ -62,8 +135,15 @@ export class SolanaProvider extends BaseProvider {
 
   /**
    * Get account from private key
+   * @param privateKey
    */
-  async getAccount(privateKey: string): Promise<{ address: string; publicKey: string }> {
+  async getAccount(privateKey: string): Promise<{ /**
+                                                   *
+                                                   */
+  address: string; /**
+                    *
+                    */
+  publicKey: string }> {
     const keypair = Keypair.fromSecretKey(bs58.decode(privateKey));
     return {
       address: keypair.publicKey.toBase58(),
@@ -73,6 +153,7 @@ export class SolanaProvider extends BaseProvider {
 
   /**
    * Get SOL balance
+   * @param address
    */
   async getBalance(address: string): Promise<string> {
     const publicKey = new PublicKey(address);
@@ -82,6 +163,7 @@ export class SolanaProvider extends BaseProvider {
 
   /**
    * Get formatted balance in SOL
+   * @param address
    */
   async getFormattedBalance(address: string): Promise<string> {
     const balance = await this.getBalance(address);
@@ -91,6 +173,7 @@ export class SolanaProvider extends BaseProvider {
 
   /**
    * Get SPL token balances
+   * @param address
    */
   async getTokenBalances(address: string): Promise<SPLToken[]> {
     const publicKey = new PublicKey(address);
@@ -102,7 +185,7 @@ export class SolanaProvider extends BaseProvider {
     const tokens: SPLToken[] = [];
     
     for (const { pubkey, account } of tokenAccounts.value) {
-      const parsedData = account.data as ParsedAccountData;
+      const parsedData = account.data;
       const tokenInfo = parsedData.parsed.info;
       
       tokens.push({
@@ -118,6 +201,7 @@ export class SolanaProvider extends BaseProvider {
 
   /**
    * Get all token balances including SOL
+   * @param address
    */
   async getAllBalances(address: string): Promise<TokenAccountBalancePair[]> {
     const publicKey = new PublicKey(address);
@@ -154,6 +238,7 @@ export class SolanaProvider extends BaseProvider {
 
   /**
    * Build transaction
+   * @param transaction
    */
   async buildTransaction(transaction: SolanaTransaction): Promise<Transaction> {
     const tx = new Transaction();
@@ -183,6 +268,8 @@ export class SolanaProvider extends BaseProvider {
 
   /**
    * Sign transaction
+   * @param privateKey
+   * @param transaction
    */
   async signTransaction(privateKey: string, transaction: TransactionRequest): Promise<string> {
     const keypair = Keypair.fromSecretKey(bs58.decode(privateKey));
@@ -211,6 +298,7 @@ export class SolanaProvider extends BaseProvider {
 
   /**
    * Send transaction
+   * @param signedTransaction
    */
   async sendTransaction(signedTransaction: string): Promise<string> {
     const transaction = Transaction.from(bs58.decode(signedTransaction));
@@ -224,6 +312,9 @@ export class SolanaProvider extends BaseProvider {
 
   /**
    * Send SOL
+   * @param privateKey
+   * @param to
+   * @param amount
    */
   async sendSOL(
     privateKey: string,
@@ -252,6 +343,11 @@ export class SolanaProvider extends BaseProvider {
 
   /**
    * Send SPL token
+   * @param privateKey
+   * @param to
+   * @param mint
+   * @param amount
+   * @param decimals
    */
   async sendToken(
     privateKey: string,
@@ -314,6 +410,7 @@ export class SolanaProvider extends BaseProvider {
 
   /**
    * Get transaction details
+   * @param txHash
    */
   async getTransaction(txHash: string): Promise<BaseTransaction> {
     const transaction = await this.connection.getParsedTransaction(txHash, {
@@ -357,6 +454,8 @@ export class SolanaProvider extends BaseProvider {
 
   /**
    * Get transaction history
+   * @param address
+   * @param limit
    */
   async getTransactionHistory(address: string, limit?: number): Promise<BaseTransaction[]> {
     const publicKey = new PublicKey(address);
@@ -381,6 +480,7 @@ export class SolanaProvider extends BaseProvider {
 
   /**
    * Subscribe to new blocks
+   * @param callback
    */
   async subscribeToBlocks(callback: (blockNumber: number) => void): Promise<() => void> {
     const subscription = this.connection.onSlotChange((slotInfo) => {
@@ -394,6 +494,8 @@ export class SolanaProvider extends BaseProvider {
 
   /**
    * Sign message
+   * @param privateKey
+   * @param message
    */
   async signMessage(privateKey: string, message: string): Promise<string> {
     const keypair = Keypair.fromSecretKey(bs58.decode(privateKey));
@@ -404,6 +506,7 @@ export class SolanaProvider extends BaseProvider {
 
   /**
    * Get rent exemption amount
+   * @param dataLength
    */
   async getRentExemption(dataLength = 0): Promise<number> {
     return await this.connection.getMinimumBalanceForRentExemption(dataLength);
@@ -411,6 +514,8 @@ export class SolanaProvider extends BaseProvider {
 
   /**
    * Airdrop SOL (testnet/devnet only)
+   * @param address
+   * @param amount
    */
   async airdrop(address: string, amount = 1): Promise<string> {
     const publicKey = new PublicKey(address);

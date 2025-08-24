@@ -100,9 +100,21 @@ export const MOCK_NFTS_FOR_COLLECTION = [
 // ///////////////////////////////////////////////
 // Query Types
 
+/**
+ *
+ */
 export type NftsForCollectionArgs = {
+  /**
+   *
+   */
   address: Address;
+  /**
+   *
+   */
   collectionId: string;
+  /**
+   *
+   */
   collectionChains: ChainName[];
 };
 
@@ -149,6 +161,14 @@ type NftsForCollectionResult = QueryFunctionResult<
 // ///////////////////////////////////////////////
 // Query Hook
 
+/**
+ *
+ * @param root0
+ * @param root0.address
+ * @param root0.collectionId
+ * @param root0.collectionChains
+ * @param config
+ */
 export function useNftsForCollection<TSelectData = NftsForCollectionResult>(
   { address, collectionId, collectionChains }: NftsForCollectionArgs,
   config: InfiniteQueryConfig<NftsForCollectionResult, Error, TSelectData> = {},

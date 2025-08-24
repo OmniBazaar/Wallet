@@ -16,21 +16,35 @@ import {
 import { supportedPaths, TrezorNetworkConfigs } from "./configs";
 import getTrezorConnect from "../trezorConnect";
 
+/**
+ *
+ */
 class TrezorBitcoin implements HWWalletProvider {
   network: NetworkNames;
   TrezorConnect: TrezorConnect;
   HDNodes: Record<string, HDKey>;
 
+  /**
+   *
+   * @param network
+   */
   constructor(network: NetworkNames) {
     this.network = network;
     this.HDNodes = {};
   }
 
+  /**
+   *
+   */
   async init(): Promise<boolean> {
     this.TrezorConnect = await getTrezorConnect();
     return true;
   }
 
+  /**
+   *
+   * @param options
+   */
   async getAddress(options: getAddressRequest): Promise<AddressResponse> {
     if (!supportedPaths[this.network])
       return Promise.reject(new Error("trezor-bitcoin: Invalid network name"));
@@ -60,18 +74,31 @@ class TrezorBitcoin implements HWWalletProvider {
     };
   }
 
+  /**
+   *
+   */
   getSupportedPaths(): PathType[] {
     return supportedPaths[this.network];
   }
 
+  /**
+   *
+   */
   close(): Promise<void> {
     return Promise.resolve();
   }
 
+  /**
+   *
+   */
   isConnected(): Promise<boolean> {
     return Promise.resolve(true);
   }
 
+  /**
+   *
+   * @param options
+   */
   async signPersonalMessage(options: BitcoinSignMessage): Promise<string> {
     if (options.type === "bip322-simple") {
       throw new Error("trezor-bitcoin: bip322 signing not supported");
@@ -86,6 +113,10 @@ class TrezorBitcoin implements HWWalletProvider {
     return bufferToHex(Buffer.from(result.payload.signature, "base64"));
   }
 
+  /**
+   *
+   * @param options
+   */
   async signTransaction(options: SignTransactionRequest): Promise<string> {
     const transactionOptions = options.transaction as BTCSignTransaction;
     const addressN = getHDPath(
@@ -116,16 +147,26 @@ class TrezorBitcoin implements HWWalletProvider {
     });
   }
 
+  /**
+   *
+   * @param _request
+   */
   signTypedMessage(_request: SignTypedMessageRequest): Promise<string> {
     return Promise.reject(
       new Error("trezor-bitcoin: signTypedMessage not supported"),
     );
   }
 
+  /**
+   *
+   */
   static getSupportedNetworks(): NetworkNames[] {
     return Object.keys(supportedPaths) as NetworkNames[];
   }
 
+  /**
+   *
+   */
   static getCapabilities(): string[] {
     return [HWwalletCapabilities.signMessage, HWwalletCapabilities.signTx];
   }

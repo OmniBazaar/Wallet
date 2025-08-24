@@ -29,76 +29,250 @@ import bs58 from 'bs58';
 import BrowserStorage, { StorageInterface } from '../storage/common/browser-storage';
 
 // Types
+/**
+ *
+ */
 export interface Account {
+  /**
+   *
+   */
   id: string;
+  /**
+   *
+   */
   name: string;
+  /**
+   *
+   */
   address: string;
+  /**
+   *
+   */
   publicKey: string;
+  /**
+   *
+   */
   derivationPath: string;
+  /**
+   *
+   */
   chainType: ChainType;
+  /**
+   *
+   */
   isHardware?: boolean;
+  /**
+   *
+   */
   createdAt: number;
 }
 
+/**
+ *
+ */
 export interface WalletData {
+  /**
+   *
+   */
   id: string;
+  /**
+   *
+   */
   name: string;
+  /**
+   *
+   */
   type: 'seed' | 'hardware';
+  /**
+   *
+   */
   createdAt: number;
+  /**
+   *
+   */
   accounts: Account[];
 }
 
+/**
+ *
+ */
 export interface EncryptedData {
+  /**
+   *
+   */
   ciphertext: string;
+  /**
+   *
+   */
   iv: string;
+  /**
+   *
+   */
   authTag: string;
+  /**
+   *
+   */
   salt: string;
 }
 
+/**
+ *
+ */
 export type ChainType = 'ethereum' | 'bitcoin' | 'solana' | 'coti' | 'omnicoin' | 'substrate';
 
+/**
+ *
+ */
 export interface KeyringOptions {
+  /**
+   *
+   */
   mnemonic?: string;
+  /**
+   *
+   */
   password: string;
+  /**
+   *
+   */
   seedPhraseLength?: 12 | 15 | 18 | 21 | 24;
 }
 
+/**
+ *
+ */
 export interface SignatureResult {
+  /**
+   *
+   */
   signature: string;
+  /**
+   *
+   */
   recovery?: number; // For Ethereum
+  /**
+   *
+   */
   messageHash?: string;
 }
 
+/**
+ *
+ */
 export interface TransactionSignResult {
+  /**
+   *
+   */
   signedTransaction: string;
+  /**
+   *
+   */
   transactionHash: string;
 }
 
 // Transaction interfaces for different chains
+/**
+ *
+ */
 export interface EthereumTransaction {
+  /**
+   *
+   */
   to: string;
+  /**
+   *
+   */
   value?: string;
+  /**
+   *
+   */
   data?: string;
+  /**
+   *
+   */
   gasLimit?: string;
+  /**
+   *
+   */
   gasPrice?: string;
+  /**
+   *
+   */
   nonce?: number;
 }
 
+/**
+ *
+ */
 export interface BitcoinTransaction {
-  inputs: Array<{ txid: string; vout: number; amount: number }>;
-  outputs: Array<{ address: string; amount: number }>;
+  /**
+   *
+   */
+  inputs: Array<{ /**
+                   *
+                   */
+  txid: string; /**
+                 *
+                 */
+  vout: number; /**
+                 *
+                 */
+  amount: number }>;
+  /**
+   *
+   */
+  outputs: Array<{ /**
+                    *
+                    */
+  address: string; /**
+                    *
+                    */
+  amount: number }>;
+  /**
+   *
+   */
   fee?: number;
 }
 
+/**
+ *
+ */
 export interface SolanaTransaction {
+  /**
+   *
+   */
   recentBlockhash: string;
+  /**
+   *
+   */
   instructions: Array<{
+    /**
+     *
+     */
     programId: string;
-    keys: Array<{ pubkey: string; isSigner: boolean; isWritable: boolean }>;
+    /**
+     *
+     */
+    keys: Array<{ /**
+                   *
+                   */
+    pubkey: string; /**
+                     *
+                     */
+    isSigner: boolean; /**
+                        *
+                        */
+    isWritable: boolean }>;
+    /**
+     *
+     */
     data: string;
   }>;
 }
 
+/**
+ *
+ */
 export type ChainTransaction = EthereumTransaction | BitcoinTransaction | SolanaTransaction;
 
 // Constants
@@ -116,6 +290,9 @@ const COIN_TYPES: Record<ChainType, number> = {
   substrate: 354, // Polkadot's coin type
 };
 
+/**
+ *
+ */
 export class BIP39Keyring {
   private storage: StorageInterface;
   private isUnlocked = false;
@@ -131,12 +308,17 @@ export class BIP39Keyring {
     SETTINGS: 'settings_v2'
   };
 
+  /**
+   *
+   * @param namespace
+   */
   constructor(namespace = 'omnibazaar-wallet') {
     this.storage = new BrowserStorage(namespace);
   }
 
   /**
    * Initialize new wallet with mnemonic
+   * @param options
    */
   async initialize(options: KeyringOptions): Promise<string> {
     if (await this.isInitialized()) {
@@ -184,6 +366,7 @@ export class BIP39Keyring {
 
   /**
    * Unlock wallet with password
+   * @param password
    */
   async unlock(password: string): Promise<void> {
     if (!await this.isInitialized()) {
@@ -238,6 +421,8 @@ export class BIP39Keyring {
 
   /**
    * Create new account for specified chain
+   * @param chainType
+   * @param name
    */
   async createAccount(chainType: ChainType, name?: string): Promise<Account> {
     if (!this.isUnlocked || !this.rootNode || !this.walletData) {
@@ -275,6 +460,7 @@ export class BIP39Keyring {
 
   /**
    * Get all accounts
+   * @param chainType
    */
   async getAccounts(chainType?: ChainType): Promise<Account[]> {
     if (!this.walletData) {
@@ -288,6 +474,7 @@ export class BIP39Keyring {
 
   /**
    * Get account by address
+   * @param address
    */
   async getAccount(address: string): Promise<Account | null> {
     if (!this.walletData) {
@@ -299,6 +486,8 @@ export class BIP39Keyring {
 
   /**
    * Sign message with account
+   * @param address
+   * @param message
    */
   async signMessage(address: string, message: string): Promise<SignatureResult> {
     if (!this.isUnlocked || !this.rootNode) {
@@ -337,6 +526,8 @@ export class BIP39Keyring {
 
   /**
    * Sign transaction
+   * @param address
+   * @param transaction
    */
   async signTransaction(address: string, transaction: ChainTransaction): Promise<TransactionSignResult> {
     if (!this.isUnlocked || !this.rootNode) {
@@ -375,6 +566,7 @@ export class BIP39Keyring {
 
   /**
    * Get mnemonic (requires password verification)
+   * @param password
    */
   async getMnemonic(password: string): Promise<string> {
     if (!this.encryptedMnemonic) {
@@ -402,6 +594,8 @@ export class BIP39Keyring {
 
   /**
    * Encrypt data using AES-256-GCM
+   * @param text
+   * @param password
    */
   private async encryptData(text: string, password: string): Promise<EncryptedData> {
     const salt = crypto.randomBytes(SALT_LENGTH);
@@ -422,6 +616,8 @@ export class BIP39Keyring {
 
   /**
    * Decrypt data using AES-256-GCM
+   * @param encryptedData
+   * @param password
    */
   private async decryptData(encryptedData: EncryptedData, password: string): Promise<string> {
     const salt = Buffer.from(encryptedData.salt, 'base64');
@@ -442,6 +638,8 @@ export class BIP39Keyring {
 
   /**
    * Get derivation path for chain and account index
+   * @param chainType
+   * @param accountIndex
    */
   private getDerivationPath(chainType: ChainType, accountIndex: number): string {
     const coinType = COIN_TYPES[chainType];
@@ -450,8 +648,16 @@ export class BIP39Keyring {
 
   /**
    * Get address and public key for chain
+   * @param chainType
+   * @param hdNode
    */
-  private async getAddressForChain(chainType: ChainType, hdNode: HDNodeWallet): Promise<{ address: string; publicKey: string }> {
+  private async getAddressForChain(chainType: ChainType, hdNode: HDNodeWallet): Promise<{ /**
+                                                                                           *
+                                                                                           */
+  address: string; /**
+                    *
+                    */
+  publicKey: string }> {
     switch (chainType) {
       case 'ethereum':
       case 'coti':
@@ -477,8 +683,15 @@ export class BIP39Keyring {
 
   /**
    * Get Bitcoin address from HD node
+   * @param hdNode
    */
-  private getBitcoinAddress(hdNode: HDNodeWallet): { address: string; publicKey: string } {
+  private getBitcoinAddress(hdNode: HDNodeWallet): { /**
+                                                      *
+                                                      */
+  address: string; /**
+                    *
+                    */
+  publicKey: string } {
     const network = bitcoin.networks.bitcoin;
     const publicKey = Buffer.from(hdNode.publicKey.slice(2), 'hex');
     const { address } = bitcoin.payments.p2wpkh({ 
@@ -498,8 +711,15 @@ export class BIP39Keyring {
 
   /**
    * Get Solana address from HD node
+   * @param hdNode
    */
-  private getSolanaAddress(hdNode: HDNodeWallet): { address: string; publicKey: string } {
+  private getSolanaAddress(hdNode: HDNodeWallet): { /**
+                                                     *
+                                                     */
+  address: string; /**
+                    *
+                    */
+  publicKey: string } {
     // Convert HD node private key to Solana keypair
     const privateKey = Buffer.from(hdNode.privateKey.slice(2), 'hex');
     const keypair = Keypair.fromSeed(privateKey.slice(0, 32));
@@ -512,6 +732,7 @@ export class BIP39Keyring {
 
   /**
    * Export private key for Solana
+   * @param hdNode
    */
   private exportSolanaPrivateKey(hdNode: HDNodeWallet): string {
     const privateKey = Buffer.from(hdNode.privateKey.slice(2), 'hex');
@@ -521,8 +742,15 @@ export class BIP39Keyring {
 
   /**
    * Get Substrate address from HD node
+   * @param hdNode
    */
-  private getSubstrateAddress(hdNode: HDNodeWallet): { address: string; publicKey: string } {
+  private getSubstrateAddress(hdNode: HDNodeWallet): { /**
+                                                        *
+                                                        */
+  address: string; /**
+                    *
+                    */
+  publicKey: string } {
     // Create a substrate keyring
     const keyring = new Keyring({ type: 'sr25519' });
     
@@ -541,6 +769,8 @@ export class BIP39Keyring {
 
   /**
    * Sign Ethereum message
+   * @param hdNode
+   * @param message
    */
   private async signEthereumMessage(hdNode: HDNodeWallet, message: string): Promise<SignatureResult> {
     const signature = await hdNode.signMessage(message);
@@ -554,6 +784,8 @@ export class BIP39Keyring {
 
   /**
    * Sign Bitcoin message
+   * @param hdNode
+   * @param message
    */
   private async signBitcoinMessage(hdNode: HDNodeWallet, message: string): Promise<SignatureResult> {
     // Implement Bitcoin message signing
@@ -578,6 +810,8 @@ export class BIP39Keyring {
 
   /**
    * Sign Solana message
+   * @param hdNode
+   * @param message
    */
   private async signSolanaMessage(hdNode: HDNodeWallet, message: string): Promise<SignatureResult> {
     const privateKey = Buffer.from(hdNode.privateKey.slice(2), 'hex');
@@ -594,6 +828,8 @@ export class BIP39Keyring {
 
   /**
    * Sign Ethereum transaction
+   * @param hdNode
+   * @param transaction
    */
   private async signEthereumTransaction(hdNode: HDNodeWallet, transaction: EthereumTransaction): Promise<TransactionSignResult> {
     const signedTx = await hdNode.signTransaction(transaction);
@@ -607,6 +843,8 @@ export class BIP39Keyring {
 
   /**
    * Sign Bitcoin transaction
+   * @param hdNode
+   * @param transaction
    */
   private async signBitcoinTransaction(hdNode: HDNodeWallet, transaction: BitcoinTransaction): Promise<TransactionSignResult> {
     // Implement Bitcoin transaction signing
@@ -621,6 +859,8 @@ export class BIP39Keyring {
 
   /**
    * Sign Solana transaction
+   * @param hdNode
+   * @param transaction
    */
   private async signSolanaTransaction(hdNode: HDNodeWallet, transaction: SolanaTransaction): Promise<TransactionSignResult> {
     // Implement Solana transaction signing
@@ -642,6 +882,10 @@ export class BIP39Keyring {
 }
 
 // Export singleton instance factory
+/**
+ *
+ * @param namespace
+ */
 export function createBIP39Keyring(namespace?: string): BIP39Keyring {
   return new BIP39Keyring(namespace);
 }

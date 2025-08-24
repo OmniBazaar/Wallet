@@ -46,6 +46,10 @@ export {
 } from '../hooks/useValidatorWallet';
 
 // Service initialization helper
+/**
+ *
+ * @param userId
+ */
 export async function initializeValidatorServices(userId: string): Promise<void> {
   try {
     // Update user IDs
@@ -66,6 +70,9 @@ export async function initializeValidatorServices(userId: string): Promise<void>
 }
 
 // Service cleanup helper
+/**
+ *
+ */
 export async function disconnectValidatorServices(): Promise<void> {
   try {
     await validatorWallet.disconnect();
@@ -80,10 +87,25 @@ export async function disconnectValidatorServices(): Promise<void> {
 }
 
 // Service health check
+/**
+ *
+ */
 export async function checkValidatorServiceHealth(): Promise<{
+  /**
+   *
+   */
   wallet: boolean;
+  /**
+   *
+   */
   transaction: boolean;
+  /**
+   *
+   */
   balance: boolean;
+  /**
+   *
+   */
   overall: boolean;
 }> {
   try {

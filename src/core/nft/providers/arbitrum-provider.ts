@@ -1,10 +1,25 @@
 import type { NFTItem, NFTCollection } from '../../../types/nft';
 import type { ChainProvider } from '../display/multi-chain-display';
 
+/**
+ *
+ */
 export interface ArbitrumNFTConfig {
+  /**
+   *
+   */
   rpcUrl: string;
+  /**
+   *
+   */
   arbiscanApiKey?: string;
+  /**
+   *
+   */
   alchemyApiKey?: string;
+  /**
+   *
+   */
   moralisApiKey?: string;
 }
 
@@ -22,6 +37,10 @@ export class ArbitrumNFTProvider implements ChainProvider {
   private alchemyUrl = 'https://arb-mainnet.g.alchemy.com/nft/v2';
   private moralisUrl = 'https://deep-index.moralis.io/api/v2';
 
+  /**
+   *
+   * @param config
+   */
   constructor(config: ArbitrumNFTConfig) {
     this.config = config;
     this.isConnected = Boolean(config.rpcUrl);
@@ -29,6 +48,7 @@ export class ArbitrumNFTProvider implements ChainProvider {
 
   /**
    * Get all NFTs for a wallet address
+   * @param address
    */
   async getNFTs(address: string): Promise<NFTItem[]> {
     try {
@@ -55,6 +75,8 @@ export class ArbitrumNFTProvider implements ChainProvider {
 
   /**
    * Get specific NFT metadata
+   * @param contractAddress
+   * @param tokenId
    */
   async getNFTMetadata(contractAddress: string, tokenId: string): Promise<NFTItem | null> {
     try {
@@ -132,6 +154,7 @@ export class ArbitrumNFTProvider implements ChainProvider {
 
   /**
    * Get NFT collections for an address
+   * @param address
    */
   async getCollections(address: string): Promise<NFTCollection[]> {
     try {
@@ -165,6 +188,7 @@ export class ArbitrumNFTProvider implements ChainProvider {
 
   /**
    * Fetch NFTs from Alchemy API
+   * @param address
    */
   private async fetchFromAlchemy(address: string): Promise<NFTItem[]> {
     const response = await fetch(
@@ -181,6 +205,7 @@ export class ArbitrumNFTProvider implements ChainProvider {
 
   /**
    * Fetch NFTs from Moralis API
+   * @param address
    */
   private async fetchFromMoralis(address: string): Promise<NFTItem[]> {
     const response = await fetch(
@@ -202,6 +227,7 @@ export class ArbitrumNFTProvider implements ChainProvider {
 
   /**
    * Transform Alchemy NFT data to our format
+   * @param nft
    */
   private transformAlchemyNFT(nft: any): NFTItem {
     const metadata = nft.metadata || {};
@@ -226,6 +252,7 @@ export class ArbitrumNFTProvider implements ChainProvider {
 
   /**
    * Transform Moralis NFT data to our format
+   * @param nft
    */
   private transformMoralisNFT(nft: any): NFTItem {
     const metadata = nft.metadata ? JSON.parse(nft.metadata) : {};
@@ -250,6 +277,7 @@ export class ArbitrumNFTProvider implements ChainProvider {
 
   /**
    * Fetch NFTs directly from blockchain using ethers
+   * @param address
    */
   private async fetchFromBlockchain(address: string): Promise<NFTItem[]> {
     try {
@@ -357,6 +385,8 @@ export class ArbitrumNFTProvider implements ChainProvider {
 
   /**
    * Search NFTs on Arbitrum
+   * @param query
+   * @param limit
    */
   async searchNFTs(query: string, limit = 20): Promise<NFTItem[]> {
     try {
@@ -398,6 +428,7 @@ export class ArbitrumNFTProvider implements ChainProvider {
 
   /**
    * Get trending NFTs on Arbitrum
+   * @param limit
    */
   async getTrendingNFTs(limit = 20): Promise<NFTItem[]> {
     try {
@@ -443,6 +474,7 @@ export class ArbitrumNFTProvider implements ChainProvider {
 
   /**
    * Update configuration
+   * @param newConfig
    */
   updateConfig(newConfig: Partial<ArbitrumNFTConfig>): void {
     this.config = { ...this.config, ...newConfig };

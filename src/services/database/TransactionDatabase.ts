@@ -11,29 +11,98 @@
  * Transaction record
  */
 export interface TransactionRecord {
+  /**
+   *
+   */
   id?: string;
+  /**
+   *
+   */
   txHash: string;
+  /**
+   *
+   */
   blockNumber?: number;
+  /**
+   *
+   */
   blockHash?: string;
+  /**
+   *
+   */
   userAddress: string;
+  /**
+   *
+   */
   txType: 'send' | 'receive' | 'swap' | 'stake' | 'unstake' | 'claim_rewards' | 
           'provide_liquidity' | 'remove_liquidity' | 'purchase' | 'sale' | 'fee' | 'bridge';
+  /**
+   *
+   */
   fromAddress: string;
+  /**
+   *
+   */
   toAddress: string;
+  /**
+   *
+   */
   contractAddress?: string;
+  /**
+   *
+   */
   amount: string;
+  /**
+   *
+   */
   tokenAddress?: string;
+  /**
+   *
+   */
   tokenSymbol: string;
+  /**
+   *
+   */
   tokenDecimals?: number;
+  /**
+   *
+   */
   gasUsed?: string;
+  /**
+   *
+   */
   gasPrice?: string;
+  /**
+   *
+   */
   txFee?: string;
+  /**
+   *
+   */
   status: 'pending' | 'confirmed' | 'failed' | 'dropped';
+  /**
+   *
+   */
   confirmations?: number;
+  /**
+   *
+   */
   createdAt: Date;
+  /**
+   *
+   */
   confirmedAt?: Date;
+  /**
+   *
+   */
   metadata?: any;
+  /**
+   *
+   */
   notes?: string;
+  /**
+   *
+   */
   tags?: string[];
 }
 
@@ -41,17 +110,53 @@ export interface TransactionRecord {
  * Transaction filters
  */
 export interface TransactionFilters {
+  /**
+   *
+   */
   userAddress?: string;
+  /**
+   *
+   */
   txType?: TransactionRecord['txType'];
+  /**
+   *
+   */
   status?: TransactionRecord['status'];
+  /**
+   *
+   */
   tokenSymbol?: string;
+  /**
+   *
+   */
   fromDate?: Date;
+  /**
+   *
+   */
   toDate?: Date;
+  /**
+   *
+   */
   minAmount?: string;
+  /**
+   *
+   */
   maxAmount?: string;
+  /**
+   *
+   */
   sortBy?: 'date' | 'amount' | 'status';
+  /**
+   *
+   */
   sortOrder?: 'asc' | 'desc';
+  /**
+   *
+   */
   limit?: number;
+  /**
+   *
+   */
   offset?: number;
 }
 
@@ -59,11 +164,29 @@ export interface TransactionFilters {
  * Transaction statistics
  */
 export interface TransactionStats {
+  /**
+   *
+   */
   totalTransactions: number;
+  /**
+   *
+   */
   totalVolume: string;
+  /**
+   *
+   */
   pendingCount: number;
+  /**
+   *
+   */
   failedCount: number;
+  /**
+   *
+   */
   averageGasPrice: string;
+  /**
+   *
+   */
   mostUsedToken: string;
 }
 
@@ -76,12 +199,17 @@ export interface TransactionStats {
 export class TransactionDatabase {
   private apiEndpoint: string;
   
+  /**
+   *
+   * @param apiEndpoint
+   */
   constructor(apiEndpoint?: string) {
     this.apiEndpoint = apiEndpoint || '/api/wallet';
   }
   
   /**
    * Store a new transaction
+   * @param transaction
    */
   async storeTransaction(transaction: TransactionRecord): Promise<void> {
     const response = await fetch(`${this.apiEndpoint}/transactions`, {
@@ -99,6 +227,10 @@ export class TransactionDatabase {
   
   /**
    * Update transaction status
+   * @param txHash
+   * @param status
+   * @param blockNumber
+   * @param confirmations
    */
   async updateTransactionStatus(
     txHash: string,
@@ -126,6 +258,7 @@ export class TransactionDatabase {
   
   /**
    * Get transaction by hash
+   * @param txHash
    */
   async getTransaction(txHash: string): Promise<TransactionRecord | null> {
     const response = await fetch(`${this.apiEndpoint}/transactions/${txHash}`);
@@ -144,6 +277,8 @@ export class TransactionDatabase {
   
   /**
    * Get user's transaction history
+   * @param userAddress
+   * @param filters
    */
   async getUserTransactions(
     userAddress: string,
@@ -185,6 +320,7 @@ export class TransactionDatabase {
   
   /**
    * Get transaction statistics for a user
+   * @param userAddress
    */
   async getUserStats(userAddress: string): Promise<TransactionStats> {
     const response = await fetch(`${this.apiEndpoint}/transactions/stats?user=${userAddress}`);
@@ -198,6 +334,10 @@ export class TransactionDatabase {
   
   /**
    * Add a note to a transaction
+   * @param txHash
+   * @param note
+   * @param category
+   * @param tags
    */
   async addTransactionNote(
     txHash: string,
@@ -224,6 +364,7 @@ export class TransactionDatabase {
   
   /**
    * Get pending transactions for monitoring
+   * @param userAddress
    */
   async getPendingTransactions(userAddress?: string): Promise<TransactionRecord[]> {
     const params = new URLSearchParams();
@@ -242,6 +383,7 @@ export class TransactionDatabase {
   
   /**
    * Bulk update transaction confirmations
+   * @param updates
    */
   async updateConfirmations(updates: Array<{
     txHash: string;
@@ -263,6 +405,10 @@ export class TransactionDatabase {
   
   /**
    * Export transactions for a date range
+   * @param userAddress
+   * @param fromDate
+   * @param toDate
+   * @param format
    */
   async exportTransactions(
     userAddress: string,
@@ -287,6 +433,7 @@ export class TransactionDatabase {
   
   /**
    * Map database row to TransactionRecord
+   * @param row
    */
   private mapToTransactionRecord(row: any): TransactionRecord {
     return {

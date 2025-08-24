@@ -37,6 +37,9 @@ interface OracleMetrics {
   earnedRewards: number;
 }
 
+/**
+ *
+ */
 export class OracleNodeService extends EventEmitter {
   private cotiProvider: ethers.Provider;
   private ethereumProvider: ethers.Provider;
@@ -64,6 +67,10 @@ export class OracleNodeService extends EventEmitter {
     'function getLastUpdateTime() external view returns (uint256)'
   ];
 
+  /**
+   *
+   * @param config
+   */
   constructor(config: NodeConfig) {
     super();
     this.config = config;
@@ -231,6 +238,7 @@ export class OracleNodeService extends EventEmitter {
 
   /**
    * Queue a name update for processing
+   * @param update
    */
   private queueUpdate(update: NameUpdate): void {
     // Check if update already exists
@@ -297,6 +305,7 @@ export class OracleNodeService extends EventEmitter {
 
   /**
    * Update a single name in the oracle
+   * @param update
    */
   private async updateSingleName(update: NameUpdate): Promise<void> {
     console.warn(`🔄 Updating single name: ${update.username} -> ${update.address}`);
@@ -327,6 +336,7 @@ export class OracleNodeService extends EventEmitter {
 
   /**
    * Update multiple names in a batch
+   * @param updates
    */
   private async updateBatchNames(updates: NameUpdate[]): Promise<void> {
     console.warn(`🔄 Updating batch of ${updates.length} names...`);
@@ -368,9 +378,21 @@ export class OracleNodeService extends EventEmitter {
    * Get current status
    */
   public getStatus(): {
+    /**
+     *
+     */
     isRunning: boolean;
+    /**
+     *
+     */
     queueSize: number;
+    /**
+     *
+     */
     metrics: OracleMetrics;
+    /**
+     *
+     */
     lastError?: string;
   } {
     return {
@@ -382,6 +404,7 @@ export class OracleNodeService extends EventEmitter {
 
   /**
    * Query name from COTI registry
+   * @param username
    */
   public async queryCotiName(username: string): Promise<string> {
     try {
@@ -395,6 +418,7 @@ export class OracleNodeService extends EventEmitter {
 
   /**
    * Query name from Ethereum oracle
+   * @param username
    */
   public async queryEthereumName(username: string): Promise<string> {
     try {
@@ -408,6 +432,7 @@ export class OracleNodeService extends EventEmitter {
 
   /**
    * Force sync a specific name
+   * @param username
    */
   public async forceSyncName(username: string): Promise<void> {
     console.warn(`🔄 Force syncing name: ${username}`);

@@ -6,6 +6,9 @@
 import { ethers } from 'ethers';
 import { ContractManager, ENS_CONFIG } from '../contracts/ContractConfig';
 
+/**
+ *
+ */
 export class TrueStatelessENSService {
   private static instance: TrueStatelessENSService;
   private contractManager: ContractManager;
@@ -34,6 +37,9 @@ export class TrueStatelessENSService {
     );
   }
 
+  /**
+   *
+   */
   public static getInstance(): TrueStatelessENSService {
     if (!TrueStatelessENSService.instance) {
       TrueStatelessENSService.instance = new TrueStatelessENSService();
@@ -44,6 +50,7 @@ export class TrueStatelessENSService {
   /**
    * Resolve any ENS name to an address
    * NO oracle updates, NO ETH gas fees - direct OmniCoin queries only
+   * @param name
    */
   public async resolveAddress(name: string): Promise<string | null> {
     try {
@@ -72,6 +79,7 @@ export class TrueStatelessENSService {
   /**
    * Resolve .omnicoin addresses by querying OmniCoin directly
    * NO oracle updates, NO ETH gas fees
+   * @param name
    */
   private async resolveOmnicoinAddress(name: string): Promise<string | null> {
     try {
@@ -90,6 +98,7 @@ export class TrueStatelessENSService {
 
   /**
    * Resolve standard .eth addresses via ENS (unchanged)
+   * @param name
    */
   private async resolveEthAddress(name: string): Promise<string | null> {
     try {
@@ -140,6 +149,7 @@ export class TrueStatelessENSService {
   /**
    * Check if a username is available on OmniCoin
    * Direct query - NO ETH gas fees
+   * @param username
    */
   public async isUsernameAvailable(username: string): Promise<boolean> {
     try {
@@ -154,6 +164,7 @@ export class TrueStatelessENSService {
   /**
    * Reverse resolve address to username
    * Direct OmniCoin query - NO ETH gas fees
+   * @param address
    */
   public async reverseResolve(address: string): Promise<string | null> {
     try {
@@ -169,6 +180,7 @@ export class TrueStatelessENSService {
   /**
    * Batch resolve multiple usernames
    * All queries go to OmniCoin - NO ETH gas fees
+   * @param names
    */
   public async batchResolveAddresses(names: string[]): Promise<(string | null)[]> {
     const promises = names.map(name => this.resolveAddress(name));
@@ -177,6 +189,7 @@ export class TrueStatelessENSService {
 
   /**
    * Check if a name is a valid ENS name
+   * @param name
    */
   public isValidENSName(name: string): boolean {
     return name.endsWith('.eth') || name.endsWith('.omnicoin');
@@ -186,8 +199,17 @@ export class TrueStatelessENSService {
    * Get OmniCoin network information
    */
   public async getOmnicoinNetworkInfo(): Promise<{
+    /**
+     *
+     */
     chainId: string;
+    /**
+     *
+     */
     blockNumber: number;
+    /**
+     *
+     */
     registryAddress: string;
   }> {
     try {

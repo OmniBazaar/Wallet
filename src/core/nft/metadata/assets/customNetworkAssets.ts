@@ -44,11 +44,29 @@ export const CUSTOM_NETWORK_ASSETS_STALE_INTERVAL = 30000;
 // ///////////////////////////////////////////////
 // Query Types
 
+/**
+ *
+ */
 export type CustomNetworkAssetsArgs = {
+  /**
+   *
+   */
   address: Address;
+  /**
+   *
+   */
   currency: SupportedCurrencyKey;
+  /**
+   *
+   */
   testnetMode?: boolean;
+  /**
+   *
+   */
   filterZeroBalance?: boolean;
+  /**
+   *
+   */
   rainbowChainAssets?: Record<number, RainbowChainAsset[]>;
 };
 
@@ -81,13 +99,25 @@ type FetchCustomNetworkAssetsArgs = {
 // ///////////////////////////////////////////////
 // Query Key
 
+/**
+ *
+ * @param root0
+ * @param root0.address
+ * @param root0.currency
+ * @param root0.testnetMode
+ * @param root0.filterZeroBalance
+ * @param root0.rainbowChainAssets
+ */
 export const customNetworkAssetsKey = ({
   address,
   currency,
   testnetMode,
   filterZeroBalance,
   rainbowChainAssets,
-}: CustomNetworkAssetsArgs): readonly [string, CustomNetworkAssetsArgs, { persisterVersion: number }] =>
+}: CustomNetworkAssetsArgs): readonly [string, CustomNetworkAssetsArgs, { /**
+}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}} *
+}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}} */
+persisterVersion: number }] =>
   createQueryKey(
     'CustomNetworkAssets',
     {
@@ -105,6 +135,15 @@ type CustomNetworkAssetsKey = ReturnType<typeof customNetworkAssetsKey>;
 // ///////////////////////////////////////////////
 // Query Function
 
+/**
+ *
+ * @param root0
+ * @param root0.address
+ * @param root0.currency
+ * @param root0.testnetMode
+ * @param root0.filterZeroBalance
+ * @param root0.rainbowChainAssets
+ */
 export const CustomNetworkAssetsFetchQuery = ({
   address,
   currency,
@@ -124,6 +163,16 @@ export const CustomNetworkAssetsFetchQuery = ({
   });
 };
 
+/**
+ *
+ * @param root0
+ * @param root0.address
+ * @param root0.currency
+ * @param root0.staleTime
+ * @param root0.testnetMode
+ * @param root0.filterZeroBalance
+ * @param root0.rainbowChainAssets
+ */
 export const CustomNetworkAssetsSetQueryDefaults = ({
   address,
   currency,
@@ -146,6 +195,16 @@ export const CustomNetworkAssetsSetQueryDefaults = ({
   );
 };
 
+/**
+ *
+ * @param root0
+ * @param root0.address
+ * @param root0.currency
+ * @param root0.customNetworkAssets
+ * @param root0.testnetMode
+ * @param root0.filterZeroBalance
+ * @param root0.rainbowChainAssets
+ */
 export const CustomNetworkAssetsSetQueryData = ({
   address,
   currency,
@@ -346,6 +405,14 @@ type CustomNetworkAssetsResult = QueryFunctionResult<
 // ///////////////////////////////////////////////
 // Query Hook
 
+/**
+ *
+ * @param root0
+ * @param root0.address
+ * @param root0.currency
+ * @param root0.filterZeroBalance
+ * @param config
+ */
 export function useCustomNetworkAssets<
   TSelectResult = CustomNetworkAssetsResult,
 >(
@@ -356,7 +423,16 @@ export function useCustomNetworkAssets<
     TSelectResult,
     CustomNetworkAssetsKey
   > = {},
-): { data?: TSelectResult; isLoading: boolean; error?: Error } {
+): { /**
+))))) *
+))))) */
+data?: TSelectResult; /**
+dddddddddddddddddddddd *
+dddddddddddddddddddddd */
+isLoading: boolean; /**
+iiiiiiiiiiiiiiiiiiii *
+iiiiiiiiiiiiiiiiiiii */
+error?: Error } {
   const { testnetMode } = useTestnetModeStore();
   const { rainbowChainAssets } = useRainbowChainAssetsStore();
   return useQuery({

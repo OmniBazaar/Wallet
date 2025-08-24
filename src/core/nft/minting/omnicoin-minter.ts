@@ -16,27 +16,70 @@ const OMNICOIN_NFT_ABI = [
   'event Mint(address indexed to, uint256 indexed tokenId, string tokenURI)'
 ];
 
+/**
+ *
+ */
 export interface MintingConfig {
+  /**
+   *
+   */
   contractAddress: string;
+  /**
+   *
+   */
   marketplaceAddress: string;
+  /**
+   *
+   */
   ipfsGateway: string;
+  /**
+   *
+   */
   defaultRoyalty: number;
 }
 
+/**
+ *
+ */
 export interface MintingResult {
+  /**
+   *
+   */
   success: boolean;
+  /**
+   *
+   */
   tokenId?: string;
+  /**
+   *
+   */
   transactionHash?: string;
+  /**
+   *
+   */
   ipfsHash?: string;
+  /**
+   *
+   */
   nftItem?: NFTItem;
+  /**
+   *
+   */
   error?: string;
 }
 
+/**
+ *
+ */
 export class OmniCoinNFTMinter {
   private provider: OmniCoinProvider;
   private ipfsService: IPFSService;
   private config: MintingConfig;
 
+  /**
+   *
+   * @param config
+   */
   constructor(config: MintingConfig) {
     this.config = config;
     this.provider = new OmniCoinProvider();
@@ -47,6 +90,9 @@ export class OmniCoinNFTMinter {
 
   /**
    * Mint NFT for marketplace listing on OmniCoin blockchain
+   * @param mintRequest
+   * @param listingData
+   * @param sellerAddress
    */
   async mintListingNFT(
     mintRequest: NFTMintRequest,
@@ -118,6 +164,8 @@ export class OmniCoinNFTMinter {
 
   /**
    * Prepare NFT metadata optimized for marketplace
+   * @param mintRequest
+   * @param listingData
    */
   private async prepareNFTMetadata(
     mintRequest: NFTMintRequest,
@@ -164,11 +212,25 @@ export class OmniCoinNFTMinter {
 
   /**
    * Upload image and metadata to IPFS
+   * @param metadata
+   * @param image
    */
   private async uploadToIPFS(metadata: NFTMetadata, image: File | string): Promise<{
+    /**
+     *
+     */
     success: boolean;
+    /**
+     *
+     */
     ipfsHash?: string;
+    /**
+     *
+     */
     metadataUri?: string;
+    /**
+     *
+     */
     error?: string;
   }> {
     try {
@@ -233,12 +295,24 @@ export class OmniCoinNFTMinter {
 
   /**
    * Mint NFT to OmniCoin blockchain
+   * @param toAddress
+   * @param tokenId
+   * @param tokenURI
    */
   private async mintToBlockchain(
     toAddress: string,
     tokenId: string,
     tokenURI: string
-  ): Promise<{ success: boolean; transactionHash?: string; error?: string }> {
+  ): Promise<{ /**
+                *
+                */
+  success: boolean; /**
+                     *
+                     */
+  transactionHash?: string; /**
+                             *
+                             */
+  error?: string }> {
     try {
       const signer = await this.provider.getSigner();
       const contract = await this.provider.getContract(
@@ -274,6 +348,11 @@ export class OmniCoinNFTMinter {
 
   /**
    * Create NFTItem from minting result
+   * @param tokenId
+   * @param metadata
+   * @param transactionHash
+   * @param metadataUri
+   * @param owner
    */
   private async createNFTItem(
     tokenId: string,
@@ -306,6 +385,8 @@ export class OmniCoinNFTMinter {
 
   /**
    * Create marketplace listing for newly minted NFT
+   * @param nftItem
+   * @param mintRequest
    */
   private async createMarketplaceListing(
     nftItem: NFTItem,
@@ -327,6 +408,7 @@ export class OmniCoinNFTMinter {
 
   /**
    * Utility: Convert base64 to blob
+   * @param base64
    */
   private base64ToBlob(base64: string): Blob {
     const parts = base64.split(',');
@@ -346,9 +428,21 @@ export class OmniCoinNFTMinter {
    * Get minting fee estimate
    */
   async getMintingFee(): Promise<{
+    /**
+     *
+     */
     gasPrice: string;
+    /**
+     *
+     */
     gasLimit: string;
+    /**
+     *
+     */
     totalFee: string;
+    /**
+     *
+     */
     currency: string;
   }> {
     try {
@@ -369,8 +463,15 @@ export class OmniCoinNFTMinter {
 
   /**
    * Validate mint request
+   * @param mintRequest
    */
-  validateMintRequest(mintRequest: NFTMintRequest): { valid: boolean; errors: string[] } {
+  validateMintRequest(mintRequest: NFTMintRequest): { /**
+                                                       *
+                                                       */
+  valid: boolean; /**
+                   *
+                   */
+  errors: string[] } {
     const errors: string[] = [];
 
     if (!mintRequest.name || mintRequest.name.trim().length === 0) {

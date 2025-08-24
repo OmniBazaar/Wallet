@@ -26,6 +26,9 @@ import {
 import { supportedPaths } from "./configs";
 import ConnectToLedger from "../ledgerConnect";
 
+/**
+ *
+ */
 class LedgerBitcoin implements HWWalletProvider {
   transport: Transport | null;
 
@@ -35,6 +38,10 @@ class LedgerBitcoin implements HWWalletProvider {
 
   isSegwit: boolean;
 
+  /**
+   *
+   * @param network
+   */
   constructor(network: NetworkNames) {
     this.transport = null;
     this.network = network;
@@ -45,6 +52,9 @@ class LedgerBitcoin implements HWWalletProvider {
     );
   }
 
+  /**
+   *
+   */
   async init(): Promise<boolean> {
     if (!this.transport) {
       const support = await webUsbTransport.isSupported();
@@ -62,6 +72,10 @@ class LedgerBitcoin implements HWWalletProvider {
     return true;
   }
 
+  /**
+   *
+   * @param options
+   */
   async getAddress(options: getAddressRequest): Promise<AddressResponse> {
     if (!supportedPaths[this.network])
       return Promise.reject(new Error("ledger-bitcoin: Invalid network name"));
@@ -102,6 +116,10 @@ class LedgerBitcoin implements HWWalletProvider {
       });
   }
 
+  /**
+   *
+   * @param options
+   */
   async signPersonalMessage(options: BitcoinSignMessage): Promise<string> {
     if (options.type === "bip322-simple") {
       if (!options.psbtTx) {
@@ -169,6 +187,10 @@ class LedgerBitcoin implements HWWalletProvider {
       });
   }
 
+  /**
+   *
+   * @param options
+   */
   async signTransaction(options: SignTransactionRequest): Promise<string> {
     const connection = new BtcApp({ transport: this.transport });
     const transactionOptions = options.transaction as BTCSignTransaction;
@@ -206,29 +228,49 @@ class LedgerBitcoin implements HWWalletProvider {
     return connection.createPaymentTransaction(txArg).then((result) => result);
   }
 
+  /**
+   *
+   * @param _request
+   */
   signTypedMessage(_request: SignTypedMessageRequest): Promise<string> {
     return Promise.reject(
       new Error("ledger-bitcoin: signTypedMessage not supported"),
     );
   }
 
+  /**
+   *
+   */
   getSupportedPaths(): PathType[] {
     return supportedPaths[this.network];
   }
 
+  /**
+   *
+   */
   close(): Promise<void> {
     // eslint-disable-next-line @typescript-eslint/no-empty-function
     return this.transport.close().catch(() => {});
   }
 
+  /**
+   *
+   * @param networkName
+   */
   isConnected(networkName: NetworkNames): Promise<boolean> {
     return ConnectToLedger.bind(this)(networkName);
   }
 
+  /**
+   *
+   */
   static getSupportedNetworks(): NetworkNames[] {
     return Object.keys(supportedPaths) as NetworkNames[];
   }
 
+  /**
+   *
+   */
   static getCapabilities(): string[] {
     return [HWwalletCapabilities.signMessage, HWwalletCapabilities.signTx];
   }

@@ -7,11 +7,30 @@ const ERC20_ABI = [
     'function transferFrom(address from, address to, uint256 amount) returns (bool)'
 ];
 
+/**
+ *
+ * @param tokenAddress
+ */
 export const useTokenTransfer = (tokenAddress: string): {
+    /**
+     *
+     */
     isTransferring: boolean;
+    /**
+     *
+     */
     error: string | null;
+    /**
+     *
+     */
     lastTxHash: string | null;
+    /**
+     *
+     */
     transfer: (to: string, amount: string) => Promise<ethers.TransactionReceipt>;
+    /**
+     *
+     */
     transferFrom: (from: string, to: string, amount: string) => Promise<ethers.TransactionReceipt>;
 } => {
     const { provider, address } = useWallet();

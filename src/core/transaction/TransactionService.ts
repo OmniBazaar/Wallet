@@ -6,25 +6,73 @@ import { ethers } from 'ethers';
 import { KeyringManager } from '../keyring/KeyringManager';
 import { TransactionDatabase } from '../../services/database/TransactionDatabase';
 
+/**
+ *
+ */
 export interface TransactionRequest {
+  /**
+   *
+   */
   to: string;           // Can be address or ENS name
+  /**
+   *
+   */
   value?: string;       // Amount in wei
+  /**
+   *
+   */
   data?: string;        // Transaction data
+  /**
+   *
+   */
   chainType: 'ethereum' | 'polygon' | 'arbitrum' | 'optimism';
+  /**
+   *
+   */
   gasLimit?: number;
+  /**
+   *
+   */
   gasPrice?: string;
 }
 
+/**
+ *
+ */
 export interface TransactionResult {
+  /**
+   *
+   */
   hash: string;
+  /**
+   *
+   */
   from: string;
+  /**
+   *
+   */
   to: string;
+  /**
+   *
+   */
   value: string;
+  /**
+   *
+   */
   chainType: string;
+  /**
+   *
+   */
   resolvedAddress: string;
+  /**
+   *
+   */
   originalAddress: string;
 }
 
+/**
+ *
+ */
 export class TransactionService {
   private static instance: TransactionService;
   private keyringManager: KeyringManager;
@@ -35,6 +83,9 @@ export class TransactionService {
     this.transactionDb = new TransactionDatabase();
   }
 
+  /**
+   *
+   */
   public static getInstance(): TransactionService {
     if (!TransactionService.instance) {
       TransactionService.instance = new TransactionService();
@@ -45,6 +96,7 @@ export class TransactionService {
   /**
    * Send transaction with ENS resolution
    * Supports sending to bob.eth, alice.omnicoin, or regular addresses
+   * @param request
    */
   public async sendTransaction(request: TransactionRequest): Promise<TransactionResult> {
     try {
@@ -119,13 +171,38 @@ export class TransactionService {
 
   /**
    * Get transaction history for current user
+   * @param filters
+   * @param filters.txType
+   * @param filters.status
+   * @param filters.fromDate
+   * @param filters.toDate
+   * @param filters.limit
+   * @param filters.offset
    */
   public async getTransactionHistory(filters?: {
+    /**
+     *
+     */
     txType?: 'send' | 'receive' | 'swap' | 'stake' | 'purchase' | 'sale';
+    /**
+     *
+     */
     status?: 'pending' | 'confirmed' | 'failed';
+    /**
+     *
+     */
     fromDate?: Date;
+    /**
+     *
+     */
     toDate?: Date;
+    /**
+     *
+     */
     limit?: number;
+    /**
+     *
+     */
     offset?: number;
   }) {
     const session = this.keyringManager.getCurrentSession();
@@ -147,6 +224,7 @@ export class TransactionService {
 
   /**
    * Get transaction by hash
+   * @param txHash
    */
   public async getTransaction(txHash: string) {
     try {
@@ -159,6 +237,10 @@ export class TransactionService {
 
   /**
    * Update transaction status (for monitoring)
+   * @param txHash
+   * @param status
+   * @param blockNumber
+   * @param confirmations
    */
   public async updateTransactionStatus(
     txHash: string,
@@ -199,6 +281,10 @@ export class TransactionService {
 
   /**
    * Add note to transaction
+   * @param txHash
+   * @param note
+   * @param category
+   * @param tags
    */
   public async addTransactionNote(
     txHash: string,
@@ -216,6 +302,7 @@ export class TransactionService {
 
   /**
    * Estimate gas for transaction with ENS resolution
+   * @param request
    */
   public async estimateGas(request: TransactionRequest): Promise<number> {
     try {
@@ -248,10 +335,20 @@ export class TransactionService {
 
   /**
    * Validate transaction before sending
+   * @param request
    */
   public async validateTransaction(request: TransactionRequest): Promise<{
+    /**
+     *
+     */
     valid: boolean;
+    /**
+     *
+     */
     errors: string[];
+    /**
+     *
+     */
     resolvedAddress?: string;
   }> {
     const errors: string[] = [];
@@ -324,6 +421,7 @@ export class TransactionService {
 
   /**
    * Check if an address or name is valid for transactions
+   * @param addressOrName
    */
   public async isValidDestination(addressOrName: string): Promise<boolean> {
     try {

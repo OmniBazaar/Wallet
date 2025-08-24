@@ -220,6 +220,11 @@ export class FaucetService {
     }]
   ]);
   
+  /**
+   *
+   * @param provider
+   * @param validatorEndpoint
+   */
   constructor(provider: ethers.Provider, validatorEndpoint?: string) {
     this.provider = provider;
     this.validatorEndpoint = validatorEndpoint || 'http://localhost:3001';
@@ -240,6 +245,7 @@ export class FaucetService {
   
   /**
    * Claim tokens from faucet
+   * @param request
    */
   async claimTokens(request: FaucetClaimRequest): Promise<FaucetClaimResponse> {
     try {
@@ -332,6 +338,7 @@ export class FaucetService {
   
   /**
    * Get user's faucet status
+   * @param address
    */
   async getUserStatus(address: string): Promise<FaucetStatus> {
     // Check cache
@@ -359,6 +366,8 @@ export class FaucetService {
   
   /**
    * Process status data from validator
+   * @param address
+   * @param data
    */
   private processStatusData(address: string, data: any): FaucetStatus {
     const claims = new Map<TestnetType, any>();
@@ -397,6 +406,7 @@ export class FaucetService {
   
   /**
    * Get default status for new users
+   * @param address
    */
   private getDefaultStatus(address: string): FaucetStatus {
     const claims = new Map<TestnetType, any>();
@@ -429,6 +439,8 @@ export class FaucetService {
   
   /**
    * Check verification requirements
+   * @param userVerification
+   * @param required
    */
   private checkVerification(
     userVerification: FaucetStatus['verification'],
@@ -461,6 +473,13 @@ export class FaucetService {
   
   /**
    * Verify user identity
+   * @param address
+   * @param method
+   * @param verificationData
+   * @param verificationData.email
+   * @param verificationData.phone
+   * @param verificationData.socialHandle
+   * @param verificationData.verificationCode
    */
   async verifyIdentity(
     address: string,
@@ -547,6 +566,7 @@ export class FaucetService {
   
   /**
    * Get network configuration
+   * @param testnet
    */
   getNetworkConfig(testnet: TestnetType): FaucetNetworkConfig | undefined {
     return this.networkConfigs.get(testnet);
@@ -567,6 +587,7 @@ export class FaucetService {
   
   /**
    * Add custom network to wallet
+   * @param testnet
    */
   async addNetworkToWallet(testnet: TestnetType): Promise<{ success: boolean; error?: string }> {
     const config = this.networkConfigs.get(testnet);
@@ -614,6 +635,8 @@ export class FaucetService {
   
   /**
    * Get drip amount for user based on trust level
+   * @param address
+   * @param testnet
    */
   getDripAmount(address: string, testnet: TestnetType): string {
     const status = this.userStatusCache.get(address);
@@ -623,7 +646,7 @@ export class FaucetService {
       return config?.defaultAmount || '0';
     }
     
-    let baseAmount = parseFloat(config.defaultAmount);
+    const baseAmount = parseFloat(config.defaultAmount);
     
     // Trust level bonus (up to 2x for high trust)
     const trustMultiplier = 1 + (status.trustLevel / 100);
@@ -657,6 +680,7 @@ export class FaucetService {
   
   /**
    * Format time duration
+   * @param seconds
    */
   private formatTime(seconds: number): string {
     const hours = Math.floor(seconds / 3600);

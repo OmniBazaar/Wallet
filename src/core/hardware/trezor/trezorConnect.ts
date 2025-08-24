@@ -1,5 +1,8 @@
 import type { TrezorConnect as TrezorConnectType } from "@trezor/connect-web";
 
+/**
+ *
+ */
 const getTrezorConnect = async (): Promise<TrezorConnectType> => {
   if (chrome && chrome.runtime && chrome.runtime.getPlatformInfo) {
     const TrezorConnect = await import("@trezor/connect-webextension");
@@ -22,7 +25,7 @@ const getTrezorConnect = async (): Promise<TrezorConnectType> => {
         appUrl: "http://www.myetherwallet.com",
       },
     });
-    return TrezorConnect.default as TrezorConnectType;
+    return TrezorConnect.default;
   }
 };
 

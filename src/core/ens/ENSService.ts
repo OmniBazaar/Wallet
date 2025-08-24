@@ -5,6 +5,9 @@
 import { ethers } from 'ethers';
 import { ContractManager, ENS_CONFIG } from '../contracts/ContractConfig';
 
+/**
+ *
+ */
 export class ENSService {
   private static instance: ENSService;
   private contractManager: ContractManager;
@@ -33,6 +36,9 @@ export class ENSService {
     );
   }
 
+  /**
+   *
+   */
   public static getInstance(): ENSService {
     if (!ENSService.instance) {
       ENSService.instance = new ENSService();
@@ -43,6 +49,7 @@ export class ENSService {
   /**
    * Resolve any ENS name to an address
    * Supports both .eth domains and .omnicoin addresses
+   * @param name
    */
   public async resolveAddress(name: string): Promise<string | null> {
     try {
@@ -70,6 +77,7 @@ export class ENSService {
 
   /**
    * Resolve .omnicoin addresses via our stateless resolver
+   * @param name
    */
   private async resolveOmnicoinAddress(name: string): Promise<string | null> {
     try {
@@ -89,6 +97,7 @@ export class ENSService {
 
   /**
    * Resolve standard .eth addresses via ENS
+   * @param name
    */
   private async resolveEthAddress(name: string): Promise<string | null> {
     try {
@@ -126,6 +135,8 @@ export class ENSService {
   /**
    * Resolve address for specific cryptocurrency
    * Used for multi-chain transactions
+   * @param name
+   * @param coinType
    */
   public async resolveAddressForCoin(name: string, coinType: number): Promise<string | null> {
     try {
@@ -172,6 +183,8 @@ export class ENSService {
 
   /**
    * Format address bytes for specific coin type
+   * @param addressBytes
+   * @param coinType
    */
   private formatAddressForCoinType(addressBytes: string, coinType: number): string {
     // Coin type constants
@@ -213,6 +226,7 @@ export class ENSService {
 
   /**
    * Check if a name is a valid ENS name
+   * @param name
    */
   public isValidENSName(name: string): boolean {
     return name.endsWith('.eth') || name.endsWith('.omnicoin');
@@ -220,6 +234,7 @@ export class ENSService {
 
   /**
    * Reverse resolve address to ENS name
+   * @param address
    */
   public async reverseResolve(address: string): Promise<string | null> {
     try {

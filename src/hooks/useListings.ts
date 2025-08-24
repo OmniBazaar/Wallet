@@ -14,6 +14,10 @@ interface UseListingsReturn {
     refreshListings: () => Promise<void>;
 }
 
+/**
+ *
+ * @param contractAddress
+ */
 export const useListings = (contractAddress: string): UseListingsReturn => {
     const { provider } = useWallet();
     const [listings, setListings] = useState<ListingMetadata[]>([]);

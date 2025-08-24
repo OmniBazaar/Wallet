@@ -104,6 +104,13 @@ export class LegacyMigrationService {
   // Decimal conversion factor (10^12 for 6->18 decimals)
   private readonly DECIMAL_CONVERSION = BigInt(10 ** 12);
   
+  /**
+   *
+   * @param provider
+   * @param signer
+   * @param omniCoreAddress
+   * @param validatorEndpoint
+   */
   constructor(
     provider: ethers.Provider,
     signer?: ethers.Signer,
@@ -160,6 +167,7 @@ export class LegacyMigrationService {
   
   /**
    * Check if a username is a legacy user
+   * @param username
    */
   async isLegacyUser(username: string): Promise<boolean> {
     const normalizedUsername = username.toLowerCase();
@@ -168,6 +176,7 @@ export class LegacyMigrationService {
   
   /**
    * Check if a username is available (not reserved)
+   * @param username
    */
   async isUsernameAvailable(username: string): Promise<boolean> {
     if (!this.omniCoreContract) {
@@ -184,6 +193,7 @@ export class LegacyMigrationService {
   
   /**
    * Get migration status for a username
+   * @param username
    */
   async getMigrationStatus(username: string): Promise<MigrationStatus | null> {
     if (!this.omniCoreContract) {
@@ -228,6 +238,8 @@ export class LegacyMigrationService {
    * 
    * In v1, passwords were hashed using a specific algorithm.
    * This replicates that validation process.
+   * @param username
+   * @param password
    */
   async validateLegacyCredentials(
     username: string,
@@ -294,6 +306,9 @@ export class LegacyMigrationService {
   
   /**
    * Claim legacy balance after validation
+   * @param username
+   * @param password
+   * @param claimAddress
    */
   async claimLegacyBalance(
     username: string,
@@ -438,6 +453,7 @@ export class LegacyMigrationService {
   
   /**
    * Search legacy users (for admin/support)
+   * @param query
    */
   async searchLegacyUsers(query: string): Promise<LegacyUserData[]> {
     const results: LegacyUserData[] = [];
@@ -456,6 +472,7 @@ export class LegacyMigrationService {
   
   /**
    * Get top balance holders (for statistics)
+   * @param limit
    */
   getTopBalanceHolders(limit = 10): LegacyUserData[] {
     const users = Array.from(this.legacyUsers.values());
@@ -471,6 +488,7 @@ export class LegacyMigrationService {
   
   /**
    * Estimate gas for claim transaction
+   * @param username
    */
   async estimateClaimGas(username: string): Promise<string> {
     if (!this.omniCoreContract || !this.signer) {
@@ -500,6 +518,8 @@ export class LegacyMigrationService {
   /**
    * Simulate password hashing as done in v1
    * Note: This is a simplified version. The actual v1 used a specific algorithm.
+   * @param password
+   * @param username
    */
   private hashPasswordV1(password: string, username: string): string {
     // V1 used a combination of username as salt and multiple rounds

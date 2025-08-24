@@ -4,13 +4,37 @@ import { TransactionRequest, AbiCoder, concat } from 'ethers';
  * Core transaction data for blockchain transactions
  */
 export interface TransactionData {
+  /**
+   *
+   */
   to?: string;
+  /**
+   *
+   */
   from?: string;
+  /**
+   *
+   */
   nonce?: number;
+  /**
+   *
+   */
   gasLimit?: bigint;
+  /**
+   *
+   */
   gasPrice?: bigint;
+  /**
+   *
+   */
   data?: string;
+  /**
+   *
+   */
   value?: bigint;
+  /**
+   *
+   */
   chainId?: number;
 }
 
@@ -18,11 +42,29 @@ export interface TransactionData {
  * Optional parameters for transaction execution
  */
 export interface TransactionOptions {
+  /**
+   *
+   */
   confirmations?: number;
+  /**
+   *
+   */
   timeout?: number;
+  /**
+   *
+   */
   gasLimit?: bigint;
+  /**
+   *
+   */
   gasPrice?: bigint;
+  /**
+   *
+   */
   maxFeePerGas?: bigint;
+  /**
+   *
+   */
   maxPriorityFeePerGas?: bigint;
 }
 

@@ -206,6 +206,11 @@ export class BlockExplorerService {
   private cache = new Map<string, { data: any; timestamp: number }>();
   private cacheTimeout = 60000; // 1 minute cache
   
+  /**
+   *
+   * @param provider
+   * @param validatorEndpoint
+   */
   constructor(provider: ethers.Provider, validatorEndpoint?: string) {
     this.provider = provider;
     this.validatorEndpoint = validatorEndpoint || 'http://localhost:3001/api/explorer';
@@ -276,6 +281,8 @@ export class BlockExplorerService {
   
   /**
    * Get transaction details
+   * @param hash
+   * @param network
    */
   async getTransaction(
     hash: string,
@@ -328,6 +335,8 @@ export class BlockExplorerService {
   
   /**
    * Get block details
+   * @param blockNumber
+   * @param network
    */
   async getBlock(
     blockNumber: number,
@@ -377,6 +386,8 @@ export class BlockExplorerService {
   
   /**
    * Get address details
+   * @param address
+   * @param network
    */
   async getAddress(
     address: string,
@@ -425,6 +436,8 @@ export class BlockExplorerService {
   
   /**
    * Get token details
+   * @param tokenAddress
+   * @param network
    */
   async getToken(
     tokenAddress: string,
@@ -485,6 +498,7 @@ export class BlockExplorerService {
   
   /**
    * Search across all supported networks
+   * @param query
    */
   async search(query: string): Promise<SearchResult[]> {
     const results: SearchResult[] = [];
@@ -558,6 +572,10 @@ export class BlockExplorerService {
   
   /**
    * Get transaction history for address
+   * @param address
+   * @param network
+   * @param page
+   * @param limit
    */
   async getTransactionHistory(
     address: string,
@@ -594,6 +612,8 @@ export class BlockExplorerService {
   
   /**
    * Get latest blocks
+   * @param network
+   * @param limit
    */
   async getLatestBlocks(
     network: ExplorerNetwork = ExplorerNetwork.OMNICOIN,
@@ -630,6 +650,9 @@ export class BlockExplorerService {
   
   /**
    * Get explorer URL for entity
+   * @param type
+   * @param value
+   * @param network
    */
   getExplorerUrl(
     type: 'tx' | 'address' | 'block' | 'token',
@@ -657,6 +680,9 @@ export class BlockExplorerService {
   
   /**
    * Open explorer in browser
+   * @param type
+   * @param value
+   * @param network
    */
   openInExplorer(
     type: 'tx' | 'address' | 'block' | 'token',

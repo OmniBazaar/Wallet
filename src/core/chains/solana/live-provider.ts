@@ -8,9 +8,16 @@ import { SolanaProvider, SolanaNetworkConfig, SPLToken } from './provider';
 import { keyringService } from '../../keyring/KeyringService';
 import { SOLANA_NETWORKS, POPULAR_SPL_TOKENS } from './networks';
 
+/**
+ *
+ */
 export class LiveSolanaProvider extends SolanaProvider {
   private activeAddress: string | null = null;
 
+  /**
+   *
+   * @param networkKey
+   */
   constructor(networkKey = 'mainnet') {
     const network = SOLANA_NETWORKS[networkKey];
     if (!network) {
@@ -35,6 +42,7 @@ export class LiveSolanaProvider extends SolanaProvider {
 
   /**
    * Get all addresses from keyring
+   * @param count
    */
   async getAddresses(count = 10): Promise<string[]> {
     const accounts = await keyringService.getAccounts('solana');
@@ -43,6 +51,8 @@ export class LiveSolanaProvider extends SolanaProvider {
 
   /**
    * Send SOL with keyring
+   * @param to
+   * @param lamports
    */
   async sendNativeToken(to: string, lamports: string): Promise<string> {
     const from = await this.getAddress();
@@ -60,6 +70,10 @@ export class LiveSolanaProvider extends SolanaProvider {
 
   /**
    * Send SPL token with keyring
+   * @param to
+   * @param mint
+   * @param amount
+   * @param decimals
    */
   async sendSPLToken(
     to: string,
@@ -119,6 +133,7 @@ export class LiveSolanaProvider extends SolanaProvider {
 
   /**
    * Sign message with active account
+   * @param message
    */
   async signActiveMessage(message: string): Promise<string> {
     const address = await this.getAddress();
@@ -127,6 +142,7 @@ export class LiveSolanaProvider extends SolanaProvider {
 
   /**
    * Create new SPL token account
+   * @param mint
    */
   async createTokenAccount(mint: string): Promise<string> {
     const from = await this.getAddress();
@@ -174,6 +190,7 @@ export class LiveSolanaProvider extends SolanaProvider {
 
   /**
    * Get transaction history for active account
+   * @param limit
    */
   async getActiveTransactionHistory(limit?: number): Promise<Transaction[]> {
     const address = await this.getAddress();
@@ -182,6 +199,9 @@ export class LiveSolanaProvider extends SolanaProvider {
 
   /**
    * Estimate transaction fee
+   * @param to
+   * @param amount
+   * @param isToken
    */
   async estimateFee(
     to: string,
@@ -224,6 +244,7 @@ export class LiveSolanaProvider extends SolanaProvider {
 
   /**
    * Switch to different Solana network
+   * @param networkKey
    */
   async switchNetwork(networkKey: string): Promise<void> {
     const network = SOLANA_NETWORKS[networkKey];
@@ -263,6 +284,7 @@ export class LiveSolanaProvider extends SolanaProvider {
 
   /**
    * Request airdrop (testnet only)
+   * @param amount
    */
   async requestAirdrop(amount = 1): Promise<string> {
     if (!this.isTestnet()) {

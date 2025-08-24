@@ -591,6 +591,11 @@ const sumAscii = (str: string): number => {
   return sum;
 };
 
+/**
+ *
+ * @param sep
+ * @param seedStr
+ */
 export const generateRandomNameWithSeed = (sep = "_", seedStr: string): string => {
   let seed = sumAscii(seedStr);
   const random = (): number => {

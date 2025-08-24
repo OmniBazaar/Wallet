@@ -1,10 +1,25 @@
 import type { NFTItem, NFTCollection } from '../../../types/nft';
 import type { ChainProvider } from '../display/multi-chain-display';
 
+/**
+ *
+ */
 export interface PolygonNFTConfig {
+  /**
+   *
+   */
   rpcUrl: string;
+  /**
+   *
+   */
   alchemyApiKey?: string;
+  /**
+   *
+   */
   moralisApiKey?: string;
+  /**
+   *
+   */
   quickNodeApiKey?: string;
 }
 
@@ -21,6 +36,10 @@ export class PolygonNFTProvider implements ChainProvider {
   private alchemyUrl = 'https://polygon-mainnet.g.alchemy.com/nft/v2';
   private openseaUrl = 'https://api.opensea.io/api/v1';
 
+  /**
+   *
+   * @param config
+   */
   constructor(config: PolygonNFTConfig) {
     this.config = config;
     this.isConnected = Boolean(config.rpcUrl);
@@ -28,6 +47,7 @@ export class PolygonNFTProvider implements ChainProvider {
 
   /**
    * Get all NFTs for a wallet address
+   * @param address
    */
   async getNFTs(address: string): Promise<NFTItem[]> {
     try {
@@ -54,6 +74,8 @@ export class PolygonNFTProvider implements ChainProvider {
 
   /**
    * Get specific NFT metadata
+   * @param contractAddress
+   * @param tokenId
    */
   async getNFTMetadata(contractAddress: string, tokenId: string): Promise<NFTItem | null> {
     try {
@@ -131,6 +153,7 @@ export class PolygonNFTProvider implements ChainProvider {
 
   /**
    * Get NFT collections for an address
+   * @param address
    */
   async getCollections(address: string): Promise<NFTCollection[]> {
     try {
@@ -154,6 +177,7 @@ export class PolygonNFTProvider implements ChainProvider {
 
   /**
    * Fetch NFTs from Alchemy API
+   * @param address
    */
   private async fetchFromAlchemy(address: string): Promise<NFTItem[]> {
     const response = await fetch(
@@ -181,6 +205,20 @@ export class PolygonNFTProvider implements ChainProvider {
 
   /**
    * Transform Alchemy NFT data to our format
+   * @param nft
+   * @param nft.contract
+   * @param nft.contract.address
+   * @param nft.id
+   * @param nft.id.tokenId
+   * @param nft.id.tokenMetadata
+   * @param nft.id.tokenMetadata.tokenType
+   * @param nft.metadata
+   * @param nft.metadata.name
+   * @param nft.metadata.description
+   * @param nft.metadata.image
+   * @param nft.metadata.attributes
+   * @param nft.metadata.creator
+   * @param nft.media
    */
   private transformAlchemyNFT(nft: {
     contract: { address: string };
@@ -216,6 +254,7 @@ export class PolygonNFTProvider implements ChainProvider {
 
   /**
    * Fetch NFTs from QuickNode API
+   * @param address
    */
   private async fetchFromQuickNode(address: string): Promise<NFTItem[]> {
     try {
@@ -254,6 +293,7 @@ export class PolygonNFTProvider implements ChainProvider {
 
   /**
    * Fetch NFTs directly from blockchain using ethers
+   * @param address
    */
   private async fetchFromBlockchain(address: string): Promise<NFTItem[]> {
     try {
@@ -361,6 +401,8 @@ export class PolygonNFTProvider implements ChainProvider {
 
   /**
    * Search NFTs on Polygon
+   * @param query
+   * @param limit
    */
   async searchNFTs(query: string, limit = 20): Promise<NFTItem[]> {
     try {
@@ -386,6 +428,7 @@ export class PolygonNFTProvider implements ChainProvider {
 
   /**
    * Get trending NFTs on Polygon
+   * @param limit
    */
   async getTrendingNFTs(limit = 20): Promise<NFTItem[]> {
     try {
@@ -438,6 +481,7 @@ export class PolygonNFTProvider implements ChainProvider {
 
   /**
    * Update configuration
+   * @param newConfig
    */
   updateConfig(newConfig: Partial<PolygonNFTConfig>): void {
     this.config = { ...this.config, ...newConfig };

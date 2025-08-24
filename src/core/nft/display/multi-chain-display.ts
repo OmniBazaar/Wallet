@@ -3,21 +3,63 @@ import { EthereumNFTProvider } from '../providers/ethereum-provider';
 import { PolygonNFTProvider } from '../providers/polygon-provider';
 import { SolanaNFTProvider } from '../providers/solana-provider';
 
+/**
+ *
+ */
 export interface ChainConfig {
+  /**
+   *
+   */
   name: string;
+  /**
+   *
+   */
   chainId: number;
+  /**
+   *
+   */
   rpcUrl: string;
+  /**
+   *
+   */
   explorer: string;
+  /**
+   *
+   */
   nftStandards: string[];
+  /**
+   *
+   */
   supportedMarketplaces: string[];
 }
 
+/**
+ *
+ */
 export interface ChainProvider {
+  /**
+   *
+   */
   chainId: number;
+  /**
+   *
+   */
   name: string;
+  /**
+   *
+   */
   isConnected: boolean;
+  /**
+   *
+   */
   getNFTs(address: string): Promise<NFTItem[]>;
+  /**
+   *
+   */
   getNFTMetadata(contractAddress: string, tokenId: string): Promise<NFTItem | null>;
+  /**
+   *
+   */
   getCollections(address: string): Promise<NFTCollection[]>;
 }
 
@@ -30,6 +72,9 @@ export class MultiChainNFTDisplay {
   private providers: Map<number, ChainProvider> = new Map();
   private enabledChains: Set<number> = new Set();
 
+  /**
+   *
+   */
   constructor() {
     this.initializeSupportedChains();
   }
@@ -108,6 +153,7 @@ export class MultiChainNFTDisplay {
 
   /**
    * Get all NFTs from enabled chains for a given address
+   * @param address
    */
   async getAllNFTs(address: string): Promise<{
     nfts: NFTItem[];
@@ -145,6 +191,7 @@ export class MultiChainNFTDisplay {
 
   /**
    * Get NFT collections from all enabled chains
+   * @param address
    */
   async getAllCollections(address: string): Promise<{
     collections: NFTCollection[];
@@ -180,6 +227,7 @@ export class MultiChainNFTDisplay {
 
   /**
    * Search NFTs across all enabled chains
+   * @param query
    */
   async searchNFTs(query: NFTSearchQuery): Promise<NFTSearchResult> {
     const results: NFTItem[] = [];
@@ -269,6 +317,8 @@ export class MultiChainNFTDisplay {
 
   /**
    * Search NFTs on a specific chain
+   * @param chainId
+   * @param query
    */
   private async searchChainNFTs(chainId: number, query: NFTSearchQuery): Promise<NFTItem[]> {
     // This would be replaced with actual chain-specific search logic
@@ -294,6 +344,8 @@ export class MultiChainNFTDisplay {
 
   /**
    * Generate mock NFTs for demonstration (replace with real provider calls)
+   * @param chainId
+   * @param address
    */
   private async getMockNFTsForChain(chainId: number, address: string): Promise<NFTItem[]> {
     const chainConfig = this.chains.get(chainId);
@@ -318,7 +370,7 @@ export class MultiChainNFTDisplay {
         ],
         contract: `0x${Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}`,
         contractAddress: `0x${Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}`,
-        tokenStandard: chainConfig.nftStandards[0] as 'ERC721' | 'ERC1155' | 'SPL' | 'NEP171' | string,
+        tokenStandard: chainConfig.nftStandards[0],
         blockchain: chainConfig.name.toLowerCase(),
         owner: address,
         creator: `0x${Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}`,
@@ -333,6 +385,7 @@ export class MultiChainNFTDisplay {
 
   /**
    * Generate mock collections for demonstration
+   * @param chainId
    */
   private async getMockCollectionsForChain(chainId: number): Promise<NFTCollection[]> {
     const chainConfig = this.chains.get(chainId);
@@ -344,7 +397,7 @@ export class MultiChainNFTDisplay {
       description: `Sample collection from ${chainConfig.name}`,
       contract: `0x${Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}`,
       contractAddress: `0x${Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}`,
-      tokenStandard: chainConfig.nftStandards[0] as 'ERC721' | 'ERC1155' | 'SPL' | 'NEP171' | string,
+      tokenStandard: chainConfig.nftStandards[0],
       blockchain: chainConfig.name.toLowerCase(),
       creator: `0x${Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}`,
       verified: true,
@@ -354,6 +407,8 @@ export class MultiChainNFTDisplay {
 
   /**
    * Enable/disable a blockchain for NFT display
+   * @param chainId
+   * @param enabled
    */
   toggleChain(chainId: number, enabled: boolean): void {
     if (enabled) {
@@ -379,6 +434,8 @@ export class MultiChainNFTDisplay {
 
   /**
    * Register a custom chain provider
+   * @param chainId
+   * @param provider
    */
   registerProvider(chainId: number, provider: ChainProvider): void {
     this.providers.set(chainId, provider);
@@ -386,6 +443,7 @@ export class MultiChainNFTDisplay {
 
   /**
    * Convert NFTItem to MarketplaceListing format
+   * @param nft
    */
   private convertNFTToListing(nft: NFTItem): {
     id: string;
@@ -437,6 +495,15 @@ export class MultiChainNFTDisplay {
 
   /**
    * Initialize real chain providers with API keys
+   * @param apiKeys
+   * @param apiKeys.ethereum
+   * @param apiKeys.ethereum.alchemyApiKey
+   * @param apiKeys.ethereum.openseaApiKey
+   * @param apiKeys.polygon
+   * @param apiKeys.polygon.alchemyApiKey
+   * @param apiKeys.solana
+   * @param apiKeys.solana.heliusApiKey
+   * @param apiKeys.solana.magicEdenApiKey
    */
   initializeProviders(apiKeys: {
     ethereum?: { alchemyApiKey?: string; openseaApiKey?: string };

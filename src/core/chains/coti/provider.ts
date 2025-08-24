@@ -30,45 +30,135 @@ try {
 }
 
 // COTI Privacy Types (COTI V2 Garbled Circuits)
+/**
+ *
+ */
 export interface ItBool {
+  /**
+   *
+   */
   ciphertext: bigint;
+  /**
+   *
+   */
   signature: Uint8Array | string;
 }
 
+/**
+ *
+ */
 export interface ItUint {
+  /**
+   *
+   */
   ciphertext: bigint;
+  /**
+   *
+   */
   signature: Uint8Array | string;
 }
 
+/**
+ *
+ */
 export interface ItString { 
-  ciphertext: { value: Array<bigint> }; 
+  /**
+   *
+   */
+  ciphertext: { /**
+                 *
+                 */
+  value: Array<bigint> }; 
+  /**
+   *
+   */
   signature: Array<Uint8Array | string>;
 }
 
+/**
+ *
+ */
 export type CtBool = bigint;
+/**
+ *
+ */
 export type CtUint = bigint;
+/**
+ *
+ */
 export type CtUint64 = bigint; // 64-bit encrypted values
+/**
+ *
+ */
 export type UtUint64 = bigint; // Unsigned encrypted values
-export interface CtString { value: Array<bigint> }
+/**
+ *
+ */
+export interface CtString { /**
+eeeeeeeeeeeeeeeeeeeeeeeeeeee *
+eeeeeeeeeeeeeeeeeeeeeeeeeeee */
+value: Array<bigint> }
 
 // Privacy token types
+/**
+ *
+ */
 export interface PrivacyTokenBalance {
+  /**
+   *
+   */
   xom: string;      // Public XOM balance
+  /**
+   *
+   */
   pxom: string;     // Private pXOM balance (encrypted)
+  /**
+   *
+   */
   pxomDecrypted?: string; // Decrypted pXOM balance (only for owner)
+  /**
+   *
+   */
   totalUsd?: string;
 }
 
+/**
+ *
+ */
 export interface OnboardInfo {
+  /**
+   *
+   */
   aesKey?: string;
+  /**
+   *
+   */
   txHash?: string;
+  /**
+   *
+   */
   rsaKey?: RsaKeyPair;
+  /**
+   *
+   */
   mpcNodeUrl?: string; // MPC node for Garbled Circuits
+  /**
+   *
+   */
   isOnboarded: boolean;
 }
 
+/**
+ *
+ */
 export interface RsaKeyPair {
+  /**
+   *
+   */
   publicKey: Uint8Array;
+  /**
+   *
+   */
   privateKey: Uint8Array;
 }
 
@@ -114,7 +204,7 @@ export const CotiNetworks: { [key: string]: EthereumNetwork } = {
 /**
  * COTI Provider with privacy features using Garbled Circuits
  * @class CotiProvider
- * @extends EthereumProvider
+ * @augments EthereumProvider
  */
 export class CotiProvider extends EthereumProvider {
   private userOnboardInfo?: OnboardInfo;
@@ -122,6 +212,11 @@ export class CotiProvider extends EthereumProvider {
   private mpcClient?: any; // MPC client for Garbled Circuits
   private privacyEnabled = false;
 
+  /**
+   *
+   * @param toWindow
+   * @param network
+   */
   constructor(
     toWindow: (message: string) => void,
     network: EthereumNetwork = CotiNetworks.testnet
@@ -131,6 +226,10 @@ export class CotiProvider extends EthereumProvider {
   }
 
   // Override the request method to add COTI-specific methods
+  /**
+   *
+   * @param request
+   */
   async request(request: ProviderRPCRequest): Promise<OnMessageResponse> {
     const { method, params = [] } = request;
 
@@ -239,6 +338,9 @@ export class CotiProvider extends EthereumProvider {
     }
   }
 
+  /**
+   *
+   */
   async generateAESKey(): Promise<string> {
     // Generate a random 128-bit AES key
     const randomBytes = new Uint8Array(16);
@@ -252,6 +354,12 @@ export class CotiProvider extends EthereumProvider {
     return aesKey;
   }
 
+  /**
+   *
+   * @param plaintextValue
+   * @param contractAddress
+   * @param functionSelector
+   */
   async encryptValue(
     plaintextValue: bigint | number | string, 
     contractAddress: string, 
@@ -282,6 +390,10 @@ export class CotiProvider extends EthereumProvider {
     }
   }
 
+  /**
+   *
+   * @param ciphertext
+   */
   async decryptValue(ciphertext: CtUint | CtString): Promise<bigint | string> {
     if (!this.userOnboardInfo?.aesKey) {
       throw new Error('AES key not found - cannot decrypt value');
@@ -289,17 +401,24 @@ export class CotiProvider extends EthereumProvider {
 
     // Check if it's a CtString (has value property)
     if (ciphertext && typeof ciphertext === 'object' && 'value' in ciphertext) {
-      return this.decryptString(ciphertext as CtString);
+      return this.decryptString(ciphertext);
     } else {
       // Treat as CtUint (bigint)
-      return this.decryptUint(ciphertext as bigint);
+      return this.decryptUint(ciphertext);
     }
   }
 
+  /**
+   *
+   */
   getOnboardInfo(): OnboardInfo | undefined {
     return this.userOnboardInfo;
   }
 
+  /**
+   *
+   * @param key
+   */
   setAESKey(key: string): void {
     if (this.userOnboardInfo) {
       this.userOnboardInfo.aesKey = key;
@@ -308,6 +427,9 @@ export class CotiProvider extends EthereumProvider {
     }
   }
 
+  /**
+   *
+   */
   clearOnboardInfo(): void {
     this.userOnboardInfo = undefined;
   }
@@ -399,6 +521,10 @@ export class CotiProvider extends EthereumProvider {
   }
 
   // Override network methods to include COTI-specific features
+  /**
+   *
+   * @param network
+   */
   async setRequestProvider(network: BaseNetwork): Promise<void> {
     await super.setRequestProvider(network);
     
@@ -410,6 +536,9 @@ export class CotiProvider extends EthereumProvider {
   }
 
   // Helper method to get COTI-specific network info
+  /**
+   *
+   */
   getCotiNetworkInfo(): { chainId: string; networkName: string; isTestNetwork: boolean; hasPrivacyFeatures: boolean; onboardContractAddress: string } {
     return {
       chainId: this.chainId,
@@ -581,6 +710,10 @@ export default CotiProvider;
 export { LiveCOTIProvider, createLiveCOTIProvider, liveCOTIProvider } from './live-provider';
 
 // Export unified getProvider function that returns live provider
+/**
+ *
+ * @param _networkName
+ */
 export async function getCotiProvider(_networkName?: string): Promise<ethers.providers.JsonRpcProvider> {
   const { liveCOTIProvider } = await import('./live-provider');
   return liveCOTIProvider.getProvider();

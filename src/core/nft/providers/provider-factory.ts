@@ -14,20 +14,49 @@ import { OptimismNFTProvider } from './optimism-provider';
 import { BaseNFTProvider } from './base-provider';
 import type { ChainProvider } from '../display/multi-chain-display';
 
+/**
+ *
+ */
 export interface ProviderConfig {
+  /**
+   *
+   */
   useOmniProvider?: boolean;
+  /**
+   *
+   */
   validatorUrl?: string;
+  /**
+   *
+   */
   apiKeys?: {
+    /**
+     *
+     */
     alchemy?: string;
+    /**
+     *
+     */
     moralis?: string;
+    /**
+     *
+     */
     opensea?: string;
+    /**
+     *
+     */
     quicknode?: string;
+    /**
+     *
+     */
     infura?: string;
   };
 }
 
 /**
  * Create NFT provider for a specific chain
+ * @param chainId
+ * @param config
  */
 export function createNFTProvider(
   chainId: number,
@@ -97,6 +126,7 @@ export function createNFTProvider(
 
 /**
  * Create all NFT providers
+ * @param config
  */
 export function createAllNFTProviders(config: ProviderConfig = {}): Map<number, ChainProvider> {
   const providers = new Map<number, ChainProvider>();
@@ -114,6 +144,7 @@ export function createAllNFTProviders(config: ProviderConfig = {}): Map<number, 
 
 /**
  * Get chain name from chain ID
+ * @param chainId
  */
 export function getChainName(chainId: number): string {
   const chainNames: Record<number, string> = {
@@ -131,6 +162,7 @@ export function getChainName(chainId: number): string {
 
 /**
  * Check if OmniProvider is available
+ * @param validatorUrl
  */
 export async function checkOmniProviderAvailability(
   validatorUrl?: string

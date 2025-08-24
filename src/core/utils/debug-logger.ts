@@ -284,6 +284,12 @@ export class DebugLogger {
   _color: boolean;
   _level?: number;
 
+  /**
+   *
+   * @param name
+   * @param opts
+   * @param opts.level
+   */
   constructor(name: string, opts?: { level?: string | number }) {
     this._name = name;
     this._color = true;
@@ -291,15 +297,25 @@ export class DebugLogger {
       typeof opts?.level === "string" ? levelToNumber(opts.level) : opts?.level;
   }
 
+  /**
+   *
+   */
   enabled(): boolean {
     return this.level() > LogLevel.DISABLED;
   }
 
+  /**
+   *
+   */
   level(): number {
     if (this._level !== undefined) return this._level;
     return getEnabler().level(this._name);
   }
 
+  /**
+   *
+   * @param levelNumber
+   */
   _formatHeader(levelNumber: number): string {
     const timestamp = new Date();
     let timestampStr = ymdhms(timestamp);
@@ -357,34 +373,58 @@ export class DebugLogger {
     return msgHeader;
   }
 
+  /**
+   *
+   * @param {...any} _args
+   */
   silent(..._args: unknown[]): void {
     // Drop
   }
 
+  /**
+   *
+   * @param {...any} args
+   */
   trace(...args: unknown[]): void {
     const level = this.level();
     if (level < LogLevel.TRACE) return;
     console.warn(this._formatHeader(LogLevel.TRACE), ...args);
   }
 
+  /**
+   *
+   * @param {...any} args
+   */
   debug(...args: unknown[]): void {
     const level = this.level();
     if (level < LogLevel.DEBUG) return;
     console.warn(this._formatHeader(LogLevel.DEBUG), ...args);
   }
 
+  /**
+   *
+   * @param {...any} args
+   */
   info(...args: unknown[]): void {
     const level = this.level();
     if (level < LogLevel.INFO) return;
     console.warn(this._formatHeader(LogLevel.INFO), ...args);
   }
 
+  /**
+   *
+   * @param {...any} args
+   */
   warn(...args: unknown[]): void {
     const level = this.level();
     if (level < LogLevel.WARN) return;
     console.warn(this._formatHeader(LogLevel.WARN), ...args);
   }
 
+  /**
+   *
+   * @param {...any} args
+   */
   error(...args: unknown[]): void {
     const level = this.level();
     if (level < LogLevel.ERROR) return;

@@ -4,19 +4,61 @@ import { WalletState, WalletError } from '../types';
 import { getProvider, getAvailableProviders } from '../config/providers';
 import { getNetworkByChainId } from '../config/networks';
 
+/**
+ *
+ */
 export const useWallet = (): {
+    /**
+     *
+     */
     address: string | null;
+    /**
+     *
+     */
     chainId: number | null;
+    /**
+     *
+     */
     provider: ethers.BrowserProvider | null;
+    /**
+     *
+     */
     isConnecting: boolean;
+    /**
+     *
+     */
     error: string | null;
+    /**
+     *
+     */
     connect: (providerId: string) => Promise<void>;
+    /**
+     *
+     */
     disconnect: () => void;
+    /**
+     *
+     */
     switchNetwork: (chainId: number) => Promise<void>;
+    /**
+     *
+     */
     getAvailableWallets: () => Array<{
+        /**
+         *
+         */
         id: string;
+        /**
+         *
+         */
         name: string;
+        /**
+         *
+         */
         icon: string;
+        /**
+         *
+         */
         isInstalled: boolean;
     }>;
 } => {
@@ -122,7 +164,10 @@ export const useWallet = (): {
                     params: [{ chainId: network.chainId }]
                 });
             } catch (switchError: unknown) {
-                if ((switchError as { code?: number }).code === 4902) {
+                if ((switchError as { /**
+                                       *
+                                       */
+                code?: number }).code === 4902) {
                     await provider.request({
                         method: 'wallet_addEthereumChain',
                         params: [{

@@ -15,20 +15,62 @@ import { LivePolkadotProvider, POLKADOT_NETWORKS } from '../chains/polkadot';
 import { LiveSolanaProvider, SOLANA_NETWORKS } from '../chains/solana';
 import { keyringService, ChainType } from '../keyring/KeyringService';
 
+/**
+ *
+ */
 export type NetworkType = 'mainnet' | 'testnet';
+/**
+ *
+ */
 export type ProviderType = LiveEthereumProvider | LiveCOTIProvider | LiveOmniCoinProvider | LiveBitcoinProvider | MultiChainEVMProvider | LivePolkadotProvider | LiveSolanaProvider;
 
+/**
+ *
+ */
 export interface ChainConfig {
+  /**
+   *
+   */
   chainType: ChainType;
+  /**
+   *
+   */
   name: string;
+  /**
+   *
+   */
   icon: string;
+  /**
+   *
+   */
   networks: string[];
+  /**
+   *
+   */
   defaultNetwork: string;
+  /**
+   *
+   */
   features: {
+    /**
+     *
+     */
     privacy?: boolean;
+    /**
+     *
+     */
     staking?: boolean;
+    /**
+     *
+     */
     marketplace?: boolean;
+    /**
+     *
+     */
     nft?: boolean;
+    /**
+     *
+     */
     defi?: boolean;
   };
 }
@@ -100,6 +142,9 @@ export const SUPPORTED_CHAINS: Record<ChainType, ChainConfig> = {
   }
 };
 
+/**
+ *
+ */
 export class ProviderManager {
   private static instance: ProviderManager;
   private providers: Map<ChainType, ProviderType> = new Map();
@@ -111,6 +156,9 @@ export class ProviderManager {
   
   private constructor() {}
 
+  /**
+   *
+   */
   public static getInstance(): ProviderManager {
     if (!ProviderManager.instance) {
       ProviderManager.instance = new ProviderManager();
@@ -120,6 +168,7 @@ export class ProviderManager {
 
   /**
    * Initialize all providers
+   * @param networkType
    */
   async initialize(networkType: NetworkType = 'mainnet'): Promise<void> {
     if (this.initialized) {
@@ -176,6 +225,7 @@ export class ProviderManager {
 
   /**
    * Get provider for specific chain
+   * @param chainType
    */
   getProvider(chainType: ChainType): ProviderType | null {
     return this.providers.get(chainType) || null;
@@ -183,6 +233,7 @@ export class ProviderManager {
 
   /**
    * Get EVM provider for specific network
+   * @param networkKey
    */
   getEVMProvider(networkKey: string): MultiChainEVMProvider | null {
     return this.evmProviders.get(networkKey) || null;
@@ -190,6 +241,7 @@ export class ProviderManager {
 
   /**
    * Switch to a specific EVM network
+   * @param networkKey
    */
   async switchEVMNetwork(networkKey: string): Promise<void> {
     const provider = this.evmProviders.get(networkKey);
@@ -244,6 +296,7 @@ export class ProviderManager {
 
   /**
    * Set active chain
+   * @param chainType
    */
   async setActiveChain(chainType: ChainType): Promise<void> {
     if (!SUPPORTED_CHAINS[chainType]) {
@@ -268,6 +321,7 @@ export class ProviderManager {
 
   /**
    * Switch network type
+   * @param networkType
    */
   async switchNetworkType(networkType: NetworkType): Promise<void> {
     this.networkType = networkType;
@@ -291,6 +345,7 @@ export class ProviderManager {
 
   /**
    * Get balance for active account
+   * @param chainType
    */
   async getBalance(chainType?: ChainType): Promise<string> {
     const chain = chainType || this.activeChain;
@@ -383,6 +438,10 @@ export class ProviderManager {
 
   /**
    * Send transaction
+   * @param to
+   * @param amount
+   * @param chainType
+   * @param data
    */
   async sendTransaction(
     to: string,
@@ -474,6 +533,8 @@ export class ProviderManager {
 
   /**
    * Sign message
+   * @param message
+   * @param chainType
    */
   async signMessage(message: string, chainType?: ChainType): Promise<string> {
     const chain = chainType || this.activeChain;
@@ -488,6 +549,9 @@ export class ProviderManager {
 
   /**
    * Get transaction history
+   * @param address
+   * @param chainType
+   * @param _limit
    */
   async getTransactionHistory(
     address?: string,
@@ -509,6 +573,7 @@ export class ProviderManager {
 
   /**
    * Enable privacy mode for supported chains
+   * @param chainType
    */
   async enablePrivacyMode(chainType: ChainType): Promise<void> {
     const provider = this.getProvider(chainType);
@@ -526,6 +591,7 @@ export class ProviderManager {
 
   /**
    * Disable privacy mode
+   * @param chainType
    */
   async disablePrivacyMode(chainType: ChainType): Promise<void> {
     const provider = this.getProvider(chainType);
@@ -541,6 +607,7 @@ export class ProviderManager {
 
   /**
    * Get supported features for a chain
+   * @param chainType
    */
   getChainFeatures(chainType: ChainType): ChainConfig['features'] {
     return SUPPORTED_CHAINS[chainType]?.features || {};
@@ -548,6 +615,8 @@ export class ProviderManager {
 
   /**
    * Check if a feature is supported
+   * @param chainType
+   * @param feature
    */
   isFeatureSupported(chainType: ChainType, feature: keyof ChainConfig['features']): boolean {
     const features = this.getChainFeatures(chainType);

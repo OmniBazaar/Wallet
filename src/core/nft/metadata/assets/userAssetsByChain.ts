@@ -23,20 +23,51 @@ export const USER_ASSETS_STALE_INTERVAL = 30000;
 // ///////////////////////////////////////////////
 // Query Types
 
+/**
+ *
+ */
 export type UserAssetsByChainArgs = {
+  /**
+   *
+   */
   address: Address;
+  /**
+   *
+   */
   chainId: ChainId;
+  /**
+   *
+   */
   currency: SupportedCurrencyKey;
 };
 
 // ///////////////////////////////////////////////
 // Query Key
 
+/**
+ *
+ * @param root0
+ * @param root0.address
+ * @param root0.chainId
+ * @param root0.currency
+ */
 export const userAssetsByChainQueryKey = ({
   address,
   chainId,
   currency,
-}: UserAssetsByChainArgs): readonly [string, { address: Address; chainId: ChainId; currency: SupportedCurrencyKey }, { persisterVersion: number }] =>
+}: UserAssetsByChainArgs): readonly [string, { /**
+}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}} *
+}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}} */
+address: Address; /**
+aaaaaaaaaaaaaaaaaa *
+aaaaaaaaaaaaaaaaaa */
+chainId: ChainId; /**
+cccccccccccccccccc *
+cccccccccccccccccc */
+currency: SupportedCurrencyKey }, { /**
+cccccccccccccccccccccccccccccccccccc *
+cccccccccccccccccccccccccccccccccccc */
+persisterVersion: number }] =>
   createQueryKey(
     'userAssetsByChain',
     { address, chainId, currency },
@@ -48,6 +79,14 @@ type UserAssetsByChainQueryKey = ReturnType<typeof userAssetsByChainQueryKey>;
 // ///////////////////////////////////////////////
 // Query Fetcher
 
+/**
+ *
+ * @param root0
+ * @param root0.address
+ * @param root0.chainId
+ * @param root0.currency
+ * @param config
+ */
 export async function fetchUserAssetsByChain<
   TSelectData = UserAssetsByChainResult,
 >(
@@ -73,6 +112,12 @@ export async function fetchUserAssetsByChain<
 // ///////////////////////////////////////////////
 // Query Function
 
+/**
+ *
+ * @param root0
+ * @param root0.queryKey
+ * @param root0.queryKey.0
+ */
 export async function userAssetsByChainQueryFunction({
   queryKey: [{ address, chainId, currency }],
 }: QueryFunctionArgs<typeof userAssetsByChainQueryKey>): Promise<
@@ -120,6 +165,14 @@ type UserAssetsByChainResult = QueryFunctionResult<
 // ///////////////////////////////////////////////
 // Query Hook
 
+/**
+ *
+ * @param root0
+ * @param root0.address
+ * @param root0.chainId
+ * @param root0.currency
+ * @param config
+ */
 export function useUserAssetsByChain<TSelectResult = UserAssetsByChainResult>(
   { address, chainId, currency }: UserAssetsByChainArgs,
   config: QueryConfig<

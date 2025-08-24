@@ -41,33 +41,105 @@ const TOKEN_ABI = [
   'function balanceOf(address account) view returns (uint256)'
 ];
 
+/**
+ *
+ */
 export interface StakeInfo {
+  /**
+   *
+   */
   tier: number;
+  /**
+   *
+   */
   startTime: number;
+  /**
+   *
+   */
   lastRewardTime: number;
+  /**
+   *
+   */
   commitmentDuration: number;
+  /**
+   *
+   */
   isActive: boolean;
+  /**
+   *
+   */
   usePrivacy: boolean;
+  /**
+   *
+   */
   balance?: string; // Actual stake amount (if not private)
+  /**
+   *
+   */
   rewards?: string; // Pending rewards
+  /**
+   *
+   */
   participationScore?: number;
 }
 
+/**
+ *
+ */
 export interface StakingStats {
+  /**
+   *
+   */
   totalStaked: string;
+  /**
+   *
+   */
   totalStakers: number;
+  /**
+   *
+   */
   averageAPY: number;
+  /**
+   *
+   */
   userStake?: StakeInfo;
+  /**
+   *
+   */
   isEnabled: boolean;
 }
 
+/**
+ *
+ */
 export interface StakingTier {
+  /**
+   *
+   */
   id: number;
+  /**
+   *
+   */
   name: string;
+  /**
+   *
+   */
   minStake: string;
+  /**
+   *
+   */
   maxStake: string;
+  /**
+   *
+   */
   baseAPY: number;
+  /**
+   *
+   */
   totalStakers: number;
+  /**
+   *
+   */
   totalWeight: number;
 }
 
@@ -212,6 +284,10 @@ export class StakingService {
   
   /**
    * Stake XOM tokens
+   * @param amount
+   * @param durationDays
+   * @param usePrivacy
+   * @param signer
    */
   public async stake(
     amount: string,
@@ -265,6 +341,8 @@ export class StakingService {
   
   /**
    * Unstake tokens
+   * @param amount
+   * @param signer
    */
   public async unstake(
     amount: string,
@@ -296,6 +374,7 @@ export class StakingService {
   
   /**
    * Claim staking rewards
+   * @param signer
    */
   public async claimRewards(
     signer?: ethers.Signer
@@ -333,6 +412,7 @@ export class StakingService {
   
   /**
    * Compound rewards back into stake
+   * @param signer
    */
   public async compound(
     signer?: ethers.Signer
@@ -362,6 +442,7 @@ export class StakingService {
   
   /**
    * Get stake info for an address
+   * @param address
    */
   public async getStakeInfo(address: string): Promise<StakeInfo | null> {
     try {
@@ -404,6 +485,7 @@ export class StakingService {
   
   /**
    * Get pending rewards for an address
+   * @param address
    */
   public async getPendingRewards(address: string): Promise<string> {
     try {
@@ -421,6 +503,7 @@ export class StakingService {
   
   /**
    * Get staking statistics
+   * @param userAddress
    */
   public async getStakingStats(userAddress?: string): Promise<StakingStats> {
     try {
@@ -487,6 +570,8 @@ export class StakingService {
   
   /**
    * Calculate estimated APY for an amount and duration
+   * @param amount
+   * @param durationDays
    */
   public calculateAPY(amount: string, durationDays: number): number {
     const amountNum = parseFloat(amount);
@@ -516,6 +601,7 @@ export class StakingService {
   
   /**
    * Emergency withdraw (forfeits rewards)
+   * @param signer
    */
   public async emergencyWithdraw(
     signer?: ethers.Signer

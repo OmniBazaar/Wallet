@@ -13,41 +13,128 @@ import { getProvider } from '../chains/ethereum/provider';
 import { getCotiProvider } from '../chains/coti/provider';
 import { getOmniCoinProvider } from '../chains/omnicoin/provider';
 
+/**
+ *
+ */
 export type AuthMethod = 'web2' | 'web3';
 
+/**
+ *
+ */
 export interface KeyringAccount {
+  /**
+   *
+   */
   id: string;
+  /**
+   *
+   */
   name: string;
+  /**
+   *
+   */
   address: string;
+  /**
+   *
+   */
   publicKey: string;
+  /**
+   *
+   */
   chainType: ChainType;
+  /**
+   *
+   */
   balance?: string;
+  /**
+   *
+   */
   authMethod: AuthMethod;
+  /**
+   *
+   */
   derivationPath?: string;
+  /**
+   *
+   */
   isHardware?: boolean;
 }
 
+/**
+ *
+ */
 export interface KeyringState {
+  /**
+   *
+   */
   isInitialized: boolean;
+  /**
+   *
+   */
   isLocked: boolean;
+  /**
+   *
+   */
   authMethod: AuthMethod | null;
+  /**
+   *
+   */
   accounts: KeyringAccount[];
+  /**
+   *
+   */
   activeAccount: KeyringAccount | null;
+  /**
+   *
+   */
   session?: UserSession;
 }
 
+/**
+ *
+ */
 export interface TransactionRequest {
+  /**
+   *
+   */
   to: string;
+  /**
+   *
+   */
   value?: string;
+  /**
+   *
+   */
   data?: string;
+  /**
+   *
+   */
   gasLimit?: string;
+  /**
+   *
+   */
   gasPrice?: string;
+  /**
+   *
+   */
   maxFeePerGas?: string;
+  /**
+   *
+   */
   maxPriorityFeePerGas?: string;
+  /**
+   *
+   */
   nonce?: number;
+  /**
+   *
+   */
   chainId?: number;
 }
 
+/**
+ *
+ */
 export class KeyringService {
   private static instance: KeyringService;
   private bip39Keyring: BIP39Keyring;
@@ -58,6 +145,7 @@ export class KeyringService {
 
   /**
    * Get seed from BIP39 keyring
+   * @param password
    */
   async getSeed(password?: string): Promise<string | null> {
     if (!this.state.isInitialized || this.state.isLocked) {
@@ -83,6 +171,9 @@ export class KeyringService {
     this.initializeProviders();
   }
 
+  /**
+   *
+   */
   public static getInstance(): KeyringService {
     if (!KeyringService.instance) {
       KeyringService.instance = new KeyringService();
@@ -119,6 +210,8 @@ export class KeyringService {
 
   /**
    * Initialize Web3-style wallet with seed phrase
+   * @param password
+   * @param mnemonic
    */
   async initializeWeb3Wallet(password: string, mnemonic?: string): Promise<string> {
     const seedPhrase = await this.bip39Keyring.initialize({ 
@@ -139,6 +232,8 @@ export class KeyringService {
 
   /**
    * Initialize Web2-style wallet with username/password
+   * @param username
+   * @param password
    */
   async initializeWeb2Wallet(username: string, password: string): Promise<UserSession> {
     const session = await this.keyringManager.registerUser({ username, password });
@@ -176,6 +271,8 @@ export class KeyringService {
 
   /**
    * Unlock wallet
+   * @param password
+   * @param username
    */
   async unlock(password: string, username?: string): Promise<void> {
     if (!this.state.isInitialized) {
@@ -212,6 +309,8 @@ export class KeyringService {
 
   /**
    * Create account
+   * @param chainType
+   * @param name
    */
   async createAccount(chainType: ChainType, name?: string): Promise<KeyringAccount> {
     if (this.state.isLocked) {
@@ -235,6 +334,7 @@ export class KeyringService {
 
   /**
    * Get all accounts
+   * @param chainType
    */
   async getAccounts(chainType?: ChainType): Promise<KeyringAccount[]> {
     if (chainType) {
@@ -245,6 +345,7 @@ export class KeyringService {
 
   /**
    * Get account by address
+   * @param address
    */
   async getAccount(address: string): Promise<KeyringAccount | null> {
     return this.state.accounts.find(acc => acc.address === address) || null;
@@ -252,6 +353,7 @@ export class KeyringService {
 
   /**
    * Set active account
+   * @param address
    */
   setActiveAccount(address: string): void {
     const account = this.state.accounts.find(acc => acc.address === address);
@@ -269,6 +371,8 @@ export class KeyringService {
 
   /**
    * Sign message
+   * @param address
+   * @param message
    */
   async signMessage(address: string, message: string): Promise<string> {
     if (this.state.isLocked) {
@@ -291,6 +395,8 @@ export class KeyringService {
 
   /**
    * Sign transaction
+   * @param address
+   * @param transaction
    */
   async signTransaction(address: string, transaction: TransactionRequest): Promise<string> {
     if (this.state.isLocked) {
@@ -313,6 +419,7 @@ export class KeyringService {
 
   /**
    * Get account balance
+   * @param address
    */
   async getBalance(address: string): Promise<string> {
     const account = await this.getAccount(address);
@@ -352,6 +459,7 @@ export class KeyringService {
 
   /**
    * Export seed phrase (Web3 only)
+   * @param password
    */
   async exportSeedPhrase(password: string): Promise<string> {
     if (this.state.authMethod !== 'web3') {
@@ -363,6 +471,7 @@ export class KeyringService {
 
   /**
    * Resolve username to address through OmniCoin naming service or ENS
+   * @param username
    */
   async resolveUsername(username: string): Promise<string | null> {
     try {
@@ -418,6 +527,7 @@ export class KeyringService {
 
   /**
    * Set validator client for username resolution
+   * @param client
    */
   setValidatorClient(client: any): void {
     this.validatorClient = client;
@@ -454,6 +564,7 @@ export class KeyringService {
 
   /**
    * Convert BIP39 account to KeyringAccount
+   * @param account
    */
   private async convertBIP39Account(account: BIP39Account): Promise<KeyringAccount> {
     const keyringAccount: KeyringAccount = {

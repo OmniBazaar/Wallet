@@ -10,12 +10,34 @@ const ERC20_ABI = [
     'function name() view returns (string)'
 ];
 
+/**
+ *
+ * @param tokenAddress
+ */
 export const useTokenBalance = (tokenAddress: string): {
+    /**
+     *
+     */
     tokenInfo: TokenInfo | null;
+    /**
+     *
+     */
     balance: string;
+    /**
+     *
+     */
     formattedBalance: string;
+    /**
+     *
+     */
     isLoading: boolean;
+    /**
+     *
+     */
     error: string | null;
+    /**
+     *
+     */
     refreshBalance: () => void;
 } => {
     const { provider, address } = useWallet();

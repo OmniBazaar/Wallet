@@ -2,11 +2,29 @@ import type { NFTItem, NFTCollection } from '../../../types/nft';
 import type { ChainProvider } from '../display/multi-chain-display';
 import { OmniProvider } from '../../providers/OmniProvider';
 
+/**
+ *
+ */
 export interface EthereumNFTConfig {
+  /**
+   *
+   */
   rpcUrl: string;
+  /**
+   *
+   */
   alchemyApiKey?: string;
+  /**
+   *
+   */
   moralisApiKey?: string;
+  /**
+   *
+   */
   openseaApiKey?: string;
+  /**
+   *
+   */
   useOmniProvider?: boolean; // Use OmniBazaar validators instead of external RPCs
 }
 
@@ -24,6 +42,10 @@ export class EthereumNFTProvider implements ChainProvider {
   private alchemyUrl = 'https://eth-mainnet.g.alchemy.com/nft/v2';
   private omniProvider?: OmniProvider;
 
+  /**
+   *
+   * @param config
+   */
   constructor(config: EthereumNFTConfig) {
     this.config = config;
     this.isConnected = Boolean(config.rpcUrl);
@@ -40,6 +62,7 @@ export class EthereumNFTProvider implements ChainProvider {
 
   /**
    * Get all NFTs for a wallet address
+   * @param address
    */
   async getNFTs(address: string): Promise<NFTItem[]> {
     try {
@@ -78,6 +101,8 @@ export class EthereumNFTProvider implements ChainProvider {
 
   /**
    * Get specific NFT metadata
+   * @param contractAddress
+   * @param tokenId
    */
   async getNFTMetadata(contractAddress: string, tokenId: string): Promise<NFTItem | null> {
     try {
@@ -101,6 +126,7 @@ export class EthereumNFTProvider implements ChainProvider {
 
   /**
    * Get NFT collections for an address
+   * @param address
    */
   async getCollections(address: string): Promise<NFTCollection[]> {
     try {
@@ -125,6 +151,7 @@ export class EthereumNFTProvider implements ChainProvider {
 
   /**
    * Fetch NFTs from Alchemy API
+   * @param address
    */
   private async fetchFromAlchemy(address: string): Promise<NFTItem[]> {
     const response = await fetch(
@@ -152,6 +179,7 @@ export class EthereumNFTProvider implements ChainProvider {
 
   /**
    * Fetch NFTs from OpenSea API
+   * @param address
    */
   private async fetchFromOpenSea(address: string): Promise<NFTItem[]> {
     const headers: HeadersInit = {
@@ -190,6 +218,20 @@ export class EthereumNFTProvider implements ChainProvider {
 
   /**
    * Transform Alchemy NFT data to our format
+   * @param nft
+   * @param nft.contract
+   * @param nft.contract.address
+   * @param nft.id
+   * @param nft.id.tokenId
+   * @param nft.id.tokenMetadata
+   * @param nft.id.tokenMetadata.tokenType
+   * @param nft.metadata
+   * @param nft.metadata.name
+   * @param nft.metadata.description
+   * @param nft.metadata.image
+   * @param nft.metadata.attributes
+   * @param nft.metadata.creator
+   * @param nft.media
    */
   private transformAlchemyNFT(nft: {
     contract: { address: string };
@@ -225,6 +267,24 @@ export class EthereumNFTProvider implements ChainProvider {
 
   /**
    * Transform OpenSea NFT data to our format
+   * @param asset
+   * @param asset.asset_contract
+   * @param asset.asset_contract.address
+   * @param asset.asset_contract.schema_name
+   * @param asset.token_id
+   * @param asset.name
+   * @param asset.description
+   * @param asset.image_url
+   * @param asset.image_preview_url
+   * @param asset.traits
+   * @param asset.owner
+   * @param asset.owner.address
+   * @param asset.creator
+   * @param asset.creator.address
+   * @param asset.last_sale
+   * @param asset.last_sale.total_price
+   * @param asset.sell_orders
+   * @param asset.permalink
    */
   private transformOpenSeaNFT(asset: {
     asset_contract: { address: string; schema_name?: string };
@@ -264,6 +324,7 @@ export class EthereumNFTProvider implements ChainProvider {
 
   /**
    * Fetch NFTs directly from blockchain using ethers
+   * @param address
    */
   private async fetchFromBlockchain(address: string): Promise<NFTItem[]> {
     try {
@@ -385,6 +446,8 @@ export class EthereumNFTProvider implements ChainProvider {
 
   /**
    * Search NFTs (basic implementation)
+   * @param query
+   * @param limit
    */
   async searchNFTs(query: string, limit = 20): Promise<NFTItem[]> {
     try {
@@ -410,6 +473,7 @@ export class EthereumNFTProvider implements ChainProvider {
 
   /**
    * Get popular/trending NFTs
+   * @param _limit
    */
   async getTrendingNFTs(_limit = 20): Promise<NFTItem[]> {
     try {
@@ -462,6 +526,7 @@ export class EthereumNFTProvider implements ChainProvider {
 
   /**
    * Update configuration
+   * @param newConfig
    */
   updateConfig(newConfig: Partial<EthereumNFTConfig>): void {
     this.config = { ...this.config, ...newConfig };

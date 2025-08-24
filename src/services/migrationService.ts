@@ -10,6 +10,12 @@ interface MigrationResult {
   balance?: string;
 }
 
+/**
+ *
+ * @param username
+ * @param password
+ * @param newWalletAddress
+ */
 export const migrateLegacyBalance = async (
   username: string,
   password: string,
@@ -92,9 +98,19 @@ export const migrateLegacyBalance = async (
   }
 };
 
+/**
+ *
+ * @param username
+ */
 export const getMigrationStatus = async (
   username: string
-): Promise<{ status: string; balance?: string }> => {
+): Promise<{ /**
+))))))))))))) *
+))))))))))))) */
+status: string; /**
+ssssssssssssssss *
+ssssssssssssssss */
+balance?: string }> => {
   try {
     const response = await axios.get(`${API_URL}/status/${username}`);
     return response.data;
@@ -177,6 +193,9 @@ export const formatBalance = (balance: string, displayDecimals = 4): string => {
 
 /**
  * Enhanced migration function that handles decimal conversion
+ * @param username
+ * @param password
+ * @param newWalletAddress
  */
 export const migrateLegacyBalanceWithConversion = async (
   username: string,

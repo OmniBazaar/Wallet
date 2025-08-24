@@ -87,6 +87,7 @@ export class BridgeService {
   
   /**
    * Execute a bridge transfer
+   * @param route
    */
   async executeBridge(route: BridgeRoute): Promise<string> {
     const transferId = this.generateTransferId();
@@ -138,6 +139,7 @@ export class BridgeService {
   
   /**
    * Get status of a bridge transfer
+   * @param transferId
    */
   getTransferStatus(transferId: string): BridgeStatus | null {
     return this.activeTransfers.get(transferId) || null;
@@ -145,6 +147,9 @@ export class BridgeService {
   
   /**
    * Find compatible bridges for a route
+   * @param fromChain
+   * @param toChain
+   * @param token
    */
   private findCompatibleBridges(
     fromChain: string,
@@ -170,6 +175,8 @@ export class BridgeService {
   
   /**
    * Get quote from specific bridge
+   * @param bridge
+   * @param request
    */
   private async getQuoteFromBridge(
     bridge: BridgeProvider,
@@ -210,6 +217,8 @@ export class BridgeService {
   
   /**
    * Get token info for bridge
+   * @param chain
+   * @param tokenSymbol
    */
   private getTokenInfo(chain: string, tokenSymbol: string): {
     address: string;
@@ -233,6 +242,8 @@ export class BridgeService {
   
   /**
    * Get bridge steps based on provider
+   * @param bridge
+   * @param token
    */
   private getBridgeSteps(bridge: BridgeProvider, token: BridgeToken): Array<{
     type: 'approve' | 'deposit' | 'wait' | 'claim';
@@ -278,6 +289,7 @@ export class BridgeService {
   
   /**
    * Execute token approval
+   * @param route
    */
   private async executeApproval(route: BridgeRoute): Promise<void> {
     if (route.fromChain === 'solana') return; // No approvals on Solana
@@ -314,6 +326,7 @@ export class BridgeService {
   
   /**
    * Execute bridge deposit
+   * @param route
    */
   private async executeDeposit(route: BridgeRoute): Promise<string> {
     // In production, this would call the specific bridge contract
@@ -348,6 +361,7 @@ export class BridgeService {
   
   /**
    * Execute claim on destination chain
+   * @param route
    */
   private async executeClaim(route: BridgeRoute): Promise<void> {
     // Implementation would vary by bridge
@@ -357,6 +371,8 @@ export class BridgeService {
   
   /**
    * Monitor bridge progress
+   * @param transferId
+   * @param route
    */
   private async monitorBridge(transferId: string, route: BridgeRoute): Promise<void> {
     // In production, this would poll bridge APIs or listen to events
@@ -372,6 +388,8 @@ export class BridgeService {
   
   /**
    * Update transfer status
+   * @param transferId
+   * @param update
    */
   private updateTransferStatus(transferId: string, update: Partial<BridgeStatus>): void {
     const current = this.activeTransfers.get(transferId);
@@ -385,6 +403,8 @@ export class BridgeService {
   
   /**
    * Get bridge contract address
+   * @param bridge
+   * @param chain
    */
   private getBridgeAddress(bridge: BridgeProvider, chain: string): string {
     // Bridge contract addresses would be maintained in config
@@ -409,6 +429,7 @@ export class BridgeService {
   
   /**
    * Get chain ID
+   * @param chain
    */
   private getChainId(chain: string): number | string {
     const chainIds: Record<string, number | string> = {
@@ -434,6 +455,10 @@ export class BridgeService {
   
   /**
    * Estimate bridge fees
+   * @param fromChain
+   * @param toChain
+   * @param token
+   * @param amount
    */
   async estimateBridgeFees(
     fromChain: string,

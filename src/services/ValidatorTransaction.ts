@@ -11,80 +11,266 @@ import { ethers } from 'ethers';
 import { ref, Ref } from 'vue';
 import { generateTransactionId, generateBatchId } from '../utils/id-generator';
 
+/**
+ *
+ */
 export interface ValidatorTransactionConfig {
+  /**
+   *
+   */
   validatorEndpoint: string;
+  /**
+   *
+   */
   networkId: string;
+  /**
+   *
+   */
   userId: string;
+  /**
+   *
+   */
   enableFeeDistribution: boolean;
+  /**
+   *
+   */
   maxRetries: number;
 }
 
+/**
+ *
+ */
 export interface Transaction {
+  /**
+   *
+   */
   id: string;
+  /**
+   *
+   */
   hash: string;
+  /**
+   *
+   */
   from: string;
+  /**
+   *
+   */
   to: string;
+  /**
+   *
+   */
   value: string;
+  /**
+   *
+   */
   data?: string;
+  /**
+   *
+   */
   chainId: string;
+  /**
+   *
+   */
   nonce: number;
+  /**
+   *
+   */
   gasLimit: string;
+  /**
+   *
+   */
   gasPrice: string;
+  /**
+   *
+   */
   status: 'pending' | 'confirmed' | 'failed';
+  /**
+   *
+   */
   blockNumber?: number;
+  /**
+   *
+   */
   confirmations: number;
+  /**
+   *
+   */
   timestamp: number;
+  /**
+   *
+   */
   fee?: string;
+  /**
+   *
+   */
   error?: string;
 }
 
+/**
+ *
+ */
 export interface TransactionBatch {
+  /**
+   *
+   */
   id: string;
+  /**
+   *
+   */
   transactions: Transaction[];
+  /**
+   *
+   */
   status: 'pending' | 'processing' | 'completed' | 'failed';
+  /**
+   *
+   */
   totalValue: string;
+  /**
+   *
+   */
   totalFee: string;
+  /**
+   *
+   */
   timestamp: number;
 }
 
+/**
+ *
+ */
 export interface GasEstimate {
+  /**
+   *
+   */
   gasLimit: string;
+  /**
+   *
+   */
   gasPrice: string;
+  /**
+   *
+   */
   maxFeePerGas?: string;
+  /**
+   *
+   */
   maxPriorityFeePerGas?: string;
+  /**
+   *
+   */
   totalCost: string;
 }
 
+/**
+ *
+ */
 export interface TransactionReceipt {
+  /**
+   *
+   */
   transactionHash: string;
+  /**
+   *
+   */
   blockNumber: number;
+  /**
+   *
+   */
   blockHash: string;
+  /**
+   *
+   */
   from: string;
+  /**
+   *
+   */
   to: string;
+  /**
+   *
+   */
   gasUsed: string;
+  /**
+   *
+   */
   effectiveGasPrice: string;
+  /**
+   *
+   */
   status: number;
+  /**
+   *
+   */
   logs: Array<{
+    /**
+     *
+     */
     address: string;
+    /**
+     *
+     */
     topics: string[];
+    /**
+     *
+     */
     data: string;
+    /**
+     *
+     */
     blockNumber: number;
+    /**
+     *
+     */
     transactionHash: string;
+    /**
+     *
+     */
     transactionIndex: number;
+    /**
+     *
+     */
     blockHash: string;
+    /**
+     *
+     */
     logIndex: number;
+    /**
+     *
+     */
     removed: boolean;
   }>;
+  /**
+   *
+   */
   contractAddress?: string;
 }
 
+/**
+ *
+ */
 export interface TransactionWatcher {
+  /**
+   *
+   */
   txHash: string;
+  /**
+   *
+   */
   callback: (receipt: TransactionReceipt) => void;
+  /**
+   *
+   */
   interval: NodeJS.Timeout;
+  /**
+   *
+   */
   retryCount: number;
 }
 
+/**
+ *
+ */
 export class ValidatorTransactionService {
   private validatorClient: ValidatorClient;
   private blockchain: OmniCoinBlockchain;
@@ -99,6 +285,10 @@ export class ValidatorTransactionService {
   public historyRef: Ref<Transaction[]> = ref([]);
   public gasEstimateRef: Ref<GasEstimate | null> = ref(null);
 
+  /**
+   *
+   * @param config
+   */
   constructor(config: ValidatorTransactionConfig) {
     this.config = config;
     this.validatorClient = new ValidatorClient(config.validatorEndpoint);
@@ -129,6 +319,16 @@ export class ValidatorTransactionService {
 
   /**
    * Create and send transaction
+   * @param from
+   * @param to
+   * @param value
+   * @param data
+   * @param options
+   * @param options.gasLimit
+   * @param options.gasPrice
+   * @param options.maxFeePerGas
+   * @param options.maxPriorityFeePerGas
+   * @param options.nonce
    */
   async sendTransaction(
     from: string,
@@ -136,10 +336,25 @@ export class ValidatorTransactionService {
     value: string,
     data?: string,
     options?: {
+      /**
+       *
+       */
       gasLimit?: string;
+      /**
+       *
+       */
       gasPrice?: string;
+      /**
+       *
+       */
       maxFeePerGas?: string;
+      /**
+       *
+       */
       maxPriorityFeePerGas?: string;
+      /**
+       *
+       */
       nonce?: number;
     }
   ): Promise<Transaction> {
@@ -218,12 +433,25 @@ export class ValidatorTransactionService {
 
   /**
    * Send batch of transactions
+   * @param transactions
    */
   async sendBatchTransactions(
     transactions: Array<{
+      /**
+       *
+       */
       from: string;
+      /**
+       *
+       */
       to: string;
+      /**
+       *
+       */
       value: string;
+      /**
+       *
+       */
       data?: string;
     }>
   ): Promise<TransactionBatch> {
@@ -276,6 +504,7 @@ export class ValidatorTransactionService {
 
   /**
    * Get transaction by hash
+   * @param txHash
    */
   async getTransaction(txHash: string): Promise<Transaction | null> {
     try {
@@ -307,6 +536,7 @@ export class ValidatorTransactionService {
 
   /**
    * Get transaction receipt
+   * @param txHash
    */
   async getTransactionReceipt(txHash: string): Promise<TransactionReceipt | null> {
     try {
@@ -336,6 +566,10 @@ export class ValidatorTransactionService {
 
   /**
    * Estimate gas for transaction
+   * @param from
+   * @param to
+   * @param value
+   * @param data
    */
   async estimateGas(
     from: string,
@@ -381,6 +615,7 @@ export class ValidatorTransactionService {
 
   /**
    * Get transaction count (nonce)
+   * @param address
    */
   async getTransactionCount(address: string): Promise<number> {
     try {
@@ -407,6 +642,8 @@ export class ValidatorTransactionService {
 
   /**
    * Cancel pending transaction (by replacement)
+   * @param txId
+   * @param privateKey
    */
   async cancelTransaction(txId: string, privateKey: string): Promise<Transaction> {
     try {
@@ -450,6 +687,8 @@ export class ValidatorTransactionService {
 
   /**
    * Speed up pending transaction
+   * @param txId
+   * @param privateKey
    */
   async speedUpTransaction(txId: string, privateKey: string): Promise<Transaction> {
     try {
@@ -500,10 +739,23 @@ export class ValidatorTransactionService {
 
   /**
    * Get transaction history
+   * @param options
+   * @param options.address
+   * @param options.limit
+   * @param options.offset
    */
   getTransactionHistory(options?: {
+    /**
+     *
+     */
     address?: string;
+    /**
+     *
+     */
     limit?: number;
+    /**
+     *
+     */
     offset?: number;
   }): Transaction[] {
     let history = [...this.transactionHistory];
@@ -535,6 +787,7 @@ export class ValidatorTransactionService {
 
   /**
    * Export transaction history
+   * @param format
    */
   exportTransactionHistory(format: 'json' | 'csv' = 'json'): string {
     if (format === 'json') {
@@ -562,6 +815,8 @@ export class ValidatorTransactionService {
 
   /**
    * Watch transaction for confirmations
+   * @param txHash
+   * @param callback
    */
   watchTransaction(
     txHash: string,
@@ -602,6 +857,7 @@ export class ValidatorTransactionService {
 
   /**
    * Stop watching transaction
+   * @param txHash
    */
   stopWatchingTransaction(txHash: string): void {
     const watcher = this.transactionWatchers.get(txHash);
@@ -730,16 +986,49 @@ export class ValidatorTransactionService {
   }
 
   private convertBlockchainTransaction(blockchainTx: {
+    /**
+     *
+     */
     hash: string;
+    /**
+     *
+     */
     from: string;
+    /**
+     *
+     */
     to: string;
+    /**
+     *
+     */
     value: bigint;
+    /**
+     *
+     */
     data: string;
+    /**
+     *
+     */
     chainId?: number;
+    /**
+     *
+     */
     nonce: number;
+    /**
+     *
+     */
     gasLimit: bigint;
+    /**
+     *
+     */
     gasPrice: bigint;
+    /**
+     *
+     */
     blockNumber?: number;
+    /**
+     *
+     */
     confirmations: number;
   }): Transaction {
     return {

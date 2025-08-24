@@ -9,24 +9,72 @@ import { ethers } from 'ethers';
 import { useWallet } from './useWallet';
 import { StakingService, StakeInfo, StakingStats, StakingTier } from '../services/StakingService';
 
+/**
+ *
+ */
 export interface UseStakingReturn {
   // State
+  /**
+   *
+   */
   stakeInfo: StakeInfo | null;
+  /**
+   *
+   */
   stakingStats: StakingStats | null;
+  /**
+   *
+   */
   pendingRewards: string;
+  /**
+   *
+   */
   tiers: StakingTier[];
+  /**
+   *
+   */
   isLoading: boolean;
+  /**
+   *
+   */
   error: string | null;
   
   // Actions
+  /**
+   *
+   */
   stake: (amount: string, durationDays: number, usePrivacy?: boolean) => Promise<boolean>;
+  /**
+   *
+   */
   unstake: (amount: string) => Promise<boolean>;
-  claimRewards: () => Promise<{ success: boolean; amount?: string }>;
+  /**
+   *
+   */
+  claimRewards: () => Promise<{ /**
+                                 *
+                                 */
+  success: boolean; /**
+                     *
+                     */
+  amount?: string }>;
+  /**
+   *
+   */
   compound: () => Promise<boolean>;
+  /**
+   *
+   */
   emergencyWithdraw: () => Promise<boolean>;
   
   // Helpers
+  /**
+   *
+   */
   calculateAPY: (amount: string, durationDays: number) => number;
+  /**
+   *
+   */
   refresh: () => Promise<void>;
 }
 

@@ -10,66 +10,213 @@ import { ethers } from 'ethers';
 import { nanoid } from 'nanoid';
 import { ref, Ref } from 'vue';
 
+/**
+ *
+ */
 export interface ValidatorWalletConfig {
+  /**
+   *
+   */
   validatorEndpoint: string;
+  /**
+   *
+   */
   wsEndpoint?: string;
+  /**
+   *
+   */
   apiKey?: string;
+  /**
+   *
+   */
   networkId: string;
+  /**
+   *
+   */
   userId: string;
+  /**
+   *
+   */
   enableSecureStorage: boolean;
+  /**
+   *
+   */
   autoBackup: boolean;
 }
 
+/**
+ *
+ */
 export interface WalletAccount {
+  /**
+   *
+   */
   id: string;
+  /**
+   *
+   */
   address: string;
+  /**
+   *
+   */
   name: string;
+  /**
+   *
+   */
   type: 'mnemonic' | 'private-key' | 'ledger' | 'trezor';
+  /**
+   *
+   */
   chainId: string;
+  /**
+   *
+   */
   balance: string;
+  /**
+   *
+   */
   derivationPath?: string;
+  /**
+   *
+   */
   publicKey?: string;
+  /**
+   *
+   */
   metadata: Record<string, unknown>;
 }
 
+/**
+ *
+ */
 export interface TransactionRequest {
+  /**
+   *
+   */
   from: string;
+  /**
+   *
+   */
   to: string;
+  /**
+   *
+   */
   value: string;
+  /**
+   *
+   */
   data?: string;
+  /**
+   *
+   */
   chainId: string;
+  /**
+   *
+   */
   nonce?: number;
+  /**
+   *
+   */
   gasLimit?: string;
+  /**
+   *
+   */
   gasPrice?: string;
+  /**
+   *
+   */
   type?: number;
 }
 
+/**
+ *
+ */
 export interface TransactionResult {
+  /**
+   *
+   */
   success: boolean;
+  /**
+   *
+   */
   txHash?: string;
+  /**
+   *
+   */
   blockNumber?: number;
+  /**
+   *
+   */
   confirmations?: number;
+  /**
+   *
+   */
   error?: string;
 }
 
+/**
+ *
+ */
 export interface WalletBackup {
+  /**
+   *
+   */
   id: string;
+  /**
+   *
+   */
   userId: string;
+  /**
+   *
+   */
   encryptedData: string;
+  /**
+   *
+   */
   timestamp: number;
+  /**
+   *
+   */
   version: string;
+  /**
+   *
+   */
   checksum: string;
 }
 
+/**
+ *
+ */
 export interface ENSResolution {
+  /**
+   *
+   */
   address: string;
+  /**
+   *
+   */
   name: string;
+  /**
+   *
+   */
   avatar?: string;
+  /**
+   *
+   */
   description?: string;
+  /**
+   *
+   */
   social?: Record<string, string>;
+  /**
+   *
+   */
   verified: boolean;
 }
 
+/**
+ *
+ */
 export class ValidatorWalletService {
   private client: AvalancheValidatorClient;
   private config: ValidatorWalletConfig;
@@ -82,6 +229,10 @@ export class ValidatorWalletService {
   public activeAccountRef: Ref<WalletAccount | null> = ref(null);
   public balancesRef: Ref<Record<string, string>> = ref({});
 
+  /**
+   *
+   * @param config
+   */
   constructor(config: ValidatorWalletConfig) {
     this.config = config;
     this.client = createAvalancheValidatorClient({
@@ -120,14 +271,30 @@ export class ValidatorWalletService {
 
   /**
    * Create a new wallet account
+   * @param name
+   * @param type
+   * @param chainId
+   * @param options
+   * @param options.mnemonic
+   * @param options.privateKey
+   * @param options.derivationPath
    */
   async createAccount(
     name: string,
     type: WalletAccount['type'],
     chainId: string,
     options?: {
+      /**
+       *
+       */
       mnemonic?: string;
+      /**
+       *
+       */
       privateKey?: string;
+      /**
+       *
+       */
       derivationPath?: string;
     }
   ): Promise<WalletAccount> {
@@ -202,6 +369,9 @@ export class ValidatorWalletService {
 
   /**
    * Import an existing account
+   * @param name
+   * @param privateKeyOrMnemonic
+   * @param chainId
    */
   async importAccount(
     name: string,
@@ -235,6 +405,7 @@ export class ValidatorWalletService {
 
   /**
    * Get account by ID
+   * @param accountId
    */
   getAccount(accountId: string): WalletAccount | undefined {
     return this.accounts.get(accountId);
@@ -242,6 +413,7 @@ export class ValidatorWalletService {
 
   /**
    * Set active account
+   * @param accountId
    */
   setActiveAccount(accountId: string): void {
     const account = this.accounts.get(accountId);
@@ -269,6 +441,7 @@ export class ValidatorWalletService {
 
   /**
    * Update account balance
+   * @param accountId
    */
   async updateAccountBalance(accountId: string): Promise<string> {
     try {
@@ -325,6 +498,7 @@ export class ValidatorWalletService {
 
   /**
    * Send transaction
+   * @param request
    */
   async sendTransaction(request: TransactionRequest): Promise<TransactionResult> {
     try {
@@ -418,6 +592,8 @@ export class ValidatorWalletService {
 
   /**
    * Sign message
+   * @param accountId
+   * @param message
    */
   async signMessage(accountId: string, message: string): Promise<string> {
     try {
@@ -446,6 +622,7 @@ export class ValidatorWalletService {
 
   /**
    * Resolve ENS name
+   * @param name
    */
   async resolveENS(name: string): Promise<ENSResolution | null> {
     try {
@@ -501,6 +678,7 @@ export class ValidatorWalletService {
 
   /**
    * Backup wallet data
+   * @param password
    */
   async backupWallet(password: string): Promise<WalletBackup> {
     try {
@@ -560,6 +738,8 @@ export class ValidatorWalletService {
 
   /**
    * Restore wallet from backup
+   * @param backup
+   * @param password
    */
   async restoreWallet(backup: WalletBackup, password: string): Promise<void> {
     try {
@@ -599,6 +779,8 @@ export class ValidatorWalletService {
 
   /**
    * Export account private key
+   * @param accountId
+   * @param password
    */
   async exportPrivateKey(accountId: string, password: string): Promise<string> {
     try {
@@ -621,6 +803,7 @@ export class ValidatorWalletService {
 
   /**
    * Remove account
+   * @param accountId
    */
   async removeAccount(accountId: string): Promise<void> {
     try {
@@ -653,23 +836,64 @@ export class ValidatorWalletService {
 
   /**
    * Get transaction history
+   * @param address
+   * @param options
+   * @param options.limit
+   * @param options.offset
+   * @param options.chainId
    */
   async getTransactionHistory(
     address: string,
     options?: {
+      /**
+       *
+       */
       limit?: number;
+      /**
+       *
+       */
       offset?: number;
+      /**
+       *
+       */
       chainId?: string;
     }
   ): Promise<Array<{
+    /**
+     *
+     */
     hash: string;
+    /**
+     *
+     */
     from: string;
+    /**
+     *
+     */
     to: string;
+    /**
+     *
+     */
     value: string;
+    /**
+     *
+     */
     timestamp: number;
+    /**
+     *
+     */
     blockNumber: number;
+    /**
+     *
+     */
     status: string;
+    /**
+     *
+     */
     gasUsed: string;
+    /**
+     *
+     */
     gasPrice: string;
   }>> {
     try {
@@ -711,6 +935,7 @@ export class ValidatorWalletService {
 
   /**
    * Estimate gas for transaction
+   * @param request
    */
   async estimateGas(request: TransactionRequest): Promise<string> {
     try {
@@ -1015,6 +1240,8 @@ export class ValidatorWalletService {
   /**
    * Encrypt data using AES-256-GCM with PBKDF2 key derivation
    * Production-ready implementation with proper salt generation
+   * @param data
+   * @param password
    */
   private async encryptData(data: string, password: string): Promise<string> {
     const encoder = new TextEncoder();
@@ -1074,6 +1301,8 @@ export class ValidatorWalletService {
   /**
    * Decrypt data encrypted with AES-256-GCM
    * Production-ready implementation matching the encryption method
+   * @param encryptedData
+   * @param password
    */
   private async decryptData(encryptedData: string, password: string): Promise<string> {
     const encoder = new TextEncoder();

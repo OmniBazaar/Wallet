@@ -17,34 +17,97 @@ import * as crypto from 'crypto';
 import { ContractManager, defaultConfig } from '../contracts/ContractConfig';
 import { ENSService } from '../ens/ENSService';
 
+/**
+ *
+ */
 export interface UserCredentials {
+  /**
+   *
+   */
   username: string;
+  /**
+   *
+   */
   password: string;
 }
 
+/**
+ *
+ */
 export interface AccountKeys {
+  /**
+   *
+   */
   mnemonic: string;
+  /**
+   *
+   */
   privateKey: string;
+  /**
+   *
+   */
   publicKey: string;
+  /**
+   *
+   */
   address: string;
+  /**
+   *
+   */
   omniAddress: string; // username.omnicoin format
 }
 
+/**
+ *
+ */
 export interface MultiChainKeys {
+  /**
+   *
+   */
   ethereum: AccountKeys;
+  /**
+   *
+   */
   omnicoin: AccountKeys;
+  /**
+   *
+   */
   bitcoin?: AccountKeys;
+  /**
+   *
+   */
   solana?: AccountKeys;
 }
 
+/**
+ *
+ */
 export interface UserSession {
+  /**
+   *
+   */
   username: string;
+  /**
+   *
+   */
   isLoggedIn: boolean;
+  /**
+   *
+   */
   accounts: MultiChainKeys;
+  /**
+   *
+   */
   sessionToken: string;
+  /**
+   *
+   */
   lastActivity: number;
 }
 
+/**
+ *
+ */
 export class KeyringManager {
   private static instance: KeyringManager;
   private currentSession: UserSession | null = null;
@@ -62,6 +125,9 @@ export class KeyringManager {
     this.ensService = ENSService.getInstance();
   }
 
+  /**
+   *
+   */
   public static getInstance(): KeyringManager {
     if (!KeyringManager.instance) {
       KeyringManager.instance = new KeyringManager();
@@ -72,6 +138,7 @@ export class KeyringManager {
   /**
    * Register a new user with username/password
    * Creates deterministic seed phrase from credentials (legacy-compatible)
+   * @param credentials
    */
   public async registerUser(credentials: UserCredentials): Promise<UserSession> {
     this.validateCredentials(credentials);
@@ -104,6 +171,7 @@ export class KeyringManager {
   /**
    * Login existing user with username/password
    * Regenerates same seed phrase from credentials
+   * @param credentials
    */
   public async loginUser(credentials: UserCredentials): Promise<UserSession> {
     this.validateCredentials(credentials);
@@ -130,6 +198,7 @@ export class KeyringManager {
   /**
    * Generate deterministic seed phrase from username/password
    * Based on legacy OmniCoin algorithm with security improvements
+   * @param credentials
    */
   private generateDeterministicSeed(credentials: UserCredentials): string {
     // Legacy-compatible seed generation with enhanced security
@@ -154,6 +223,8 @@ export class KeyringManager {
 
   /**
    * Create multi-chain accounts from seed phrase
+   * @param seedPhrase
+   * @param username
    */
   private async createMultiChainAccounts(seedPhrase: string, username: string): Promise<MultiChainKeys> {
     // Validate mnemonic
@@ -175,6 +246,8 @@ export class KeyringManager {
 
   /**
    * Create Ethereum-compatible account
+   * @param hdNode
+   * @param username
    */
   private async createEthereumAccount(hdNode: HDNode, username: string): Promise<AccountKeys> {
     // Standard Ethereum derivation path: m/44'/60'/0'/0/0
@@ -195,6 +268,8 @@ export class KeyringManager {
 
   /**
    * Create OmniCoin account
+   * @param hdNode
+   * @param username
    */
   private async createOmniCoinAccount(hdNode: HDNode, username: string): Promise<AccountKeys> {
     // Custom OmniCoin derivation path: m/44'/9999'/0'/0/0 (9999 = custom coin type)
@@ -217,6 +292,7 @@ export class KeyringManager {
   /**
    * Generate OmniCoin address from public key
    * TODO: Implement based on OmniCoin address format
+   * @param publicKey
    */
   private generateOmniCoinAddress(publicKey: string): string {
     // Placeholder - implement based on OmniCoin specifications
@@ -226,6 +302,8 @@ export class KeyringManager {
 
   /**
    * Create user session
+   * @param username
+   * @param accounts
    */
   private createSession(username: string, accounts: MultiChainKeys): UserSession {
     const sessionToken = crypto.randomBytes(32).toString('hex');
@@ -241,6 +319,7 @@ export class KeyringManager {
 
   /**
    * Validate user credentials
+   * @param credentials
    */
   private validateCredentials(credentials: UserCredentials): void {
     if (!credentials.username || credentials.username.trim().length === 0) {
@@ -264,6 +343,7 @@ export class KeyringManager {
 
   /**
    * Check if username is unique by querying the registry contract
+   * @param username
    */
   private async isUsernameUnique(username: string): Promise<boolean> {
     try {
@@ -280,6 +360,7 @@ export class KeyringManager {
 
   /**
    * Verify account exists by checking if it has a registered name
+   * @param address
    */
   private async verifyAccountExists(address: string): Promise<boolean> {
     try {
@@ -296,6 +377,8 @@ export class KeyringManager {
 
   /**
    * Register username on blockchain (called after successful account creation)
+   * @param username
+   * @param address
    */
   private async registerUsernameOnChain(username: string, address: string): Promise<void> {
     try {
@@ -320,6 +403,8 @@ export class KeyringManager {
   /**
    * Store encrypted user data
    * TODO: Implement secure storage strategy
+   * @param credentials
+   * @param _accounts
    */
   private async storeUserData(credentials: UserCredentials, _accounts: MultiChainKeys): Promise<void> {
     // TODO: Implement secure storage (encrypted local storage, browser extension storage, etc.)
@@ -366,6 +451,7 @@ export class KeyringManager {
 
   /**
    * Resolve username.omnicoin to address using COTI registry
+   * @param username
    */
   public async resolveUsername(username: string): Promise<string | null> {
     try {
@@ -380,6 +466,7 @@ export class KeyringManager {
 
   /**
    * Resolve username.omnicoin to address using Ethereum stateless resolver
+   * @param username
    */
   public async resolveUsernameViaEthereum(username: string): Promise<string | null> {
     try {
@@ -394,6 +481,7 @@ export class KeyringManager {
 
   /**
    * Get primary username for an address (reverse resolution)
+   * @param address
    */
   public async reverseResolve(address: string): Promise<string | null> {
     try {
@@ -408,6 +496,7 @@ export class KeyringManager {
 
   /**
    * Check if a username is available for registration
+   * @param username
    */
   public async isUsernameAvailable(username: string): Promise<boolean> {
     return this.isUsernameUnique(username);
@@ -416,6 +505,7 @@ export class KeyringManager {
   /**
    * Resolve any address or ENS name to a valid address
    * Supports .eth, .omnicoin, and regular addresses
+   * @param addressOrName
    */
   public async resolveAddress(addressOrName: string): Promise<string | null> {
     try {
@@ -434,6 +524,8 @@ export class KeyringManager {
 
   /**
    * Resolve address for specific chain (for multi-chain transactions)
+   * @param addressOrName
+   * @param chainType
    */
   public async resolveAddressForChain(addressOrName: string, chainType: 'ethereum' | 'polygon' | 'arbitrum' | 'optimism'): Promise<string | null> {
     try {
@@ -460,8 +552,22 @@ export class KeyringManager {
   /**
    * Sign transaction with current user's key
    * TODO: Implement transaction signing
+   * @param transaction
+   * @param transaction.to
+   * @param transaction.value
+   * @param transaction.data
+   * @param chainType
    */
-  public async signTransaction(transaction: { to: string; value: string; data?: string }, chainType: 'ethereum' | 'omnicoin'): Promise<string> {
+  public async signTransaction(transaction: { /**
+                                               *
+                                               */
+  to: string; /**
+               *
+               */
+  value: string; /**
+                  *
+                  */
+  data?: string }, chainType: 'ethereum' | 'omnicoin'): Promise<string> {
     const session = this.getCurrentSession();
     if (!session) {
       throw new Error('User not logged in');

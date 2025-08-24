@@ -16,6 +16,9 @@ class OmniBazaarMarketplaceExample {
   private nftDisplay: MultiChainNFTDisplay;
   private nftMinter: SimplifiedNFTMinter;
 
+  /**
+   *
+   */
   constructor() {
     // Initialize the multi-chain NFT display system
     this.nftDisplay = new MultiChainNFTDisplay();
@@ -54,6 +57,14 @@ class OmniBazaarMarketplaceExample {
 
   /**
    * Example: Mint a new marketplace NFT on OmniCoin
+   * @param sellerAddress
+   * @param productData
+   * @param productData.name
+   * @param productData.description
+   * @param productData.imageUrl
+   * @param productData.price
+   * @param productData.category
+   * @param productData.location
    */
   async mintMarketplaceNFT(sellerAddress: string, productData: {
     name: string;
@@ -102,6 +113,7 @@ class OmniBazaarMarketplaceExample {
 
   /**
    * Example: Display all NFTs from multiple chains for a user
+   * @param userAddress
    */
   async showUserNFTPortfolio(userAddress: string): Promise<void> {
     try {
@@ -159,6 +171,13 @@ class OmniBazaarMarketplaceExample {
 
   /**
    * Example: Search for NFTs across all chains
+   * @param searchTerm
+   * @param filters
+   * @param filters.category
+   * @param filters.blockchain
+   * @param filters.priceRange
+   * @param filters.priceRange.min
+   * @param filters.priceRange.max
    */
   async searchMarketplaceNFTs(searchTerm: string, filters?: {
     category?: string;
@@ -249,6 +268,8 @@ class OmniBazaarMarketplaceExample {
 
   /**
    * Example: Toggle chain support
+   * @param chainId
+   * @param enabled
    */
   async manageChainSupport(chainId: number, enabled: boolean): Promise<void> {
     const chainName = this.getChainName(chainId);
@@ -261,6 +282,7 @@ class OmniBazaarMarketplaceExample {
 
   /**
    * Helper: Get chain name by ID
+   * @param chainId
    */
   private getChainName(chainId: number): string {
     const chainNames: { [key: number]: string } = {

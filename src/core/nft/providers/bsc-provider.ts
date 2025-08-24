@@ -1,9 +1,21 @@
 import type { NFTItem, NFTCollection } from '../../../types/nft';
 import type { ChainProvider } from '../display/multi-chain-display';
 
+/**
+ *
+ */
 export interface BSCNFTConfig {
+  /**
+   *
+   */
   rpcUrl: string;
+  /**
+   *
+   */
   bscscanApiKey?: string;
+  /**
+   *
+   */
   moralisApiKey?: string;
 }
 
@@ -20,6 +32,10 @@ export class BSCNFTProvider implements ChainProvider {
   private bscscanUrl = 'https://api.bscscan.com/api';
   private moralisUrl = 'https://deep-index.moralis.io/api/v2';
 
+  /**
+   *
+   * @param config
+   */
   constructor(config: BSCNFTConfig) {
     this.config = config;
     this.isConnected = Boolean(config.rpcUrl);
@@ -27,6 +43,7 @@ export class BSCNFTProvider implements ChainProvider {
 
   /**
    * Get all NFTs for a wallet address
+   * @param address
    */
   async getNFTs(address: string): Promise<NFTItem[]> {
     try {
@@ -48,6 +65,8 @@ export class BSCNFTProvider implements ChainProvider {
 
   /**
    * Get specific NFT metadata
+   * @param contractAddress
+   * @param tokenId
    */
   async getNFTMetadata(contractAddress: string, tokenId: string): Promise<NFTItem | null> {
     try {
@@ -130,6 +149,7 @@ export class BSCNFTProvider implements ChainProvider {
 
   /**
    * Get NFT collections for an address
+   * @param address
    */
   async getCollections(address: string): Promise<NFTCollection[]> {
     try {
@@ -163,6 +183,7 @@ export class BSCNFTProvider implements ChainProvider {
 
   /**
    * Fetch NFTs from Moralis API
+   * @param address
    */
   private async fetchFromMoralis(address: string): Promise<NFTItem[]> {
     const response = await fetch(
@@ -184,6 +205,7 @@ export class BSCNFTProvider implements ChainProvider {
 
   /**
    * Transform Moralis NFT data to our format
+   * @param nft
    */
   private transformMoralisNFT(nft: any): NFTItem {
     const metadata = nft.metadata ? JSON.parse(nft.metadata) : {};
@@ -208,6 +230,7 @@ export class BSCNFTProvider implements ChainProvider {
 
   /**
    * Fetch NFTs directly from blockchain using ethers
+   * @param address
    */
   private async fetchFromBlockchain(address: string): Promise<NFTItem[]> {
     try {
@@ -315,6 +338,8 @@ export class BSCNFTProvider implements ChainProvider {
 
   /**
    * Search NFTs on BSC
+   * @param query
+   * @param limit
    */
   async searchNFTs(query: string, limit = 20): Promise<NFTItem[]> {
     try {
@@ -344,6 +369,7 @@ export class BSCNFTProvider implements ChainProvider {
 
   /**
    * Get trending NFTs on BSC
+   * @param limit
    */
   async getTrendingNFTs(limit = 20): Promise<NFTItem[]> {
     try {
@@ -387,6 +413,7 @@ export class BSCNFTProvider implements ChainProvider {
 
   /**
    * Update configuration
+   * @param newConfig
    */
   updateConfig(newConfig: Partial<BSCNFTConfig>): void {
     this.config = { ...this.config, ...newConfig };

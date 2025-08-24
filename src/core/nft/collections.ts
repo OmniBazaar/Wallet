@@ -65,10 +65,25 @@ export const MOCK_NFT_COLLECTION = [
 // ///////////////////////////////////////////////
 // Query Types
 
+/**
+ *
+ */
 export type NftCollectionsArgs = {
+  /**
+   *
+   */
   address: Address;
+  /**
+   *
+   */
   sort: NftSort;
+  /**
+   *
+   */
   testnetMode: boolean;
+  /**
+   *
+   */
   userChains: Chain[];
 };
 
@@ -151,6 +166,15 @@ type NftCollectionsResult = QueryFunctionResult<
 // ///////////////////////////////////////////////
 // Query Hook
 
+/**
+ *
+ * @param root0
+ * @param root0.address
+ * @param root0.sort
+ * @param root0.testnetMode
+ * @param root0.userChains
+ * @param config
+ */
 export function useNftCollections<TSelectData = NftCollectionsResult>(
   { address, sort, testnetMode, userChains }: NftCollectionsArgs,
   config: InfiniteQueryConfig<NftCollectionsResult, Error, TSelectData> = {},

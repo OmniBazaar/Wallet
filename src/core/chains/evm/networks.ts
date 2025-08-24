@@ -3,14 +3,41 @@
  * Consolidated from Enkrypt and DePay sources
  */
 
+/**
+ *
+ */
 export interface EVMNetworkConfig {
+  /**
+   *
+   */
   chainId: number;
+  /**
+   *
+   */
   name: string;
+  /**
+   *
+   */
   shortName: string;
+  /**
+   *
+   */
   currency: string;
+  /**
+   *
+   */
   rpcUrl: string | string[];
+  /**
+   *
+   */
   explorer: string;
+  /**
+   *
+   */
   icon?: string;
+  /**
+   *
+   */
   testnet?: boolean;
 }
 
@@ -337,11 +364,19 @@ export const ALL_NETWORKS = {
 };
 
 // Helper function to get network by chainId
+/**
+ *
+ * @param chainId
+ */
 export function getNetworkByChainId(chainId: number): EVMNetworkConfig | undefined {
   return Object.values(ALL_NETWORKS).find(network => network.chainId === chainId);
 }
 
 // Helper function to get RPC URL (handles array or string)
+/**
+ *
+ * @param network
+ */
 export function getRpcUrl(network: EVMNetworkConfig): string {
   if (Array.isArray(network.rpcUrl)) {
     return network.rpcUrl[0];

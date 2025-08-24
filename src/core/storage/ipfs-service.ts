@@ -9,25 +9,62 @@ interface IPFSHTTPClient {
   };
 }
 
+/**
+ *
+ */
 export interface IPFSConfig {
+  /**
+   *
+   */
   gateway: string;
+  /**
+   *
+   */
   host?: string;
+  /**
+   *
+   */
   port?: number;
+  /**
+   *
+   */
   protocol?: string;
+  /**
+   *
+   */
   apiPath?: string;
 }
 
+/**
+ *
+ */
 export interface UploadResult {
+  /**
+   *
+   */
   hash: string;
+  /**
+   *
+   */
   size: number;
+  /**
+   *
+   */
   path: string;
 }
 
+/**
+ *
+ */
 export class IPFSService {
   private client?: IPFSHTTPClient;
   private config: IPFSConfig;
   private initialized = false;
 
+  /**
+   *
+   * @param config
+   */
   constructor(config: IPFSConfig) {
     this.config = config;
   }
@@ -60,6 +97,8 @@ export class IPFSService {
 
   /**
    * Upload a file to IPFS
+   * @param file
+   * @param filename
    */
   async uploadFile(file: File | Blob, filename?: string): Promise<string> {
     if (!this.client) {
@@ -85,6 +124,8 @@ export class IPFSService {
 
   /**
    * Upload JSON data to IPFS
+   * @param data
+   * @param filename
    */
   async uploadJSON(data: Record<string, unknown>, filename = 'data.json'): Promise<string> {
     try {
@@ -98,6 +139,7 @@ export class IPFSService {
 
   /**
    * Pin content to IPFS (ensure it stays available)
+   * @param hash
    */
   async pinContent(hash: string): Promise<void> {
     try {
@@ -109,6 +151,7 @@ export class IPFSService {
 
   /**
    * Unpin content from IPFS
+   * @param hash
    */
   async unpinContent(hash: string): Promise<void> {
     try {
@@ -120,6 +163,7 @@ export class IPFSService {
 
   /**
    * Get content from IPFS
+   * @param hash
    */
   async getContent(hash: string): Promise<Uint8Array> {
     try {
@@ -146,6 +190,7 @@ export class IPFSService {
 
   /**
    * Get JSON content from IPFS
+   * @param hash
    */
   async getJSON(hash: string): Promise<Record<string, unknown>> {
     try {
@@ -159,6 +204,7 @@ export class IPFSService {
 
   /**
    * Check if content exists on IPFS
+   * @param hash
    */
   async contentExists(hash: string): Promise<boolean> {
     try {
@@ -173,6 +219,7 @@ export class IPFSService {
 
   /**
    * Get gateway URL for content
+   * @param hash
    */
   getGatewayUrl(hash: string): string {
     // Remove ipfs:// protocol if present
@@ -182,12 +229,28 @@ export class IPFSService {
 
   /**
    * Get content stats
+   * @param hash
    */
   async getStats(hash: string): Promise<{
+    /**
+     *
+     */
     hash: string;
+    /**
+     *
+     */
     size: number;
+    /**
+     *
+     */
     cumulativeSize: number;
+    /**
+     *
+     */
     blocks: number;
+    /**
+     *
+     */
     type: string;
   }> {
     try {
@@ -221,8 +284,15 @@ export class IPFSService {
 
   /**
    * Upload multiple files to IPFS
+   * @param files
    */
-  async uploadMultipleFiles(files: Array<{ file: File | Blob; filename: string }>): Promise<UploadResult[]> {
+  async uploadMultipleFiles(files: Array<{ /**
+                                            *
+                                            */
+  file: File | Blob; /**
+                      *
+                      */
+  filename: string }>): Promise<UploadResult[]> {
     try {
       const results: UploadResult[] = [];
       
@@ -243,8 +313,15 @@ export class IPFSService {
 
   /**
    * Create a directory structure on IPFS
+   * @param files
    */
-  async uploadDirectory(files: Array<{ path: string; content: File | Blob | string }>): Promise<string> {
+  async uploadDirectory(files: Array<{ /**
+                                        *
+                                        */
+  path: string; /**
+                 *
+                 */
+  content: File | Blob | string }>): Promise<string> {
     try {
       const filesToAdd = files.map(file => ({
         path: file.path,

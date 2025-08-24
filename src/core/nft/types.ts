@@ -5,6 +5,9 @@
 
 import { ChainType } from '../keyring/BIP39Keyring';
 
+/**
+ *
+ */
 export enum NFTType {
   ERC721 = 'ERC721',
   ERC1155 = 'ERC1155',
@@ -14,6 +17,9 @@ export enum NFTType {
   SUBSTRATE_NFT = 'SUBSTRATENFT',
 }
 
+/**
+ *
+ */
 export enum NFTStandard {
   ERC721 = 'ERC-721',
   ERC1155 = 'ERC-1155',
@@ -26,100 +32,328 @@ export enum NFTStandard {
   UNIQUE = 'UNIQUE',
 }
 
+/**
+ *
+ */
 export interface NFTMetadata {
+  /**
+   *
+   */
   name: string;
+  /**
+   *
+   */
   description?: string;
+  /**
+   *
+   */
   image?: string;
+  /**
+   *
+   */
   image_url?: string;
+  /**
+   *
+   */
   animation_url?: string;
+  /**
+   *
+   */
   external_url?: string;
+  /**
+   *
+   */
   attributes?: NFTAttribute[];
+  /**
+   *
+   */
   properties?: Record<string, unknown>;
+  /**
+   *
+   */
   background_color?: string;
 }
 
+/**
+ *
+ */
 export interface NFTAttribute {
+  /**
+   *
+   */
   trait_type: string;
+  /**
+   *
+   */
   value: string | number;
+  /**
+   *
+   */
   display_type?: string;
+  /**
+   *
+   */
   max_value?: number;
 }
 
+/**
+ *
+ */
 export interface NFTCollection {
+  /**
+   *
+   */
   id: string;
+  /**
+   *
+   */
   name: string;
+  /**
+   *
+   */
   description?: string;
+  /**
+   *
+   */
   image?: string;
+  /**
+   *
+   */
   external_url?: string;
+  /**
+   *
+   */
   twitter?: string;
+  /**
+   *
+   */
   discord?: string;
+  /**
+   *
+   */
   website?: string;
+  /**
+   *
+   */
   verified?: boolean;
+  /**
+   *
+   */
   spam_score?: number;
+  /**
+   *
+   */
   floor_price?: NFTFloorPrice;
+  /**
+   *
+   */
   total_supply?: number;
+  /**
+   *
+   */
   owner_count?: number;
 }
 
+/**
+ *
+ */
 export interface NFTFloorPrice {
+  /**
+   *
+   */
   value: number;
+  /**
+   *
+   */
   currency: string;
+  /**
+   *
+   */
   marketplace?: string;
+  /**
+   *
+   */
   updated_at?: string;
 }
 
+/**
+ *
+ */
 export interface NFT {
+  /**
+   *
+   */
   id: string;
+  /**
+   *
+   */
   contract_address: string;
+  /**
+   *
+   */
   token_id: string;
+  /**
+   *
+   */
   chain: ChainType | string;
+  /**
+   *
+   */
   type: NFTType;
+  /**
+   *
+   */
   standard: NFTStandard;
+  /**
+   *
+   */
   owner: string;
+  /**
+   *
+   */
   metadata: NFTMetadata;
+  /**
+   *
+   */
   collection?: NFTCollection;
+  /**
+   *
+   */
   balance?: string; // For ERC1155
+  /**
+   *
+   */
   created_at?: string;
+  /**
+   *
+   */
   last_updated?: string;
+  /**
+   *
+   */
   marketplace_data?: NFTMarketplaceData;
 }
 
+/**
+ *
+ */
 export interface NFTMarketplaceData {
+  /**
+   *
+   */
   listed?: boolean;
+  /**
+   *
+   */
   price?: string;
+  /**
+   *
+   */
   currency?: string;
+  /**
+   *
+   */
   marketplace?: string;
+  /**
+   *
+   */
   listing_url?: string;
+  /**
+   *
+   */
   last_sale?: {
+    /**
+     *
+     */
     price: string;
+    /**
+     *
+     */
     currency: string;
+    /**
+     *
+     */
     date: string;
+    /**
+     *
+     */
     from: string;
+    /**
+     *
+     */
     to: string;
   };
 }
 
+/**
+ *
+ */
 export interface SolanaNFT extends NFT {
+  /**
+   *
+   */
   mint: string;
+  /**
+   *
+   */
   update_authority?: string;
+  /**
+   *
+   */
   primary_sale_happened?: boolean;
+  /**
+   *
+   */
   seller_fee_basis_points?: number;
+  /**
+   *
+   */
   creators?: SolanaCreator[];
+  /**
+   *
+   */
   edition?: SolanaEdition;
+  /**
+   *
+   */
   token_standard?: SolanaTokenStandard;
 }
 
+/**
+ *
+ */
 export interface SolanaCreator {
+  /**
+   *
+   */
   address: string;
+  /**
+   *
+   */
   verified: boolean;
+  /**
+   *
+   */
   share: number;
 }
 
+/**
+ *
+ */
 export interface SolanaEdition {
+  /**
+   *
+   */
   edition: number;
+  /**
+   *
+   */
   max_supply?: number;
 }
 
+/**
+ *
+ */
 export enum SolanaTokenStandard {
   NON_FUNGIBLE = 'NonFungible',
   FUNGIBLE_ASSET = 'FungibleAsset',
@@ -128,26 +362,77 @@ export enum SolanaTokenStandard {
   PROGRAMMABLE_NON_FUNGIBLE = 'ProgrammableNonFungible',
 }
 
+/**
+ *
+ */
 export interface NFTDiscoveryOptions {
+  /**
+   *
+   */
   chains?: (ChainType | string)[];
+  /**
+   *
+   */
   collections?: string[];
+  /**
+   *
+   */
   includeSpam?: boolean;
+  /**
+   *
+   */
   limit?: number;
+  /**
+   *
+   */
   cursor?: string;
 }
 
+/**
+ *
+ */
 export interface NFTDiscoveryResult {
+  /**
+   *
+   */
   nfts: NFT[];
+  /**
+   *
+   */
   nextCursor?: string;
+  /**
+   *
+   */
   hasMore: boolean;
+  /**
+   *
+   */
   total?: number;
 }
 
+/**
+ *
+ */
 export interface NFTTransferRequest {
+  /**
+   *
+   */
   nft: NFT;
+  /**
+   *
+   */
   from: string;
+  /**
+   *
+   */
   to: string;
+  /**
+   *
+   */
   amount?: string; // For ERC1155
+  /**
+   *
+   */
   data?: string;
 }
 
@@ -160,6 +445,9 @@ export const SPECIAL_NFT_CONTRACTS = {
 } as const;
 
 // Marketplace identifiers
+/**
+ *
+ */
 export enum NFTMarketplace {
   OPEN_SEA = 'opensea',
   BLUR = 'blur',

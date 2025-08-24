@@ -11,14 +11,41 @@ import { createNFTProvider, createAllNFTProviders, type ProviderConfig } from '.
 import type { ChainProvider } from './display/multi-chain-display';
 
 // Import types from Bazaar if available
+/**
+ *
+ */
 export interface NFTServiceConfig {
+  /**
+   *
+   */
   useOmniProvider?: boolean;
+  /**
+   *
+   */
   validatorUrl?: string;
+  /**
+   *
+   */
   apiKeys?: {
+    /**
+     *
+     */
     alchemy?: string;
+    /**
+     *
+     */
     moralis?: string;
+    /**
+     *
+     */
     opensea?: string;
+    /**
+     *
+     */
     quicknode?: string;
+    /**
+     *
+     */
     infura?: string;
   };
 }
@@ -63,6 +90,7 @@ export class NFTService {
 
   /**
    * Get singleton instance
+   * @param config
    */
   public static getInstance(config?: NFTServiceConfig): NFTService {
     if (!NFTService.instance) {
@@ -100,6 +128,7 @@ export class NFTService {
 
   /**
    * Get NFTs for a specific address across all chains
+   * @param address
    */
   public async getNFTs(address: string): Promise<WalletNFT[]> {
     return this.nftManager.getNFTs(address);
@@ -107,6 +136,8 @@ export class NFTService {
 
   /**
    * Get NFTs for a specific chain
+   * @param address
+   * @param chainId
    */
   public async getNFTsForChain(address: string, chainId: number): Promise<any[]> {
     const provider = this.providers.get(chainId);
@@ -125,6 +156,9 @@ export class NFTService {
 
   /**
    * Get NFT metadata
+   * @param contractAddress
+   * @param tokenId
+   * @param chainId
    */
   public async getNFTMetadata(
     contractAddress: string,
@@ -147,6 +181,8 @@ export class NFTService {
 
   /**
    * Get collections for an address
+   * @param address
+   * @param chainId
    */
   public async getCollections(address: string, chainId?: number): Promise<any[]> {
     if (chainId !== undefined) {
@@ -173,6 +209,12 @@ export class NFTService {
 
   /**
    * Transfer NFT
+   * @param params
+   * @param params.contractAddress
+   * @param params.tokenId
+   * @param params.from
+   * @param params.to
+   * @param params.chainId
    */
   public async transferNFT(params: {
     contractAddress: string;
@@ -189,6 +231,11 @@ export class NFTService {
 
   /**
    * List NFT for sale
+   * @param params
+   * @param params.contractAddress
+   * @param params.tokenId
+   * @param params.price
+   * @param params.chainId
    */
   public async listNFT(params: {
     contractAddress: string;
@@ -208,6 +255,11 @@ export class NFTService {
 
   /**
    * Buy NFT
+   * @param params
+   * @param params.contractAddress
+   * @param params.tokenId
+   * @param params.price
+   * @param params.chainId
    */
   public async buyNFT(params: {
     contractAddress: string;
@@ -228,6 +280,7 @@ export class NFTService {
 
   /**
    * Get trending NFTs
+   * @param chainId
    */
   public async getTrendingNFTs(chainId?: number): Promise<any[]> {
     if (chainId !== undefined) {
@@ -263,6 +316,7 @@ export class NFTService {
 
   /**
    * Switch between OmniProvider and external APIs
+   * @param useOmniProvider
    */
   public async switchProvider(useOmniProvider: boolean): Promise<void> {
     this.config.useOmniProvider = useOmniProvider;
@@ -298,6 +352,7 @@ export class NFTService {
 
   /**
    * Helper to convert chain ID to chain type
+   * @param chainId
    */
   private getChainType(chainId: number): 'ethereum' | 'solana' {
     // All EVM chains are 'ethereum' type

@@ -1,26 +1,77 @@
 import type { NFTMintRequest, NFTMetadata, NFTItem } from '../../../types/nft';
 import type { ListingMetadata } from '../../../types/listing';
 
+/**
+ *
+ */
 export interface MintingConfig {
+  /**
+   *
+   */
   contractAddress: string;
+  /**
+   *
+   */
   marketplaceAddress: string;
+  /**
+   *
+   */
   ipfsGateway: string;
+  /**
+   *
+   */
   defaultRoyalty: number;
+  /**
+   *
+   */
   rpcUrl: string;
 }
 
+/**
+ *
+ */
 export interface MintingResult {
+  /**
+   *
+   */
   success: boolean;
+  /**
+   *
+   */
   tokenId?: string;
+  /**
+   *
+   */
   transactionHash?: string;
+  /**
+   *
+   */
   ipfsHash?: string;
+  /**
+   *
+   */
   nftItem?: NFTItem;
+  /**
+   *
+   */
   error?: string;
 }
 
+/**
+ *
+ */
 export interface IPFSUploadResult {
+  /**
+   *
+   */
   success: boolean;
+  /**
+   *
+   */
   hash?: string;
+  /**
+   *
+   */
   error?: string;
 }
 
@@ -31,12 +82,19 @@ export interface IPFSUploadResult {
 export class SimplifiedNFTMinter {
   private config: MintingConfig;
 
+  /**
+   *
+   * @param config
+   */
   constructor(config: MintingConfig) {
     this.config = config;
   }
 
   /**
    * Mint NFT for marketplace listing on OmniCoin blockchain
+   * @param mintRequest
+   * @param listingData
+   * @param sellerAddress
    */
   async mintListingNFT(
     mintRequest: NFTMintRequest,
@@ -104,6 +162,8 @@ export class SimplifiedNFTMinter {
 
   /**
    * Prepare NFT metadata optimized for marketplace
+   * @param mintRequest
+   * @param listingData
    */
   private prepareNFTMetadata(
     mintRequest: NFTMintRequest,
@@ -156,6 +216,8 @@ export class SimplifiedNFTMinter {
 
   /**
    * Simulate IPFS upload (replace with real implementation)
+   * @param metadata
+   * @param _image
    */
   private async simulateIPFSUpload(metadata: NFTMetadata, _image: File | string): Promise<IPFSUploadResult> {
     try {
@@ -191,6 +253,9 @@ export class SimplifiedNFTMinter {
 
   /**
    * Simulate blockchain minting (replace with real implementation)
+   * @param _toAddress
+   * @param _tokenId
+   * @param _metadataHash
    */
   private async simulateBlockchainMinting(
     _toAddress: string,
@@ -221,6 +286,11 @@ export class SimplifiedNFTMinter {
 
   /**
    * Create NFTItem from minting result
+   * @param tokenId
+   * @param metadata
+   * @param transactionHash
+   * @param ipfsHash
+   * @param owner
    */
   private createNFTItem(
     tokenId: string,
@@ -253,6 +323,7 @@ export class SimplifiedNFTMinter {
 
   /**
    * Get IPFS gateway URL for content
+   * @param hash
    */
   private getIPFSGatewayUrl(hash: string): string {
     // Remove ipfs:// protocol if present
@@ -262,6 +333,7 @@ export class SimplifiedNFTMinter {
 
   /**
    * Validate mint request
+   * @param mintRequest
    */
   validateMintRequest(mintRequest: NFTMintRequest): { valid: boolean; errors: string[] } {
     const errors: string[] = [];
@@ -329,6 +401,7 @@ export class SimplifiedNFTMinter {
 
   /**
    * Update configuration
+   * @param updates
    */
   updateConfig(updates: Partial<MintingConfig>): void {
     this.config = { ...this.config, ...updates };

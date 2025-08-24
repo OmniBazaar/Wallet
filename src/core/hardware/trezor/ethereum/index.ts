@@ -17,21 +17,35 @@ import {
 import { supportedPaths } from "./configs";
 import getTrezorConnect from "../trezorConnect";
 
+/**
+ *
+ */
 class TrezorEthereum implements HWWalletProvider {
   network: NetworkNames;
   TrezorConnect: TrezorConnect;
   HDNodes: Record<string, HDKey>;
 
+  /**
+   *
+   * @param network
+   */
   constructor(network: NetworkNames) {
     this.network = network;
     this.HDNodes = {};
   }
 
+  /**
+   *
+   */
   async init(): Promise<boolean> {
     this.TrezorConnect = await getTrezorConnect();
     return true;
   }
 
+  /**
+   *
+   * @param options
+   */
   async getAddress(options: getAddressRequest): Promise<AddressResponse> {
     if (!supportedPaths[this.network])
       return Promise.reject(new Error("trezor-ethereum: Invalid network name"));
@@ -60,18 +74,31 @@ class TrezorEthereum implements HWWalletProvider {
     };
   }
 
+  /**
+   *
+   */
   getSupportedPaths(): PathType[] {
     return supportedPaths[this.network];
   }
 
+  /**
+   *
+   */
   close(): Promise<void> {
     return Promise.resolve();
   }
 
+  /**
+   *
+   */
   isConnected(): Promise<boolean> {
     return Promise.resolve(true);
   }
 
+  /**
+   *
+   * @param options
+   */
   async signPersonalMessage(options: SignMessageRequest): Promise<string> {
     const result = await this.TrezorConnect.ethereumSignMessage({
       path: options.pathType.path.replace(`{index}`, options.pathIndex),
@@ -82,6 +109,10 @@ class TrezorEthereum implements HWWalletProvider {
     return bufferToHex(hexToBuffer(result.payload.signature));
   }
 
+  /**
+   *
+   * @param options
+   */
   async signTransaction(options: SignTransactionRequest): Promise<string> {
     let tx: LegacyTransaction | FeeMarketEIP1559Transaction =
       options.transaction as LegacyTransaction;
@@ -128,6 +159,10 @@ class TrezorEthereum implements HWWalletProvider {
     });
   }
 
+  /**
+   *
+   * @param request
+   */
   async signTypedMessage(request: SignTypedMessageRequest): Promise<string> {
     const eip712Data = {
       types: request.types,
@@ -150,10 +185,16 @@ class TrezorEthereum implements HWWalletProvider {
     return bufferToHex(hexToBuffer(result.payload.signature));
   }
 
+  /**
+   *
+   */
   static getSupportedNetworks(): NetworkNames[] {
     return Object.keys(supportedPaths) as NetworkNames[];
   }
 
+  /**
+   *
+   */
   static getCapabilities(): string[] {
     return [
       HWwalletCapabilities.eip1559,

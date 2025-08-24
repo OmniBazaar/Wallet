@@ -10,6 +10,9 @@ interface EncryptedData {
   timestamp: number;
 }
 
+/**
+ *
+ */
 export class SecureIndexedDB {
   private dbName: string;
   private db: IDBDatabase | null = null;
@@ -17,12 +20,17 @@ export class SecureIndexedDB {
   private readonly STORE_NAME = 'secure_storage';
   private readonly VERSION = 1;
 
+  /**
+   *
+   * @param dbName
+   */
   constructor(dbName = 'OmniWalletSecure') {
     this.dbName = dbName;
   }
 
   /**
    * Initialize the database and encryption key
+   * @param password
    */
   async initialize(password: string): Promise<void> {
     // Derive encryption key from password
@@ -61,6 +69,7 @@ export class SecureIndexedDB {
 
   /**
    * Derive encryption key from password using PBKDF2
+   * @param password
    */
   private async deriveEncryptionKey(password: string): Promise<void> {
     const encoder = new TextEncoder();
@@ -112,6 +121,9 @@ export class SecureIndexedDB {
 
   /**
    * Store encrypted data
+   * @param key
+   * @param data
+   * @param type
    */
   async store(key: string, data: any, type = 'general'): Promise<void> {
     if (!this.db || !this.encryptionKey) {
@@ -145,6 +157,7 @@ export class SecureIndexedDB {
 
   /**
    * Retrieve and decrypt data
+   * @param key
    */
   async retrieve(key: string): Promise<any> {
     if (!this.db || !this.encryptionKey) {
@@ -185,6 +198,7 @@ export class SecureIndexedDB {
 
   /**
    * Delete data
+   * @param key
    */
   async delete(key: string): Promise<void> {
     if (!this.db) {
@@ -221,6 +235,7 @@ export class SecureIndexedDB {
 
   /**
    * Encrypt data with AES-GCM
+   * @param data
    */
   private async encryptData(data: string): Promise<EncryptedData> {
     const encoder = new TextEncoder();
@@ -253,6 +268,7 @@ export class SecureIndexedDB {
 
   /**
    * Decrypt data with AES-GCM
+   * @param encrypted
    */
   private async decryptData(encrypted: EncryptedData): Promise<string> {
     const decoder = new TextDecoder();
@@ -295,6 +311,7 @@ export class SecureIndexedDB {
 
   /**
    * Get all keys of a specific type
+   * @param type
    */
   async getKeysByType(type: string): Promise<string[]> {
     if (!this.db) {
@@ -336,6 +353,7 @@ export class SecureIndexedDB {
 
   /**
    * Import encrypted data
+   * @param encryptedData
    */
   async importEncrypted(encryptedData: string): Promise<void> {
     if (!this.db) {

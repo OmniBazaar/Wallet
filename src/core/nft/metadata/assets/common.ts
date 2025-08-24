@@ -22,37 +22,100 @@ import {
   USDC_MAINNET_ASSET,
 } from '~/test/utils';
 
+/**
+ *
+ */
 export type UserAssetsArgs = {
+  /**
+   *
+   */
   address?: Address;
+  /**
+   *
+   */
   currency: SupportedCurrencyKey;
+  /**
+   *
+   */
   testnetMode?: boolean;
 };
+/**
+ *
+ * @param root0
+ * @param root0.address
+ * @param root0.currency
+ * @param root0.testnetMode
+ */
 export const userAssetsQueryKey = ({
   address,
   currency,
   testnetMode,
-}: UserAssetsArgs): readonly [string, { address?: Address; currency: SupportedCurrencyKey; testnetMode?: boolean }, { persisterVersion: number }] =>
+}: UserAssetsArgs): readonly [string, { /**
+}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}} *
+}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}} */
+address?: Address; /**
+aaaaaaaaaaaaaaaaaaa *
+aaaaaaaaaaaaaaaaaaa */
+currency: SupportedCurrencyKey; /**
+cccccccccccccccccccccccccccccccc *
+cccccccccccccccccccccccccccccccc */
+testnetMode?: boolean }, { /**
+ttttttttttttttttttttttttttt *
+ttttttttttttttttttttttttttt */
+persisterVersion: number }] =>
   createQueryKey(
     'userAssets',
     { address, currency, testnetMode },
     { persisterVersion: 3 },
   );
 
+/**
+ *
+ */
 export type UserAssetsQueryKey = ReturnType<typeof userAssetsQueryKey>;
 
+/**
+ *
+ * @param root0
+ * @param root0.address
+ * @param root0.assets
+ * @param root0.chainIds
+ * @param root0.currency
+ */
 export async function parseUserAssets({
   address,
   assets,
   chainIds,
   currency,
 }: {
+  /**
+   *
+   */
   address: Address;
+  /**
+   *
+   */
   assets: {
+    /**
+     *
+     */
     quantity: string;
+    /**
+     *
+     */
     small_balance?: boolean;
+    /**
+     *
+     */
     asset: AssetApiResponse;
   }[];
+  /**
+   *
+   */
   chainIds: ChainId[];
+  /**
+   *
+   */
   currency: SupportedCurrencyKey;
 }): Promise<ParsedAssetsDictByChain> {
   const parsedAssetsDict = chainIds.reduce(

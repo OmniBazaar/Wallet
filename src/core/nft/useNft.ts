@@ -6,17 +6,38 @@ import { createQueryKey } from '~/core/react-query';
 import { ChainId } from '~/core/types/chains';
 import { UniqueAsset } from '~/core/types/nfts';
 
+/**
+ *
+ * @param root0
+ * @param root0.contractAddress
+ * @param root0.chainId
+ * @param root0.tokenId
+ * @param root1
+ * @param root1.initialData
+ */
 export function useNft(
   {
     contractAddress,
     chainId,
     tokenId,
   }: {
+    /**
+     *
+     */
     contractAddress: Address;
+    /**
+     *
+     */
     chainId: ChainId;
+    /**
+     *
+     */
     tokenId: string;
   },
-  { initialData }: { initialData: UniqueAsset },
+  { initialData }: { /**
+                      *
+                      */
+  initialData: UniqueAsset },
 ): unknown {
   return useQuery({
     queryKey: createQueryKey(

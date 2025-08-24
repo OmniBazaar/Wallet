@@ -189,6 +189,11 @@ export class KYCService {
     }
   };
   
+  /**
+   *
+   * @param provider
+   * @param config
+   */
   constructor(provider: ethers.Provider, config?: Partial<KYCServiceConfig>) {
     this.provider = provider;
     
@@ -216,6 +221,7 @@ export class KYCService {
   
   /**
    * Get user's KYC status
+   * @param address
    */
   async getUserKYCStatus(address: string): Promise<UserKYCData> {
     // Check cache
@@ -246,6 +252,15 @@ export class KYCService {
   
   /**
    * Start KYC verification for a tier
+   * @param address
+   * @param targetTier
+   * @param userData
+   * @param userData.email
+   * @param userData.phone
+   * @param userData.firstName
+   * @param userData.lastName
+   * @param userData.dateOfBirth
+   * @param userData.country
    */
   async startVerification(
     address: string,
@@ -296,6 +311,10 @@ export class KYCService {
   
   /**
    * Start Tier 1 verification (email + phone)
+   * @param address
+   * @param userData
+   * @param userData.email
+   * @param userData.phone
    */
   private async startTier1Verification(
     address: string,
@@ -331,6 +350,9 @@ export class KYCService {
   
   /**
    * Verify Tier 1 codes
+   * @param address
+   * @param emailCode
+   * @param phoneCode
    */
   async verifyTier1Codes(
     address: string,
@@ -371,6 +393,9 @@ export class KYCService {
   
   /**
    * Start Sumsub verification for Tier 2+
+   * @param address
+   * @param targetTier
+   * @param userData
    */
   private async startSumsubVerification(
     address: string,
@@ -420,6 +445,8 @@ export class KYCService {
   
   /**
    * Create Sumsub applicant
+   * @param address
+   * @param userData
    */
   private async createApplicant(address: string, userData?: any): Promise<string> {
     const response = await fetch(`${this.config.apiUrl}/resources/applicants`, {
@@ -457,6 +484,8 @@ export class KYCService {
   
   /**
    * Generate verification URL
+   * @param applicantId
+   * @param targetTier
    */
   private async generateVerificationUrl(
     applicantId: string,
@@ -490,6 +519,8 @@ export class KYCService {
   
   /**
    * Handle Sumsub webhook
+   * @param event
+   * @param signature
    */
   async handleWebhook(
     event: SumsubWebhookEvent,
@@ -515,6 +546,7 @@ export class KYCService {
   
   /**
    * Handle applicant reviewed webhook
+   * @param event
    */
   private async handleApplicantReviewed(event: SumsubWebhookEvent): Promise<void> {
     const { applicantId, reviewResult } = event;
@@ -547,6 +579,7 @@ export class KYCService {
   
   /**
    * Handle applicant pending webhook
+   * @param event
    */
   private async handleApplicantPending(event: SumsubWebhookEvent): Promise<void> {
     const { applicantId } = event;
@@ -572,6 +605,10 @@ export class KYCService {
   
   /**
    * Check if user meets tier requirements for transaction
+   * @param address
+   * @param amount
+   * @param daily
+   * @param monthly
    */
   async checkTransactionAllowed(
     address: string,
@@ -611,6 +648,7 @@ export class KYCService {
   
   /**
    * Get KYC tier display information
+   * @param tier
    */
   getTierInfo(tier: KYCTier): {
     name: string;
@@ -698,6 +736,7 @@ export class KYCService {
   
   /**
    * Generate signature for Sumsub API
+   * @param timestamp
    */
   private generateSignature(timestamp: number): string {
     const data = timestamp + this.config.appToken;
@@ -709,6 +748,8 @@ export class KYCService {
   
   /**
    * Verify webhook signature
+   * @param event
+   * @param signature
    */
   private verifyWebhookSignature(event: any, signature: string): boolean {
     const payload = JSON.stringify(event);
@@ -722,6 +763,7 @@ export class KYCService {
   
   /**
    * Get applicant ID for address
+   * @param address
    */
   private async getApplicantId(address: string): Promise<string | null> {
     try {
@@ -740,6 +782,7 @@ export class KYCService {
   
   /**
    * Get address from applicant ID
+   * @param applicantId
    */
   private async getAddressFromApplicantId(applicantId: string): Promise<string | null> {
     try {
@@ -758,6 +801,7 @@ export class KYCService {
   
   /**
    * Get Sumsub level name for tier
+   * @param tier
    */
   private getLevelName(tier: KYCTier): string {
     const levelNames = {
@@ -772,6 +816,8 @@ export class KYCService {
   
   /**
    * Process KYC data from validator
+   * @param address
+   * @param data
    */
   private processKYCData(address: string, data: any): UserKYCData {
     return {
@@ -788,6 +834,7 @@ export class KYCService {
   
   /**
    * Get default KYC data
+   * @param address
    */
   private getDefaultKYCData(address: string): UserKYCData {
     return {

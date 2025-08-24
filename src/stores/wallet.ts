@@ -12,29 +12,89 @@ declare const chrome: {
   };
 };
 
+/**
+ *
+ */
 export interface WalletAccount {
+  /**
+   *
+   */
   address: string;
+  /**
+   *
+   */
   name: string;
+  /**
+   *
+   */
   balance: string;
+  /**
+   *
+   */
   network: string;
 }
 
+/**
+ *
+ */
 export interface NFTCollection {
+  /**
+   *
+   */
   id: string;
+  /**
+   *
+   */
   name: string;
+  /**
+   *
+   */
   description: string;
+  /**
+   *
+   */
   image: string;
+  /**
+   *
+   */
   itemCount: number;
 }
 
+/**
+ *
+ */
 export interface Transaction {
+  /**
+   *
+   */
   id: string;
+  /**
+   *
+   */
   type: 'send' | 'receive' | 'mint' | 'listing';
+  /**
+   *
+   */
   amount: string;
+  /**
+   *
+   */
   to?: string;
+  /**
+   *
+   */
   from?: string;
+  /**
+   *
+   */
   status: 'pending' | 'confirmed' | 'failed';
+  /**
+   *
+   */
   timestamp: number;
+  /**
+   *
+   */
   network: string;
 }
 
@@ -206,10 +266,25 @@ export const useWalletStore = defineStore('wallet', () => {
 
   // Send transaction
   async function sendTransaction(transaction: {
+    /**
+     *
+     */
     to: string;
+    /**
+     *
+     */
     value: string;
+    /**
+     *
+     */
     data?: string;
+    /**
+     *
+     */
     gasLimit?: string;
+    /**
+     *
+     */
     gasPrice?: string;
   }): Promise<string | null> {
     isLoading.value = true;
@@ -239,10 +314,28 @@ export const useWalletStore = defineStore('wallet', () => {
 
   // Mint NFT
   async function mintNFT(metadata: {
+    /**
+     *
+     */
     name: string;
+    /**
+     *
+     */
     description: string;
+    /**
+     *
+     */
     image: string;
-    attributes?: Array<{ trait_type: string; value: string | number }>;
+    /**
+     *
+     */
+    attributes?: Array<{ /**
+                          *
+                          */
+    trait_type: string; /**
+                         *
+                         */
+    value: string | number }>;
   }): Promise<string | null> {
     isLoading.value = true;
     error.value = null;
@@ -271,10 +364,25 @@ export const useWalletStore = defineStore('wallet', () => {
 
   // Create marketplace listing
   async function createListing(listing: {
+    /**
+     *
+     */
     title: string;
+    /**
+     *
+     */
     description: string;
+    /**
+     *
+     */
     price: string;
+    /**
+     *
+     */
     category: string;
+    /**
+     *
+     */
     images: string[];
   }): Promise<string | null> {
     isLoading.value = true;

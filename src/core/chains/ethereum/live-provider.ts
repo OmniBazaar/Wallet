@@ -8,14 +8,41 @@
 import { ethers } from 'ethers';
 import { keyringService } from '../../keyring/KeyringService';
 
+/**
+ *
+ */
 export interface EthereumNetwork {
+  /**
+   *
+   */
   name: string;
+  /**
+   *
+   */
   chainId: number;
+  /**
+   *
+   */
   rpcUrl: string;
+  /**
+   *
+   */
   blockExplorer?: string;
+  /**
+   *
+   */
   nativeCurrency: {
+    /**
+     *
+     */
     name: string;
+    /**
+     *
+     */
     symbol: string;
+    /**
+     *
+     */
     decimals: number;
   };
 }
@@ -79,11 +106,18 @@ export const ETHEREUM_NETWORKS = {
   }
 } as const;
 
+/**
+ *
+ */
 export class LiveEthereumProvider {
   protected provider: ethers.providers.JsonRpcProvider;
   private network: EthereumNetwork;
   private signer: ethers.Signer | null = null;
   
+  /**
+   *
+   * @param networkName
+   */
   constructor(networkName = 'mainnet') {
     const network = ETHEREUM_NETWORKS[networkName];
     if (!network) {
@@ -113,6 +147,7 @@ export class LiveEthereumProvider {
 
   /**
    * Switch to a different network
+   * @param networkName
    */
   async switchNetwork(networkName: string): Promise<void> {
     const network = ETHEREUM_NETWORKS[networkName];
@@ -149,6 +184,7 @@ export class LiveEthereumProvider {
 
   /**
    * Get account balance
+   * @param address
    */
   async getBalance(address?: string): Promise<ethers.BigNumber> {
     const targetAddress = address || keyringService.getActiveAccount()?.address;
@@ -161,6 +197,7 @@ export class LiveEthereumProvider {
 
   /**
    * Get formatted balance
+   * @param address
    */
   async getFormattedBalance(address?: string): Promise<string> {
     const balance = await this.getBalance(address);
@@ -169,6 +206,7 @@ export class LiveEthereumProvider {
 
   /**
    * Estimate gas for transaction
+   * @param transaction
    */
   async estimateGas(transaction: ethers.providers.TransactionRequest): Promise<ethers.BigNumber> {
     return await this.provider.estimateGas(transaction);
@@ -190,6 +228,7 @@ export class LiveEthereumProvider {
 
   /**
    * Send transaction
+   * @param transaction
    */
   async sendTransaction(transaction: ethers.providers.TransactionRequest): Promise<ethers.providers.TransactionResponse> {
     const signer = await this.getSigner();
@@ -198,6 +237,7 @@ export class LiveEthereumProvider {
 
   /**
    * Get transaction receipt
+   * @param txHash
    */
   async getTransactionReceipt(txHash: string): Promise<ethers.providers.TransactionReceipt | null> {
     return await this.provider.getTransactionReceipt(txHash);
@@ -205,6 +245,8 @@ export class LiveEthereumProvider {
 
   /**
    * Wait for transaction confirmation
+   * @param txHash
+   * @param confirmations
    */
   async waitForTransaction(txHash: string, confirmations = 1): Promise<ethers.providers.TransactionReceipt> {
     return await this.provider.waitForTransaction(txHash, confirmations);
@@ -212,6 +254,7 @@ export class LiveEthereumProvider {
 
   /**
    * Call contract method (read-only)
+   * @param transaction
    */
   async call(transaction: ethers.providers.TransactionRequest): Promise<string> {
     return await this.provider.call(transaction);
@@ -226,6 +269,7 @@ export class LiveEthereumProvider {
 
   /**
    * Get block
+   * @param blockHashOrNumber
    */
   async getBlock(blockHashOrNumber: string | number): Promise<ethers.providers.Block> {
     return await this.provider.getBlock(blockHashOrNumber);
@@ -233,6 +277,7 @@ export class LiveEthereumProvider {
 
   /**
    * Get transaction
+   * @param txHash
    */
   async getTransaction(txHash: string): Promise<ethers.providers.TransactionResponse | null> {
     return await this.provider.getTransaction(txHash);
@@ -240,6 +285,8 @@ export class LiveEthereumProvider {
 
   /**
    * Create contract instance
+   * @param address
+   * @param abi
    */
   getContract(address: string, abi: ethers.ContractInterface): ethers.Contract {
     return new ethers.Contract(address, abi, this.provider);
@@ -247,6 +294,8 @@ export class LiveEthereumProvider {
 
   /**
    * Create contract instance with signer
+   * @param address
+   * @param abi
    */
   async getContractWithSigner(address: string, abi: ethers.ContractInterface): Promise<ethers.Contract> {
     const signer = await this.getSigner();
@@ -255,6 +304,7 @@ export class LiveEthereumProvider {
 
   /**
    * Check if address is contract
+   * @param address
    */
   async isContract(address: string): Promise<boolean> {
     const code = await this.provider.getCode(address);
@@ -263,6 +313,7 @@ export class LiveEthereumProvider {
 
   /**
    * Resolve ENS name
+   * @param name
    */
   async resolveName(name: string): Promise<string | null> {
     return await this.provider.resolveName(name);
@@ -270,6 +321,7 @@ export class LiveEthereumProvider {
 
   /**
    * Lookup ENS address
+   * @param address
    */
   async lookupAddress(address: string): Promise<string | null> {
     return await this.provider.lookupAddress(address);
@@ -326,6 +378,10 @@ class KeyringSigner extends ethers.Signer {
 }
 
 // Factory function to create provider
+/**
+ *
+ * @param networkName
+ */
 export function createLiveEthereumProvider(networkName?: string): LiveEthereumProvider {
   return new LiveEthereumProvider(networkName);
 }

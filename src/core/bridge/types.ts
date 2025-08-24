@@ -2,46 +2,142 @@
  * Cross-Chain Bridge Types
  */
 
+/**
+ *
+ */
 export interface BridgeRoute {
+  /**
+   *
+   */
   id: string;
+  /**
+   *
+   */
   fromChain: string;
+  /**
+   *
+   */
   toChain: string;
+  /**
+   *
+   */
   fromToken: TokenInfo;
+  /**
+   *
+   */
   toToken: TokenInfo;
+  /**
+   *
+   */
   fromAmount: string;
+  /**
+   *
+   */
   toAmount: string;
+  /**
+   *
+   */
   estimatedTime: number; // in seconds
+  /**
+   *
+   */
   fee: BridgeFee;
+  /**
+   *
+   */
   bridge: BridgeProvider;
+  /**
+   *
+   */
   steps: BridgeStep[];
 }
 
+/**
+ *
+ */
 export interface TokenInfo {
+  /**
+   *
+   */
   address: string;
+  /**
+   *
+   */
   symbol: string;
+  /**
+   *
+   */
   name: string;
+  /**
+   *
+   */
   decimals: number;
+  /**
+   *
+   */
   chainId: number | string;
 }
 
+/**
+ *
+ */
 export interface BridgeFee {
+  /**
+   *
+   */
   amount: string;
+  /**
+   *
+   */
   token: string;
+  /**
+   *
+   */
   inUSD?: string;
 }
 
+/**
+ *
+ */
 export interface BridgeStep {
+  /**
+   *
+   */
   type: 'approve' | 'deposit' | 'wait' | 'claim';
+  /**
+   *
+   */
   description: string;
+  /**
+   *
+   */
   estimatedTime?: number;
+  /**
+   *
+   */
   transaction?: {
+    /**
+     *
+     */
     to: string;
+    /**
+     *
+     */
     data: string;
+    /**
+     *
+     */
     value: string;
+    /**
+     *
+     */
     gasLimit?: string;
   };
 }
 
+/**
+ *
+ */
 export enum BridgeProvider {
   HOP = 'hop',
   STARGATE = 'stargate',
@@ -56,36 +152,111 @@ export enum BridgeProvider {
   OPTIMISM = 'optimism',
 }
 
+/**
+ *
+ */
 export interface BridgeQuoteRequest {
+  /**
+   *
+   */
   fromChain: string;
+  /**
+   *
+   */
   toChain: string;
+  /**
+   *
+   */
   fromToken: string;
+  /**
+   *
+   */
   toToken?: string;
+  /**
+   *
+   */
   amount: string;
+  /**
+   *
+   */
   fromAddress: string;
+  /**
+   *
+   */
   toAddress?: string;
+  /**
+   *
+   */
   slippage?: number;
 }
 
+/**
+ *
+ */
 export interface BridgeQuoteResponse {
+  /**
+   *
+   */
   routes: BridgeRoute[];
+  /**
+   *
+   */
   bestRoute: BridgeRoute | null;
 }
 
+/**
+ *
+ */
 export interface BridgeTransaction {
+  /**
+   *
+   */
   to: string;
+  /**
+   *
+   */
   data: string;
+  /**
+   *
+   */
   value: string;
+  /**
+   *
+   */
   chainId: number;
+  /**
+   *
+   */
   gasLimit?: string;
 }
 
+/**
+ *
+ */
 export interface BridgeStatus {
+  /**
+   *
+   */
   id: string;
+  /**
+   *
+   */
   status: 'pending' | 'completed' | 'failed';
+  /**
+   *
+   */
   fromTxHash?: string;
+  /**
+   *
+   */
   toTxHash?: string;
+  /**
+   *
+   */
   estimatedArrival?: number;
+  /**
+   *
+   */
   message?: string;
 }
 
@@ -120,8 +291,17 @@ export const BRIDGE_TOKENS = {
 
 // Bridge support matrix
 export const BRIDGE_SUPPORT: Record<BridgeProvider, {
+  /**
+   *
+   */
   chains: string[];
+  /**
+   *
+   */
   tokens: string[];
+  /**
+   *
+   */
   estimatedTime: number;
 }> = {
   [BridgeProvider.HOP]: {

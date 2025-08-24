@@ -10,58 +10,175 @@ import { IPFSStorageNetwork } from '../../Validator/src/services/storage/IPFSSto
 import { ethers } from 'ethers';
 import { ref, Ref } from 'vue';
 
+/**
+ *
+ */
 export interface ValidatorBalanceConfig {
+  /**
+   *
+   */
   validatorEndpoint: string;
+  /**
+   *
+   */
   networkId: string;
+  /**
+   *
+   */
   userId: string;
+  /**
+   *
+   */
   enableCaching: boolean;
+  /**
+   *
+   */
   cacheTimeout: number;
+  /**
+   *
+   */
   enableHistoryTracking: boolean;
 }
 
+/**
+ *
+ */
 export interface TokenBalance {
+  /**
+   *
+   */
   address: string;
+  /**
+   *
+   */
   symbol: string;
+  /**
+   *
+   */
   name: string;
+  /**
+   *
+   */
   decimals: number;
+  /**
+   *
+   */
   balance: string;
+  /**
+   *
+   */
   balanceFormatted: string;
+  /**
+   *
+   */
   priceUSD?: string;
+  /**
+   *
+   */
   valueUSD?: string;
+  /**
+   *
+   */
   lastUpdated: number;
 }
 
+/**
+ *
+ */
 export interface AccountBalance {
+  /**
+   *
+   */
   address: string;
+  /**
+   *
+   */
   nativeBalance: string;
+  /**
+   *
+   */
   nativeBalanceFormatted: string;
+  /**
+   *
+   */
   tokens: TokenBalance[];
+  /**
+   *
+   */
   totalValueUSD?: string;
+  /**
+   *
+   */
   lastUpdated: number;
 }
 
+/**
+ *
+ */
 export interface BalanceHistory {
+  /**
+   *
+   */
   address: string;
+  /**
+   *
+   */
   timestamp: number;
+  /**
+   *
+   */
   balance: string;
+  /**
+   *
+   */
   blockNumber: number;
+  /**
+   *
+   */
   transactionHash?: string;
 }
 
+/**
+ *
+ */
 export interface BalanceCache {
   [address: string]: {
+    /**
+     *
+     */
     balance: AccountBalance;
+    /**
+     *
+     */
     timestamp: number;
   };
 }
 
+/**
+ *
+ */
 export interface PriceData {
+  /**
+   *
+   */
   symbol: string;
+  /**
+   *
+   */
   price: string;
+  /**
+   *
+   */
   change24h: string;
+  /**
+   *
+   */
   lastUpdated: number;
 }
 
+/**
+ *
+ */
 export class ValidatorBalanceService {
   private validatorClient: ValidatorClient;
   private blockchain: OmniCoinBlockchain;
@@ -78,6 +195,10 @@ export class ValidatorBalanceService {
   public historyRef: Ref<Record<string, BalanceHistory[]>> = ref({});
   public isLoadingRef: Ref<boolean> = ref(false);
 
+  /**
+   *
+   * @param config
+   */
   constructor(config: ValidatorBalanceConfig) {
     this.config = config;
     this.validatorClient = new ValidatorClient(config.validatorEndpoint);
@@ -115,6 +236,8 @@ export class ValidatorBalanceService {
 
   /**
    * Get account balance
+   * @param address
+   * @param useCache
    */
   async getBalance(address: string, useCache = true): Promise<AccountBalance> {
     try {
@@ -186,6 +309,7 @@ export class ValidatorBalanceService {
 
   /**
    * Get token balances for an address
+   * @param address
    */
   async getTokenBalances(address: string): Promise<TokenBalance[]> {
     try {
@@ -239,6 +363,7 @@ export class ValidatorBalanceService {
 
   /**
    * Get multiple account balances
+   * @param addresses
    */
   async getMultipleBalances(addresses: string[]): Promise<Record<string, AccountBalance>> {
     try {
@@ -278,6 +403,7 @@ export class ValidatorBalanceService {
 
   /**
    * Get token price
+   * @param symbol
    */
   async getTokenPrice(symbol: string): Promise<PriceData | null> {
     try {
@@ -319,6 +445,8 @@ export class ValidatorBalanceService {
 
   /**
    * Start automatic balance updates
+   * @param addresses
+   * @param interval
    */
   startBalanceUpdates(addresses: string[], interval = 30000): void {
     addresses.forEach(address => {
@@ -338,6 +466,7 @@ export class ValidatorBalanceService {
 
   /**
    * Stop automatic balance updates
+   * @param address
    */
   stopBalanceUpdates(address?: string): void {
     if (address) {
@@ -357,6 +486,8 @@ export class ValidatorBalanceService {
 
   /**
    * Get balance history for an address
+   * @param address
+   * @param limit
    */
   getBalanceHistory(address: string, limit = 100): BalanceHistory[] {
     const history = this.balanceHistory.get(address) || [];
@@ -365,6 +496,8 @@ export class ValidatorBalanceService {
 
   /**
    * Track balance history
+   * @param address
+   * @param balance
    */
   private async trackBalanceHistory(address: string, balance: string): Promise<void> {
     try {
@@ -424,6 +557,7 @@ export class ValidatorBalanceService {
 
   /**
    * Export balance data
+   * @param format
    */
   exportBalanceData(format: 'json' | 'csv' = 'json'): string {
     const data = {
@@ -456,9 +590,21 @@ export class ValidatorBalanceService {
    * Get portfolio summary
    */
   getPortfolioSummary(): {
+    /**
+     *
+     */
     totalAccounts: number;
+    /**
+     *
+     */
     totalValueUSD: string;
+    /**
+     *
+     */
     topTokens: TokenBalance[];
+    /**
+     *
+     */
     lastUpdated: number;
   } {
     const balances = Object.values(this.balancesRef.value);

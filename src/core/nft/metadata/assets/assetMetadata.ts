@@ -29,10 +29,25 @@ type AssetMetadataAllNetworksArgs = {
 // ///////////////////////////////////////////////
 // Query Key
 
+/**
+ *
+ * @param root0
+ * @param root0.assetAddress
+ * @param root0.chainId
+ */
 export const assetMetadataQueryKey = ({
   assetAddress,
   chainId,
-}: AssetMetadataArgs): readonly [string, { assetAddress: string; chainId: number }, { persisterVersion: number }] =>
+}: AssetMetadataArgs): readonly [string, { /**
+}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}} *
+}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}} */
+assetAddress: string; /**
+aaaaaaaaaaaaaaaaaaaaaa *
+aaaaaaaaaaaaaaaaaaaaaa */
+chainId: number }, { /**
+ccccccccccccccccccccc *
+ccccccccccccccccccccc */
+persisterVersion: number }] =>
   createQueryKey(
     'assetMetadata',
     { assetAddress, chainId },
@@ -41,10 +56,25 @@ export const assetMetadataQueryKey = ({
 
 type AssetMetadataQueryKey = ReturnType<typeof assetMetadataQueryKey>;
 
+/**
+ *
+ * @param root0
+ * @param root0.assetAddress
+ * @param root0.chainId
+ */
 export const assetSearchMetadataQueryKey = ({
   assetAddress,
   chainId,
-}: AssetMetadataArgs): readonly [string, { assetAddress: string; chainId: number }, { persisterVersion: number }] =>
+}: AssetMetadataArgs): readonly [string, { /**
+}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}} *
+}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}} */
+assetAddress: string; /**
+aaaaaaaaaaaaaaaaaaaaaa *
+aaaaaaaaaaaaaaaaaaaaaa */
+chainId: number }, { /**
+ccccccccccccccccccccc *
+ccccccccccccccccccccc */
+persisterVersion: number }] =>
   createQueryKey(
     'assetSearchMetadata',
     { assetAddress, chainId },
@@ -100,6 +130,9 @@ async function assetSearchMetadataQueryFunction({
   return null;
 }
 
+/**
+ *
+ */
 export type AssetMetadataResult = QueryFunctionResult<
   typeof assetMetadataQueryFunction
 >;
@@ -108,6 +141,15 @@ type AssetSearchMetadataResult = QueryFunctionResult<
   typeof assetSearchMetadataQueryFunction
 >;
 
+/**
+ *
+ * @param root0
+ * @param root0.address
+ * @param root0.symbol
+ * @param root0.decimals
+ * @param root0.name
+ * @param root0.chainId
+ */
 export function parseSearchAssetMetadata({
   address,
   symbol,
@@ -115,10 +157,25 @@ export function parseSearchAssetMetadata({
   name,
   chainId,
 }: {
+  /**
+   *
+   */
   address: AddressOrEth;
+  /**
+   *
+   */
   symbol: string;
+  /**
+   *
+   */
   decimals: number;
+  /**
+   *
+   */
   name: string;
+  /**
+   *
+   */
   chainId: number;
 }): SearchAsset {
   return {
@@ -140,6 +197,13 @@ export function parseSearchAssetMetadata({
 // ///////////////////////////////////////////////
 // Query Hook
 
+/**
+ *
+ * @param root0
+ * @param root0.assetAddress
+ * @param root0.chainId
+ * @param config
+ */
 export function useAssetMetadata(
   { assetAddress, chainId }: AssetMetadataArgs,
   config: QueryConfig<
@@ -148,7 +212,16 @@ export function useAssetMetadata(
     AssetMetadataResult,
     AssetMetadataQueryKey
   > = {},
-): { data?: AssetMetadataResult; isLoading: boolean; error?: Error } {
+): { /**
+))))) *
+))))) */
+data?: AssetMetadataResult; /**
+dddddddddddddddddddddddddddd *
+dddddddddddddddddddddddddddd */
+isLoading: boolean; /**
+iiiiiiiiiiiiiiiiiiii *
+iiiiiiiiiiiiiiiiiiii */
+error?: Error } {
   return useQuery({
     queryKey: assetMetadataQueryKey({
       assetAddress,
@@ -159,6 +232,13 @@ export function useAssetMetadata(
   });
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.assetAddress
+ * @param root0.chainId
+ * @param config
+ */
 export function useAssetSearchMetadata(
   { assetAddress, chainId }: AssetMetadataArgs,
   config: QueryConfig<
@@ -167,7 +247,16 @@ export function useAssetSearchMetadata(
     AssetSearchMetadataResult,
     AssetSearchMetadataQueryKey
   > = {},
-): { data?: AssetSearchMetadataResult; isLoading: boolean; error?: Error } {
+): { /**
+))))) *
+))))) */
+data?: AssetSearchMetadataResult; /**
+dddddddddddddddddddddddddddddddddd *
+dddddddddddddddddddddddddddddddddd */
+isLoading: boolean; /**
+iiiiiiiiiiiiiiiiiiii *
+iiiiiiiiiiiiiiiiiiii */
+error?: Error } {
   return useQuery({
     queryKey: assetSearchMetadataQueryKey({
       assetAddress,
@@ -178,6 +267,12 @@ export function useAssetSearchMetadata(
   });
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.assetAddress
+ * @param config
+ */
 export function useAssetSearchMetadataAllNetworks(
   { assetAddress }: AssetMetadataAllNetworksArgs,
   config: QueryConfig<
@@ -186,7 +281,16 @@ export function useAssetSearchMetadataAllNetworks(
     AssetSearchMetadataResult,
     AssetSearchMetadataQueryKey
   > = {},
-): { data?: AssetSearchMetadataResult[]; isLoading: boolean; error?: Error } {
+): { /**
+))))) *
+))))) */
+data?: AssetSearchMetadataResult[]; /**
+dddddddddddddddddddddddddddddddddddd *
+dddddddddddddddddddddddddddddddddddd */
+isLoading: boolean; /**
+iiiiiiiiiiiiiiiiiiii *
+iiiiiiiiiiiiiiiiiiii */
+error?: Error } {
   const { chains: userChains } = useUserChains();
 
   const queries = useQueries({

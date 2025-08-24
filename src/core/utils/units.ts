@@ -14,7 +14,7 @@ const negative1 = toBN(-1);
 /**
  * Returns value of unit in Wei
  *
- * @method getValueOfUnit
+ * @function getValueOfUnit
  * @param {number} decimals the unit to convert to, default ether
  * @returns {BN} value of the unit (in Wei)
  * @throws error if the unit is not correct:w
@@ -49,6 +49,11 @@ const numberToString = (arg: string | number | { toString(): string; toPrecision
 };
 
 /**
+ * @param weiInput
+ * @param decimals
+ * @param optionsInput
+ * @param optionsInput.pad
+ * @param optionsInput.commify
  * @returns base10 numeric string
  */
 const fromBase = (
@@ -91,6 +96,11 @@ const fromBase = (
   return value;
 };
 
+/**
+ *
+ * @param etherInput
+ * @param decimals
+ */
 const toBase = (etherInput: string, decimals: number): string => {
   let ether = numberToString(etherInput);
   const base = getValueOfUnit(decimals);
@@ -146,6 +156,11 @@ const toBase = (etherInput: string, decimals: number): string => {
   return wei.toString();
 };
 
+/**
+ *
+ * @param amount
+ * @param decimals
+ */
 const isValidDecimals = (amount: string, decimals: number): boolean => {
   const numDecimals = amount.split(".")[1]?.length;
 

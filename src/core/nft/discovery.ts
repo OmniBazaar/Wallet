@@ -17,15 +17,24 @@ import {
   SPECIAL_NFT_CONTRACTS,
 } from './types';
 
+/**
+ *
+ */
 export class NFTDiscoveryService {
   private apiKeys: Record<string, string> = {};
 
+  /**
+   *
+   * @param apiKeys
+   */
   constructor(apiKeys?: Record<string, string>) {
     this.apiKeys = apiKeys || {};
   }
 
   /**
    * Discover NFTs across multiple chains
+   * @param address
+   * @param options
    */
   async discoverNFTs(
     address: string,
@@ -79,6 +88,9 @@ export class NFTDiscoveryService {
 
   /**
    * Discover NFTs on EVM chains using SimpleHash API
+   * @param address
+   * @param chain
+   * @param _options
    */
   private async discoverEVMNFTs(
     address: string,
@@ -120,6 +132,8 @@ export class NFTDiscoveryService {
 
   /**
    * Discover Solana NFTs using Helius API
+   * @param address
+   * @param _options
    */
   private async discoverSolanaNFTs(
     address: string,
@@ -149,6 +163,8 @@ export class NFTDiscoveryService {
 
   /**
    * Discover Substrate NFTs (Polkadot/Kusama ecosystem)
+   * @param _address
+   * @param _options
    */
   private async discoverSubstrateNFTs(
     _address: string,
@@ -161,18 +177,56 @@ export class NFTDiscoveryService {
 
   /**
    * Parse SimpleHash NFT data
+   * @param nfts
+   * @param chain
    */
   private parseSimpleHashNFTs(nfts: Array<{
+    /**
+     *
+     */
     contract_address: string;
+    /**
+     *
+     */
     token_id: string;
+    /**
+     *
+     */
     name?: string;
+    /**
+     *
+     */
     description?: string;
+    /**
+     *
+     */
     image_url?: string;
+    /**
+     *
+     */
     video_url?: string;
+    /**
+     *
+     */
     audio_url?: string;
+    /**
+     *
+     */
     model_url?: string;
-    collection?: { name?: string };
-    contract?: { type?: string };
+    /**
+     *
+     */
+    collection?: { /**
+                    *
+                    */
+    name?: string };
+    /**
+     *
+     */
+    contract?: { /**
+                  *
+                  */
+    type?: string };
   }>, chain: string): NFT[] {
     return nfts.map(nft => ({
       id: `${chain}_${nft.contract_address}_${nft.token_id}`,
@@ -199,7 +253,10 @@ export class NFTDiscoveryService {
         external_url: nft.collection.external_url,
         twitter: nft.collection.twitter_username,
         discord: nft.collection.discord_url,
-        verified: nft.collection.marketplace_pages?.some((m: { verified?: boolean }) => m.verified),
+        verified: nft.collection.marketplace_pages?.some((m: { /**
+                                                                *
+                                                                */
+        verified?: boolean }) => m.verified),
         spam_score: nft.collection.spam_score,
         floor_price: nft.collection.floor_prices?.[0] ? {
           value: nft.collection.floor_prices[0].value,
@@ -221,26 +278,90 @@ export class NFTDiscoveryService {
 
   /**
    * Parse Helius Solana NFT data
+   * @param nfts
    */
   private parseHeliusNFTs(nfts: Array<{
+    /**
+     *
+     */
     id: string;
-    ownership: { owner: string };
+    /**
+     *
+     */
+    ownership: { /**
+                  *
+                  */
+    owner: string };
+    /**
+     *
+     */
     interface?: string;
+    /**
+     *
+     */
     content?: {
+      /**
+       *
+       */
       metadata?: {
+        /**
+         *
+         */
         name?: string;
+        /**
+         *
+         */
         description?: string;
+        /**
+         *
+         */
         image?: string;
+        /**
+         *
+         */
         animation_url?: string;
+        /**
+         *
+         */
         external_url?: string;
-        attributes?: Array<{ trait_type: string; value: string | number }>;
+        /**
+         *
+         */
+        attributes?: Array<{ /**
+                              *
+                              */
+        trait_type: string; /**
+                             *
+                             */
+        value: string | number }>;
       };
     };
+    /**
+     *
+     */
     token_info?: {
+      /**
+       *
+       */
       supply?: number;
+      /**
+       *
+       */
       decimals?: number;
     };
-    creators?: Array<{ address: string; verified: boolean; share: number }>;
+    /**
+     *
+     */
+    creators?: Array<{ /**
+                        *
+                        */
+    address: string; /**
+                      *
+                      */
+    verified: boolean; /**
+                        *
+                        */
+    share: number }>;
   }>): SolanaNFT[] {
     return nfts.map(nft => ({
       id: `solana_${nft.id}`,
@@ -256,7 +377,13 @@ export class NFTDiscoveryService {
         description: nft.content.metadata.description,
         image: nft.content.files?.[0]?.uri || nft.content.metadata.image,
         external_url: nft.content.metadata.external_url,
-        attributes: nft.content?.metadata?.attributes?.map((attr: { trait_type: string; value: string | number }) => ({
+        attributes: nft.content?.metadata?.attributes?.map((attr: { /**
+                                                                     *
+                                                                     */
+        trait_type: string; /**
+                             *
+                             */
+        value: string | number }) => ({
           trait_type: attr.trait_type,
           value: attr.value,
         })) || [],
@@ -269,7 +396,16 @@ export class NFTDiscoveryService {
       update_authority: nft.authorities?.[0]?.address,
       primary_sale_happened: nft.royalty?.primary_sale_happened,
       seller_fee_basis_points: nft.royalty?.basis_points,
-      creators: nft.creators?.map((creator: { address: string; verified: boolean; share: number }) => ({
+      creators: nft.creators?.map((creator: { /**
+                                               *
+                                               */
+      address: string; /**
+                        *
+                        */
+      verified: boolean; /**
+                          *
+                          */
+      share: number }) => ({
         address: creator.address,
         verified: creator.verified,
         share: creator.share,
@@ -280,6 +416,7 @@ export class NFTDiscoveryService {
 
   /**
    * Get NFT type from contract standard
+   * @param standard
    */
   private getNFTType(standard: string): NFTType {
     switch (standard?.toUpperCase()) {
@@ -294,6 +431,7 @@ export class NFTDiscoveryService {
 
   /**
    * Get NFT standard from contract type
+   * @param type
    */
   private getNFTStandard(type: string): NFTStandard {
     switch (type?.toUpperCase()) {
@@ -312,6 +450,7 @@ export class NFTDiscoveryService {
 
   /**
    * Check if NFT is likely spam
+   * @param nft
    */
   private isSpamNFT(nft: NFT): boolean {
     // Check collection spam score
@@ -328,6 +467,9 @@ export class NFTDiscoveryService {
 
   /**
    * Get NFT by contract and token ID
+   * @param chain
+   * @param contractAddress
+   * @param tokenId
    */
   async getNFT(
     chain: string,
@@ -358,6 +500,9 @@ export class NFTDiscoveryService {
 
   /**
    * Get NFTs from a specific collection
+   * @param chain
+   * @param collectionAddress
+   * @param limit
    */
   async getCollectionNFTs(
     chain: string,
@@ -387,6 +532,7 @@ export class NFTDiscoveryService {
 
   /**
    * Check if address is a special NFT contract
+   * @param contractAddress
    */
   isSpecialNFTContract(contractAddress: string): string | null {
     const lowercased = contractAddress.toLowerCase();

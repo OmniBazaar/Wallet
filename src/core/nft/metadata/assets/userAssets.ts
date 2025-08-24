@@ -28,9 +28,21 @@ export const USER_ASSETS_STALE_INTERVAL = 30000;
 // ///////////////////////////////////////////////
 // Query Types
 
+/**
+ *
+ */
 export type UserAssetsArgs = {
+  /**
+   *
+   */
   address?: Address;
+  /**
+   *
+   */
   currency: SupportedCurrencyKey;
+  /**
+   *
+   */
   testnetMode?: boolean;
 };
 
@@ -57,11 +69,30 @@ type FetchUserAssetsArgs = {
 // ///////////////////////////////////////////////
 // Query Key
 
+/**
+ *
+ * @param root0
+ * @param root0.address
+ * @param root0.currency
+ * @param root0.testnetMode
+ */
 export const userAssetsQueryKey = ({
   address,
   currency,
   testnetMode,
-}: UserAssetsArgs): readonly [string, { address?: Address; currency: SupportedCurrencyKey; testnetMode?: boolean }, { persisterVersion: number }] =>
+}: UserAssetsArgs): readonly [string, { /**
+}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}} *
+}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}} */
+address?: Address; /**
+aaaaaaaaaaaaaaaaaaa *
+aaaaaaaaaaaaaaaaaaa */
+currency: SupportedCurrencyKey; /**
+cccccccccccccccccccccccccccccccc *
+cccccccccccccccccccccccccccccccc */
+testnetMode?: boolean }, { /**
+ttttttttttttttttttttttttttt *
+ttttttttttttttttttttttttttt */
+persisterVersion: number }] =>
   createQueryKey(
     'userAssets',
     { address, currency, testnetMode },
@@ -73,6 +104,13 @@ type UserAssetsQueryKey = ReturnType<typeof userAssetsQueryKey>;
 // ///////////////////////////////////////////////
 // Query Function
 
+/**
+ *
+ * @param root0
+ * @param root0.address
+ * @param root0.currency
+ * @param root0.testnetMode
+ */
 export const userAssetsFetchQuery = ({
   address,
   currency,
@@ -88,6 +126,14 @@ export const userAssetsFetchQuery = ({
   });
 };
 
+/**
+ *
+ * @param root0
+ * @param root0.address
+ * @param root0.currency
+ * @param root0.staleTime
+ * @param root0.testnetMode
+ */
 export const userAssetsSetQueryDefaults = ({
   address,
   currency,
@@ -102,6 +148,14 @@ export const userAssetsSetQueryDefaults = ({
   );
 };
 
+/**
+ *
+ * @param root0
+ * @param root0.address
+ * @param root0.currency
+ * @param root0.userAssets
+ * @param root0.testnetMode
+ */
 export const userAssetsSetQueryData = ({
   address,
   currency,
@@ -243,6 +297,13 @@ async function userAssetsQueryFunctionRetryByChain({
 // ///////////////////////////////////////////////
 // Query Hook
 
+/**
+ *
+ * @param root0
+ * @param root0.address
+ * @param root0.currency
+ * @param config
+ */
 export function useUserAssets<TSelectResult = UserAssetsResult>(
   { address, currency }: UserAssetsArgs,
   config: QueryConfig<
@@ -270,20 +331,51 @@ export function useUserAssets<TSelectResult = UserAssetsResult>(
 // ///////////////////////////////////////////////
 // Query Types
 
+/**
+ *
+ */
 export type UserAssetsByChainArgs = {
+  /**
+   *
+   */
   address: Address;
+  /**
+   *
+   */
   chainId: ChainId;
+  /**
+   *
+   */
   currency: SupportedCurrencyKey;
 };
 
 // ///////////////////////////////////////////////
 // Query Key
 
+/**
+ *
+ * @param root0
+ * @param root0.address
+ * @param root0.chainId
+ * @param root0.currency
+ */
 export const userAssetsByChainQueryKey = ({
   address,
   chainId,
   currency,
-}: UserAssetsByChainArgs): readonly [string, { address: Address; chainId: ChainId; currency: SupportedCurrencyKey }, { persisterVersion: number }] =>
+}: UserAssetsByChainArgs): readonly [string, { /**
+}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}} *
+}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}} */
+address: Address; /**
+aaaaaaaaaaaaaaaaaa *
+aaaaaaaaaaaaaaaaaa */
+chainId: ChainId; /**
+cccccccccccccccccc *
+cccccccccccccccccc */
+currency: SupportedCurrencyKey }, { /**
+cccccccccccccccccccccccccccccccccccc *
+cccccccccccccccccccccccccccccccccccc */
+persisterVersion: number }] =>
   createQueryKey(
     'userAssetsByChain',
     { address, chainId, currency },
@@ -295,6 +387,14 @@ type UserAssetsByChainQueryKey = ReturnType<typeof userAssetsByChainQueryKey>;
 // ///////////////////////////////////////////////
 // Query Fetcher
 
+/**
+ *
+ * @param root0
+ * @param root0.address
+ * @param root0.chainId
+ * @param root0.currency
+ * @param config
+ */
 export async function fetchUserAssetsByChain<
   TSelectData = UserAssetsByChainResult,
 >(
@@ -320,6 +420,12 @@ export async function fetchUserAssetsByChain<
 // ///////////////////////////////////////////////
 // Query Function
 
+/**
+ *
+ * @param root0
+ * @param root0.queryKey
+ * @param root0.queryKey.0
+ */
 export async function userAssetsByChainQueryFunction({
   queryKey: [{ address, chainId, currency }],
 }: QueryFunctionArgs<typeof userAssetsByChainQueryKey>): Promise<
@@ -367,6 +473,14 @@ type UserAssetsByChainResult = QueryFunctionResult<
 // ///////////////////////////////////////////////
 // Query Hook
 
+/**
+ *
+ * @param root0
+ * @param root0.address
+ * @param root0.chainId
+ * @param root0.currency
+ * @param config
+ */
 export function useUserAssetsByChain<TSelectResult = UserAssetsByChainResult>(
   { address, chainId, currency }: UserAssetsByChainArgs,
   config: QueryConfig<

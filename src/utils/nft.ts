@@ -19,24 +19,68 @@ const ERC1155_ABI = [
     'function safeTransferFrom(address from, address to, uint256 id, uint256 amount, bytes data)'
 ];
 
+/**
+ *
+ */
 export interface NFTMetadata {
+    /**
+     *
+     */
     name: string;
+    /**
+     *
+     */
     description: string;
+    /**
+     *
+     */
     image: string;
+    /**
+     *
+     */
     attributes?: Array<{
+        /**
+         *
+         */
         trait_type: string;
+        /**
+         *
+         */
         value: string | number;
     }>;
 }
 
+/**
+ *
+ */
 export interface NFT {
+    /**
+     *
+     */
     contractAddress: string;
+    /**
+     *
+     */
     tokenId: string;
+    /**
+     *
+     */
     tokenType: 'ERC721' | 'ERC1155';
+    /**
+     *
+     */
     metadata?: NFTMetadata;
+    /**
+     *
+     */
     balance?: string;
 }
 
+/**
+ *
+ * @param provider
+ * @param address
+ */
 export const isERC721 = async (provider: ethers.providers.Provider, address: string): Promise<boolean> => {
     try {
         const contract = new ethers.Contract(address, ERC721_ABI, provider);
@@ -47,6 +91,11 @@ export const isERC721 = async (provider: ethers.providers.Provider, address: str
     }
 };
 
+/**
+ *
+ * @param provider
+ * @param address
+ */
 export const isERC1155 = async (provider: ethers.providers.Provider, address: string): Promise<boolean> => {
     try {
         const contract = new ethers.Contract(address, ERC1155_ABI, provider);
@@ -57,6 +106,10 @@ export const isERC1155 = async (provider: ethers.providers.Provider, address: st
     }
 };
 
+/**
+ *
+ * @param tokenURI
+ */
 export const getNFTMetadata = async (tokenURI: string): Promise<NFTMetadata> => {
     try {
         // Handle IPFS URLs
@@ -80,6 +133,13 @@ export const getNFTMetadata = async (tokenURI: string): Promise<NFTMetadata> => 
     }
 };
 
+/**
+ *
+ * @param provider
+ * @param contractAddress
+ * @param tokenId
+ * @param tokenType
+ */
 export const getNFTTokenURI = async (
     provider: ethers.providers.Provider,
     contractAddress: string,
@@ -104,6 +164,12 @@ export const getNFTTokenURI = async (
     }
 };
 
+/**
+ *
+ * @param provider
+ * @param ownerAddress
+ * @param contractAddress
+ */
 export const getOwnedNFTs = async (
     provider: ethers.providers.Provider,
     ownerAddress: string,

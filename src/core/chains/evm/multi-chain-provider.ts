@@ -10,6 +10,10 @@ export class MultiChainEVMProvider extends LiveEthereumProvider {
   private currentNetwork: EVMNetworkConfig;
   private providers: Map<number, ethers.JsonRpcProvider> = new Map();
 
+  /**
+   *
+   * @param networkKey
+   */
   constructor(networkKey = 'ethereum') {
     // Initialize with Ethereum mainnet as base
     super('mainnet');
@@ -40,6 +44,7 @@ export class MultiChainEVMProvider extends LiveEthereumProvider {
 
   /**
    * Switch to a different EVM network
+   * @param networkKey
    */
   async switchNetwork(networkKey: string): Promise<void> {
     const network = ALL_NETWORKS[networkKey];
@@ -85,6 +90,7 @@ export class MultiChainEVMProvider extends LiveEthereumProvider {
 
   /**
    * Get explorer URL for transaction
+   * @param txHash
    */
   getExplorerUrl(txHash: string): string {
     return `${this.currentNetwork.explorer}/tx/${txHash}`;
@@ -92,6 +98,7 @@ export class MultiChainEVMProvider extends LiveEthereumProvider {
 
   /**
    * Get explorer URL for address
+   * @param address
    */
   getAddressExplorerUrl(address: string): string {
     return `${this.currentNetwork.explorer}/address/${address}`;
@@ -99,6 +106,7 @@ export class MultiChainEVMProvider extends LiveEthereumProvider {
 
   /**
    * Add custom network
+   * @param network
    */
   async addCustomNetwork(network: EVMNetworkConfig): Promise<void> {
     const rpcUrl = getRpcUrl(network);
@@ -142,6 +150,7 @@ export class MultiChainEVMProvider extends LiveEthereumProvider {
 
   /**
    * Estimate gas with network-specific limits
+   * @param transaction
    */
   async estimateGas(transaction: ethers.TransactionRequest): Promise<ethers.BigNumber> {
     const estimate = await this.provider.estimateGas(transaction);
@@ -168,6 +177,7 @@ export class MultiChainEVMProvider extends LiveEthereumProvider {
 
   /**
    * Get formatted balance with native currency symbol
+   * @param address
    */
   async getFormattedBalance(address?: string): Promise<string> {
     const addr = address || await this.getAddress();
@@ -178,6 +188,7 @@ export class MultiChainEVMProvider extends LiveEthereumProvider {
 
   /**
    * Send transaction with network-specific handling
+   * @param transaction
    */
   async sendTransaction(transaction: ethers.TransactionRequest): Promise<ethers.TransactionResponse> {
     // Add chain ID to prevent replay attacks

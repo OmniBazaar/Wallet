@@ -15,21 +15,35 @@ import {
 import { supportedPaths } from "./configs";
 import getTrezorConnect from "../trezorConnect";
 
+/**
+ *
+ */
 class TrezorSolana implements HWWalletProvider {
   network: NetworkNames;
   TrezorConnect: TrezorConnect;
   HDNodes: Record<string, HDKey>;
 
+  /**
+   *
+   * @param network
+   */
   constructor(network: NetworkNames) {
     this.network = network;
     this.HDNodes = {};
   }
 
+  /**
+   *
+   */
   async init(): Promise<boolean> {
     this.TrezorConnect = await getTrezorConnect();
     return true;
   }
 
+  /**
+   *
+   * @param options
+   */
   async getAddress(options: getAddressRequest): Promise<AddressResponse> {
     if (!supportedPaths[this.network])
       return Promise.reject(new Error("trezor-solana: Invalid network name"));
@@ -43,22 +57,38 @@ class TrezorSolana implements HWWalletProvider {
     };
   }
 
+  /**
+   *
+   */
   getSupportedPaths(): PathType[] {
     return supportedPaths[this.network];
   }
 
+  /**
+   *
+   */
   close(): Promise<void> {
     return Promise.resolve();
   }
 
+  /**
+   *
+   */
   isConnected(): Promise<boolean> {
     return Promise.resolve(true);
   }
 
+  /**
+   *
+   */
   async signPersonalMessage(): Promise<string> {
     throw new Error("trezor-solana: message signing not supported");
   }
 
+  /**
+   *
+   * @param options
+   */
   async signTransaction(options: SignTransactionRequest): Promise<string> {
     return this.TrezorConnect.solanaSignTransaction({
       path: options.pathType.path.replace(`{index}`, options.pathIndex),
@@ -68,16 +98,26 @@ class TrezorSolana implements HWWalletProvider {
     }).then((result) => (result.payload as { signature: string }).signature);
   }
 
+  /**
+   *
+   * @param _request
+   */
   signTypedMessage(_request: SignTypedMessageRequest): Promise<string> {
     return Promise.reject(
       new Error("trezor-solana: signTypedMessage not supported"),
     );
   }
 
+  /**
+   *
+   */
   static getSupportedNetworks(): NetworkNames[] {
     return Object.keys(supportedPaths) as NetworkNames[];
   }
 
+  /**
+   *
+   */
   static getCapabilities(): string[] {
     return [HWwalletCapabilities.signTx];
   }

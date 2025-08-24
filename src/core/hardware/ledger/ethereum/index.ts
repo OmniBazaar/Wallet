@@ -21,6 +21,9 @@ import {
 import { supportedPaths } from "./configs";
 import ConnectToLedger from "../ledgerConnect";
 
+/**
+ *
+ */
 class LedgerEthereum implements HWWalletProvider {
   transport: Transport | null;
 
@@ -28,12 +31,19 @@ class LedgerEthereum implements HWWalletProvider {
 
   HDNodes: Record<string, HDKey>;
 
+  /**
+   *
+   * @param network
+   */
   constructor(network: NetworkNames) {
     this.transport = null;
     this.network = network;
     this.HDNodes = {};
   }
 
+  /**
+   *
+   */
   async init(): Promise<boolean> {
     if (!this.transport) {
       const support = await webUsbTransport.isSupported();
@@ -51,6 +61,10 @@ class LedgerEthereum implements HWWalletProvider {
     return true;
   }
 
+  /**
+   *
+   * @param options
+   */
   async getAddress(options: getAddressRequest): Promise<AddressResponse> {
     if (!supportedPaths[this.network])
       return Promise.reject(new Error("ledger-ethereum: Invalid network name"));
@@ -88,6 +102,10 @@ class LedgerEthereum implements HWWalletProvider {
       }));
   }
 
+  /**
+   *
+   * @param options
+   */
   signPersonalMessage(options: SignMessageRequest): Promise<string> {
     const connection = new EthApp(this.transport);
     return connection
@@ -98,6 +116,10 @@ class LedgerEthereum implements HWWalletProvider {
       .then((result) => `0x${result.r}${result.s}${result.v.toString(16)}`);
   }
 
+  /**
+   *
+   * @param options
+   */
   async signTransaction(options: SignTransactionRequest): Promise<string> {
     const connection = new EthApp(this.transport);
     let tx: LegacyTransaction | FeeMarketEIP1559Transaction;
@@ -138,18 +160,22 @@ class LedgerEthereum implements HWWalletProvider {
       });
   }
 
+  /**
+   *
+   * @param request
+   */
   signTypedMessage(request: SignTypedMessageRequest): Promise<string> {
     const messageHash = TypedDataUtils.hashStruct(
       request.primaryType,
       request.message,
       request.types,
-      request.version as SignTypedDataVersion.V3 | SignTypedDataVersion.V4,
+      request.version,
     );
     const domainHash = TypedDataUtils.hashStruct(
       "EIP712Domain",
       request.domain,
       request.types,
-      request.version as SignTypedDataVersion.V3 | SignTypedDataVersion.V4,
+      request.version,
     );
     const connection = new EthApp(this.transport);
     return connection
@@ -164,23 +190,39 @@ class LedgerEthereum implements HWWalletProvider {
       });
   }
 
+  /**
+   *
+   */
   getSupportedPaths(): PathType[] {
     return supportedPaths[this.network];
   }
 
+  /**
+   *
+   */
   close(): Promise<void> {
     // eslint-disable-next-line @typescript-eslint/no-empty-function
     return this.transport.close().catch(() => {});
   }
 
+  /**
+   *
+   * @param networkName
+   */
   isConnected(networkName: NetworkNames): Promise<boolean> {
     return ConnectToLedger.bind(this)(networkName);
   }
 
+  /**
+   *
+   */
   static getSupportedNetworks(): NetworkNames[] {
     return Object.keys(supportedPaths) as NetworkNames[];
   }
 
+  /**
+   *
+   */
   static getCapabilities(): string[] {
     return [
       HWwalletCapabilities.eip1559,

@@ -177,6 +177,9 @@ export const POLKADOT_NETWORKS: Record<string, PolkadotNetworkConfig> = {
 };
 
 // Helper to get all mainnet networks
+/**
+ *
+ */
 export function getMainnetPolkadotNetworks(): PolkadotNetworkConfig[] {
   return Object.values(POLKADOT_NETWORKS).filter(
     network => !['westend', 'rococo'].includes(network.chainId as string)
@@ -184,6 +187,9 @@ export function getMainnetPolkadotNetworks(): PolkadotNetworkConfig[] {
 }
 
 // Helper to get testnet networks
+/**
+ *
+ */
 export function getTestnetPolkadotNetworks(): PolkadotNetworkConfig[] {
   return Object.values(POLKADOT_NETWORKS).filter(
     network => ['westend', 'rococo'].includes(network.chainId as string)

@@ -40,11 +40,30 @@ type ExternalTokensArgs = {
 };
 
 // Query Key for Token Price
+/**
+ *
+ * @param root0
+ * @param root0.address
+ * @param root0.chainId
+ * @param root0.currency
+ */
 export const externalTokenQueryKey = ({
   address,
   chainId,
   currency,
-}: ExternalTokenArgs): readonly [string, { address: string; chainId: number; currency: string }, { persisterVersion: number }] =>
+}: ExternalTokenArgs): readonly [string, { /**
+}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}} *
+}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}} */
+address: string; /**
+aaaaaaaaaaaaaaaaa *
+aaaaaaaaaaaaaaaaa */
+chainId: number; /**
+ccccccccccccccccc *
+ccccccccccccccccc */
+currency: string }, { /**
+cccccccccccccccccccccc *
+cccccccccccccccccccccc */
+persisterVersion: number }] =>
   createQueryKey(
     'externalToken',
     { address, chainId, currency },
@@ -91,6 +110,13 @@ const formatExternalAsset = (
 };
 
 // Query Function for Token Price
+/**
+ *
+ * @param root0
+ * @param root0.address
+ * @param root0.chainId
+ * @param root0.currency
+ */
 export async function fetchExternalToken({
   address,
   chainId,
@@ -108,6 +134,12 @@ export async function fetchExternalToken({
   }
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.queryKey
+ * @param root0.queryKey.0
+ */
 export async function externalTokenQueryFunction({
   queryKey: [{ address, chainId, currency }],
 }: QueryFunctionArgs<
@@ -117,11 +149,22 @@ export async function externalTokenQueryFunction({
   return fetchExternalToken({ address, chainId, currency });
 }
 
+/**
+ *
+ */
 export type ExternalTokenQueryFunctionResult = QueryFunctionResult<
   typeof externalTokenQueryFunction
 >;
 
 // Query Hook for Token Price
+/**
+ *
+ * @param root0
+ * @param root0.address
+ * @param root0.chainId
+ * @param root0.currency
+ * @param config
+ */
 export function useExternalToken(
   { address, chainId, currency }: ExternalTokenArgs,
   config: QueryConfig<
@@ -130,7 +173,16 @@ export function useExternalToken(
     ParsedAsset,
     ExternalTokenQueryKey
   > = {},
-): { data?: ParsedAsset; isLoading: boolean; error?: Error } {
+): { /**
+))))) *
+))))) */
+data?: ParsedAsset; /**
+dddddddddddddddddddd *
+dddddddddddddddddddd */
+isLoading: boolean; /**
+iiiiiiiiiiiiiiiiiiii *
+iiiiiiiiiiiiiiiiiiii */
+error?: Error } {
   return useQuery({
     queryKey: externalTokenQueryKey({ address, chainId, currency }),
     queryFn: externalTokenQueryFunction,
@@ -141,6 +193,13 @@ export function useExternalToken(
   });
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.assets
+ * @param root0.currency
+ * @param config
+ */
 export function useExternalTokens(
   { assets, currency }: ExternalTokensArgs,
   config: QueryConfig<

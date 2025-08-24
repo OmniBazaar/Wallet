@@ -7,9 +7,16 @@ import { keyringService } from '../../keyring/KeyringService';
 import { POLKADOT_NETWORKS } from './networks';
 import { encodeAddress } from '@polkadot/util-crypto';
 
+/**
+ *
+ */
 export class LivePolkadotProvider extends PolkadotProvider {
   private activeAddress: string | null = null;
 
+  /**
+   *
+   * @param networkKey
+   */
   constructor(networkKey = 'polkadot') {
     const network = POLKADOT_NETWORKS[networkKey];
     if (!network) {
@@ -35,6 +42,7 @@ export class LivePolkadotProvider extends PolkadotProvider {
 
   /**
    * Get all addresses from keyring
+   * @param count
    */
   async getAddresses(count = 10): Promise<string[]> {
     const accounts = await keyringService.getAccounts('substrate');
@@ -45,6 +53,8 @@ export class LivePolkadotProvider extends PolkadotProvider {
 
   /**
    * Send native token
+   * @param to
+   * @param amount
    */
   async sendNativeToken(to: string, amount: string): Promise<string> {
     const from = await this.getAddress();
@@ -78,6 +88,7 @@ export class LivePolkadotProvider extends PolkadotProvider {
 
   /**
    * Sign and send transaction
+   * @param transaction
    */
   async signAndSendTransaction(transaction: SubstrateTransaction): Promise<string> {
     const from = await this.getAddress();
@@ -116,6 +127,7 @@ export class LivePolkadotProvider extends PolkadotProvider {
 
   /**
    * Sign message with active account
+   * @param message
    */
   async signActiveMessage(message: string): Promise<string> {
     const address = await this.getAddress();
@@ -124,8 +136,18 @@ export class LivePolkadotProvider extends PolkadotProvider {
 
   /**
    * Get staking information
+   * @param address
    */
-  async getStakingInfo(address?: string): Promise<{ bonded: string; unbonding: string; nominators: string[] }> {
+  async getStakingInfo(address?: string): Promise<{ /**
+                                                     *
+                                                     */
+  bonded: string; /**
+                   *
+                   */
+  unbonding: string; /**
+                      *
+                      */
+  nominators: string[] }> {
     const api = await this.ensureApi();
     const addr = address || await this.getAddress();
 
@@ -144,6 +166,8 @@ export class LivePolkadotProvider extends PolkadotProvider {
 
   /**
    * Bond tokens for staking
+   * @param amount
+   * @param payee
    */
   async bondTokens(amount: string, payee: 'Staked' | 'Stash' | 'Controller' = 'Staked'): Promise<string> {
     const transaction: SubstrateTransaction = {
@@ -160,6 +184,7 @@ export class LivePolkadotProvider extends PolkadotProvider {
 
   /**
    * Nominate validators
+   * @param validators
    */
   async nominate(validators: string[]): Promise<string> {
     const transaction: SubstrateTransaction = {
@@ -183,6 +208,7 @@ export class LivePolkadotProvider extends PolkadotProvider {
 
   /**
    * Switch to different Polkadot network
+   * @param networkKey
    */
   async switchNetwork(networkKey: string): Promise<void> {
     const network = POLKADOT_NETWORKS[networkKey];

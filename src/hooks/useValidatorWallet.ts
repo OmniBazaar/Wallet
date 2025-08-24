@@ -57,6 +57,7 @@ export function useValidatorWallet(): {
   
   /**
    * Initialize wallet services
+   * @param userId
    */
   const initializeWallet = async (userId: string): Promise<void> => {
     if (globalWalletState.isInitialized.value) {
@@ -113,6 +114,14 @@ export function useValidatorWallet(): {
   
   /**
    * Create new account
+   * @param name
+   * @param type
+   * @param chainId
+   * @param options
+   * @param options.mnemonic
+   * @param options.derivationPath
+   * @param options.accountType
+   * @param options.metadata
    */
   const createAccount = async (
     name: string,
@@ -140,6 +149,9 @@ export function useValidatorWallet(): {
   
   /**
    * Import existing account
+   * @param name
+   * @param privateKeyOrMnemonic
+   * @param chainId
    */
   const importAccount = async (
     name: string,
@@ -161,6 +173,7 @@ export function useValidatorWallet(): {
   
   /**
    * Set active account
+   * @param accountId
    */
   const setActiveAccount = (accountId: string): void => {
     walletService.setActiveAccount(accountId);
@@ -168,6 +181,7 @@ export function useValidatorWallet(): {
   
   /**
    * Remove account
+   * @param accountId
    */
   const removeAccount = async (accountId: string): Promise<void> => {
     try {
@@ -180,6 +194,7 @@ export function useValidatorWallet(): {
   
   /**
    * Update account balances
+   * @param addresses
    */
   const updateBalances = async (addresses?: string[]): Promise<void> => {
     try {
@@ -246,6 +261,7 @@ export function useValidatorTransaction(): {
   
   /**
    * Send transaction
+   * @param request
    */
   const sendTransaction = async (request: TransactionRequest): Promise<TransactionResult> => {
     try {
@@ -282,6 +298,10 @@ export function useValidatorTransaction(): {
   
   /**
    * Estimate gas for transaction
+   * @param from
+   * @param to
+   * @param value
+   * @param data
    */
   const estimateGas = async (
     from: string,
@@ -301,6 +321,7 @@ export function useValidatorTransaction(): {
   
   /**
    * Get transaction by hash
+   * @param txHash
    */
   const getTransaction = async (txHash: string): Promise<Transaction | null> => {
     try {
@@ -313,6 +334,8 @@ export function useValidatorTransaction(): {
   
   /**
    * Cancel pending transaction
+   * @param txId
+   * @param privateKey
    */
   const cancelTransaction = async (txId: string, privateKey: string): Promise<Transaction> => {
     try {
@@ -325,6 +348,8 @@ export function useValidatorTransaction(): {
   
   /**
    * Speed up pending transaction
+   * @param txId
+   * @param privateKey
    */
   const speedUpTransaction = async (txId: string, privateKey: string): Promise<Transaction> => {
     try {
@@ -388,6 +413,8 @@ export function useValidatorBalance(): {
   
   /**
    * Get balance for address
+   * @param address
+   * @param useCache
    */
   const getBalance = async (address: string, useCache = true): Promise<AccountBalance> => {
     try {
@@ -405,6 +432,7 @@ export function useValidatorBalance(): {
   
   /**
    * Get multiple balances
+   * @param addresses
    */
   const getMultipleBalances = async (addresses: string[]): Promise<Record<string, AccountBalance>> => {
     try {
@@ -422,6 +450,8 @@ export function useValidatorBalance(): {
   
   /**
    * Start automatic balance updates
+   * @param addresses
+   * @param interval
    */
   const startBalanceUpdates = (addresses: string[], interval = 30000): void => {
     balanceService.startBalanceUpdates(addresses, interval);
@@ -429,6 +459,7 @@ export function useValidatorBalance(): {
   
   /**
    * Stop automatic balance updates
+   * @param address
    */
   const stopBalanceUpdates = (address?: string): void => {
     balanceService.stopBalanceUpdates(address);
@@ -436,6 +467,8 @@ export function useValidatorBalance(): {
   
   /**
    * Get balance history
+   * @param address
+   * @param limit
    */
   const getBalanceHistory = (address: string, limit = 100): Array<{
     timestamp: number;
@@ -559,6 +592,7 @@ export function useENSResolution(): {
   
   /**
    * Resolve ENS name
+   * @param name
    */
   const resolveENS = async (name: string): Promise<string | null> => {
     try {
@@ -585,6 +619,7 @@ export function useENSResolution(): {
   
   /**
    * Reverse resolve ENS (address to name)
+   * @param address
    */
   const reverseResolveENS = async (address: string): Promise<string | null> => {
     try {
@@ -650,6 +685,7 @@ export function useWalletBackup(): {
   
   /**
    * Create wallet backup
+   * @param password
    */
   const createBackup = async (password: string): Promise<{
     data: string;
@@ -671,6 +707,11 @@ export function useWalletBackup(): {
   
   /**
    * Restore wallet from backup
+   * @param backup
+   * @param backup.version
+   * @param backup.accounts
+   * @param backup.metadata
+   * @param password
    */
   const restoreFromBackup = async (backup: {
     version: string;

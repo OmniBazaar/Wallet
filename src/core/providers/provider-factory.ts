@@ -8,12 +8,16 @@
 import { OmniProvider } from './OmniProvider';
 import { ethers } from 'ethers';
 
+/**
+ *
+ */
 export class ProviderFactory {
   private static providers = new Map<number, OmniProvider>();
   private static walletId: string | undefined;
   
   /**
    * Initialize factory with wallet ID
+   * @param walletId
    */
   static initialize(walletId?: string): void {
     this.walletId = walletId;
@@ -21,6 +25,7 @@ export class ProviderFactory {
   
   /**
    * Get provider for specific chain
+   * @param chainId
    */
   static getProvider(chainId: number): OmniProvider {
     if (!this.providers.has(chainId)) {
@@ -37,9 +42,16 @@ export class ProviderFactory {
   
   /**
    * Get network configuration
+   * @param chainId
    */
   private static getNetworkConfig(chainId: number): ethers.Network {
-    const networks: Record<number, { name: string; chainId: number }> = {
+    const networks: Record<number, { /**
+                                      *
+                                      */
+    name: string; /**
+                   *
+                   */
+    chainId: number }> = {
       1: { name: 'ethereum', chainId: 1 },
       137: { name: 'polygon', chainId: 137 },
       56: { name: 'bsc', chainId: 56 },
@@ -73,6 +85,7 @@ export class ProviderFactory {
   /**
    * Replace external RPC URL with OmniProvider
    * (For backwards compatibility with existing code)
+   * @param rpcUrl
    */
   static createProvider(rpcUrl: string): OmniProvider {
     // Ignore the RPC URL and return OmniProvider

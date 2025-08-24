@@ -3,11 +3,18 @@ import BitcoinNetworks from './networks';
 import { KeyringService } from '../../keyring/KeyringService';
 import { TransactionRequest } from '@/types';
 
+/**
+ *
+ */
 export class LiveBitcoinProvider extends BitcoinProvider {
   private keyring: KeyringService;
   private currentAddress: string | null = null;
   private derivationPath = "m/84'/0'/0'/0/0"; // Native SegWit by default
 
+  /**
+   *
+   * @param network
+   */
   constructor(network: 'mainnet' | 'testnet' = 'mainnet') {
     const config = network === 'mainnet' 
       ? BitcoinNetworks.mainnet 
@@ -19,6 +26,7 @@ export class LiveBitcoinProvider extends BitcoinProvider {
 
   /**
    * Set the derivation path for Bitcoin addresses
+   * @param path
    */
   setDerivationPath(path: string): void {
     this.derivationPath = path;
@@ -27,7 +35,13 @@ export class LiveBitcoinProvider extends BitcoinProvider {
   /**
    * Get current account from keyring
    */
-  async getCurrentAccount(): Promise<{ address: string; publicKey: string }> {
+  async getCurrentAccount(): Promise<{ /**
+                                        *
+                                        */
+  address: string; /**
+                    *
+                    */
+  publicKey: string }> {
     // For now, use a default password - in production this should be properly handled
     const seed = await this.keyring.getSeed('');
     if (!seed) {
@@ -57,6 +71,8 @@ export class LiveBitcoinProvider extends BitcoinProvider {
 
   /**
    * Send Bitcoin transaction
+   * @param to
+   * @param amount
    */
   async sendBitcoin(to: string, amount: string): Promise<string> {
     const { address } = await this.getCurrentAccount();
@@ -82,8 +98,28 @@ export class LiveBitcoinProvider extends BitcoinProvider {
 
   /**
    * Get transaction history for current account
+   * @param address
+   * @param limit
    */
-  async getTransactionHistory(address?: string, limit = 10): Promise<Array<{ hash: string; from: string; to: string; value: string; timestamp: number; status: string }>> {
+  async getTransactionHistory(address?: string, limit = 10): Promise<Array<{ /**
+                                                                              *
+                                                                              */
+  hash: string; /**
+                 *
+                 */
+  from: string; /**
+                 *
+                 */
+  to: string; /**
+               *
+               */
+  value: string; /**
+                  *
+                  */
+  timestamp: number; /**
+                      *
+                      */
+  status: string }>> {
     if (!address) {
       const account = await this.getCurrentAccount();
       address = account.address;
@@ -93,6 +129,7 @@ export class LiveBitcoinProvider extends BitcoinProvider {
 
   /**
    * Sign a message with current account
+   * @param message
    */
   async signMessage(message: string): Promise<string> {
     const seed = await this.keyring.getSeed('');
@@ -105,6 +142,7 @@ export class LiveBitcoinProvider extends BitcoinProvider {
 
   /**
    * Get multiple addresses for the wallet (for privacy)
+   * @param count
    */
   async getAddresses(count = 10): Promise<string[]> {
     const seed = await this.keyring.getSeed('');
@@ -124,6 +162,7 @@ export class LiveBitcoinProvider extends BitcoinProvider {
 
   /**
    * Import wallet from WIF (Wallet Import Format)
+   * @param _wif
    */
   async importFromWIF(_wif: string): Promise<string> {
     // This would be implemented if we want to support importing Bitcoin private keys
@@ -133,13 +172,27 @@ export class LiveBitcoinProvider extends BitcoinProvider {
   /**
    * Get UTXO set for current account
    */
-  async getUTXOs(): Promise<Array<{ txHash: string; outputIndex: number; value: string; script: string }>> {
+  async getUTXOs(): Promise<Array<{ /**
+                                     *
+                                     */
+  txHash: string; /**
+                   *
+                   */
+  outputIndex: number; /**
+                        *
+                        */
+  value: string; /**
+                  *
+                  */
+  script: string }>> {
     const { address } = await this.getCurrentAccount();
     return super.getUTXOs(address);
   }
 
   /**
    * Estimate fee for a transaction
+   * @param to
+   * @param amount
    */
   async estimateTransactionFee(to: string, amount: string): Promise<string> {
     const { address } = await this.getCurrentAccount();
@@ -156,6 +209,7 @@ export class LiveBitcoinProvider extends BitcoinProvider {
 
   /**
    * Get address for a specific derivation index
+   * @param index
    */
   async getAddressAt(index: number): Promise<string> {
     const seed = await this.keyring.getSeed('');
@@ -170,6 +224,7 @@ export class LiveBitcoinProvider extends BitcoinProvider {
 
   /**
    * Check if an address belongs to this wallet
+   * @param address
    */
   async isOwnAddress(address: string): Promise<boolean> {
     const addresses = await this.getAddresses(100); // Check first 100 addresses
@@ -178,6 +233,7 @@ export class LiveBitcoinProvider extends BitcoinProvider {
 
   /**
    * Get explorer URL for current transaction
+   * @param txHash
    */
   getExplorerUrl(txHash: string): string {
     return super.getExplorerUrl(txHash);

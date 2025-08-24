@@ -18,7 +18,15 @@ import { getProvider } from '~/core/wagmi/clientToProvider';
 
 const USER_ASSETS_REFETCH_INTERVAL = 60000;
 
-export const getNativeAssetMock = ({ chainId }: { chainId: ChainId }): ParsedUserAsset => {
+/**
+ *
+ * @param root0
+ * @param root0.chainId
+ */
+export const getNativeAssetMock = ({ chainId }: { /**
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee *
+eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee */
+chainId: ChainId }): ParsedUserAsset => {
   const chain = getChain({ chainId });
   const nativeAssetAddress =
     useNetworkStore.getState().getChainsNativeAsset()[chainId]?.address ||
@@ -61,11 +69,30 @@ type UserTestnetNativeAssetArgs = {
 // ///////////////////////////////////////////////
 // Query Key
 
+/**
+ *
+ * @param root0
+ * @param root0.address
+ * @param root0.currency
+ * @param root0.chainId
+ */
 export const userTestnetNativeAssetQueryKey = ({
   address,
   currency,
   chainId,
-}: UserTestnetNativeAssetArgs): readonly [string, { address: Address; currency: SupportedCurrencyKey; chainId: ChainId }, { persisterVersion: number }] =>
+}: UserTestnetNativeAssetArgs): readonly [string, { /**
+}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}} *
+}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}} */
+address: Address; /**
+aaaaaaaaaaaaaaaaaa *
+aaaaaaaaaaaaaaaaaa */
+currency: SupportedCurrencyKey; /**
+cccccccccccccccccccccccccccccccc *
+cccccccccccccccccccccccccccccccc */
+chainId: ChainId }, { /**
+cccccccccccccccccccccc *
+cccccccccccccccccccccc */
+persisterVersion: number }] =>
   createQueryKey(
     'userTestnetNativeAsset',
     { address, currency, chainId },
@@ -113,6 +140,14 @@ type UserAssetsResult = QueryFunctionResult<
 // ///////////////////////////////////////////////
 // Query Hook
 
+/**
+ *
+ * @param root0
+ * @param root0.address
+ * @param root0.currency
+ * @param root0.chainId
+ * @param config
+ */
 export function useUserTestnetNativeAsset(
   { address, currency, chainId }: UserTestnetNativeAssetArgs,
   config: QueryConfig<

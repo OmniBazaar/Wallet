@@ -275,6 +275,11 @@ async function getWalletState(): Promise<{
 /**
  * Connects an account to the wallet
  * @param data - Account connection parameters
+ * @param data.address
+ * @param data.password
+ * @param data.username
+ * @param data.mnemonic
+ * @param data.authMethod
  * @returns Promise resolving to connection result
  */
 async function connectAccount(data: { 
@@ -371,6 +376,8 @@ async function disconnectAccount(): Promise<{ success: boolean }> {
 /**
  * Switches to a different blockchain network
  * @param data - Network switching parameters
+ * @param data.network
+ * @param data.chainId
  * @returns Promise resolving to network switch result
  */
 async function switchNetwork(data: { network: string; chainId?: string }): Promise<{
@@ -392,6 +399,8 @@ async function switchNetwork(data: { network: string; chainId?: string }): Promi
 /**
  * Gets the balance for an address on a specific network
  * @param data - Balance query parameters
+ * @param data.address
+ * @param data.network
  * @returns Promise resolving to balance information
  */
 async function getBalance(data: { address: string; network?: string }): Promise<{
@@ -429,6 +438,15 @@ async function getBalance(data: { address: string; network?: string }): Promise<
 /**
  * Signs a transaction using the wallet's private key
  * @param data - Transaction data to sign
+ * @param data.to
+ * @param data.value
+ * @param data.data
+ * @param data.gasLimit
+ * @param data.gasPrice
+ * @param data.maxFeePerGas
+ * @param data.maxPriorityFeePerGas
+ * @param data.nonce
+ * @param data.chainId
  * @returns Promise resolving to signing result
  */
 async function signTransaction(data: {
@@ -475,6 +493,12 @@ async function signTransaction(data: {
 /**
  * Mints a new NFT on the blockchain
  * @param data - NFT minting parameters
+ * @param data.name
+ * @param data.description
+ * @param data.image
+ * @param data.attributes
+ * @param data.recipient
+ * @param data.chainId
  * @returns Promise resolving to minting result
  */
 async function mintNFT(data: {
@@ -524,6 +548,15 @@ async function mintNFT(data: {
 /**
  * Creates a new listing on the OmniBazaar marketplace
  * @param data - Listing creation parameters
+ * @param data.title
+ * @param data.description
+ * @param data.price
+ * @param data.currency
+ * @param data.category
+ * @param data.images
+ * @param data.location
+ * @param data.tags
+ * @param data.shippingOptions
  * @returns Promise resolving to listing creation result
  */
 async function createMarketplaceListing(data: {

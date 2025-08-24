@@ -25,8 +25,23 @@ const ASSETS_REFETCH_INTERVAL = 60000;
 // ///////////////////////////////////////////////
 // Query Types
 
+/**
+ *
+ */
 export type AssetsQueryArgs = {
-  assets: { address: AddressOrEth; chainId: ChainId }[];
+  /**
+   *
+   */
+  assets: { /**
+             *
+             */
+  address: AddressOrEth; /**
+                          *
+                          */
+  chainId: ChainId }[];
+  /**
+   *
+   */
   currency: SupportedCurrencyKey;
 };
 
@@ -41,6 +56,12 @@ type AssetsQueryKey = ReturnType<typeof assetsQueryKey>;
 // ///////////////////////////////////////////////
 // Query Function
 
+/**
+ *
+ * @param root0
+ * @param root0.queryKey
+ * @param root0.queryKey.0
+ */
 export async function assetsQueryFunction({
   queryKey: [{ assets, currency }],
 }: QueryFunctionArgs<typeof assetsQueryKey>): Promise<{
@@ -80,6 +101,13 @@ type AssetsQueryResult = QueryFunctionResult<typeof assetsQueryFunction>;
 // ///////////////////////////////////////////////
 // Query Fetcher
 
+/**
+ *
+ * @param root0
+ * @param root0.assets
+ * @param root0.currency
+ * @param config
+ */
 export async function fetchAssets(
   { assets, currency }: AssetsQueryArgs,
   config: QueryConfig<
@@ -125,6 +153,13 @@ function parseAssets(
 // ///////////////////////////////////////////////
 // Query Hook
 
+/**
+ *
+ * @param root0
+ * @param root0.assets
+ * @param root0.currency
+ * @param config
+ */
 export function useAssets<TSelectData = AssetsQueryResult>(
   { assets, currency }: AssetsQueryArgs,
   config: QueryConfig<
@@ -133,7 +168,16 @@ export function useAssets<TSelectData = AssetsQueryResult>(
     TSelectData,
     AssetsQueryKey
   > = {},
-): { data?: TSelectData; isLoading: boolean; error?: Error } {
+): { /**
+))))) *
+))))) */
+data?: TSelectData; /**
+dddddddddddddddddddd *
+dddddddddddddddddddd */
+isLoading: boolean; /**
+iiiiiiiiiiiiiiiiiiii *
+iiiiiiiiiiiiiiiiiiii */
+error?: Error } {
   return useQuery({
     queryKey: assetsQueryKey({ assets, currency }),
     queryFn: assetsQueryFunction,

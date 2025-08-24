@@ -142,6 +142,11 @@ export class ParticipationService {
     { listings: 100000, points: 4 }
   ];
   
+  /**
+   *
+   * @param provider
+   * @param validatorEndpoint
+   */
   constructor(provider: ethers.Provider, validatorEndpoint?: string) {
     this.provider = provider;
     this.validatorEndpoint = validatorEndpoint || 'http://localhost:3001/api/participation';
@@ -156,6 +161,7 @@ export class ParticipationService {
   
   /**
    * Get participation score for address
+   * @param address
    */
   async getScore(address: string): Promise<ParticipationScore> {
     // Check cache
@@ -186,6 +192,9 @@ export class ParticipationService {
   
   /**
    * Update activity component
+   * @param address
+   * @param component
+   * @param activity
    */
   async updateActivity(
     address: string,
@@ -223,6 +232,8 @@ export class ParticipationService {
   
   /**
    * Track referral
+   * @param referrer
+   * @param referred
    */
   async trackReferral(referrer: string, referred: string): Promise<void> {
     await this.updateActivity(referrer, 'referrals', {
@@ -233,6 +244,8 @@ export class ParticipationService {
   
   /**
    * Track listing publication
+   * @param publisher
+   * @param listingId
    */
   async trackListingPublished(publisher: string, listingId: string): Promise<void> {
     await this.updateActivity(publisher, 'publishing', {
@@ -243,6 +256,9 @@ export class ParticipationService {
   
   /**
    * Track forum activity
+   * @param user
+   * @param activityType
+   * @param metadata
    */
   async trackForumActivity(
     user: string,
@@ -257,6 +273,9 @@ export class ParticipationService {
   
   /**
    * Track marketplace transaction
+   * @param user
+   * @param transactionType
+   * @param transactionId
    */
   async trackMarketplaceTransaction(
     user: string,
@@ -271,6 +290,9 @@ export class ParticipationService {
   
   /**
    * Track community policing
+   * @param reporter
+   * @param reportId
+   * @param verified
    */
   async trackCommunityPolicing(
     reporter: string,
@@ -286,6 +308,9 @@ export class ParticipationService {
   
   /**
    * Update reliability score
+   * @param user
+   * @param action
+   * @param metadata
    */
   async updateReliability(
     user: string,
@@ -300,6 +325,7 @@ export class ParticipationService {
   
   /**
    * Check validator qualification
+   * @param address
    */
   async checkValidatorQualification(address: string): Promise<{
     qualified: boolean;
@@ -335,6 +361,7 @@ export class ParticipationService {
   
   /**
    * Check listing node qualification
+   * @param address
    */
   async checkListingNodeQualification(address: string): Promise<{
     qualified: boolean;
@@ -352,6 +379,7 @@ export class ParticipationService {
   
   /**
    * Get leaderboard
+   * @param limit
    */
   async getLeaderboard(limit = 100): Promise<Array<{
     rank: number;
@@ -388,6 +416,8 @@ export class ParticipationService {
   
   /**
    * Calculate total score from components
+   * @param address
+   * @param data
    */
   private calculateScore(address: string, data: any): ParticipationScore {
     const now = Date.now();
@@ -491,6 +521,7 @@ export class ParticipationService {
   
   /**
    * Calculate publishing points based on thresholds
+   * @param listingsPublished
    */
   private calculatePublishingPoints(listingsPublished: number): number {
     let points = 0;
@@ -508,6 +539,11 @@ export class ParticipationService {
   
   /**
    * Apply time-based decay to points
+   * @param currentPoints
+   * @param lastActivityDate
+   * @param config
+   * @param maxPoints
+   * @param minPoints
    */
   private applyDecay(
     currentPoints: number,
@@ -540,6 +576,7 @@ export class ParticipationService {
   
   /**
    * Get default score for new user
+   * @param address
    */
   private getDefaultScore(address: string): ParticipationScore {
     return {
@@ -584,6 +621,7 @@ export class ParticipationService {
   
   /**
    * Get staking amount (mock - would query blockchain)
+   * @param address
    */
   private async getStakingAmount(address: string): Promise<string> {
     // In production, would query staking contract
@@ -592,6 +630,7 @@ export class ParticipationService {
   
   /**
    * Check KYC status (mock - would query KYC service)
+   * @param address
    */
   private async checkKYCStatus(address: string): Promise<boolean> {
     // In production, would query KYC service for top-tier verification

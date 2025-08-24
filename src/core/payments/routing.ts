@@ -9,62 +9,203 @@ import { ChainType } from '../keyring/BIP39Keyring';
 import { providerManager } from '../providers/ProviderManager';
 import { bridgeService } from '../bridge';
 
+/**
+ *
+ */
 export interface PaymentRoute {
+  /**
+   *
+   */
   blockchain: string;
+  /**
+   *
+   */
   fromAddress: string;
+  /**
+   *
+   */
   fromToken: TokenInfo;
+  /**
+   *
+   */
   fromAmount: string;
+  /**
+   *
+   */
   fromDecimals: number;
+  /**
+   *
+   */
   toToken: TokenInfo;
+  /**
+   *
+   */
   toAmount: string;
+  /**
+   *
+   */
   toDecimals: number;
+  /**
+   *
+   */
   toAddress: string;
+  /**
+   *
+   */
   exchangeRoutes: ExchangeRoute[];
+  /**
+   *
+   */
   estimatedGas?: string;
+  /**
+   *
+   */
   estimatedFee?: string;
+  /**
+   *
+   */
   approvalRequired?: boolean;
+  /**
+   *
+   */
   steps: RouteStep[];
 }
 
+/**
+ *
+ */
 export interface TokenInfo {
+  /**
+   *
+   */
   address: string;
+  /**
+   *
+   */
   symbol: string;
+  /**
+   *
+   */
   name: string;
+  /**
+   *
+   */
   decimals: number;
+  /**
+   *
+   */
   chainId: number | string;
 }
 
+/**
+ *
+ */
 export interface ExchangeRoute {
+  /**
+   *
+   */
   exchange: string;
+  /**
+   *
+   */
   path: string[];
+  /**
+   *
+   */
   expectedOutput: string;
+  /**
+   *
+   */
   minimumOutput: string;
+  /**
+   *
+   */
   priceImpact: number;
 }
 
+/**
+ *
+ */
 export interface RouteStep {
+  /**
+   *
+   */
   type: 'approve' | 'swap' | 'bridge' | 'transfer';
+  /**
+   *
+   */
   description: string;
+  /**
+   *
+   */
   data?: Record<string, unknown>;
 }
 
+/**
+ *
+ */
 export interface PaymentRequest {
+  /**
+   *
+   */
   from: string[];
+  /**
+   *
+   */
   to: string;
+  /**
+   *
+   */
   amount?: string;
+  /**
+   *
+   */
   token?: string;
+  /**
+   *
+   */
   blockchain?: string;
+  /**
+   *
+   */
   accept?: AcceptedPayment[];
 }
 
+/**
+ *
+ */
 export interface AcceptedPayment {
+  /**
+   *
+   */
   blockchain: string;
+  /**
+   *
+   */
   token: string;
+  /**
+   *
+   */
   amount?: string;
+  /**
+   *
+   */
   receiver?: string;
-  fee?: string | { amount: string; receiver: string };
+  /**
+   *
+   */
+  fee?: string | { /**
+                    *
+                    */
+  amount: string; /**
+                   *
+                   */
+  receiver: string };
 }
 
+/**
+ *
+ */
 export class PaymentRoutingService {
   private supportedExchanges = {
     ethereum: ['uniswap_v3', 'uniswap_v2', 'sushiswap', '1inch'],
@@ -138,6 +279,7 @@ export class PaymentRoutingService {
 
   /**
    * Find best payment route
+   * @param request
    */
   async findBestRoute(request: PaymentRequest): Promise<PaymentRoute | null> {
     const routes = await this.findAllRoutes(request);
@@ -162,6 +304,7 @@ export class PaymentRoutingService {
 
   /**
    * Find all possible payment routes
+   * @param request
    */
   async findAllRoutes(request: PaymentRequest): Promise<PaymentRoute[]> {
     const routes: PaymentRoute[] = [];
@@ -200,6 +343,12 @@ export class PaymentRoutingService {
 
   /**
    * Find routes for a specific blockchain
+   * @param blockchain
+   * @param from
+   * @param to
+   * @param amount
+   * @param token
+   * @param accept
    */
   private async findRoutesForBlockchain(
     blockchain: string,
@@ -247,6 +396,11 @@ export class PaymentRoutingService {
 
   /**
    * Find a single route
+   * @param blockchain
+   * @param from
+   * @param to
+   * @param amount
+   * @param tokenAddress
    */
   private async findSingleRoute(
     blockchain: string,
@@ -317,6 +471,8 @@ export class PaymentRoutingService {
 
   /**
    * Get token information
+   * @param blockchain
+   * @param tokenAddress
    */
   private async getTokenInfo(blockchain: string, tokenAddress: string): Promise<TokenInfo | null> {
     // Check if it's native token
@@ -337,6 +493,9 @@ export class PaymentRoutingService {
 
   /**
    * Get token balance
+   * @param blockchain
+   * @param address
+   * @param tokenAddress
    */
   private async getTokenBalance(
     blockchain: string,
@@ -363,6 +522,8 @@ export class PaymentRoutingService {
 
   /**
    * Validate address for blockchain
+   * @param address
+   * @param blockchain
    */
   private isValidAddress(address: string, blockchain: string): boolean {
     try {
@@ -380,6 +541,7 @@ export class PaymentRoutingService {
 
   /**
    * Get chain ID for blockchain
+   * @param blockchain
    */
   private getChainId(blockchain: string): number | string {
     const chainIds: Record<string, number | string> = {
@@ -398,6 +560,11 @@ export class PaymentRoutingService {
 
   /**
    * Find swap route using DEX aggregators
+   * @param blockchain
+   * @param from
+   * @param to
+   * @param amount
+   * @param tokenAddress
    */
   private async findSwapRoute(
     blockchain: string,
@@ -466,6 +633,11 @@ export class PaymentRoutingService {
   
   /**
    * Find bridge route for cross-chain transfers
+   * @param blockchain
+   * @param from
+   * @param to
+   * @param amount
+   * @param tokenAddress
    */
   private async findBridgeRoute(
     blockchain: string,
@@ -538,6 +710,7 @@ export class PaymentRoutingService {
   
   /**
    * Execute payment route
+   * @param route
    */
   async executeRoute(route: PaymentRoute): Promise<string> {
     // Switch to the correct chain

@@ -10,9 +10,23 @@ const ERC1155_ABI = [
     'function safeTransferFrom(address from, address to, uint256 id, uint256 amount, bytes data)'
 ];
 
+/**
+ *
+ * @param contractAddress
+ * @param tokenType
+ */
 export const useNFTTransfer = (contractAddress: string, tokenType: 'ERC721' | 'ERC1155'): {
+    /**
+     *
+     */
     isTransferring: boolean;
+    /**
+     *
+     */
     error: string | null;
+    /**
+     *
+     */
     transfer: (to: string, tokenId: string, amount?: string) => Promise<ethers.TransactionReceipt>;
 } => {
     const { provider, address } = useWallet();

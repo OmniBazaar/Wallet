@@ -1,9 +1,21 @@
 import type { NFTItem, NFTCollection } from '../../../types/nft';
 import type { ChainProvider } from '../display/multi-chain-display';
 
+/**
+ *
+ */
 export interface AvalancheNFTConfig {
+  /**
+   *
+   */
   rpcUrl: string;
+  /**
+   *
+   */
   snowtraceApiKey?: string;
+  /**
+   *
+   */
   joepegsApiKey?: string;
 }
 
@@ -20,6 +32,10 @@ export class AvalancheNFTProvider implements ChainProvider {
   private snowtraceUrl = 'https://api.snowtrace.io/api';
   private joepegsUrl = 'https://api.joepegs.dev/v2';
 
+  /**
+   *
+   * @param config
+   */
   constructor(config: AvalancheNFTConfig) {
     this.config = config;
     this.isConnected = Boolean(config.rpcUrl);
@@ -27,6 +43,7 @@ export class AvalancheNFTProvider implements ChainProvider {
 
   /**
    * Get all NFTs for a wallet address
+   * @param address
    */
   async getNFTs(address: string): Promise<NFTItem[]> {
     try {
@@ -48,6 +65,8 @@ export class AvalancheNFTProvider implements ChainProvider {
 
   /**
    * Get specific NFT metadata
+   * @param contractAddress
+   * @param tokenId
    */
   async getNFTMetadata(contractAddress: string, tokenId: string): Promise<NFTItem | null> {
     try {
@@ -114,6 +133,7 @@ export class AvalancheNFTProvider implements ChainProvider {
 
   /**
    * Get NFT collections for an address
+   * @param address
    */
   async getCollections(address: string): Promise<NFTCollection[]> {
     try {
@@ -147,6 +167,7 @@ export class AvalancheNFTProvider implements ChainProvider {
 
   /**
    * Fetch NFTs from Joepegs API
+   * @param address
    */
   private async fetchFromJoepegs(address: string): Promise<NFTItem[]> {
     try {
@@ -191,6 +212,7 @@ export class AvalancheNFTProvider implements ChainProvider {
 
   /**
    * Fetch NFTs directly from blockchain using ethers
+   * @param address
    */
   private async fetchFromBlockchain(address: string): Promise<NFTItem[]> {
     try {
@@ -298,6 +320,8 @@ export class AvalancheNFTProvider implements ChainProvider {
 
   /**
    * Search NFTs on Avalanche
+   * @param query
+   * @param limit
    */
   async searchNFTs(query: string, limit = 20): Promise<NFTItem[]> {
     try {
@@ -322,7 +346,7 @@ export class AvalancheNFTProvider implements ChainProvider {
               `${this.joepegsUrl}/collections/${collection.address}/tokens?limit=5`,
               {
                 headers: {
-                  'x-api-key': this.config.joepegsApiKey!
+                  'x-api-key': this.config.joepegsApiKey
                 }
               }
             );
@@ -365,6 +389,7 @@ export class AvalancheNFTProvider implements ChainProvider {
 
   /**
    * Get trending NFTs on Avalanche
+   * @param limit
    */
   async getTrendingNFTs(limit = 20): Promise<NFTItem[]> {
     try {
@@ -389,7 +414,7 @@ export class AvalancheNFTProvider implements ChainProvider {
               `${this.joepegsUrl}/collections/${collection.address}/tokens?limit=5`,
               {
                 headers: {
-                  'x-api-key': this.config.joepegsApiKey!
+                  'x-api-key': this.config.joepegsApiKey
                 }
               }
             );
@@ -435,6 +460,7 @@ export class AvalancheNFTProvider implements ChainProvider {
 
   /**
    * Update configuration
+   * @param newConfig
    */
   updateConfig(newConfig: Partial<AvalancheNFTConfig>): void {
     this.config = { ...this.config, ...newConfig };

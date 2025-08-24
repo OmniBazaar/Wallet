@@ -3,37 +3,107 @@ import { NetworkConfig, Transaction, TransactionRequest } from '@/types';
 // Removed bitcoin dependencies - mock implementation for now
 // import axios from 'axios';
 
+/**
+ *
+ */
 export interface BitcoinNetwork {
+  /**
+   *
+   */
   messagePrefix: string;
+  /**
+   *
+   */
   bech32: string;
-  bip32: { public: number; private: number };
+  /**
+   *
+   */
+  bip32: { /**
+            *
+            */
+  public: number; /**
+                   *
+                   */
+  private: number };
+  /**
+   *
+   */
   pubKeyHash: number;
+  /**
+   *
+   */
   scriptHash: number;
+  /**
+   *
+   */
   wif: number;
 }
 
+/**
+ *
+ */
 export interface BitcoinNetworkConfig extends NetworkConfig {
+  /**
+   *
+   */
   network: BitcoinNetwork;
+  /**
+   *
+   */
   apiUrl: string;
+  /**
+   *
+   */
   explorer: string;
+  /**
+   *
+   */
   dust: number;
+  /**
+   *
+   */
   feeRate?: number;
 }
 
+/**
+ *
+ */
 export interface UTXO {
+  /**
+   *
+   */
   txid: string;
+  /**
+   *
+   */
   vout: number;
+  /**
+   *
+   */
   value: number;
+  /**
+   *
+   */
   address: string;
+  /**
+   *
+   */
   confirmations: number;
 }
 
+/**
+ *
+ */
 export class BitcoinProvider extends BaseProvider {
   private network: BitcoinNetwork;
   private apiUrl: string;
   private explorer: string;
   private dust: number;
 
+  /**
+   *
+   * @param config
+   */
   constructor(config: BitcoinNetworkConfig) {
     super(config);
     this.network = config.network;
@@ -44,8 +114,16 @@ export class BitcoinProvider extends BaseProvider {
 
   /**
    * Get account from derivation path
+   * @param privateKey
+   * @param _derivationPath
    */
-  async getAccount(privateKey: string, _derivationPath = "m/84'/0'/0'/0/0"): Promise<{ address: string; publicKey: string }> {
+  async getAccount(privateKey: string, _derivationPath = "m/84'/0'/0'/0/0"): Promise<{ /**
+                                                                                        *
+                                                                                        */
+  address: string; /**
+                    *
+                    */
+  publicKey: string }> {
     try {
       // Mock implementation - in production would use bitcoin libraries
       const mockAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa';
@@ -62,6 +140,7 @@ export class BitcoinProvider extends BaseProvider {
 
   /**
    * Get balance for an address
+   * @param _address
    */
   async getBalance(_address: string): Promise<string> {
     try {
@@ -75,6 +154,7 @@ export class BitcoinProvider extends BaseProvider {
 
   /**
    * Get formatted balance in BTC
+   * @param address
    */
   async getFormattedBalance(address: string): Promise<string> {
     const balance = await this.getBalance(address);
@@ -83,12 +163,31 @@ export class BitcoinProvider extends BaseProvider {
 
   /**
    * Get UTXOs for an address
+   * @param address
    */
   async getUTXOs(address: string): Promise<UTXO[]> {
     try {
       // Mock axios response
       const response = { data: [] };
-      return response.data.map((utxo: { txid: string; vout: number; value: number; status: { confirmed: boolean; block_height: number } }) => ({
+      return response.data.map((utxo: { /**
+                                         *
+                                         */
+      txid: string; /**
+                     *
+                     */
+      vout: number; /**
+                     *
+                     */
+      value: number; /**
+                      *
+                      */
+      status: { /**
+                 *
+                 */
+      confirmed: boolean; /**
+                           *
+                           */
+      block_height: number } }) => ({
         txid: utxo.txid,
         vout: utxo.vout,
         value: utxo.value,
@@ -103,6 +202,7 @@ export class BitcoinProvider extends BaseProvider {
 
   /**
    * Estimate transaction fee
+   * @param _txRequest
    */
   async estimateFee(_txRequest: TransactionRequest): Promise<string> {
     try {
@@ -127,6 +227,8 @@ export class BitcoinProvider extends BaseProvider {
 
   /**
    * Build and sign a transaction
+   * @param _privateKey
+   * @param _txRequest
    */
   async signTransaction(
     _privateKey: string,
@@ -143,6 +245,7 @@ export class BitcoinProvider extends BaseProvider {
 
   /**
    * Send a signed transaction
+   * @param _signedTx
    */
   async sendTransaction(_signedTx: string): Promise<string> {
     try {
@@ -156,6 +259,7 @@ export class BitcoinProvider extends BaseProvider {
 
   /**
    * Get transaction by hash
+   * @param txHash
    */
   async getTransaction(txHash: string): Promise<Transaction> {
     try {
@@ -188,6 +292,8 @@ export class BitcoinProvider extends BaseProvider {
 
   /**
    * Get transaction history
+   * @param address
+   * @param limit
    */
   async getTransactionHistory(address: string, limit = 10): Promise<Transaction[]> {
     try {
@@ -195,7 +301,43 @@ export class BitcoinProvider extends BaseProvider {
       const response = { data: [] };
       const txs = response.data.slice(0, limit);
       
-      return txs.map((tx: { txid: string; vin: Array<{ prevout?: { scriptpubkey_address?: string } }>; vout: Array<{ scriptpubkey_address?: string; value?: number }>; fee?: number; status: { block_height: number; block_time: number; confirmed: boolean } }) => ({
+      return txs.map((tx: { /**
+                             *
+                             */
+      txid: string; /**
+                     *
+                     */
+      vin: Array<{ /**
+                    *
+                    */
+      prevout?: { /**
+                   *
+                   */
+      scriptpubkey_address?: string } }>; /**
+                                           *
+                                           */
+      vout: Array<{ /**
+                     *
+                     */
+      scriptpubkey_address?: string; /**
+                                      *
+                                      */
+      value?: number }>; /**
+                          *
+                          */
+      fee?: number; /**
+                     *
+                     */
+      status: { /**
+                 *
+                 */
+      block_height: number; /**
+                             *
+                             */
+      block_time: number; /**
+                           *
+                           */
+      confirmed: boolean } }) => ({
         hash: tx.txid,
         from: tx.vin[0]?.prevout?.scriptpubkey_address || '',
         to: tx.vout[0]?.scriptpubkey_address || '',
@@ -213,6 +355,7 @@ export class BitcoinProvider extends BaseProvider {
 
   /**
    * Subscribe to new blocks (not real-time for Bitcoin)
+   * @param callback
    */
   async subscribeToBlocks(callback: (blockNumber: number) => void): Promise<() => void> {
     let lastBlock = 0;
@@ -246,6 +389,8 @@ export class BitcoinProvider extends BaseProvider {
 
   /**
    * Sign a message
+   * @param _privateKey
+   * @param _message
    */
   async signMessage(_privateKey: string, _message: string): Promise<string> {
     try {
@@ -259,6 +404,7 @@ export class BitcoinProvider extends BaseProvider {
 
   /**
    * Get explorer URL for a transaction
+   * @param txHash
    */
   getExplorerUrl(txHash: string): string {
     return `${this.explorer}/tx/${txHash}`;
@@ -266,6 +412,7 @@ export class BitcoinProvider extends BaseProvider {
 
   /**
    * Get explorer URL for an address
+   * @param address
    */
   getAddressExplorerUrl(address: string): string {
     return `${this.explorer}/address/${address}`;

@@ -2,10 +2,26 @@ import { useState, useEffect, useCallback } from 'react';
 import { useWallet } from './useWallet';
 import { NFT, getOwnedNFTs } from '../utils/nft';
 
+/**
+ *
+ * @param contractAddress
+ */
 export const useNFTs = (contractAddress?: string): {
+    /**
+     *
+     */
     nfts: NFT[];
+    /**
+     *
+     */
     isLoading: boolean;
+    /**
+     *
+     */
     error: string | null;
+    /**
+     *
+     */
     refreshNFTs: () => void;
 } => {
     const { provider, address } = useWallet();

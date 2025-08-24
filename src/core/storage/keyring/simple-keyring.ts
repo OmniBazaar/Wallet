@@ -1,28 +1,79 @@
 import { randomBytes, createHash } from 'crypto';
 import BrowserStorage, { StorageInterface } from '../common/browser-storage';
 
+/**
+ *
+ */
 export interface Account {
+  /**
+   *
+   */
   id: string;
+  /**
+   *
+   */
   name: string;
+  /**
+   *
+   */
   address: string;
+  /**
+   *
+   */
   publicKey: string;
+  /**
+   *
+   */
   derivationPath: string;
+  /**
+   *
+   */
   chainType: 'ethereum' | 'bitcoin' | 'solana' | 'coti' | 'omnicoin';
+  /**
+   *
+   */
   createdAt: number;
 }
 
+/**
+ *
+ */
 export interface WalletData {
+  /**
+   *
+   */
   id: string;
+  /**
+   *
+   */
   name: string;
+  /**
+   *
+   */
   createdAt: number;
+  /**
+   *
+   */
   accounts: Account[];
 }
 
+/**
+ *
+ */
 export interface KeyringOptions {
+  /**
+   *
+   */
   mnemonic?: string;
+  /**
+   *
+   */
   password: string;
 }
 
+/**
+ *
+ */
 class SimpleKeyring {
   private storage: StorageInterface;
   private isUnlocked = false;
@@ -35,11 +86,19 @@ class SimpleKeyring {
     SETTINGS: 'settings'
   };
 
+  /**
+   *
+   * @param namespace
+   */
   constructor(namespace = 'omnibazaar-wallet') {
     this.storage = new BrowserStorage(namespace);
   }
 
   // Initialize new wallet
+  /**
+   *
+   * @param options
+   */
   async initialize(options: KeyringOptions): Promise<void> {
     if (await this.isInitialized()) {
       throw new Error('Wallet is already initialized');
@@ -68,12 +127,19 @@ class SimpleKeyring {
   }
 
   // Check if wallet is initialized
+  /**
+   *
+   */
   async isInitialized(): Promise<boolean> {
     const encryptedSeed = await this.storage.get(this.STORAGE_KEYS.ENCRYPTED_SEED);
     return !!encryptedSeed;
   }
 
   // Unlock wallet with password
+  /**
+   *
+   * @param password
+   */
   async unlock(password: string): Promise<void> {
     if (!await this.isInitialized()) {
       throw new Error('Wallet is not initialized');
@@ -103,16 +169,27 @@ class SimpleKeyring {
   }
 
   // Lock wallet
+  /**
+   *
+   */
   lock(): void {
     this.isUnlocked = false;
   }
 
   // Get wallet lock status
+  /**
+   *
+   */
   locked(): boolean {
     return !this.isUnlocked;
   }
 
   // Create new account for specified chain
+  /**
+   *
+   * @param chainType
+   * @param name
+   */
   async createAccount(chainType: Account['chainType'], name?: string): Promise<Account> {
     if (!this.isUnlocked || !this.walletData) {
       throw new Error('Wallet is locked');
@@ -144,6 +221,10 @@ class SimpleKeyring {
   }
 
   // Get all accounts
+  /**
+   *
+   * @param chainType
+   */
   async getAccounts(chainType?: Account['chainType']): Promise<Account[]> {
     if (!this.walletData) {
       return [];
@@ -155,6 +236,10 @@ class SimpleKeyring {
   }
 
   // Get account by address
+  /**
+   *
+   * @param address
+   */
   async getAccount(address: string): Promise<Account | null> {
     if (!this.walletData) {
       return null;
@@ -164,6 +249,11 @@ class SimpleKeyring {
   }
 
   // Sign message with account (placeholder implementation)
+  /**
+   *
+   * @param address
+   * @param message
+   */
   async signMessage(address: string, message: string): Promise<string> {
     if (!this.isUnlocked) {
       throw new Error('Wallet is locked');
@@ -180,6 +270,9 @@ class SimpleKeyring {
   }
 
   // Reset wallet (delete all data)
+  /**
+   *
+   */
   async reset(): Promise<void> {
     await this.storage.clear();
     this.lock();

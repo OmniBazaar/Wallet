@@ -75,6 +75,11 @@ export function isValidUUID(id: string): boolean {
  * Useful for preventing duplicate transactions
  * 
  * @param txData - Transaction data to hash
+ * @param txData.from
+ * @param txData.to
+ * @param txData.amount
+ * @param txData.nonce
+ * @param txData.chainId
  * @returns A deterministic UUID-like string
  */
 export function generateDeterministicTxId(txData: {

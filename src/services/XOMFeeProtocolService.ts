@@ -155,6 +155,12 @@ export class XOMFeeProtocolService {
     }]
   ]);
   
+  /**
+   *
+   * @param provider
+   * @param signer
+   * @param validatorEndpoint
+   */
   constructor(
     provider: ethers.Provider,
     signer?: ethers.Signer,
@@ -176,6 +182,9 @@ export class XOMFeeProtocolService {
   
   /**
    * Track a rewarded action
+   * @param address
+   * @param type
+   * @param metadata
    */
   async trackAction(
     address: string,
@@ -232,6 +241,8 @@ export class XOMFeeProtocolService {
   
   /**
    * Check if user is eligible for reward
+   * @param address
+   * @param type
    */
   private async checkEligibility(address: string, type: RewardType): Promise<boolean> {
     try {
@@ -254,6 +265,7 @@ export class XOMFeeProtocolService {
   
   /**
    * Get rewards summary for an address
+   * @param address
    */
   async getRewardsSummary(address: string): Promise<RewardsSummary> {
     // Check cache first
@@ -283,6 +295,7 @@ export class XOMFeeProtocolService {
   
   /**
    * Process rewards data from validator
+   * @param data
    */
   private processRewardsData(data: any): RewardsSummary {
     const byType = new Map<RewardType, { count: number; total: string }>();
@@ -316,6 +329,7 @@ export class XOMFeeProtocolService {
   
   /**
    * Claim pending rewards
+   * @param address
    */
   async claimRewards(address: string): Promise<{
     success: boolean;
@@ -388,6 +402,8 @@ export class XOMFeeProtocolService {
   
   /**
    * Get reward history
+   * @param address
+   * @param limit
    */
   async getRewardHistory(
     address: string,
@@ -411,6 +427,7 @@ export class XOMFeeProtocolService {
   
   /**
    * Get reward leaderboard
+   * @param period
    */
   async getLeaderboard(period: 'daily' | 'weekly' | 'monthly' = 'weekly'): Promise<Array<{
     address: string;
@@ -435,6 +452,7 @@ export class XOMFeeProtocolService {
   
   /**
    * Get reward configuration
+   * @param type
    */
   getRewardConfig(type: RewardType): RewardConfig | undefined {
     return this.rewardConfigs.get(type);
@@ -482,6 +500,7 @@ export class XOMFeeProtocolService {
   
   /**
    * Format reward amount for display
+   * @param amount
    */
   formatReward(amount: string): string {
     return `${parseFloat(amount).toFixed(3)} XOM`;

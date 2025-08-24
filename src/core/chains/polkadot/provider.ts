@@ -10,25 +10,73 @@ import { encodeAddress, decodeAddress } from '@polkadot/util-crypto';
 import { BaseProvider } from '../base-provider';
 import { NetworkConfig, Transaction, TransactionRequest } from '@/types';
 
+/**
+ *
+ */
 export interface PolkadotNetworkConfig extends NetworkConfig {
+  /**
+   *
+   */
   prefix: number;
+  /**
+   *
+   */
   genesisHash: string;
+  /**
+   *
+   */
   decimals: number;
+  /**
+   *
+   */
   existentialDeposit: string;
 }
 
+/**
+ *
+ */
 export interface SubstrateTransaction {
+  /**
+   *
+   */
   from: string;
+  /**
+   *
+   */
   to: string;
+  /**
+   *
+   */
   value: string;
+  /**
+   *
+   */
   method: string;
+  /**
+   *
+   */
   section: string;
+  /**
+   *
+   */
   args: Array<string | number | boolean>;
+  /**
+   *
+   */
   era?: string;
+  /**
+   *
+   */
   nonce?: number;
+  /**
+   *
+   */
   tip?: string;
 }
 
+/**
+ *
+ */
 export class PolkadotProvider extends BaseProvider {
   protected api: ApiPromise | null = null;
   protected wsProvider: WsProvider;
@@ -38,6 +86,10 @@ export class PolkadotProvider extends BaseProvider {
   protected decimals: number;
   protected existentialDeposit: string;
 
+  /**
+   *
+   * @param config
+   */
   constructor(config: PolkadotNetworkConfig) {
     super(config);
     this.prefix = config.prefix;
@@ -71,8 +123,15 @@ export class PolkadotProvider extends BaseProvider {
 
   /**
    * Get account from private key
+   * @param privateKey
    */
-  async getAccount(privateKey: string): Promise<{ address: string; publicKey: string }> {
+  async getAccount(privateKey: string): Promise<{ /**
+                                                   *
+                                                   */
+  address: string; /**
+                    *
+                    */
+  publicKey: string }> {
     const keyPair = this.keyring.addFromUri(privateKey);
     return {
       address: keyPair.address,
@@ -82,6 +141,7 @@ export class PolkadotProvider extends BaseProvider {
 
   /**
    * Get balance for an address
+   * @param address
    */
   async getBalance(address: string): Promise<string> {
     const api = await this.ensureApi();
@@ -91,6 +151,7 @@ export class PolkadotProvider extends BaseProvider {
 
   /**
    * Get formatted balance
+   * @param address
    */
   async getFormattedBalance(address: string): Promise<string> {
     const balance = await this.getBalance(address);
@@ -100,6 +161,8 @@ export class PolkadotProvider extends BaseProvider {
 
   /**
    * Sign transaction
+   * @param privateKey
+   * @param transaction
    */
   async signTransaction(privateKey: string, transaction: TransactionRequest): Promise<string> {
     const api = await this.ensureApi();
@@ -116,6 +179,7 @@ export class PolkadotProvider extends BaseProvider {
 
   /**
    * Send transaction
+   * @param signedTransaction
    */
   async sendTransaction(signedTransaction: string): Promise<string> {
     const api = await this.ensureApi();
@@ -136,6 +200,7 @@ export class PolkadotProvider extends BaseProvider {
 
   /**
    * Get transaction details
+   * @param txHash
    */
   async getTransaction(txHash: string): Promise<Transaction> {
     const _api = await this.ensureApi();
@@ -153,6 +218,8 @@ export class PolkadotProvider extends BaseProvider {
 
   /**
    * Get transaction history
+   * @param _address
+   * @param _limit
    */
   async getTransactionHistory(_address: string, _limit?: number): Promise<Transaction[]> {
     // This would typically use Subscan API or similar indexing service
@@ -162,6 +229,7 @@ export class PolkadotProvider extends BaseProvider {
 
   /**
    * Subscribe to new blocks
+   * @param callback
    */
   async subscribeToBlocks(callback: (blockNumber: number) => void): Promise<() => void> {
     const api = await this.ensureApi();
@@ -177,6 +245,8 @@ export class PolkadotProvider extends BaseProvider {
 
   /**
    * Sign message
+   * @param privateKey
+   * @param message
    */
   async signMessage(privateKey: string, message: string): Promise<string> {
     const keyPair = this.keyring.addFromUri(privateKey);
@@ -186,6 +256,7 @@ export class PolkadotProvider extends BaseProvider {
 
   /**
    * Encode address with network prefix
+   * @param address
    */
   encodeAddress(address: string): string {
     return encodeAddress(decodeAddress(address), this.prefix);

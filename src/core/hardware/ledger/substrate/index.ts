@@ -16,16 +16,27 @@ import { bip32ToAddressNList } from "./utils";
 import { supportedPaths } from "./configs";
 import ConnectToLedger from "../ledgerConnect";
 
+/**
+ *
+ */
 class LedgerSubstrate implements HWWalletProvider {
   transport: Transport | null;
 
   network: NetworkNames;
 
+  /**
+   *
+   * @param network
+   */
   constructor(network: NetworkNames) {
     this.transport = null;
     this.network = network;
   }
 
+  /**
+   *
+   * @param options
+   */
   validatePathAndNetwork(options: getAddressRequest | SignTransactionRequest): void {
     if (!LedgerApps[this.network])
       throw new Error("ledger-substrate: Invalid network name");
@@ -36,6 +47,9 @@ class LedgerSubstrate implements HWWalletProvider {
       throw new Error("ledger-substrate: Invalid path");
   }
 
+  /**
+   *
+   */
   async init(): Promise<boolean> {
     if (!this.transport) {
       const support = await webUsbTransport.isSupported();
@@ -50,6 +64,10 @@ class LedgerSubstrate implements HWWalletProvider {
     return true;
   }
 
+  /**
+   *
+   * @param options
+   */
   async getAddress(options: getAddressRequest): Promise<AddressResponse> {
     this.validatePathAndNetwork(options);
     const app = LedgerApps[this.network];
@@ -70,33 +88,57 @@ class LedgerSubstrate implements HWWalletProvider {
       }));
   }
 
+  /**
+   *
+   */
   signMessage(): never {
     throw new Error("Not Supported");
   }
 
+  /**
+   *
+   */
   getSupportedPaths(): PathType[] {
     return supportedPaths;
   }
 
+  /**
+   *
+   */
   close(): Promise<void> {
     // eslint-disable-next-line @typescript-eslint/no-empty-function
     return this.transport.close().catch(() => {});
   }
 
+  /**
+   *
+   * @param networkName
+   */
   isConnected(networkName: NetworkNames): Promise<boolean> {
     return ConnectToLedger.bind(this)(networkName);
   }
 
+  /**
+   *
+   */
   signPersonalMessage(): Promise<string> {
     throw new Error("hw-wallet:substrate: sign Personal message not supported");
   }
 
+  /**
+   *
+   * @param _request
+   */
   signTypedMessage(_request: SignTypedMessageRequest): Promise<string> {
     return Promise.reject(
       new Error("ledger-substrate: signTypedMessage not supported"),
     );
   }
 
+  /**
+   *
+   * @param options
+   */
   async signTransaction(options: SignTransactionRequest): Promise<string> {
     this.validatePathAndNetwork(options);
     const pathValues = bip32ToAddressNList(
@@ -119,10 +161,16 @@ class LedgerSubstrate implements HWWalletProvider {
       });
   }
 
+  /**
+   *
+   */
   static getSupportedNetworks(): NetworkNames[] {
     return Object.keys(LedgerApps) as NetworkNames[];
   }
 
+  /**
+   *
+   */
   static getCapabilities(): string[] {
     return [HWwalletCapabilities.signTx];
   }

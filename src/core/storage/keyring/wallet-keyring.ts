@@ -12,29 +12,83 @@ interface HDKeyLike {
 }
 import BrowserStorage, { StorageInterface } from '../common/browser-storage';
 
+/**
+ *
+ */
 export interface Account {
+  /**
+   *
+   */
   id: string;
+  /**
+   *
+   */
   name: string;
+  /**
+   *
+   */
   address: string;
+  /**
+   *
+   */
   publicKey: string;
+  /**
+   *
+   */
   derivationPath: string;
+  /**
+   *
+   */
   chainType: 'ethereum' | 'bitcoin' | 'solana' | 'coti' | 'omnicoin';
+  /**
+   *
+   */
   createdAt: number;
 }
 
+/**
+ *
+ */
 export interface WalletData {
+  /**
+   *
+   */
   id: string;
+  /**
+   *
+   */
   name: string;
+  /**
+   *
+   */
   createdAt: number;
+  /**
+   *
+   */
   accounts: Account[];
 }
 
+/**
+ *
+ */
 export interface KeyringOptions {
+  /**
+   *
+   */
   mnemonic?: string;
+  /**
+   *
+   */
   password: string;
+  /**
+   *
+   */
   extraWord?: string;
 }
 
+/**
+ *
+ */
 class WalletKeyring {
   private storage: StorageInterface;
   private isUnlocked = false;
@@ -48,11 +102,19 @@ class WalletKeyring {
     SETTINGS: 'settings'
   };
 
+  /**
+   *
+   * @param namespace
+   */
   constructor(namespace = 'omnibazaar-wallet') {
     this.storage = new BrowserStorage(namespace);
   }
 
   // Initialize new wallet with mnemonic
+  /**
+   *
+   * @param options
+   */
   async initialize(options: KeyringOptions): Promise<void> {
     if (await this.isInitialized()) {
       throw new Error('Wallet is already initialized');
@@ -83,12 +145,19 @@ class WalletKeyring {
   }
 
   // Check if wallet is initialized
+  /**
+   *
+   */
   async isInitialized(): Promise<boolean> {
     const encryptedMnemonic = await this.storage.get(this.STORAGE_KEYS.ENCRYPTED_MNEMONIC);
     return !!encryptedMnemonic;
   }
 
   // Unlock wallet with password
+  /**
+   *
+   * @param password
+   */
   async unlock(password: string): Promise<void> {
     if (!await this.isInitialized()) {
       throw new Error('Wallet is not initialized');
@@ -124,17 +193,28 @@ class WalletKeyring {
   }
 
   // Lock wallet
+  /**
+   *
+   */
   lock(): void {
     this.isUnlocked = false;
     this.masterHDKey = null;
   }
 
   // Get wallet lock status
+  /**
+   *
+   */
   locked(): boolean {
     return !this.isUnlocked;
   }
 
   // Create new account for specified chain
+  /**
+   *
+   * @param chainType
+   * @param name
+   */
   async createAccount(chainType: Account['chainType'], name?: string): Promise<Account> {
     if (!this.isUnlocked || !this.masterHDKey || !this.walletData) {
       throw new Error('Wallet is locked');
@@ -169,6 +249,10 @@ class WalletKeyring {
   }
 
   // Get all accounts
+  /**
+   *
+   * @param chainType
+   */
   async getAccounts(chainType?: Account['chainType']): Promise<Account[]> {
     if (!this.walletData) {
       return [];
@@ -180,6 +264,10 @@ class WalletKeyring {
   }
 
   // Get account by address
+  /**
+   *
+   * @param address
+   */
   async getAccount(address: string): Promise<Account | null> {
     if (!this.walletData) {
       return null;
@@ -189,6 +277,11 @@ class WalletKeyring {
   }
 
   // Sign message with account
+  /**
+   *
+   * @param address
+   * @param message
+   */
   async signMessage(address: string, message: string): Promise<string> {
     if (!this.isUnlocked || !this.masterHDKey) {
       throw new Error('Wallet is locked');
@@ -207,6 +300,10 @@ class WalletKeyring {
   }
 
   // Get mnemonic (requires password verification)
+  /**
+   *
+   * @param password
+   */
   async getMnemonic(password: string): Promise<string> {
     if (!this.encryptedMnemonic) {
       this.encryptedMnemonic = await this.storage.get(this.STORAGE_KEYS.ENCRYPTED_MNEMONIC);
@@ -220,6 +317,9 @@ class WalletKeyring {
   }
 
   // Reset wallet (delete all data)
+  /**
+   *
+   */
   async reset(): Promise<void> {
     await this.storage.clear();
     this.lock();

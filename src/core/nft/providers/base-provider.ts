@@ -1,10 +1,25 @@
 import type { NFTItem, NFTCollection } from '../../../types/nft';
 import type { ChainProvider } from '../display/multi-chain-display';
 
+/**
+ *
+ */
 export interface BaseNFTConfig {
+  /**
+   *
+   */
   rpcUrl: string;
+  /**
+   *
+   */
   basescanApiKey?: string;
+  /**
+   *
+   */
   alchemyApiKey?: string;
+  /**
+   *
+   */
   simplehashApiKey?: string;
 }
 
@@ -22,6 +37,10 @@ export class BaseNFTProvider implements ChainProvider {
   private alchemyUrl = 'https://base-mainnet.g.alchemy.com/nft/v2';
   private simplehashUrl = 'https://api.simplehash.com/api/v0';
 
+  /**
+   *
+   * @param config
+   */
   constructor(config: BaseNFTConfig) {
     this.config = config;
     this.isConnected = Boolean(config.rpcUrl);
@@ -29,6 +48,7 @@ export class BaseNFTProvider implements ChainProvider {
 
   /**
    * Get all NFTs for a wallet address
+   * @param address
    */
   async getNFTs(address: string): Promise<NFTItem[]> {
     try {
@@ -55,6 +75,8 @@ export class BaseNFTProvider implements ChainProvider {
 
   /**
    * Get specific NFT metadata
+   * @param contractAddress
+   * @param tokenId
    */
   async getNFTMetadata(contractAddress: string, tokenId: string): Promise<NFTItem | null> {
     try {
@@ -132,6 +154,7 @@ export class BaseNFTProvider implements ChainProvider {
 
   /**
    * Get NFT collections for an address
+   * @param address
    */
   async getCollections(address: string): Promise<NFTCollection[]> {
     try {
@@ -165,6 +188,7 @@ export class BaseNFTProvider implements ChainProvider {
 
   /**
    * Fetch NFTs from Alchemy API
+   * @param address
    */
   private async fetchFromAlchemy(address: string): Promise<NFTItem[]> {
     const response = await fetch(
@@ -181,6 +205,7 @@ export class BaseNFTProvider implements ChainProvider {
 
   /**
    * Fetch NFTs from SimpleHash API
+   * @param address
    */
   private async fetchFromSimpleHash(address: string): Promise<NFTItem[]> {
     const response = await fetch(
@@ -202,6 +227,7 @@ export class BaseNFTProvider implements ChainProvider {
 
   /**
    * Transform Alchemy NFT data to our format
+   * @param nft
    */
   private transformAlchemyNFT(nft: any): NFTItem {
     const metadata = nft.metadata || {};
@@ -226,6 +252,7 @@ export class BaseNFTProvider implements ChainProvider {
 
   /**
    * Transform SimpleHash NFT data to our format
+   * @param nft
    */
   private transformSimpleHashNFT(nft: any): NFTItem {
     return {
@@ -252,6 +279,7 @@ export class BaseNFTProvider implements ChainProvider {
 
   /**
    * Fetch NFTs directly from blockchain using ethers
+   * @param address
    */
   private async fetchFromBlockchain(address: string): Promise<NFTItem[]> {
     try {
@@ -359,6 +387,8 @@ export class BaseNFTProvider implements ChainProvider {
 
   /**
    * Search NFTs on Base
+   * @param query
+   * @param limit
    */
   async searchNFTs(query: string, limit = 20): Promise<NFTItem[]> {
     try {
@@ -400,6 +430,7 @@ export class BaseNFTProvider implements ChainProvider {
 
   /**
    * Get trending NFTs on Base
+   * @param limit
    */
   async getTrendingNFTs(limit = 20): Promise<NFTItem[]> {
     try {
@@ -457,7 +488,7 @@ export class BaseNFTProvider implements ChainProvider {
               `${this.simplehashUrl}/nfts/collection/${collection.collection_id}?chains=base&limit=5`,
               {
                 headers: {
-                  'X-API-KEY': this.config.simplehashApiKey!
+                  'X-API-KEY': this.config.simplehashApiKey
                 }
               }
             );
@@ -484,6 +515,7 @@ export class BaseNFTProvider implements ChainProvider {
 
   /**
    * Update configuration
+   * @param newConfig
    */
   updateConfig(newConfig: Partial<BaseNFTConfig>): void {
     this.config = { ...this.config, ...newConfig };
