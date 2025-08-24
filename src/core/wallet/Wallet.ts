@@ -157,7 +157,7 @@ export class WalletImpl implements Wallet {
    */
   async connect(): Promise<void> {
     try {
-      if (!this.signer) {
+      if (this.signer == null) {
         throw new WalletError('Signer not initialized', 'SIGNER_ERROR');
       }
       const address = await this.signer.getAddress();
@@ -173,8 +173,12 @@ export class WalletImpl implements Wallet {
       };
 
       // Set up event listeners
-      this.provider.on('accountsChanged', this.handleAccountChange.bind(this));
-      this.provider.on('chainChanged', this.handleNetworkChange.bind(this));
+      this.provider.on('accountsChanged', (accounts: string[]) => {
+        void this.handleAccountChange(accounts);
+      });
+      this.provider.on('chainChanged', (chainId: string) => {
+        void this.handleNetworkChange(chainId);
+      });
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       throw new WalletError(`Failed to connect wallet: ${errorMessage}`, 'CONNECTION_ERROR');
@@ -184,7 +188,7 @@ export class WalletImpl implements Wallet {
   /**
    * Disconnects the wallet and cleans up event listeners
    */
-  async disconnect(): Promise<void> {
+  disconnect(): void {
     this.state = null;
     this.provider.removeAllListeners();
   }
@@ -194,8 +198,8 @@ export class WalletImpl implements Wallet {
    * @returns The wallet address
    * @throws {WalletError} When wallet is not connected
    */
-  async getAddress(): Promise<string> {
-    if (!this.state) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
+  getAddress(): string {
+    if (this.state == null) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
     return this.state.address;
   }
 
@@ -206,7 +210,7 @@ export class WalletImpl implements Wallet {
    * @throws {WalletError} When wallet is not connected
    */
   async getBalance(assetSymbol?: string): Promise<bigint | string> {
-    if (!this.state) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
+    if (this.state == null) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
 
     if (assetSymbol === 'OMNI') {
       const balance = await getOmniCoinBalance(this.state.address, this.provider);
@@ -221,8 +225,8 @@ export class WalletImpl implements Wallet {
    * @returns The chain ID as a number
    * @throws {WalletError} When wallet is not connected
    */
-  async getChainId(): Promise<number> {
-    if (!this.state) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
+  getChainId(): number {
+    if (this.state == null) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
     return this.state.chainId;
   }
 
@@ -241,8 +245,8 @@ export class WalletImpl implements Wallet {
    * @throws {WalletError} When wallet is not connected, signer not initialized, or transaction fails
    */
   async sendTransaction(transaction: Transaction): Promise<TransactionResponse> {
-    if (!this.state) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
-    if (!this.signer) throw new WalletError('Signer not initialized', 'SIGNER_ERROR');
+    if (this.state == null) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
+    if (this.signer == null) throw new WalletError('Signer not initialized', 'SIGNER_ERROR');
 
     try {
       const tx = await this.signer.sendTransaction(transaction.toEthersTransaction());
@@ -261,8 +265,8 @@ export class WalletImpl implements Wallet {
    * @throws {WalletError} When wallet is not connected or signer not initialized
    */
   async signTransaction(transaction: Transaction): Promise<string> {
-    if (!this.state) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
-    if (!this.signer) throw new WalletError('Signer not initialized', 'SIGNER_ERROR');
+    if (this.state == null) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
+    if (this.signer == null) throw new WalletError('Signer not initialized', 'SIGNER_ERROR');
     const tx = transaction.toEthersTransaction();
     return this.signer.signTransaction(tx);
   }
@@ -274,8 +278,8 @@ export class WalletImpl implements Wallet {
    * @throws {WalletError} When wallet is not connected or signer not initialized
    */
   async signMessage(message: string): Promise<string> {
-    if (!this.state) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
-    if (!this.signer) throw new WalletError('Signer not initialized', 'SIGNER_ERROR');
+    if (this.state == null) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
+    if (this.signer == null) throw new WalletError('Signer not initialized', 'SIGNER_ERROR');
     return this.signer.signMessage(message);
   }
 
@@ -286,7 +290,7 @@ export class WalletImpl implements Wallet {
    * @throws {WalletError} When wallet is not connected
    */
   async getTokenBalance(tokenAddress: string): Promise<bigint> {
-    if (!this.state) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
+    if (this.state == null) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
 
     if (tokenAddress.toLowerCase() === OmniCoinMetadata.contractAddress.toLowerCase()) {
       return this.getBalance('OMNI') as Promise<bigint>;
@@ -305,9 +309,9 @@ export class WalletImpl implements Wallet {
    * @throws {WalletError} When wallet is not connected or signer not initialized
    */
   async approveToken(tokenAddress: string, spender: string, amount: bigint): Promise<TransactionResponse> {
-    if (!this.state) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
+    if (this.state == null) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
 
-    if (!this.signer) throw new WalletError('Signer not initialized', 'SIGNER_ERROR');
+    if (this.signer == null) throw new WalletError('Signer not initialized', 'SIGNER_ERROR');
     const contract = new Contract(tokenAddress, ['function approve(address,uint256)'], this.signer);
     return contract.approve(spender, amount);
   }
@@ -374,7 +378,7 @@ export class WalletImpl implements Wallet {
    * @throws {WalletError} When wallet is not connected
    */
   async getState(): Promise<WalletState> {
-    if (!this.state) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
+    if (this.state == null) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
     return this.state;
   }
 
@@ -389,10 +393,10 @@ export class WalletImpl implements Wallet {
       const address = accounts[0];
       const balance = await this.provider.getBalance(address);
       const nonce = await this.provider.getTransactionCount(address);
-      if (!this.state) throw new Error('Wallet state not initialized');
+      if (this.state == null) throw new Error('Wallet state not initialized');
       this.state = { ...this.state, address, balance, nonce };
     }
-    this.accountChangeCallbacks.forEach(callback => callback(accounts[0] || ''));
+    this.accountChangeCallbacks.forEach(callback => callback(accounts[0] ?? ''));
   }
 
   /**
@@ -401,7 +405,7 @@ export class WalletImpl implements Wallet {
    */
   private async handleNetworkChange(chainId: string): Promise<void> {
     const newChainId = parseInt(chainId, 16);
-    if (!this.state) throw new Error('Wallet state not initialized');
+    if (this.state == null) throw new Error('Wallet state not initialized');
     this.state = { ...this.state, chainId: newChainId };
     this.networkChangeCallbacks.forEach(callback => callback(newChainId));
   }
@@ -411,8 +415,8 @@ export class WalletImpl implements Wallet {
    * @param amount
    */
   async stakeOmniCoin(amount: bigint): Promise<TransactionResponse> {
-    if (!this.state) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
-    if (!this.provider) throw new WalletError('Provider not initialized', 'NO_PROVIDER');
+    if (this.state == null) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
+
 
     // Get staking contract address from network config
     const stakingContract = '0x1234567890123456789012345678901234567890'; // TODO: Get from config
@@ -446,8 +450,8 @@ export class WalletImpl implements Wallet {
    * @param amount
    */
   async unstakeOmniCoin(amount: bigint): Promise<TransactionResponse> {
-    if (!this.state) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
-    if (!this.provider) throw new WalletError('Provider not initialized', 'NO_PROVIDER');
+    if (this.state == null) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
+
 
     // Get staking contract address from network config
     const stakingContract = '0x1234567890123456789012345678901234567890'; // TODO: Get from config
@@ -485,8 +489,8 @@ export class WalletImpl implements Wallet {
    *
    */
   async getStakedBalance(): Promise<bigint> {
-    if (!this.state) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
-    if (!this.provider) throw new WalletError('Provider not initialized', 'NO_PROVIDER');
+    if (this.state == null) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
+
 
     // Get staking contract address from network config
     const stakingContract = '0x1234567890123456789012345678901234567890'; // TODO: Get from config
@@ -512,8 +516,8 @@ export class WalletImpl implements Wallet {
    *
    */
   async createPrivacyAccount(): Promise<TransactionResponse> {
-    if (!this.state) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
-    if (!this.provider) throw new WalletError('Provider not initialized', 'NO_PROVIDER');
+    if (this.state == null) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
+
 
     // COTI V2 privacy contract address
     const privacyContract = '0x2345678901234567890123456789012345678901'; // TODO: Get from config
@@ -559,8 +563,8 @@ export class WalletImpl implements Wallet {
    *
    */
   async closePrivacyAccount(): Promise<TransactionResponse> {
-    if (!this.state) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
-    if (!this.provider) throw new WalletError('Provider not initialized', 'NO_PROVIDER');
+    if (this.state == null) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
+
 
     // COTI V2 privacy contract address
     const privacyContract = '0x2345678901234567890123456789012345678901'; // TODO: Get from config
@@ -609,8 +613,8 @@ export class WalletImpl implements Wallet {
    *
    */
   async getPrivacyBalance(): Promise<bigint> {
-    if (!this.state) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
-    if (!this.provider) throw new WalletError('Provider not initialized', 'NO_PROVIDER');
+    if (this.state == null) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
+
 
     // COTI V2 privacy contract address
     const privacyContract = '0x2345678901234567890123456789012345678901'; // TODO: Get from config
@@ -651,8 +655,8 @@ export class WalletImpl implements Wallet {
    * @param actions
    */
   async proposeGovernanceAction(description: string, actions: GovernanceAction[]): Promise<TransactionResponse> {
-    if (!this.state) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
-    if (!this.provider) throw new WalletError('Provider not initialized', 'NO_PROVIDER');
+    if (this.state == null) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
+
 
     // Governance contract address
     const governanceContract = '0x3456789012345678901234567890123456789012'; // TODO: Get from config
@@ -701,8 +705,8 @@ export class WalletImpl implements Wallet {
    * @param support
    */
   async voteOnProposal(proposalId: number, support: boolean): Promise<TransactionResponse> {
-    if (!this.state) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
-    if (!this.provider) throw new WalletError('Provider not initialized', 'NO_PROVIDER');
+    if (this.state == null) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
+
 
     // Governance contract address
     const governanceContract = '0x3456789012345678901234567890123456789012'; // TODO: Get from config

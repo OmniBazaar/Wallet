@@ -30,174 +30,97 @@ export interface ValidatorWalletConfig {
 
 /** Represents a wallet account */
 export interface WalletAccount {
-  /**
-   *
-   */
+  /** Unique account identifier */
   id: string;
-  /**
-   *
-   */
+  /** Wallet address */
   address: string;
-  /**
-   *
-   */
+  /** Human-readable account name */
   name: string;
-  /**
-   *
-   */
+  /** Type of wallet account */
   type: 'mnemonic' | 'private-key' | 'ledger' | 'trezor';
-  /**
-   *
-   */
+  /** Chain ID for this account */
   chainId: string;
-  /**
-   *
-   */
+  /** Account balance in native currency */
   balance: string;
-  /**
-   *
-   */
+  /** BIP44 derivation path for this account */
   derivationPath?: string;
-  /**
-   *
-   */
+  /** Public key for the account */
   publicKey?: string;
-  /**
-   *
-   */
+  /** Additional metadata for the account */
   metadata: Record<string, unknown>;
 }
 
-/**
- *
- */
+/** Represents a transaction request for the validator wallet */
 export interface TransactionRequest {
-  /**
-   *
-   */
+  /** Sender wallet address */
   from: string;
-  /**
-   *
-   */
+  /** Recipient address */
   to: string;
-  /**
-   *
-   */
+  /** Transaction value in wei */
   value: string;
-  /**
-   *
-   */
+  /** Optional transaction data */
   data?: string;
-  /**
-   *
-   */
+  /** Chain ID for the transaction */
   chainId: string;
-  /**
-   *
-   */
+  /** Optional nonce for the transaction */
   nonce?: number;
-  /**
-   *
-   */
+  /** Optional gas limit for the transaction */
   gasLimit?: string;
-  /**
-   *
-   */
+  /** Optional gas price for the transaction */
   gasPrice?: string;
-  /**
-   *
-   */
+  /** Transaction type (EIP-2718) */
   type?: number;
 }
 
-/**
- *
- */
+/** Result of a transaction execution */
 export interface TransactionResult {
-  /**
-   *
-   */
+  /** Whether the transaction was successful */
   success: boolean;
-  /**
-   *
-   */
+  /** Transaction hash if successful */
   txHash?: string;
-  /**
-   *
-   */
+  /** Block number where transaction was mined */
   blockNumber?: number;
-  /**
-   *
-   */
+  /** Number of confirmations received */
   confirmations?: number;
-  /**
-   *
-   */
+  /** Error message if transaction failed */
   error?: string;
 }
 
-/**
- *
- */
+/** Represents a wallet backup for secure storage */
 export interface WalletBackup {
-  /**
-   *
-   */
+  /** Unique backup identifier */
   id: string;
-  /**
-   *
-   */
+  /** User ID associated with this backup */
   userId: string;
-  /**
-   *
-   */
+  /** Encrypted wallet data */
   encryptedData: string;
-  /**
-   *
-   */
+  /** Timestamp when backup was created */
   timestamp: number;
-  /**
-   *
-   */
+  /** Backup format version */
   version: string;
-  /**
-   *
-   */
+  /** Checksum for data integrity verification */
   checksum: string;
 }
 
-/**
- *
- */
+/** ENS (Ethereum Name Service) resolution result */
 export interface ENSResolution {
-  /**
-   *
-   */
+  /** Resolved Ethereum address */
   address: string;
-  /**
-   *
-   */
+  /** ENS domain name */
   name: string;
-  /**
-   *
-   */
+  /** Avatar image URL if available */
   avatar?: string;
-  /**
-   *
-   */
+  /** Profile description if available */
   description?: string;
-  /**
-   *
-   */
+  /** Social media links if available */
   social?: Record<string, string>;
-  /**
-   *
-   */
+  /** Whether the ENS record is verified */
   verified: boolean;
 }
 
 /**
- *
+ * Service for managing wallet operations with validator network integration.
+ * Provides account management, transactions, and backup functionality.
  */
 export class ValidatorWalletService {
   private client: AvalancheValidatorClient;
@@ -217,6 +140,7 @@ export class ValidatorWalletService {
    */
   constructor(config: ValidatorWalletConfig) {
     this.config = config;
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
     this.client = createAvalancheValidatorClient({
       validatorEndpoint: config.validatorEndpoint,
       wsEndpoint: config.wsEndpoint,
@@ -230,8 +154,10 @@ export class ValidatorWalletService {
   async initialize(): Promise<void> {
     try {
       // Check validator health
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
       const health = await this.client.checkHealth();
-      if (!health.data?.health?.healthy) {
+      // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions, @typescript-eslint/no-unsafe-member-access
+      if (!(health as any).data?.health?.healthy) {
         throw new Error('Validator service is not healthy');
       }
 
@@ -290,16 +216,16 @@ export class ValidatorWalletService {
 
       switch (type) {
         case 'mnemonic':
-          if (options?.mnemonic) {
+          if (options?.mnemonic != null) {
             wallet = ethers.Wallet.fromPhrase(options.mnemonic);
           } else {
             wallet = ethers.Wallet.createRandom();
           }
-          derivationPath = options?.derivationPath || "m/44'/60'/0'/0/0";
+          derivationPath = options?.derivationPath ?? "m/44'/60'/0'/0/0";
           break;
 
         case 'private-key':
-          if (!options?.privateKey) {
+          if (options?.privateKey == null) {
             throw new Error('Private key required');
           }
           wallet = new ethers.Wallet(options.privateKey);
