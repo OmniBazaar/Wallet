@@ -4,62 +4,38 @@ import { PolygonNFTProvider } from '../providers/polygon-provider';
 import { SolanaNFTProvider } from '../providers/solana-provider';
 
 /**
- *
+ * Static configuration for a supported blockchain.
  */
 export interface ChainConfig {
-  /**
-   *
-   */
+  /** Human‑readable chain name */
   name: string;
-  /**
-   *
-   */
+  /** Numeric chain id (custom id for non‑EVM like Solana) */
   chainId: number;
-  /**
-   *
-   */
+  /** Public RPC endpoint */
   rpcUrl: string;
-  /**
-   *
-   */
+  /** Block explorer base URL */
   explorer: string;
-  /**
-   *
-   */
+  /** Supported NFT standards on this chain */
   nftStandards: string[];
-  /**
-   *
-   */
+  /** Marketplaces commonly used on this chain */
   supportedMarketplaces: string[];
 }
 
 /**
- *
+ * Provider abstraction for fetching NFTs/collections on a chain.
  */
 export interface ChainProvider {
-  /**
-   *
-   */
+  /** Numeric chain id */
   chainId: number;
-  /**
-   *
-   */
+  /** Chain name */
   name: string;
-  /**
-   *
-   */
+  /** Whether the provider is connected */
   isConnected: boolean;
-  /**
-   *
-   */
+  /** Fetch NFTs for a wallet address */
   getNFTs(address: string): Promise<NFTItem[]>;
-  /**
-   *
-   */
+  /** Fetch metadata for a specific NFT */
   getNFTMetadata(contractAddress: string, tokenId: string): Promise<NFTItem | null>;
-  /**
-   *
-   */
+  /** Fetch NFT collections owned by a wallet */
   getCollections(address: string): Promise<NFTCollection[]>;
 }
 
@@ -72,9 +48,7 @@ export class MultiChainNFTDisplay {
   private providers: Map<number, ChainProvider> = new Map();
   private enabledChains: Set<number> = new Set();
 
-  /**
-   *
-   */
+  /** Initialize with default supported chains. */
   constructor() {
     this.initializeSupportedChains();
   }
@@ -152,8 +126,9 @@ export class MultiChainNFTDisplay {
   }
 
   /**
-   * Get all NFTs from enabled chains for a given address
-   * @param address
+   * Get NFTs from all enabled chains for a given address.
+   * Returns a flattened list and a per‑chain breakdown.
+   * @param address Wallet address
    */
   async getAllNFTs(address: string): Promise<{
     nfts: NFTItem[];
@@ -190,8 +165,8 @@ export class MultiChainNFTDisplay {
   }
 
   /**
-   * Get NFT collections from all enabled chains
-   * @param address
+   * Get NFT collections from all enabled chains for a wallet address.
+   * @param address Wallet address
    */
   async getAllCollections(address: string): Promise<{
     collections: NFTCollection[];

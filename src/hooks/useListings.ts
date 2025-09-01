@@ -3,6 +3,9 @@ import { useWallet } from './useWallet';
 import { ListingMetadata, SearchFilters } from '../types/listing';
 import { OmniProvider } from '../core/providers/OmniProvider';
 
+/**
+ * Return type for the `useListings` hook.
+ */
 interface UseListingsReturn {
     listings: ListingMetadata[];
     isLoading: boolean;
@@ -15,8 +18,12 @@ interface UseListingsReturn {
 }
 
 /**
+ * React hook for discovering and fetching marketplace listings.
+ * Tries OmniProvider (P2P validator network) first and falls back to
+ * the HTTP API. Exposes search, single fetch, and refresh helpers.
  *
- * @param contractAddress
+ * @param contractAddress Marketplace NFT or listing contract address
+ * @returns Listing data, loading state, pagination and helpers
  */
 export const useListings = (contractAddress: string): UseListingsReturn => {
     const { provider } = useWallet();

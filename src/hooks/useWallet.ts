@@ -4,7 +4,13 @@ import { WalletState, WalletError } from '../types';
 import { getProvider, getAvailableProviders } from '../config/providers';
 import { getNetworkByChainId } from '../config/networks';
 
-/** Hook for managing wallet connection state and operations */
+/**
+ * React hook for managing wallet connection state and operations.
+ * Provides connect/disconnect, network switching, and a list of
+ * available wallet providers discovered in the environment.
+ *
+ * Note: This hook wraps an EIP‑1193 provider with `ethers.BrowserProvider`.
+ */
 export const useWallet = (): {
     /** Current connected wallet address */
     address: string | null;
@@ -42,7 +48,10 @@ export const useWallet = (): {
         error: null
     });
 
-    const resetState = useCallback(() => {
+    /**
+     * Reset internal wallet state to its initial (disconnected) values.
+     */
+    const resetState = useCallback((): void => {
         setState({
             address: null,
             chainId: null,
@@ -52,7 +61,13 @@ export const useWallet = (): {
         });
     }, []);
 
-    const connect = useCallback(async (providerId: string) => {
+    /**
+     * Connect to a wallet provider by its configured ID.
+     * Resolves after accounts are requested and the network is detected.
+     *
+     * @param providerId Identifier of the wallet provider to connect
+     */
+    const connect = useCallback(async (providerId: string): Promise<void> => {
         try {
             setState(prev => ({ ...prev, isConnecting: true, error: null }));
 
@@ -107,7 +122,11 @@ export const useWallet = (): {
         }
     }, [resetState]);
 
-    const disconnect = useCallback(() => {
+    /**
+     * Disconnect from the current provider if supported and
+     * clear local connection state.
+     */
+    const disconnect = useCallback((): void => {
         if (state.provider) {
             const provider = state.provider.provider;
             if (provider.disconnect) {
@@ -117,7 +136,13 @@ export const useWallet = (): {
         resetState();
     }, [state.provider, resetState]);
 
-    const switchNetwork = useCallback(async (chainId: number) => {
+    /**
+     * Request the wallet to switch to a different EVM network.
+     * If the chain is unknown to the wallet, it attempts to add it.
+     *
+     * @param chainId Target chain ID as a decimal number
+     */
+    const switchNetwork = useCallback(async (chainId: number): Promise<void> => {
         try {
             if (!state.provider) {
                 throw new Error('No provider connected');
@@ -172,6 +197,9 @@ export const useWallet = (): {
         }
     }, [state.provider]);
 
+    /**
+     * Return the list of available wallet providers for the UI.
+     */
     const getAvailableWallets = useCallback(() => {
         return getAvailableProviders();
     }, []);

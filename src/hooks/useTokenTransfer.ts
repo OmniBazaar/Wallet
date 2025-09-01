@@ -8,29 +8,24 @@ const ERC20_ABI = [
 ];
 
 /**
+ * React hook that provides safe ERC‑20 token transfer helpers.
+ * Returns reactive state for transfer progress and errors, plus
+ * convenience methods for `transfer` and `transferFrom` using the
+ * connected wallet signer.
  *
- * @param tokenAddress
+ * @param tokenAddress Contract address of the ERC‑20 token
+ * @returns Reactive state and transfer helpers
  */
 export const useTokenTransfer = (tokenAddress: string): {
-    /**
-     *
-     */
+    /** Whether a transfer is currently in progress */
     isTransferring: boolean;
-    /**
-     *
-     */
+    /** Last error message (if any) */
     error: string | null;
-    /**
-     *
-     */
+    /** Last successful transaction hash */
     lastTxHash: string | null;
-    /**
-     *
-     */
+    /** Transfer tokens from the connected account to `to` */
     transfer: (to: string, amount: string) => Promise<ethers.TransactionReceipt>;
-    /**
-     *
-     */
+    /** Transfer tokens from `from` to `to` (requires prior allowance) */
     transferFrom: (from: string, to: string, amount: string) => Promise<ethers.TransactionReceipt>;
 } => {
     const { provider, address } = useWallet();

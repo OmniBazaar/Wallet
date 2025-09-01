@@ -45,37 +45,21 @@ const TOKEN_ABI = [
 export interface StakeInfo {
   /** Staking tier (0-3) */
   tier: number;
-  /**
-   *
-   */
+  /** Unix timestamp (seconds) when stake started */
   startTime: number;
-  /**
-   *
-   */
+  /** Unix timestamp (seconds) of last reward accrual */
   lastRewardTime: number;
-  /**
-   *
-   */
+  /** Commitment duration in days */
   commitmentDuration: number;
-  /**
-   *
-   */
+  /** Whether stake is currently active */
   isActive: boolean;
-  /**
-   *
-   */
+  /** Whether privacy staking is used */
   usePrivacy: boolean;
-  /**
-   *
-   */
+  /** Actual staked amount (omitted for private stakes) */
   balance?: string; // Actual stake amount (if not private)
-  /**
-   *
-   */
+  /** Pending rewards in XOM */
   rewards?: string; // Pending rewards
-  /**
-   *
-   */
+  /** Current participation score affecting rewards */
   participationScore?: number;
 }
 
@@ -83,25 +67,17 @@ export interface StakeInfo {
  *
  */
 export interface StakingStats {
-  /**
-   *
-   */
+  /** Total XOM staked across all users */
   totalStaked: string;
-  /**
-   *
-   */
+  /** Number of distinct stakers */
   totalStakers: number;
-  /**
-   *
-   */
+  /** Average APY across tiers */
   averageAPY: number;
   /**
    *
    */
   userStake?: StakeInfo;
-  /**
-   *
-   */
+  /** Whether staking is currently enabled */
   isEnabled: boolean;
 }
 
@@ -109,33 +85,21 @@ export interface StakingStats {
  *
  */
 export interface StakingTier {
-  /**
-   *
-   */
+  /** Tier identifier */
   id: number;
-  /**
-   *
-   */
+  /** Display name */
   name: string;
-  /**
-   *
-   */
+  /** Minimum stake for this tier */
   minStake: string;
-  /**
-   *
-   */
+  /** Maximum stake for this tier */
   maxStake: string;
   /**
    *
    */
   baseAPY: number;
-  /**
-   *
-   */
+  /** Total active stakers in this tier */
   totalStakers: number;
-  /**
-   *
-   */
+  /** Aggregated tier weight (used for rewards) */
   totalWeight: number;
 }
 

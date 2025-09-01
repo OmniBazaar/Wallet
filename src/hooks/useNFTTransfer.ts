@@ -11,22 +11,20 @@ const ERC1155_ABI = [
 ];
 
 /**
+ * React hook that exposes NFT transfer helpers for ERC‑721 and ERC‑1155.
+ * Creates a contract instance with the connected signer and provides a
+ * single `transfer` function that adapts to the token standard.
  *
- * @param contractAddress
- * @param tokenType
+ * @param contractAddress NFT contract address
+ * @param tokenType Token standard: 'ERC721' or 'ERC1155'
+ * @returns Reactive state and `transfer` helper
  */
 export const useNFTTransfer = (contractAddress: string, tokenType: 'ERC721' | 'ERC1155'): {
-    /**
-     *
-     */
+    /** Whether a transfer is currently in progress */
     isTransferring: boolean;
-    /**
-     *
-     */
+    /** Last error message (if any) */
     error: string | null;
-    /**
-     *
-     */
+    /** Transfer an NFT (amount is used only for ERC‑1155) */
     transfer: (to: string, tokenId: string, amount?: string) => Promise<ethers.TransactionReceipt>;
 } => {
     const { provider, address } = useWallet();

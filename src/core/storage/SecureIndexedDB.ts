@@ -27,8 +27,8 @@ export class SecureIndexedDB {
   }
 
   /**
-   * Initialize the database and encryption key
-   * @param password
+   * Initialize the database and derive the encryption key from a password.
+   * @param password User password used for key derivation
    */
   async initialize(password: string): Promise<void> {
     // Derive encryption key from password
@@ -118,10 +118,10 @@ export class SecureIndexedDB {
   }
 
   /**
-   * Store encrypted data
-   * @param key
-   * @param data
-   * @param type
+   * Store encrypted JSON‑serializable data under a key.
+   * @param key Unique key for the record
+   * @param data Arbitrary JSON‑serializable payload
+   * @param type Optional logical type classification
    */
   async store(key: string, data: any, type = 'general'): Promise<void> {
     if (!this.db || !this.encryptionKey) {
@@ -154,8 +154,9 @@ export class SecureIndexedDB {
   }
 
   /**
-   * Retrieve and decrypt data
-   * @param key
+   * Retrieve and decrypt data previously stored under a key.
+   * @param key Storage key
+   * @returns Parsed JSON object or null if not found
    */
   async retrieve(key: string): Promise<any> {
     if (!this.db || !this.encryptionKey) {
@@ -195,8 +196,8 @@ export class SecureIndexedDB {
   }
 
   /**
-   * Delete data
-   * @param key
+   * Delete a record by key.
+   * @param key Storage key to remove
    */
   async delete(key: string): Promise<void> {
     if (!this.db) {
@@ -213,9 +214,7 @@ export class SecureIndexedDB {
     });
   }
 
-  /**
-   * Clear all data
-   */
+  /** Clear all data from the secure store. */
   async clear(): Promise<void> {
     if (!this.db) {
       throw new Error('Database not initialized');
@@ -232,8 +231,9 @@ export class SecureIndexedDB {
   }
 
   /**
-   * Encrypt data with AES-GCM
-   * @param data
+   * Encrypt a UTF‑8 string with AES‑GCM using the derived key.
+   * @param data Plaintext UTF‑8 string
+   * @returns Encrypted payload with IV/salt/timestamp
    */
   private async encryptData(data: string): Promise<EncryptedData> {
     const encoder = new TextEncoder();
@@ -265,8 +265,9 @@ export class SecureIndexedDB {
   }
 
   /**
-   * Decrypt data with AES-GCM
-   * @param encrypted
+   * Decrypt an AES‑GCM payload using the derived key.
+   * @param encrypted Encrypted payload with IV
+   * @returns Decrypted UTF‑8 plaintext
    */
   private async decryptData(encrypted: EncryptedData): Promise<string> {
     const decoder = new TextDecoder();
@@ -289,16 +290,12 @@ export class SecureIndexedDB {
     return decoder.decode(decrypted);
   }
 
-  /**
-   * Check if database is initialized
-   */
+  /** Return true when DB and encryption key are initialized. */
   isInitialized(): boolean {
     return this.db !== null && this.encryptionKey !== null;
   }
 
-  /**
-   * Close database connection
-   */
+  /** Close the database connection and clear the key from memory. */
   close(): void {
     if (this.db) {
       this.db.close();
@@ -308,8 +305,8 @@ export class SecureIndexedDB {
   }
 
   /**
-   * Get all keys of a specific type
-   * @param type
+   * Get all keys that match a logical `type` classification.
+   * @param type Logical type index value
    */
   async getKeysByType(type: string): Promise<string[]> {
     if (!this.db) {
@@ -327,9 +324,7 @@ export class SecureIndexedDB {
     });
   }
 
-  /**
-   * Export all data (encrypted)
-   */
+  /** Export all encrypted records as a JSON string. */
   async exportEncrypted(): Promise<string> {
     if (!this.db) {
       throw new Error('Database not initialized');
@@ -350,8 +345,8 @@ export class SecureIndexedDB {
   }
 
   /**
-   * Import encrypted data
-   * @param encryptedData
+   * Import a JSON string of encrypted records, replacing current contents.
+   * @param encryptedData JSON string produced by exportEncrypted
    */
   async importEncrypted(encryptedData: string): Promise<void> {
     if (!this.db) {

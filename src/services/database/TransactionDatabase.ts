@@ -54,13 +54,9 @@ export interface TransactionRecord {
   confirmedAt?: Date;
   /** Additional transaction metadata */
   metadata?: Record<string, unknown>;
-  /**
-   *
-   */
+  /** Free-form user notes about this tx */
   notes?: string;
-  /**
-   *
-   */
+  /** Optional list of tags for filtering */
   tags?: string[];
 }
 
@@ -68,53 +64,29 @@ export interface TransactionRecord {
  * Transaction filters
  */
 export interface TransactionFilters {
-  /**
-   *
-   */
+  /** User address to filter by */
   userAddress?: string;
-  /**
-   *
-   */
+  /** Transaction type to filter by */
   txType?: TransactionRecord['txType'];
-  /**
-   *
-   */
+  /** Status filter */
   status?: TransactionRecord['status'];
-  /**
-   *
-   */
+  /** Token symbol filter */
   tokenSymbol?: string;
-  /**
-   *
-   */
+  /** Start date for date range */
   fromDate?: Date;
-  /**
-   *
-   */
+  /** End date for date range */
   toDate?: Date;
-  /**
-   *
-   */
+  /** Minimum amount filter */
   minAmount?: string;
-  /**
-   *
-   */
+  /** Maximum amount filter */
   maxAmount?: string;
-  /**
-   *
-   */
+  /** Sort column */
   sortBy?: 'date' | 'amount' | 'status';
-  /**
-   *
-   */
+  /** Sort order */
   sortOrder?: 'asc' | 'desc';
-  /**
-   *
-   */
+  /** Page size */
   limit?: number;
-  /**
-   *
-   */
+  /** Page offset */
   offset?: number;
 }
 
@@ -122,29 +94,17 @@ export interface TransactionFilters {
  * Transaction statistics
  */
 export interface TransactionStats {
-  /**
-   *
-   */
+  /** Total number of transactions */
   totalTransactions: number;
-  /**
-   *
-   */
+  /** Sum of all transaction amounts (string) */
   totalVolume: string;
-  /**
-   *
-   */
+  /** Number of pending transactions */
   pendingCount: number;
-  /**
-   *
-   */
+  /** Number of failed transactions */
   failedCount: number;
-  /**
-   *
-   */
+  /** Average gas price across records */
   averageGasPrice: string;
-  /**
-   *
-   */
+  /** Most frequently used token symbol */
   mostUsedToken: string;
 }
 
@@ -158,8 +118,8 @@ export class TransactionDatabase {
   private apiEndpoint: string;
 
   /**
-   *
-   * @param apiEndpoint
+   * Construct a TransactionDatabase adapter.
+   * @param apiEndpoint Base API endpoint (defaults to /api/wallet)
    */
   constructor(apiEndpoint?: string) {
     this.apiEndpoint = apiEndpoint || '/api/wallet';

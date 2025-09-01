@@ -198,24 +198,24 @@ export class ProviderManager {
   }
 
   /**
-   * Get provider for specific chain
-   * @param chainType
+   * Get provider for a specific chain type.
+   * @param chainType Chain identifier
    */
   getProvider(chainType: ChainType): ProviderType | null {
     return this.providers.get(chainType) || null;
   }
 
   /**
-   * Get EVM provider for specific network
-   * @param networkKey
+   * Get an EVM provider for a specific EVM network key.
+   * @param networkKey Key from ALL_NETWORKS
    */
   getEVMProvider(networkKey: string): MultiChainEVMProvider | null {
     return this.evmProviders.get(networkKey) || null;
   }
 
   /**
-   * Switch to a specific EVM network
-   * @param networkKey
+   * Switch the active EVM network. Creates a provider on demand.
+   * @param networkKey Key from ALL_NETWORKS
    */
   async switchEVMNetwork(networkKey: string): Promise<void> {
     const provider = this.evmProviders.get(networkKey);
@@ -236,23 +236,17 @@ export class ProviderManager {
     }
   }
 
-  /**
-   * Get list of available EVM networks
-   */
+  /** Get list of available (initialized) EVM networks. */
   getAvailableEVMNetworks(): string[] {
     return Array.from(this.evmProviders.keys());
   }
 
-  /**
-   * Get all supported EVM networks (static)
-   */
+  /** Get all statically supported EVM network keys. */
   static getSupportedEVMNetworks(): string[] {
     return Object.keys(ALL_NETWORKS);
   }
 
-  /**
-   * Get active provider
-   */
+  /** Get the currently active provider (chain/network aware). */
   getActiveProvider(): ProviderType | null {
     // If active chain is ethereum and we have a specific EVM network active
     if (this.activeChain === 'ethereum' && this.activeNetwork !== 'ethereum') {
@@ -261,16 +255,14 @@ export class ProviderManager {
     return this.providers.get(this.activeChain) || null;
   }
 
-  /**
-   * Get active chain
-   */
+  /** Return the active chain type. */
   getActiveChain(): ChainType {
     return this.activeChain;
   }
 
   /**
-   * Set active chain
-   * @param chainType
+   * Set the active chain and update the keyring’s active account.
+   * @param chainType Chain identifier
    */
   async setActiveChain(chainType: ChainType): Promise<void> {
     if (!SUPPORTED_CHAINS[chainType]) {
@@ -286,16 +278,14 @@ export class ProviderManager {
     }
   }
 
-  /**
-   * Get network type (mainnet/testnet)
-   */
+  /** Return the current network type (mainnet/testnet). */
   getNetworkType(): NetworkType {
     return this.networkType;
   }
 
   /**
-   * Switch network type
-   * @param networkType
+   * Switch the network type across initialized providers.
+   * @param networkType New network type
    */
   async switchNetworkType(networkType: NetworkType): Promise<void> {
     this.networkType = networkType;
@@ -318,8 +308,8 @@ export class ProviderManager {
   }
 
   /**
-   * Get balance for active account
-   * @param chainType
+   * Get native balance for the active account on a chain.
+   * @param chainType Optional chain override (defaults to active)
    */
   async getBalance(chainType?: ChainType): Promise<string> {
     const chain = chainType || this.activeChain;
@@ -392,9 +382,7 @@ export class ProviderManager {
     }
   }
 
-  /**
-   * Get all balances for active account
-   */
+  /** Get native balances for the active account across all chains. */
   async getAllBalances(): Promise<Record<ChainType, string>> {
     const balances: Record<ChainType, string> = {} as Record<ChainType, string>;
 
@@ -411,11 +399,11 @@ export class ProviderManager {
   }
 
   /**
-   * Send transaction
-   * @param to
-   * @param amount
-   * @param chainType
-   * @param data
+   * Send a native transaction on the specified chain.
+   * @param to Recipient address
+   * @param amount Human-readable amount (e.g. "1.5")
+   * @param chainType Optional chain override
+   * @param data Optional calldata for EVM chains
    */
   async sendTransaction(
     to: string,
@@ -506,9 +494,9 @@ export class ProviderManager {
   }
 
   /**
-   * Sign message
-   * @param message
-   * @param chainType
+   * Sign an arbitrary message with the active account for a chain.
+   * @param message Message to sign
+   * @param chainType Optional chain override
    */
   async signMessage(message: string, chainType?: ChainType): Promise<string> {
     const chain = chainType || this.activeChain;

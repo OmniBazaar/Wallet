@@ -7,7 +7,10 @@ import { ethers } from 'ethers';
 import { ContractManager, ENS_CONFIG } from '../contracts/ContractConfig';
 
 /**
- *
+ * Stateless resolver that queries OmniCoin and Ethereum directly
+ * without requiring any oracle updates or paying gas. Supports:
+ * - `.omnicoin` usernames via OmniCoin registry
+ * - `.eth` names via standard ENS on Ethereum
  */
 export class TrueStatelessENSService {
   private static instance: TrueStatelessENSService;
@@ -38,7 +41,8 @@ export class TrueStatelessENSService {
   }
 
   /**
-   *
+   * Get a singleton instance of the stateless ENS service.
+   * @returns Service instance
    */
   public static getInstance(): TrueStatelessENSService {
     if (!TrueStatelessENSService.instance) {

@@ -19,7 +19,9 @@ const ERC1155_ABI = [
     'function safeTransferFrom(address from, address to, uint256 id, uint256 amount, bytes data)'
 ];
 
-/** Standard NFT metadata structure */
+/**
+ * Standard NFT metadata structure following common ERC metadata fields.
+ */
 export interface NFTMetadata {
     /** NFT name */
     name: string;
@@ -37,35 +39,28 @@ export interface NFTMetadata {
 }
 
 /**
- *
+ * Describes a single NFT owned or queried by the user.
  */
 export interface NFT {
-    /**
-     *
-     */
+    /** Contract address of the NFT */
     contractAddress: string;
-    /**
-     *
-     */
+    /** Token identifier as string */
     tokenId: string;
-    /**
-     *
-     */
+    /** Token standard */
     tokenType: 'ERC721' | 'ERC1155';
-    /**
-     *
-     */
+    /** Optional parsed metadata for display */
     metadata?: NFTMetadata;
-    /**
-     *
-     */
+    /** Optional balance (for ERC‑1155) */
     balance?: string;
 }
 
 /**
+ * Detect whether a contract implements the minimal ERC‑721 interface
+ * by probing `balanceOf` with a sentinel address.
  *
- * @param provider
- * @param address
+ * @param provider Ethers provider to use for the call
+ * @param address Contract address to test
+ * @returns True if the contract behaves like ERC‑721
  */
 export const isERC721 = async (provider: ethers.providers.Provider, address: string): Promise<boolean> => {
     try {
@@ -78,9 +73,12 @@ export const isERC721 = async (provider: ethers.providers.Provider, address: str
 };
 
 /**
+ * Detect whether a contract implements the minimal ERC‑1155 interface
+ * by probing `balanceOf` for token id 0.
  *
- * @param provider
- * @param address
+ * @param provider Ethers provider to use for the call
+ * @param address Contract address to test
+ * @returns True if the contract behaves like ERC‑1155
  */
 export const isERC1155 = async (provider: ethers.providers.Provider, address: string): Promise<boolean> => {
     try {
@@ -93,8 +91,14 @@ export const isERC1155 = async (provider: ethers.providers.Provider, address: st
 };
 
 /**
+ * Fetch and normalize NFT metadata from a tokenURI. Supports basic
+ * `ipfs://` resolution to a public IPFS gateway for convenience.
  *
- * @param tokenURI
+ * Note: This implementation currently returns mock data and should be
+ * replaced with a proper HTTP/IPFS fetch in production.
+ *
+ * @param tokenURI Token metadata URI (http(s) or ipfs)
+ * @returns Parsed NFT metadata
  */
 export const getNFTMetadata = async (tokenURI: string): Promise<NFTMetadata> => {
     try {
@@ -120,11 +124,14 @@ export const getNFTMetadata = async (tokenURI: string): Promise<NFTMetadata> => 
 };
 
 /**
+ * Read the tokenURI for a specific NFT depending on its standard.
+ * Returns an empty string on failure rather than throwing.
  *
- * @param provider
- * @param contractAddress
- * @param tokenId
- * @param tokenType
+ * @param provider Ethers provider to use for the call
+ * @param contractAddress NFT contract address
+ * @param tokenId Token identifier as string
+ * @param tokenType Token standard: 'ERC721' or 'ERC1155'
+ * @returns The token URI or an empty string if unavailable
  */
 export const getNFTTokenURI = async (
     provider: ethers.providers.Provider,
@@ -151,10 +158,14 @@ export const getNFTTokenURI = async (
 };
 
 /**
+ * Get a best‑effort list of NFTs owned by an address for a given contract.
+ * For ERC‑721, it walks `balanceOf` and `tokenOfOwnerByIndex`; for ERC‑1155,
+ * this is a simplified example that checks token id 0 only.
  *
- * @param provider
- * @param ownerAddress
- * @param contractAddress
+ * @param provider Ethers provider instance
+ * @param ownerAddress Address that owns the NFTs
+ * @param contractAddress NFT contract address to query
+ * @returns Array of NFT descriptors with optional metadata/balance
  */
 export const getOwnedNFTs = async (
     provider: ethers.providers.Provider,

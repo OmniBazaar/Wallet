@@ -2,7 +2,7 @@ import { randomBytes, createHash } from 'crypto';
 import BrowserStorage, { StorageInterface } from '../common/browser-storage';
 
 /**
- *
+ * Account descriptor stored in the simple keyring.
  */
 export interface Account {
   /**
@@ -36,7 +36,7 @@ export interface Account {
 }
 
 /**
- *
+ * Wallet metadata and account list persisted to storage.
  */
 export interface WalletData {
   /**
@@ -58,7 +58,7 @@ export interface WalletData {
 }
 
 /**
- *
+ * Options used when initializing or unlocking the keyring.
  */
 export interface KeyringOptions {
   /**
@@ -72,7 +72,8 @@ export interface KeyringOptions {
 }
 
 /**
- *
+ * Simple, browser‑storage backed keyring for development/testing.
+ * Provides init/unlock/lock and account creation for multiple chains.
  */
 class SimpleKeyring {
   private storage: StorageInterface;
@@ -87,8 +88,8 @@ class SimpleKeyring {
   };
 
   /**
-   *
-   * @param namespace
+   * Create a keyring bound to a browser storage namespace.
+   * @param namespace Storage namespace key
    */
   constructor(namespace = 'omnibazaar-wallet') {
     this.storage = new BrowserStorage(namespace);
@@ -96,8 +97,8 @@ class SimpleKeyring {
 
   // Initialize new wallet
   /**
-   *
-   * @param options
+   * Initialize a new wallet with an encrypted seed and empty account list.
+   * @param options Initialization options (mnemonic or password)
    */
   async initialize(options: KeyringOptions): Promise<void> {
     if (await this.isInitialized()) {
@@ -127,9 +128,7 @@ class SimpleKeyring {
   }
 
   // Check if wallet is initialized
-  /**
-   *
-   */
+  /** Check whether the keyring has been initialized. */
   async isInitialized(): Promise<boolean> {
     const encryptedSeed = await this.storage.get(this.STORAGE_KEYS.ENCRYPTED_SEED);
     return !!encryptedSeed;
@@ -137,8 +136,8 @@ class SimpleKeyring {
 
   // Unlock wallet with password
   /**
-   *
-   * @param password
+   * Unlock the keyring with the given password.
+   * @param password Wallet password
    */
   async unlock(password: string): Promise<void> {
     if (!await this.isInitialized()) {
@@ -169,26 +168,22 @@ class SimpleKeyring {
   }
 
   // Lock wallet
-  /**
-   *
-   */
+  /** Lock the keyring, clearing in‑memory unlocked state. */
   lock(): void {
     this.isUnlocked = false;
   }
 
   // Get wallet lock status
-  /**
-   *
-   */
+  /** Return true if the keyring is currently locked. */
   locked(): boolean {
     return !this.isUnlocked;
   }
 
   // Create new account for specified chain
   /**
-   *
-   * @param chainType
-   * @param name
+   * Create a new account for the specified chain type.
+   * @param chainType Target chain type
+   * @param name Optional display name
    */
   async createAccount(chainType: Account['chainType'], name?: string): Promise<Account> {
     if (!this.isUnlocked || !this.walletData) {

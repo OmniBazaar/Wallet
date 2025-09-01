@@ -1,5 +1,11 @@
 /**
- * Transaction Service for handling multi-chain transactions with ENS resolution
+ * Transaction Service for handling multi‑chain transactions with ENS resolution.
+ *
+ * Responsibilities:
+ * - Resolve human‑readable names (ENS/Omni usernames) to addresses per chain
+ * - Prepare, sign and persist outgoing transactions
+ * - Provide lightweight validation and gas estimation
+ * - Persist, fetch and annotate transaction history via the DB adapter
  */
 
 import { ethers } from 'ethers';
@@ -63,9 +69,14 @@ export class TransactionService {
   }
 
   /**
-   * Send transaction with ENS resolution
-   * Supports sending to bob.eth, alice.omnicoin, or regular addresses
-   * @param request
+   * Send a transaction after resolving the destination to a chain address.
+   * Supports names such as `bob.eth`, `alice.omnicoin`, or raw addresses.
+   *
+   * Persists a pending record in the transaction database on success.
+   *
+   * @param request Transaction request parameters
+   * @returns Result containing hashes and resolved addressing info
+   * @throws Error if resolution fails or user session is not available
    */
   public async sendTransaction(request: TransactionRequest): Promise<TransactionResult> {
     try {
@@ -139,39 +150,29 @@ export class TransactionService {
   }
 
   /**
-   * Get transaction history for current user
-   * @param filters
-   * @param filters.txType
-   * @param filters.status
-   * @param filters.fromDate
-   * @param filters.toDate
-   * @param filters.limit
-   * @param filters.offset
+   * Get transaction history for the current user, optionally filtered.
+   *
+   * @param filters Optional filters and pagination
+   * @param filters.txType Transaction category to include
+   * @param filters.status Status to include (pending/confirmed/failed)
+   * @param filters.fromDate Only include transactions on/after this date
+   * @param filters.toDate Only include transactions on/before this date
+   * @param filters.limit Maximum number of rows to return
+   * @param filters.offset Number of rows to skip (for pagination)
+   * @returns A list of transactions and a total count
    */
   public async getTransactionHistory(filters?: {
-    /**
-     *
-     */
+    /** Transaction category to include */
     txType?: 'send' | 'receive' | 'swap' | 'stake' | 'purchase' | 'sale';
-    /**
-     *
-     */
+    /** Status to include (pending/confirmed/failed) */
     status?: 'pending' | 'confirmed' | 'failed';
-    /**
-     *
-     */
+    /** Only include transactions on/after this date */
     fromDate?: Date;
-    /**
-     *
-     */
+    /** Only include transactions on/before this date */
     toDate?: Date;
-    /**
-     *
-     */
+    /** Maximum number of rows to return */
     limit?: number;
-    /**
-     *
-     */
+    /** Number of rows to skip (for pagination) */
     offset?: number;
   }) {
     const session = this.keyringManager.getCurrentSession();
@@ -192,8 +193,10 @@ export class TransactionService {
   }
 
   /**
-   * Get transaction by hash
-   * @param txHash
+   * Get a transaction by hash from the transaction database.
+   *
+   * @param txHash Transaction hash
+   * @returns Transaction record or null if not found
    */
   public async getTransaction(txHash: string) {
     try {
@@ -205,11 +208,12 @@ export class TransactionService {
   }
 
   /**
-   * Update transaction status (for monitoring)
-   * @param txHash
-   * @param status
-   * @param blockNumber
-   * @param confirmations
+   * Update a transaction’s status in the database (monitoring helper).
+   *
+   * @param txHash Transaction hash to update
+   * @param status New status
+   * @param blockNumber Optional block number
+   * @param confirmations Optional confirmation count
    */
   public async updateTransactionStatus(
     txHash: string,
@@ -230,7 +234,7 @@ export class TransactionService {
   }
 
   /**
-   * Get pending transactions for monitoring
+   * Return all pending transactions for the current session user.
    */
   public async getPendingTransactions() {
     const session = this.keyringManager.getCurrentSession();
@@ -249,11 +253,12 @@ export class TransactionService {
   }
 
   /**
-   * Add note to transaction
-   * @param txHash
-   * @param note
-   * @param category
-   * @param tags
+   * Attach a note and optional categorization/tags to a transaction.
+   *
+   * @param txHash Transaction hash to annotate
+   * @param note Note text
+   * @param category Optional category label
+   * @param tags Optional free‑form tag list
    */
   public async addTransactionNote(
     txHash: string,
@@ -270,8 +275,12 @@ export class TransactionService {
   }
 
   /**
-   * Estimate gas for transaction with ENS resolution
-   * @param request
+   * Estimate gas for a transaction after resolving the destination.
+   * This is a simplified heuristic used when a live provider estimate
+   * is not available.
+   *
+   * @param request Transaction request parameters
+   * @returns Estimated gas units
    */
   public async estimateGas(request: TransactionRequest): Promise<number> {
     try {
@@ -303,21 +312,18 @@ export class TransactionService {
   }
 
   /**
-   * Validate transaction before sending
-   * @param request
+   * Validate a transaction request prior to sending.
+   * Performs name/address resolution, numeric validation and limits.
+   *
+   * @param request Transaction request parameters
+   * @returns Validation result with aggregated errors and resolved address
    */
   public async validateTransaction(request: TransactionRequest): Promise<{
-    /**
-     *
-     */
+    /** Whether the request passed validation */
     valid: boolean;
-    /**
-     *
-     */
+    /** List of validation errors (empty when valid) */
     errors: string[];
-    /**
-     *
-     */
+    /** Resolved chain address if available */
     resolvedAddress?: string;
   }> {
     const errors: string[] = [];
@@ -381,7 +387,7 @@ export class TransactionService {
   }
 
   /**
-   * Get transaction history (placeholder for future implementation)
+   * Placeholder: returns an empty list until history backend is wired.
    */
   public async getTransactionHistory(): Promise<TransactionResult[]> {
     // TODO: Implement transaction history retrieval
@@ -389,8 +395,10 @@ export class TransactionService {
   }
 
   /**
-   * Check if an address or name is valid for transactions
-   * @param addressOrName
+   * Check whether a value is a valid address or resolvable name.
+   *
+   * @param addressOrName Raw address or human‑readable name
+   * @returns True if valid or resolvable, false otherwise
    */
   public async isValidDestination(addressOrName: string): Promise<boolean> {
     try {

@@ -1,7 +1,7 @@
 # OmniWallet Enhancement Plan
 
-**Created:** 2025-08-28  
-**Purpose:** Implement high-impact features to enhance OmniBazaar marketplace integration  
+**Created:** 2025-08-28
+**Purpose:** Implement high-impact features to enhance OmniBazaar marketplace integration
 **Timeline:** 3 weeks for priority features
 
 ## Executive Summary
@@ -13,8 +13,8 @@ This plan outlines the implementation of key features that will significantly im
 ### 🌟 Priority 1: Five-Star Features (Week 1)
 
 #### 1. Magic Menu (⌘K) with OmniBazaar Focus ⭐⭐⭐⭐⭐
-**Impact:** 90% faster navigation for power users  
-**Timeline:** 2 days  
+**Impact:** 90% faster navigation for power users
+**Timeline:** 2 days
 
 **Implementation Details:**
 - Global command palette accessible via Cmd+K (Mac) or Ctrl+K (Windows/Linux)
@@ -30,6 +30,7 @@ This plan outlines the implementation of key features that will significantly im
 - Leverages YugabyteDB for fast search queries
 
 **Technical Requirements:**
+
 ```typescript
 // src/popup/components/MagicMenu.vue
 - Vue 3 composition API component
@@ -39,8 +40,8 @@ This plan outlines the implementation of key features that will significantly im
 ```
 
 #### 2. Auto Token Discovery with NFT Listing Detection ⭐⭐⭐⭐⭐
-**Impact:** Increase listings by 40%  
-**Timeline:** 2 days  
+**Impact:** Increase listings by 40%
+**Timeline:** 2 days
 
 **Implementation Details:**
 - Background service scanning all connected chains
@@ -54,6 +55,7 @@ This plan outlines the implementation of key features that will significantly im
 - Bulk listing support for collections
 
 **Technical Requirements:**
+
 ```typescript
 // src/services/EnhancedNFTDiscovery.ts
 - Extend existing NFTService
@@ -63,8 +65,8 @@ This plan outlines the implementation of key features that will significantly im
 ```
 
 #### 3. Transaction Decoding for Marketplace Safety ⭐⭐⭐⭐⭐
-**Impact:** Reduce scam transactions by 95%  
-**Timeline:** 3 days  
+**Impact:** Reduce scam transactions by 95%
+**Timeline:** 3 days
 
 **Implementation Details:**
 - Decode all OmniBazaar-related transactions
@@ -78,6 +80,7 @@ This plan outlines the implementation of key features that will significantly im
 - Integration with verified contract ABIs
 
 **Technical Requirements:**
+
 ```typescript
 // src/core/decoder/OmniTransactionDecoder.ts
 - ABI decoding library
@@ -89,8 +92,8 @@ This plan outlines the implementation of key features that will significantly im
 ### 🌟 Priority 2: Four-Star Features (Week 2)
 
 #### 4. Watch Wallets for Seller Monitoring ⭐⭐⭐⭐
-**Impact:** Increase user engagement 30%  
-**Timeline:** 1 day  
+**Impact:** Increase user engagement 30%
+**Timeline:** 1 day
 
 **Implementation Details:**
 - Add any address as watch-only
@@ -103,6 +106,7 @@ This plan outlines the implementation of key features that will significantly im
 - Categories: Competitors, Top Sellers, Collectors
 
 **Technical Requirements:**
+
 ```typescript
 // src/core/wallets/WatchWallet.ts
 - Extend existing wallet system
@@ -111,8 +115,8 @@ This plan outlines the implementation of key features that will significantly im
 ```
 
 #### 5. Integrated Listing Creation Flow ⭐⭐⭐⭐
-**Impact:** Reduce listing friction by 60%  
-**Timeline:** 3 days  
+**Impact:** Reduce listing friction by 60%
+**Timeline:** 3 days
 
 **Implementation Details:**
 - Direct listing from wallet NFT view
@@ -126,6 +130,7 @@ This plan outlines the implementation of key features that will significantly im
 - Draft saving functionality
 
 **Technical Requirements:**
+
 ```typescript
 // src/marketplace/ListingCreationFlow.vue
 - Multi-step wizard component
@@ -135,8 +140,8 @@ This plan outlines the implementation of key features that will significantly im
 ```
 
 #### 6. XOM/pXOM Quick Toggle ⭐⭐⭐⭐
-**Impact:** Increase privacy feature adoption 50%  
-**Timeline:** 1 day  
+**Impact:** Increase privacy feature adoption 50%
+**Timeline:** 1 day
 
 **Implementation Details:**
 - One-click toggle in wallet header
@@ -149,6 +154,7 @@ This plan outlines the implementation of key features that will significantly im
 - Privacy preference memory
 
 **Technical Requirements:**
+
 ```typescript
 // src/components/PrivacyToggle.vue
 - COTI privacy service integration
@@ -157,25 +163,19 @@ This plan outlines the implementation of key features that will significantly im
 ```
 
 #### 7. Participation Score Dashboard ⭐⭐⭐⭐
-**Impact:** Increase user participation 40%  
-**Timeline:** 2 days  
+**Impact:** Increase user participation 40%
+**Timeline:** 2 days
 
 **Implementation Details:**
 - Visual score breakdown (100 points max):
-  - XOM Holding: /10
-  - Node Operator: /10
-  - Staking: /10
-  - Trading Volume: /10
-  - Reputation: /10
-  - Account Age: /10
-  - KYC Status: /30
-  - Referrals: /10
+- See the Participation code and documents for correct point scores, weights, maximum, and minimum values
 - Actionable tips for each component
 - Progress tracking over time
 - Achievements and milestones
 - Direct action links
 
 **Technical Requirements:**
+
 ```typescript
 // src/components/ParticipationDashboard.vue
 - Chart.js for visualizations
@@ -187,8 +187,8 @@ This plan outlines the implementation of key features that will significantly im
 ### 🌟 Priority 3: Three-Star Feature (Week 3)
 
 #### 8. Smart Notification Center ⭐⭐⭐
-**Impact:** Increase response rate 60%  
-**Timeline:** 2 days  
+**Impact:** Increase response rate 60%
+**Timeline:** 2 days
 
 **Implementation Details:**
 - Intelligent notification grouping:
@@ -203,6 +203,7 @@ This plan outlines the implementation of key features that will significantly im
 - Sound/visual alerts
 
 **Technical Requirements:**
+
 ```typescript
 // src/services/SmartNotificationService.ts
 - WebSocket for real-time updates
@@ -232,6 +233,7 @@ This plan outlines the implementation of key features that will significantly im
 ## Technical Architecture
 
 ### Database Schema Extensions
+
 ```sql
 -- Watch wallets tracking
 CREATE TABLE watch_wallets (
@@ -254,6 +256,7 @@ CREATE TABLE notification_preferences (
 ```
 
 ### API Endpoints Required
+
 ```typescript
 // New ValidatorAPI endpoints
 POST   /api/wallet/watch-address

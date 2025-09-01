@@ -135,8 +135,9 @@ export class ValidatorWalletService {
   public balancesRef: Ref<Record<string, string>> = ref({});
 
   /**
+   * Create a new ValidatorWalletService.
    *
-   * @param config
+   * @param config Configuration including endpoints, API key and options
    */
   constructor(config: ValidatorWalletConfig) {
     this.config = config;
@@ -178,14 +179,16 @@ export class ValidatorWalletService {
   }
 
   /**
-   * Create a new wallet account
-   * @param name
-   * @param type
-   * @param chainId
-   * @param options
-   * @param options.mnemonic
-   * @param options.privateKey
-   * @param options.derivationPath
+   * Create a new wallet account.
+   *
+   * @param name Human‑readable account name
+   * @param type Account type (mnemonic/private‑key/ledger/trezor)
+   * @param chainId Target chain identifier for this account
+   * @param options Optional derivation / secret inputs
+   * @param options.mnemonic BIP‑39 mnemonic phrase
+   * @param options.privateKey Raw private key hex string
+   * @param options.derivationPath BIP‑44 derivation path
+   * @returns Newly created account record
    */
   async createAccount(
     name: string,
@@ -276,10 +279,12 @@ export class ValidatorWalletService {
   }
 
   /**
-   * Import an existing account
-   * @param name
-   * @param privateKeyOrMnemonic
-   * @param chainId
+   * Import an existing account from a private key or mnemonic.
+   *
+   * @param name Account name
+   * @param privateKeyOrMnemonic Secret to import (auto‑detects mnemonic)
+   * @param chainId Target chain identifier
+   * @returns Imported account record
    */
   async importAccount(
     name: string,
@@ -304,24 +309,22 @@ export class ValidatorWalletService {
     }
   }
 
-  /**
-   * Get all accounts
-   */
+  /** Get all accounts currently managed by the service. */
   getAccounts(): WalletAccount[] {
     return Array.from(this.accounts.values());
   }
 
   /**
-   * Get account by ID
-   * @param accountId
+   * Get account by its internal identifier.
+   * @param accountId Internal account ID
    */
   getAccount(accountId: string): WalletAccount | undefined {
     return this.accounts.get(accountId);
   }
 
   /**
-   * Set active account
-   * @param accountId
+   * Set the active account to use by default for operations.
+   * @param accountId Internal account ID
    */
   setActiveAccount(accountId: string): void {
     const account = this.accounts.get(accountId);
@@ -499,9 +502,10 @@ export class ValidatorWalletService {
   }
 
   /**
-   * Sign message
-   * @param accountId
-   * @param message
+   * Sign an arbitrary message with the specified account.
+   * @param accountId Internal account ID used to locate the private key
+   * @param message UTF‑8 string payload to sign
+   * @returns Hex signature string
    */
   async signMessage(accountId: string, message: string): Promise<string> {
     try {
@@ -529,8 +533,9 @@ export class ValidatorWalletService {
   }
 
   /**
-   * Resolve ENS name
-   * @param name
+   * Resolve an ENS/Omni username to an address via the validator.
+   * @param name ENS (.eth) or Omni username (no suffix)
+   * @returns Resolution result with metadata or null if not found
    */
   async resolveENS(name: string): Promise<ENSResolution | null> {
     try {
@@ -585,8 +590,9 @@ export class ValidatorWalletService {
   }
 
   /**
-   * Backup wallet data
-   * @param password
+   * Create an encrypted backup of all wallet data.
+   * @param password Password used to encrypt the backup payload
+   * @returns Backup descriptor containing encrypted data and checksum
    */
   async backupWallet(password: string): Promise<WalletBackup> {
     try {

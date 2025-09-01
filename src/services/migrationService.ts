@@ -106,19 +106,13 @@ export const migrateLegacyBalance = async (
 };
 
 /**
- *
- * @param username
+ * Get migration status for a legacy username from the migration API.
+ * @param username Legacy username to query
+ * @returns Object with status and optional balance
  */
 export const getMigrationStatus = async (
   username: string
-): Promise<{ /**
-))))))))))))) *
-))))))))))))) */
-  status: string; /**
-ssssssssssssssss *
-ssssssssssssssss */
-  balance?: string
-}> => {
+): Promise<{ status: string; balance?: string }> => {
   try {
     const response = await axios.get(`${API_URL}/status/${username}`);
     return response.data;

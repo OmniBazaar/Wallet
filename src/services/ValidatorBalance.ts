@@ -11,168 +11,105 @@ import { ethers } from 'ethers';
 import { ref, Ref } from 'vue';
 
 /**
- *
+ * Configuration for the Validator Balance Service integration.
+ * Controls endpoints, caching and history tracking behavior.
  */
 export interface ValidatorBalanceConfig {
-  /**
-   *
-   */
+  /** HTTP endpoint for the validator gateway */
   validatorEndpoint: string;
-  /**
-   *
-   */
+  /** Logical network identifier (e.g., omnicoin-testnet) */
   networkId: string;
-  /**
-   *
-   */
+  /** Current user identifier used for namespacing */
   userId: string;
-  /**
-   *
-   */
+  /** Enable in-memory + persisted caching of balances */
   enableCaching: boolean;
-  /**
-   *
-   */
+  /** Cache TTL in milliseconds for balance entries */
   cacheTimeout: number;
-  /**
-   *
-   */
+  /** Enable periodic balance history tracking */
   enableHistoryTracking: boolean;
 }
 
 /**
- *
+ * Describes a token balance and its derived values.
  */
 export interface TokenBalance {
-  /**
-   *
-   */
+  /** Token contract address */
   address: string;
-  /**
-   *
-   */
+  /** Token symbol */
   symbol: string;
-  /**
-   *
-   */
+  /** Token name */
   name: string;
-  /**
-   *
-   */
+  /** Number of decimals */
   decimals: number;
-  /**
-   *
-   */
+  /** Raw on-chain balance (wei/units) */
   balance: string;
-  /**
-   *
-   */
+  /** Human-readable balance formatted with decimals */
   balanceFormatted: string;
-  /**
-   *
-   */
+  /** Latest price in USD (optional if unknown) */
   priceUSD?: string;
-  /**
-   *
-   */
+  /** Latest USD value for this holding */
   valueUSD?: string;
-  /**
-   *
-   */
+  /** Timestamp when this balance was updated (ms) */
   lastUpdated: number;
 }
 
 /**
- *
+ * Aggregated account snapshot with native and token balances.
  */
 export interface AccountBalance {
-  /**
-   *
-   */
+  /** Account address */
   address: string;
-  /**
-   *
-   */
+  /** Native balance (raw) */
   nativeBalance: string;
-  /**
-   *
-   */
+  /** Native balance (formatted) */
   nativeBalanceFormatted: string;
-  /**
-   *
-   */
+  /** Token balances */
   tokens: TokenBalance[];
-  /**
-   *
-   */
+  /** Total account value in USD (if prices available) */
   totalValueUSD?: string;
-  /**
-   *
-   */
+  /** Snapshot timestamp (ms) */
   lastUpdated: number;
 }
 
 /**
- *
+ * Historical balance point for an account.
  */
 export interface BalanceHistory {
-  /**
-   *
-   */
+  /** Account address */
   address: string;
-  /**
-   *
-   */
+  /** Unix timestamp (ms) */
   timestamp: number;
-  /**
-   *
-   */
+  /** Native balance at this point (raw) */
   balance: string;
-  /**
-   *
-   */
+  /** Block number corresponding to this point */
   blockNumber: number;
-  /**
-   *
-   */
+  /** Optional transaction hash associated with change */
   transactionHash?: string;
 }
 
 /**
- *
+ * Cache structure keyed by address with balance snapshot and timestamp.
  */
 export interface BalanceCache {
   [address: string]: {
-    /**
-     *
-     */
+    /** Cached balance snapshot */
     balance: AccountBalance;
-    /**
-     *
-     */
+    /** Time when snapshot was stored (ms) */
     timestamp: number;
   };
 }
 
 /**
- *
+ * Price information used to compute USD values for tokens.
  */
 export interface PriceData {
-  /**
-   *
-   */
+  /** Token symbol */
   symbol: string;
-  /**
-   *
-   */
+  /** Last price in USD */
   price: string;
-  /**
-   *
-   */
+  /** 24h percentage change in USD as string */
   change24h: string;
-  /**
-   *
-   */
+  /** Timestamp when price was updated (ms) */
   lastUpdated: number;
 }
 
@@ -196,8 +133,9 @@ export class ValidatorBalanceService {
   public isLoadingRef: Ref<boolean> = ref(false);
 
   /**
+   * Construct the balance service with the given configuration.
    *
-   * @param config
+   * @param config ValidatorBalanceService configuration options
    */
   constructor(config: ValidatorBalanceConfig) {
     this.config = config;
@@ -235,9 +173,11 @@ export class ValidatorBalanceService {
   }
 
   /**
-   * Get account balance
-   * @param address
-   * @param useCache
+   * Get a full account balance snapshot for an address.
+   *
+   * @param address Account address to query
+   * @param useCache Whether to use cached results when fresh
+   * @returns Aggregated balance snapshot
    */
   async getBalance(address: string, useCache = true): Promise<AccountBalance> {
     try {
@@ -308,8 +248,10 @@ export class ValidatorBalanceService {
   }
 
   /**
-   * Get token balances for an address
-   * @param address
+   * Get token balances for an address by iterating the validator token list.
+   *
+   * @param address Account address
+   * @returns Array of token balances with USD values when available
    */
   async getTokenBalances(address: string): Promise<TokenBalance[]> {
     try {
@@ -587,24 +529,17 @@ export class ValidatorBalanceService {
   }
 
   /**
-   * Get portfolio summary
+   * Compute a portfolio summary across all tracked accounts.
+   * @returns Totals, top tokens, and last updated timestamp
    */
   getPortfolioSummary(): {
-    /**
-     *
-     */
+    /** Number of accounts included */
     totalAccounts: number;
-    /**
-     *
-     */
+    /** Cumulative USD value across all accounts */
     totalValueUSD: string;
-    /**
-     *
-     */
+    /** Top tokens aggregated across accounts */
     topTokens: TokenBalance[];
-    /**
-     *
-     */
+    /** Most recent update timestamp among included balances */
     lastUpdated: number;
   } {
     const balances = Object.values(this.balancesRef.value);

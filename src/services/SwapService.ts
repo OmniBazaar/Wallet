@@ -36,21 +36,13 @@ export interface SwapRoute {
  * Swap execution options
  */
 export interface SwapOptions {
-  /**
-   *
-   */
+  /** Skip user confirmation prompts if true */
   skipConfirmation?: boolean;
-  /**
-   *
-   */
+  /** Maximum allowed slippage in percent */
   maxSlippage?: number;
-  /**
-   *
-   */
+  /** Deadline timestamp (seconds) after which the swap is invalid */
   deadline?: number;
-  /**
-   *
-   */
+  /** Recipient address (defaults to sender) */
   recipient?: string;
 }
 
@@ -72,8 +64,8 @@ export class SwapService {
   private dexConfigs: Map<string, DexConfig>;
 
   /**
-   * Initialize swap service
-   * @param provider
+   * Initialize SwapService with an OmniProvider for quotes and execution.
+   * @param provider OmniProvider connected to validator network
    */
   constructor(provider: OmniProvider) {
     this.provider = provider;
@@ -111,10 +103,10 @@ export class SwapService {
   }
 
   /**
-   * Get best swap route
-   * @param fromToken
-   * @param toToken
-   * @param amount
+   * Get the best available swap route across supported DEXes.
+   * @param fromToken Input token address
+   * @param toToken Output token address
+   * @param amount Input amount (wei)
    */
   public async getBestRoute(
     fromToken: string,
@@ -148,12 +140,7 @@ export class SwapService {
     }
   }
 
-  /**
-   * Get OmniDEX route
-   * @param fromToken
-   * @param toToken
-   * @param amount
-   */
+  /** Query OmniDEX for a quoted route. */
   private async getOmniDexRoute(
     fromToken: string,
     toToken: string,
@@ -188,12 +175,7 @@ export class SwapService {
     }
   }
 
-  /**
-   * Get Uniswap route
-   * @param fromToken
-   * @param toToken
-   * @param amount
-   */
+  /** Query Uniswap for a quoted route (if on the correct chain). */
   private async getUniswapRoute(
     fromToken: string,
     toToken: string,

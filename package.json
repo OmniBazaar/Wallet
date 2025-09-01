@@ -40,6 +40,7 @@
     "lint": "eslint src --ext .ts,.vue,.js --fix",
     "lint:check": "eslint src --ext .ts,.vue,.js",
     "type-check": "vue-tsc --noEmit --skipLibCheck",
+    "type-check:strict": "tsc -p tsconfig.strict.json --noEmit",
     "extract:enkrypt": "node scripts/extract-components/extract-enkrypt.js",
     "extract:rainbow": "node scripts/extract-components/extract-rainbow.js",
     "extract:frame": "node scripts/extract-components/extract-frame.js",

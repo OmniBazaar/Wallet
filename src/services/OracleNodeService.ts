@@ -111,9 +111,7 @@ export class OracleNodeService extends EventEmitter {
     );
   }
 
-  /**
-   * Start the oracle node service
-   */
+  /** Start the oracle node service and begin monitoring/updates. */
   public async start(): Promise<void> {
     if (this.isRunning) {
       console.warn('Oracle node service is already running');
@@ -142,9 +140,7 @@ export class OracleNodeService extends EventEmitter {
     }
   }
 
-  /**
-   * Stop the oracle node service
-   */
+  /** Stop the oracle node service and flush the queue. */
   public async stop(): Promise<void> {
     if (!this.isRunning) {
       console.warn('Oracle node service is not running');
@@ -193,9 +189,7 @@ export class OracleNodeService extends EventEmitter {
     }
   }
 
-  /**
-   * Start monitoring COTI blockchain for name events
-   */
+  /** Begin listening to COTI registry events for name changes. */
   private startCotiMonitoring(): void {
     console.warn('👁️  Starting COTI blockchain monitoring...');
 
@@ -224,9 +218,7 @@ export class OracleNodeService extends EventEmitter {
     });
   }
 
-  /**
-   * Start periodic update scheduler
-   */
+  /** Start periodic scheduler to process the update queue. */
   private startUpdateScheduler(): void {
     console.warn('⏰ Starting update scheduler...');
 
@@ -238,8 +230,8 @@ export class OracleNodeService extends EventEmitter {
   }
 
   /**
-   * Queue a name update for processing
-   * @param update
+   * Queue a name update for processing (deduplicates by username).
+   * @param update Name update record
    */
   private queueUpdate(update: NameUpdate): void {
     // Check if update already exists
@@ -256,9 +248,7 @@ export class OracleNodeService extends EventEmitter {
     console.warn(`📥 Queued update: ${update.username} (queue size: ${this.updateQueue.length})`);
   }
 
-  /**
-   * Process the update queue
-   */
+  /** Process queued name updates (single or batch). */
   private async processUpdateQueue(): Promise<void> {
     if (this.updateQueue.length === 0) {
       return;
@@ -304,10 +294,7 @@ export class OracleNodeService extends EventEmitter {
     this.metrics.totalUpdates++;
   }
 
-  /**
-   * Update a single name in the oracle
-   * @param update
-   */
+  /** Update a single name entry in the oracle contract. */
   private async updateSingleName(update: NameUpdate): Promise<void> {
     console.warn(`🔄 Updating single name: ${update.username} -> ${update.address}`);
 
@@ -335,10 +322,7 @@ export class OracleNodeService extends EventEmitter {
     }
   }
 
-  /**
-   * Update multiple names in a batch
-   * @param updates
-   */
+  /** Batch update multiple name entries in the oracle contract. */
   private async updateBatchNames(updates: NameUpdate[]): Promise<void> {
     console.warn(`🔄 Updating batch of ${updates.length} names...`);
 
@@ -368,16 +352,12 @@ export class OracleNodeService extends EventEmitter {
     }
   }
 
-  /**
-   * Get current metrics
-   */
+  /** Return a snapshot of current node metrics. */
   public getMetrics(): OracleMetrics {
     return { ...this.metrics };
   }
 
-  /**
-   * Get current status
-   */
+  /** Get current service status including queue size and metrics. */
   public getStatus(): {
     /**
      *
@@ -403,10 +383,7 @@ export class OracleNodeService extends EventEmitter {
     };
   }
 
-  /**
-   * Query name from COTI registry
-   * @param username
-   */
+  /** Query a name from the COTI registry contract. */
   public async queryCotiName(username: string): Promise<string> {
     try {
       const address = await this.registryContract.resolve(username);
@@ -417,10 +394,7 @@ export class OracleNodeService extends EventEmitter {
     }
   }
 
-  /**
-   * Query name from Ethereum oracle
-   * @param username
-   */
+  /** Query a name from the Ethereum oracle contract. */
   public async queryEthereumName(username: string): Promise<string> {
     try {
       const address = await this.oracleContract.queryName(username);
@@ -431,10 +405,7 @@ export class OracleNodeService extends EventEmitter {
     }
   }
 
-  /**
-   * Force sync a specific name
-   * @param username
-   */
+  /** Force a sync for a specific username from COTI → Ethereum. */
   public async forceSyncName(username: string): Promise<void> {
     console.warn(`🔄 Force syncing name: ${username}`);
 
@@ -460,9 +431,7 @@ export class OracleNodeService extends EventEmitter {
     }
   }
 
-  /**
-   * Health check
-   */
+  /** Perform a health check across providers and recent activity. */
   public async healthCheck(): Promise<boolean> {
     try {
       // Check if running

@@ -9,14 +9,16 @@ import { keyringService } from '../../keyring/KeyringService';
 import { SOLANA_NETWORKS, POPULAR_SPL_TOKENS } from './networks';
 
 /**
- *
+ * Live Solana provider that integrates with the wallet keyring.
+ * Exposes convenience helpers for native and SPL transfers,
+ * balance queries, message signing, and network management.
  */
 export class LiveSolanaProvider extends SolanaProvider {
   private activeAddress: string | null = null;
 
   /**
-   *
-   * @param networkKey
+   * Construct a provider for the given Solana network key.
+   * @param networkKey Key of the network from `SOLANA_NETWORKS` (default 'mainnet')
    */
   constructor(networkKey = 'mainnet') {
     const network = SOLANA_NETWORKS[networkKey];
@@ -41,8 +43,8 @@ export class LiveSolanaProvider extends SolanaProvider {
   }
 
   /**
-   * Get all addresses from keyring
-   * @param count
+   * Get addresses from the keyring, limited by `count`.
+   * @param count Max number of addresses to return (default 10)
    */
   async getAddresses(count = 10): Promise<string[]> {
     const accounts = await keyringService.getAccounts('solana');
@@ -50,9 +52,9 @@ export class LiveSolanaProvider extends SolanaProvider {
   }
 
   /**
-   * Send SOL with keyring
-   * @param to
-   * @param lamports
+   * Send native SOL using the active keyring account.
+   * @param to Recipient base58 address
+   * @param lamports Amount in lamports as string
    */
   async sendNativeToken(to: string, lamports: string): Promise<string> {
     const from = await this.getAddress();
@@ -69,11 +71,11 @@ export class LiveSolanaProvider extends SolanaProvider {
   }
 
   /**
-   * Send SPL token with keyring
-   * @param to
-   * @param mint
-   * @param amount
-   * @param decimals
+   * Send an SPL token using the active keyring account.
+   * @param to Recipient base58 address
+   * @param mint Token mint address
+   * @param amount Human-readable amount as string
+   * @param decimals Token decimals used for conversion
    */
   async sendSPLToken(
     to: string,
@@ -89,25 +91,19 @@ export class LiveSolanaProvider extends SolanaProvider {
     return await this.sendToken(privateKey, to, mint, amountNumber, decimals);
   }
 
-  /**
-   * Get balance for active account
-   */
+  /** Get native balance for the active account. */
   async getActiveBalance(): Promise<string> {
     const address = await this.getAddress();
     return this.getBalance(address);
   }
 
-  /**
-   * Get formatted balance for active account
-   */
+  /** Get formatted native balance for the active account. */
   async getActiveFormattedBalance(): Promise<string> {
     const address = await this.getAddress();
     return this.getFormattedBalance(address);
   }
 
-  /**
-   * Get all token balances for active account
-   */
+  /** Get SPL token balances for the active account, enriched with metadata. */
   async getActiveTokenBalances(): Promise<SPLToken[]> {
     const address = await this.getAddress();
     const tokens = await this.getTokenBalances(address);
@@ -131,18 +127,16 @@ export class LiveSolanaProvider extends SolanaProvider {
     });
   }
 
-  /**
-   * Sign message with active account
-   * @param message
-   */
+  /** Sign a UTF‑8 message with the active account. @param message Message to sign */
   async signActiveMessage(message: string): Promise<string> {
     const address = await this.getAddress();
     return keyringService.signMessage(address, message);
   }
 
   /**
-   * Create new SPL token account
-   * @param mint
+   * Create an associated token account for the given mint.
+   * @param mint Token mint address
+   * @returns Associated token account address (base58)
    */
   async createTokenAccount(mint: string): Promise<string> {
     const from = await this.getAddress();
@@ -188,20 +182,17 @@ export class LiveSolanaProvider extends SolanaProvider {
     return associatedTokenAddress.toBase58();
   }
 
-  /**
-   * Get transaction history for active account
-   * @param limit
-   */
+  /** Get transaction history for the active account. @param limit Optional max items */
   async getActiveTransactionHistory(limit?: number): Promise<Transaction[]> {
     const address = await this.getAddress();
     return this.getTransactionHistory(address, limit);
   }
 
   /**
-   * Estimate transaction fee
-   * @param to
-   * @param amount
-   * @param isToken
+   * Estimate the fee for a transfer.
+   * @param to Recipient address
+   * @param amount Amount in lamports (native) or human amount (token)
+   * @param isToken Whether estimating for an SPL token transfer
    */
   async estimateFee(
     to: string,
@@ -235,16 +226,14 @@ export class LiveSolanaProvider extends SolanaProvider {
     return fee?.toString() || '5000';
   }
 
-  /**
-   * Get current network
-   */
+  /** Get the current Solana network configuration. */
   getCurrentNetwork(): SolanaNetworkConfig {
     return this.config as SolanaNetworkConfig;
   }
 
   /**
-   * Switch to different Solana network
-   * @param networkKey
+   * Switch to a different Solana network by key.
+   * @param networkKey Key from `SOLANA_NETWORKS`
    */
   async switchNetwork(networkKey: string): Promise<void> {
     const network = SOLANA_NETWORKS[networkKey];
@@ -267,24 +256,20 @@ export class LiveSolanaProvider extends SolanaProvider {
     this.activeAddress = null;
   }
 
-  /**
-   * Get supported networks
-   */
+  /** Return the list of supported Solana networks. */
   static getSupportedNetworks(): SolanaNetworkConfig[] {
     return Object.values(SOLANA_NETWORKS);
   }
 
-  /**
-   * Check if network is testnet
-   */
+  /** Check if the current network is a devnet/testnet. */
   isTestnet(): boolean {
     const network = this.getCurrentNetwork();
     return network.chainId.includes('devnet') || network.chainId.includes('testnet');
   }
 
   /**
-   * Request airdrop (testnet only)
-   * @param amount
+   * Request a SOL airdrop for the active address (testnet/devnet only).
+   * @param amount Amount in SOL to request (default 1)
    */
   async requestAirdrop(amount = 1): Promise<string> {
     if (!this.isTestnet()) {

@@ -1,6 +1,9 @@
 /**
- * OmniBazaar Wallet Ethereum Provider
- * Adapted from Enkrypt Ethereum provider for our hybrid architecture
+ * OmniBazaar Wallet Ethereum Provider.
+ *
+ * Adapts an Ethers JsonRpcProvider to the wallet’s provider interface
+ * and implements request handling, signing, and network switching for
+ * our hybrid architecture.
  */
 
 import { providers, Contract, BigNumber, utils } from 'ethers';
@@ -70,9 +73,9 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
   middlewares: MiddlewareFunction[] = [];
 
   /**
-   * Creates a new Ethereum provider instance
-   * @param toWindow - Function to send messages to the window/UI
-   * @param network - Ethereum network configuration (defaults to mainnet)
+   * Create a new Ethereum provider instance.
+   * @param toWindow Function to send messages to the window/UI
+   * @param network Ethereum network configuration (defaults to mainnet)
    */
   constructor(
     toWindow: (message: string) => void,
@@ -90,9 +93,7 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
     this.setupEventListeners();
   }
 
-  /**
-   * Sets up event listeners for provider state changes
-   */
+  /** Set up event listeners for provider state changes. */
   private setupEventListeners(): void {
     // Listen for network changes
     this.provider.on('network', (newNetwork: { chainId: number }, oldNetwork: { chainId: number } | null) => {
@@ -107,8 +108,8 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
   }
 
   /**
-   * Switches the provider to a different network
-   * @param network - Target network configuration
+   * Switch the provider to a different network.
+   * @param network Target network configuration
    */
   async setRequestProvider(network: BaseNetwork): Promise<void> {
     const ethNetwork = network as EthereumNetwork;
@@ -132,9 +133,9 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
   }
 
   /**
-   * Handles RPC requests from dApps or the wallet UI
-   * @param request - RPC request object containing method and parameters
-   * @returns Response object with result or error
+   * Handle RPC requests from dApps or the wallet UI.
+   * @param request RPC request containing method and params
+   * @returns Response object with serialized result or error
    */
   async request(request: ProviderRPCRequest): Promise<OnMessageResponse> {
     try {
@@ -150,8 +151,8 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
   }
 
   /**
-   * Internal RPC request handler that processes specific Ethereum methods
-   * @param request - RPC request to process
+   * Internal RPC request handler covering common Ethereum methods.
+   * @param request RPC request to process
    * @returns Result data for the RPC call
    */
   private async handleRPCRequest(request: ProviderRPCRequest): Promise<string | string[] | number> {

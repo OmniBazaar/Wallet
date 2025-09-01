@@ -55,43 +55,27 @@ export interface Transaction {
   confirmations: number;
   /** Transaction timestamp */
   timestamp: number;
-  /**
-   *
-   */
+  /** Estimated fee paid for this transaction in ETH/XOM (formatted) */
   fee?: string;
-  /**
-   *
-   */
+  /** Error message if transaction failed */
   error?: string;
 }
 
 /**
- *
+ * Group of transactions submitted as a single logical batch.
  */
 export interface TransactionBatch {
-  /**
-   *
-   */
+  /** Batch identifier */
   id: string;
-  /**
-   *
-   */
+  /** Transactions that belong to the batch */
   transactions: Transaction[];
-  /**
-   *
-   */
+  /** Current batch processing status */
   status: 'pending' | 'processing' | 'completed' | 'failed';
-  /**
-   *
-   */
+  /** Sum of `value` across transactions */
   totalValue: string;
-  /**
-   *
-   */
+  /** Sum of `fee` across transactions */
   totalFee: string;
-  /**
-   *
-   */
+  /** Creation timestamp */
   timestamp: number;
 }
 
@@ -181,29 +165,23 @@ export interface TransactionReceipt {
 }
 
 /**
- *
+ * Watcher used to poll a transaction until it is confirmed.
  */
 export interface TransactionWatcher {
-  /**
-   *
-   */
+  /** Transaction hash being watched */
   txHash: string;
-  /**
-   *
-   */
+  /** Callback invoked once a receipt is available */
   callback: (receipt: TransactionReceipt) => void;
-  /**
-   *
-   */
+  /** Polling interval handle */
   interval: NodeJS.Timeout;
-  /**
-   *
-   */
+  /** Number of consecutive retry attempts */
   retryCount: number;
 }
 
 /**
- *
+ * Transaction service that sends transactions via the validator network,
+ * tracks their lifecycle, distributes fees when enabled, and exposes
+ * reactive state for UI components.
  */
 export class ValidatorTransactionService {
   private validatorClient: ValidatorClient;
@@ -220,8 +198,8 @@ export class ValidatorTransactionService {
   public gasEstimateRef: Ref<GasEstimate | null> = ref(null);
 
   /**
-   *
-   * @param config
+   * Create a new ValidatorTransactionService.
+   * @param config Service configuration
    */
   constructor(config: ValidatorTransactionConfig) {
     this.config = config;
@@ -252,17 +230,20 @@ export class ValidatorTransactionService {
   }
 
   /**
-   * Create and send transaction
-   * @param from
-   * @param to
-   * @param value
-   * @param data
-   * @param options
-   * @param options.gasLimit
-   * @param options.gasPrice
-   * @param options.maxFeePerGas
-   * @param options.maxPriorityFeePerGas
-   * @param options.nonce
+   * Create and send a transaction through the validator blockchain.
+   * Estimates gas/fee if not provided and starts monitoring for confirmations.
+   *
+   * @param from Sender address
+   * @param to Recipient address
+   * @param value Amount in wei
+   * @param data Optional calldata
+   * @param options Optional gas/nonce overrides
+   * @param options.gasLimit Gas limit override
+   * @param options.gasPrice Gas price override
+   * @param options.maxFeePerGas Max fee per gas (EIP‑1559)
+   * @param options.maxPriorityFeePerGas Priority fee per gas (EIP‑1559)
+   * @param options.nonce Nonce override
+   * @returns Pending transaction object
    */
   async sendTransaction(
     from: string,
@@ -366,8 +347,8 @@ export class ValidatorTransactionService {
   }
 
   /**
-   * Send batch of transactions
-   * @param transactions
+   * Send a batch of transactions.
+   * @param transactions Array of tx parameters to submit as a batch
    */
   async sendBatchTransactions(
     transactions: Array<{
@@ -499,11 +480,11 @@ export class ValidatorTransactionService {
   }
 
   /**
-   * Estimate gas for transaction
-   * @param from
-   * @param to
-   * @param value
-   * @param data
+   * Estimate gas and return current price and total estimated cost.
+   * @param from Sender address
+   * @param to Recipient address
+   * @param value Amount in wei
+   * @param data Optional calldata
    */
   async estimateGas(
     from: string,
@@ -548,8 +529,8 @@ export class ValidatorTransactionService {
   }
 
   /**
-   * Get transaction count (nonce)
-   * @param address
+   * Get the next nonce for an address.
+   * @param address Address to query
    */
   async getTransactionCount(address: string): Promise<number> {
     try {
@@ -561,9 +542,7 @@ export class ValidatorTransactionService {
     }
   }
 
-  /**
-   * Get current gas price
-   */
+  /** Get the current gas price from the blockchain. */
   async getGasPrice(): Promise<string> {
     try {
       const gasPrice = await this.blockchain.getGasPrice();
@@ -575,9 +554,9 @@ export class ValidatorTransactionService {
   }
 
   /**
-   * Cancel pending transaction (by replacement)
-   * @param txId
-   * @param privateKey
+   * Cancel a pending transaction by replacing it with a higher gas price tx.
+   * @param txId Internal transaction id
+   * @param privateKey Private key used to sign the replacement transaction
    */
   async cancelTransaction(txId: string, privateKey: string): Promise<Transaction> {
     try {

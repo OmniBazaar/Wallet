@@ -3,9 +3,12 @@ import { useWallet } from './useWallet';
 import { NFT, getOwnedNFTs } from '../utils/nft';
 
 /**
- * Hook for fetching and managing user's NFTs
- * @param contractAddress Optional contract address to filter NFTs
- * @returns NFT data and loading state
+ * React hook for fetching and managing the connected user’s NFTs.
+ * Optionally filters by a specific NFT contract. Uses the shared
+ * NFT utilities to detect token standard and collect metadata.
+ *
+ * @param contractAddress Optional NFT contract to filter results
+ * @returns NFT list, loading state, last error and refresh helper
  */
 export const useNFTs = (contractAddress?: string): {
     /** Array of user's NFTs */
@@ -22,7 +25,10 @@ export const useNFTs = (contractAddress?: string): {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const fetchNFTs = useCallback(async () => {
+    /**
+     * Load NFTs owned by the connected user, optionally filtered by contract.
+     */
+    const fetchNFTs = useCallback(async (): Promise<void> => {
         if (provider == null || address == null) return;
 
         try {
@@ -44,7 +50,8 @@ export const useNFTs = (contractAddress?: string): {
         fetchNFTs();
     }, [fetchNFTs]);
 
-    const refreshNFTs = useCallback(() => {
+    /** Manually trigger a refresh of the NFT list. */
+    const refreshNFTs = useCallback((): void => {
         fetchNFTs();
     }, [fetchNFTs]);
 

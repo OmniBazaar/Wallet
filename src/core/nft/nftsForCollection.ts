@@ -101,20 +101,14 @@ export const MOCK_NFTS_FOR_COLLECTION = [
 // Query Types
 
 /**
- *
+ * Arguments for fetching NFTs within a specific collection across chains.
  */
 export type NftsForCollectionArgs = {
-  /**
-   *
-   */
+  /** Wallet address whose NFTs to fetch */
   address: Address;
-  /**
-   *
-   */
+  /** Collection identifier (indexer/provider specific) */
   collectionId: string;
-  /**
-   *
-   */
+  /** Target chains to include in the query */
   collectionChains: ChainName[];
 };
 
@@ -162,12 +156,14 @@ type NftsForCollectionResult = QueryFunctionResult<
 // Query Hook
 
 /**
+ * React Query hook for paginated NFTs within a collection across chains.
+ * Returns an infinite query that merges pages and exposes nextPage cursors.
  *
- * @param root0
- * @param root0.address
- * @param root0.collectionId
- * @param root0.collectionChains
- * @param config
+ * @param root0 Destructured args
+ * @param root0.address Wallet address whose NFTs to fetch
+ * @param root0.collectionId Collection identifier
+ * @param root0.collectionChains Chains to include
+ * @param config Optional React Query infinite query config
  */
 export function useNftsForCollection<TSelectData = NftsForCollectionResult>(
   { address, collectionId, collectionChains }: NftsForCollectionArgs,

@@ -168,8 +168,8 @@ export class OmniProvider extends ethers.JsonRpcProvider {
   }
 
   /**
-   * Handle incoming message from validator
-   * @param data
+   * Handle an incoming message from the validator WebSocket.
+   * @param data Raw JSON stringified OmniResponse
    */
   private handleMessage(data: string): void {
     try {
@@ -199,9 +199,9 @@ export class OmniProvider extends ethers.JsonRpcProvider {
   }
 
   /**
-   * Create authenticated request
-   * @param method
-   * @param params
+   * Create an authenticated request payload for the validator.
+   * @param method RPC method name
+   * @param params Method parameters
    */
   private createRequest(method: string, params: any): OmniRequest {
     const id = crypto.randomBytes(16).toString('hex');
@@ -228,9 +228,10 @@ export class OmniProvider extends ethers.JsonRpcProvider {
   }
 
   /**
-   * Send request to validator
-   * @param method
-   * @param params
+   * Send a request to a validator and return the parsed result.
+   * Handles connection bootstrapping and a 30s timeout for safety.
+   * @param method RPC method name
+   * @param params Parameters to include in the request
    */
   private async sendRequest(method: string, params: any): Promise<any> {
     // Ensure connected
@@ -264,11 +265,7 @@ export class OmniProvider extends ethers.JsonRpcProvider {
 
   // Override ethers.js methods to use our validator network
 
-  /**
-   *
-   * @param address
-   * @param blockTag
-   */
+  /** Get native balance for an address. */
   async getBalance(address: string, blockTag?: string | number): Promise<bigint> {
     const result = await this.sendRequest('eth_getBalance', [
       address,
@@ -278,11 +275,7 @@ export class OmniProvider extends ethers.JsonRpcProvider {
     return BigInt(result);
   }
 
-  /**
-   *
-   * @param address
-   * @param blockTag
-   */
+  /** Get transaction count (nonce) for an address. */
   async getTransactionCount(address: string, blockTag?: string | number): Promise<number> {
     return await this.sendRequest('eth_getTransactionCount', [
       address,
@@ -291,11 +284,7 @@ export class OmniProvider extends ethers.JsonRpcProvider {
     ]);
   }
 
-  /**
-   *
-   * @param transaction
-   * @param blockTag
-   */
+  /** Execute a call against the current chain. */
   async call(transaction: any, blockTag?: string | number): Promise<string> {
     return await this.sendRequest('eth_call', [
       transaction,
@@ -304,10 +293,7 @@ export class OmniProvider extends ethers.JsonRpcProvider {
     ]);
   }
 
-  /**
-   *
-   * @param transaction
-   */
+  /** Estimate gas for a transaction. */
   async estimateGas(transaction: any): Promise<bigint> {
     const result = await this.sendRequest('eth_estimateGas', [
       transaction,
@@ -316,10 +302,7 @@ export class OmniProvider extends ethers.JsonRpcProvider {
     return BigInt(result);
   }
 
-  /**
-   *
-   * @param signedTransaction
-   */
+  /** Broadcast a signed raw transaction and return an Ethers response. */
   async broadcastTransaction(signedTransaction: string): Promise<ethers.TransactionResponse> {
     const hash = await this.sendRequest('eth_sendRawTransaction', [
       signedTransaction,

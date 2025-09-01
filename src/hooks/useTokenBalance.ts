@@ -11,7 +11,10 @@ const ERC20_ABI = [
 ];
 
 /**
- * Hook for fetching and managing ERC-20 token balance
+ * React hook for fetching and tracking an ERC‑20 token balance.
+ * Loads token metadata (symbol, name, decimals) and current balance
+ * for the connected wallet, and exposes a manual refresh method.
+ *
  * @param tokenAddress Contract address of the token
  * @returns Token balance information and refresh function
  */
@@ -36,7 +39,10 @@ export const useTokenBalance = (tokenAddress: string): {
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
 
-    const fetchTokenInfo = useCallback(async () => {
+    /**
+     * Load token metadata (symbol, name, decimals) from the ERC‑20 contract.
+     */
+    const fetchTokenInfo = useCallback(async (): Promise<void> => {
         if (!provider || !tokenAddress) return;
 
         try {
@@ -65,7 +71,11 @@ export const useTokenBalance = (tokenAddress: string): {
         }
     }, [provider, tokenAddress]);
 
-    const fetchBalance = useCallback(async () => {
+    /**
+     * Load the current token balance for the connected wallet and
+     * update both raw and formatted representations.
+     */
+    const fetchBalance = useCallback(async (): Promise<void> => {
         if (!provider || !address || !tokenAddress || !tokenInfo) return;
 
         try {
@@ -96,7 +106,8 @@ export const useTokenBalance = (tokenAddress: string): {
         }
     }, [fetchBalance, tokenInfo]);
 
-    const refreshBalance = useCallback(() => {
+    /** Manually trigger a balance refresh. */
+    const refreshBalance = useCallback((): void => {
         fetchBalance();
     }, [fetchBalance]);
 

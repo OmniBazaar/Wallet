@@ -63,30 +63,21 @@ export interface MarketplaceListing {
   seller: string;
   /** NFT contract address */
   tokenContract: string;
-  /**
-   *
-   */
+  /** Token id of the listed NFT */
   tokenId: string;
-  /**
-   *
-   */
+  /** Asking price (as string, in token units) */
   price: string;
-  /**
-   *
-   */
+  /** Currency symbol or address */
   currency: string;
-  /**
-   *
-   */
+  /** NFT metadata for display */
   metadata: NFTMetadata;
-  /**
-   *
-   */
+  /** Unix timestamp (ms) when the listing was created */
   timestamp: number;
 }
 
 /**
- *
+ * Lightweight IPFS client wrapper for uploads, retrieval, pinning,
+ * and marketplace/NFT convenience helpers.
  */
 export class IPFSClient {
   private gateway: string;
@@ -94,29 +85,21 @@ export class IPFSClient {
   private client?: IPFSHTTPClient;
   private initialized = false;
   private apiConfig: {
-    /**
-     *
-     */
+    /** API host, e.g. localhost */
     host: string;
-    /**
-     *
-     */
+    /** API port, e.g. 5001 */
     port: number;
-    /**
-     *
-     */
+    /** Protocol (http/https) */
     protocol: string;
-    /**
-     *
-     */
+    /** API path (default /api/v0) */
     apiPath: string;
   };
 
   /**
-   *
-   * @param gateway
-   * @param pinningService
-   * @param apiConfig
+   * Construct an IPFS client wrapper.
+   * @param gateway Public gateway base url used for content URLs
+   * @param pinningService Optional 3rd‑party pinning service identifier
+   * @param apiConfig IPFS HTTP client connection settings
    */
   constructor(
     gateway = 'https://ipfs.io/ipfs/',
@@ -153,10 +136,9 @@ export class IPFSClient {
     }
   }
 
-  // Upload file to IPFS
   /**
-   *
-   * @param file
+   * Upload a file (Blob/File) to IPFS and return its hash and URL.
+   * @param file File to upload
    */
   async uploadFile(file: File): Promise<IPFSUploadResult> {
     try {
@@ -209,10 +191,9 @@ export class IPFSClient {
     }
   }
 
-  // Upload JSON metadata to IPFS
   /**
-   *
-   * @param data
+   * Upload JSON serializable data to IPFS and return its hash and URL.
+   * @param data Serializable JSON object
    */
   async uploadJSON(data: NFTMetadata | MarketplaceListing): Promise<IPFSUploadResult> {
     try {
@@ -230,28 +211,19 @@ export class IPFSClient {
     }
   }
 
-  // Upload NFT metadata with image
   /**
-   *
-   * @param metadata
-   * @param imageFile
+   * Upload NFT metadata and optional image, returning both content hashes/URLs.
+   * @param metadata NFT metadata payload
+   * @param imageFile Optional image file to upload first
    */
   async uploadNFTMetadata(metadata: NFTMetadata, imageFile?: File): Promise<{
-    /**
-     *
-     */
+    /** CID/hash of the JSON metadata */
     metadataHash: string;
-    /**
-     *
-     */
+    /** Public URL to the JSON metadata */
     metadataUrl: string;
-    /**
-     *
-     */
+    /** CID/hash of the uploaded image (if provided) */
     imageHash?: string;
-    /**
-     *
-     */
+    /** Public URL to the uploaded image (if provided) */
     imageUrl?: string;
   }> {
     try {
@@ -285,10 +257,9 @@ export class IPFSClient {
     }
   }
 
-  // Get content from IPFS
   /**
-   *
-   * @param hash
+   * Retrieve JSON content from IPFS by its hash via client or gateway.
+   * @param hash CID/hash of the content
    */
   async getContent(hash: string): Promise<NFTMetadata | MarketplaceListing> {
     try {
@@ -333,10 +304,9 @@ export class IPFSClient {
     }
   }
 
-  // Upload marketplace listing
   /**
-   *
-   * @param listing
+   * Upload a marketplace listing JSON document to IPFS.
+   * @param listing Listing payload
    */
   async uploadMarketplaceListing(listing: MarketplaceListing): Promise<IPFSUploadResult> {
     try {
@@ -350,20 +320,17 @@ export class IPFSClient {
     }
   }
 
-  // Search for listings (simplified implementation)
   /**
-   *
-   * @param query
-   * @param query.seller
-   * @param query.priceRange
-   * @param query.priceRange.min
-   * @param query.priceRange.max
-   * @param query.category
+   * Search for cached listings (simplified demo implementation).
+   * @param query Filter options
+   * @param query.seller Seller address filter
+   * @param query.priceRange Price range filter
+   * @param query.priceRange.min Minimum price
+   * @param query.priceRange.max Maximum price
+   * @param query.category Optional category filter
    */
   async searchListings(query: {
-    /**
-     *
-     */
+    /** Seller address to filter by */
     seller?: string;
     /**
      *

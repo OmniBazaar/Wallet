@@ -143,25 +143,24 @@ export class ParticipationService {
   ];
   
   /**
-   *
-   * @param provider
-   * @param validatorEndpoint
+   * Create a participation service bound to a provider and validator endpoint.
+   * @param provider Ethers provider for on-chain lookups (if needed)
+   * @param validatorEndpoint REST endpoint for participation API
    */
   constructor(provider: ethers.Provider, validatorEndpoint?: string) {
     this.provider = provider;
     this.validatorEndpoint = validatorEndpoint || 'http://localhost:3001/api/participation';
   }
   
-  /**
-   * Initialize the service
-   */
+  /** Initialize any resources (currently a no-op). */
   async initialize(): Promise<void> {
     console.log('Participation Service initialized');
   }
   
   /**
-   * Get participation score for address
-   * @param address
+   * Get or compute the participation score for an address.
+   * Uses a 5-minute cache to reduce load.
+   * @param address Wallet address
    */
   async getScore(address: string): Promise<ParticipationScore> {
     // Check cache
@@ -191,10 +190,10 @@ export class ParticipationService {
   }
   
   /**
-   * Update activity component
-   * @param address
-   * @param component
-   * @param activity
+   * Update an activity component and return the updated score.
+   * @param address Wallet address
+   * @param component Component key to update
+   * @param activity Component-specific payload
    */
   async updateActivity(
     address: string,

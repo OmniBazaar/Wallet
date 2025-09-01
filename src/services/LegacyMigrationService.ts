@@ -105,11 +105,11 @@ export class LegacyMigrationService {
   private readonly DECIMAL_CONVERSION = BigInt(10 ** 12);
   
   /**
-   *
-   * @param provider
-   * @param signer
-   * @param omniCoreAddress
-   * @param validatorEndpoint
+   * Create a LegacyMigrationService for validating and claiming v1 balances.
+   * @param provider Ethers provider used for contract reads
+   * @param signer Optional signer for sending claim txs
+   * @param omniCoreAddress Optional OmniCore contract address
+   * @param validatorEndpoint Optional validator REST endpoint
    */
   constructor(
     provider: ethers.Provider,
@@ -165,19 +165,13 @@ export class LegacyMigrationService {
     }
   }
   
-  /**
-   * Check if a username is a legacy user
-   * @param username
-   */
+  /** Return true if a username exists in the legacy list. */
   async isLegacyUser(username: string): Promise<boolean> {
     const normalizedUsername = username.toLowerCase();
     return this.legacyUsers.has(normalizedUsername);
   }
   
-  /**
-   * Check if a username is available (not reserved)
-   * @param username
-   */
+  /** Check if a username is available (not reserved) in OmniCore. */
   async isUsernameAvailable(username: string): Promise<boolean> {
     if (!this.omniCoreContract) {
       throw new Error('OmniCore contract not initialized');
@@ -191,10 +185,7 @@ export class LegacyMigrationService {
     }
   }
   
-  /**
-   * Get migration status for a username
-   * @param username
-   */
+  /** Get migration status for a username from OmniCore. */
   async getMigrationStatus(username: string): Promise<MigrationStatus | null> {
     if (!this.omniCoreContract) {
       throw new Error('OmniCore contract not initialized');
@@ -234,12 +225,11 @@ export class LegacyMigrationService {
   }
   
   /**
-   * Validate legacy credentials
-   * 
-   * In v1, passwords were hashed using a specific algorithm.
-   * This replicates that validation process.
-   * @param username
-   * @param password
+   * Validate legacy credentials against the validator service.
+   * In v1, passwords were hashed with a specific algorithm; validation is
+   * delegated to the validator endpoint for correctness and audit logging.
+   * @param username Legacy username
+   * @param password Legacy password
    */
   async validateLegacyCredentials(
     username: string,
