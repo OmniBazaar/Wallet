@@ -531,6 +531,7 @@ export class ValidatorTransactionService {
   /**
    * Get the next nonce for an address.
    * @param address Address to query
+   * @returns Nonce number
    */
   async getTransactionCount(address: string): Promise<number> {
     try {

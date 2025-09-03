@@ -410,7 +410,7 @@ export class ProviderManager {
     amount: string,
     chainType?: ChainType,
     data?: string
-  ): Promise<ethers.providers.TransactionResponse | string> {
+  ): Promise<ethers.TransactionResponse | string> {
     const chain = chainType || this.activeChain;
     const provider = this.getProvider(chain);
 
@@ -444,24 +444,24 @@ export class ProviderManager {
     }
 
     // Parse amount based on chain decimals for EVM chains
-    let value: ethers.BigNumber;
+    let value: bigint;
     switch (chain) {
       case 'omnicoin':
         // 18 decimals (updated for EVM standard)
-        value = ethers.utils.parseUnits(amount, 18);
+        value = ethers.parseUnits(amount, 18);
         break;
       case 'coti':
         // 6 decimals (COTI native)
-        value = ethers.utils.parseUnits(amount, 6);
+        value = ethers.parseUnits(amount, 6);
         break;
       default:
         // 18 decimals
-        value = ethers.utils.parseEther(amount);
+        value = ethers.parseEther(amount);
     }
 
     const transaction = {
       to,
-      value: value.toString(),
+      value: value,
       data: data || '0x'
     };
 

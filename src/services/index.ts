@@ -72,9 +72,7 @@ export async function initializeValidatorServices(userId: string): Promise<void>
 }
 
 // Service cleanup helper
-/**
- *
- */
+/** Disconnect all validator services and clear state. */
 export async function disconnectValidatorServices(): Promise<void> {
   try {
     await validatorWallet.disconnect();
@@ -89,25 +87,15 @@ export async function disconnectValidatorServices(): Promise<void> {
 }
 
 // Service health check
-/**
- *
- */
+/** Return a basic health snapshot for the validator services. */
 export async function checkValidatorServiceHealth(): Promise<{
-  /**
-   *
-   */
+  /** Wallet service healthy */
   wallet: boolean;
-  /**
-   *
-   */
+  /** Transaction service healthy */
   transaction: boolean;
-  /**
-   *
-   */
+  /** Balance service healthy */
   balance: boolean;
-  /**
-   *
-   */
+  /** Overall health summary */
   overall: boolean;
 }> {
   try {

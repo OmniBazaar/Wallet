@@ -83,7 +83,7 @@ export class AvalancheNFTProvider implements ChainProvider {
       ]);
       
       // Parse metadata
-      let metadata: { name: string; description: string; image?: string } = { name: `${name} #${tokenId}`, description: '' };
+      let metadata: { name: string; description: string; image?: string; attributes?: Array<Record<string, unknown>> } = { name: `${name} #${tokenId}`, description: '' };
               if (tokenURI != null && tokenURI !== '') {
         if (tokenURI.startsWith('data:')) {
           const json = tokenURI.split(',')[1];
@@ -92,8 +92,8 @@ export class AvalancheNFTProvider implements ChainProvider {
           const ipfsGateway = 'https://ipfs.io/ipfs/';
           const ipfsHash = tokenURI.replace('ipfs://', '');
           try {
-            const response = await fetch(ipfsGateway + ipfsHash);
-            metadata = await response.json();
+          const response = await fetch(ipfsGateway + ipfsHash);
+          metadata = await response.json();
           } catch {}
         } else if (tokenURI.startsWith('http')) {
           try {

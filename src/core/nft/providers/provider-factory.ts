@@ -7,7 +7,7 @@
 
 import { EthereumNFTProvider } from './ethereum-provider';
 import { PolygonNFTProvider } from './polygon-provider';
-import { BinanceNFTProvider } from './binance-provider';
+import { BSCNFTProvider } from './bsc-provider';
 import { AvalancheNFTProvider } from './avalanche-provider';
 import { ArbitrumNFTProvider } from './arbitrum-provider';
 import { OptimismNFTProvider } from './optimism-provider';
@@ -64,58 +64,56 @@ export function createNFTProvider(
 ): ChainProvider | null {
   // Default to using OmniProvider
   const useOmniProvider = config.useOmniProvider !== false;
-  const validatorUrl = config.validatorUrl || process.env.VALIDATOR_URL || 'wss://validator.omnibazaar.com';
+  const validatorUrl = config.validatorUrl || (process.env?.VALIDATOR_URL ?? 'wss://validator.omnibazaar.com');
   
   // Base configuration for all providers
-  const baseConfig = {
-    useOmniProvider,
-    validatorUrl,
-    alchemyApiKey: config.apiKeys?.alchemy,
-    moralisApiKey: config.apiKeys?.moralis,
-    openseaApiKey: config.apiKeys?.opensea
-  };
+  const apiKeyProps = {
+    ...(config.apiKeys?.alchemy ? { alchemyApiKey: config.apiKeys.alchemy } : {}),
+    ...(config.apiKeys?.moralis ? { moralisApiKey: config.apiKeys.moralis } : {}),
+    ...(config.apiKeys?.opensea ? { openseaApiKey: config.apiKeys.opensea } : {}),
+  } as const;
   
   switch (chainId) {
     case 1: // Ethereum
       return new EthereumNFTProvider({
-        ...baseConfig,
-        rpcUrl: useOmniProvider ? validatorUrl : 'https://ethereum.publicnode.com'
+        rpcUrl: useOmniProvider ? validatorUrl : 'https://ethereum.publicnode.com',
+        useOmniProvider,
+        ...apiKeyProps,
       });
       
     case 137: // Polygon
       return new PolygonNFTProvider({
-        ...baseConfig,
-        rpcUrl: useOmniProvider ? validatorUrl : 'https://polygon.publicnode.com'
+        rpcUrl: useOmniProvider ? validatorUrl : 'https://polygon.publicnode.com',
+        ...apiKeyProps,
       });
       
     case 56: // Binance Smart Chain
-      return new BinanceNFTProvider({
-        ...baseConfig,
-        rpcUrl: useOmniProvider ? validatorUrl : 'https://bsc.publicnode.com'
+      return new BSCNFTProvider({
+        rpcUrl: useOmniProvider ? validatorUrl : 'https://bsc.publicnode.com',
+        ...(config.apiKeys?.moralis ? { moralisApiKey: config.apiKeys.moralis } : {}),
       });
       
     case 43114: // Avalanche
       return new AvalancheNFTProvider({
-        ...baseConfig,
         rpcUrl: useOmniProvider ? validatorUrl : 'https://avalanche.publicnode.com'
       });
       
     case 42161: // Arbitrum
       return new ArbitrumNFTProvider({
-        ...baseConfig,
-        rpcUrl: useOmniProvider ? validatorUrl : 'https://arbitrum.publicnode.com'
+        rpcUrl: useOmniProvider ? validatorUrl : 'https://arbitrum.publicnode.com',
+        ...apiKeyProps,
       });
       
     case 10: // Optimism
       return new OptimismNFTProvider({
-        ...baseConfig,
-        rpcUrl: useOmniProvider ? validatorUrl : 'https://optimism.publicnode.com'
+        rpcUrl: useOmniProvider ? validatorUrl : 'https://optimism.publicnode.com',
+        ...apiKeyProps,
       });
       
     case 8453: // Base
       return new BaseNFTProvider({
-        ...baseConfig,
-        rpcUrl: useOmniProvider ? validatorUrl : 'https://base.publicnode.com'
+        rpcUrl: useOmniProvider ? validatorUrl : 'https://base.publicnode.com',
+        ...apiKeyProps,
       });
       
     default:
@@ -168,7 +166,7 @@ export async function checkOmniProviderAvailability(
   validatorUrl?: string
 ): Promise<boolean> {
   try {
-    const url = validatorUrl || process.env.VALIDATOR_URL || 'wss://validator.omnibazaar.com';
+    const url = validatorUrl || process.env?.VALIDATOR_URL || 'wss://validator.omnibazaar.com';
     
     // Try to connect with WebSocket
     return new Promise((resolve) => {

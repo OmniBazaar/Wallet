@@ -32,16 +32,8 @@ export class LiveBitcoinProvider extends BitcoinProvider {
     this.derivationPath = path;
   }
 
-  /**
-   * Get current account from keyring
-   */
-  async getCurrentAccount(): Promise<{ /**
-                                        *
-                                        */
-  address: string; /**
-                    *
-                    */
-  publicKey: string }> {
+  /** Derive and cache the current account/address from the keyring seed. */
+  async getCurrentAccount(): Promise<{ address: string; publicKey: string }> {
     // For now, use a default password - in production this should be properly handled
     const seed = await this.keyring.getSeed('');
     if (!seed) {
@@ -96,30 +88,8 @@ export class LiveBitcoinProvider extends BitcoinProvider {
     return await this.sendTransaction(signedTx);
   }
 
-  /**
-   * Get transaction history for current account
-   * @param address
-   * @param limit
-   */
-  async getTransactionHistory(address?: string, limit = 10): Promise<Array<{ /**
-                                                                              *
-                                                                              */
-  hash: string; /**
-                 *
-                 */
-  from: string; /**
-                 *
-                 */
-  to: string; /**
-               *
-               */
-  value: string; /**
-                  *
-                  */
-  timestamp: number; /**
-                      *
-                      */
-  status: string }>> {
+  /** Get transaction history for the current account or a supplied address. */
+  async getTransactionHistory(address?: string, limit = 10): Promise<Array<{ hash: string; from: string; to: string; value: string; timestamp: number; status: string }>> {
     if (!address) {
       const account = await this.getCurrentAccount();
       address = account.address;
@@ -169,22 +139,8 @@ export class LiveBitcoinProvider extends BitcoinProvider {
     throw new Error('WIF import not yet implemented');
   }
 
-  /**
-   * Get UTXO set for current account
-   */
-  async getUTXOs(): Promise<Array<{ /**
-                                     *
-                                     */
-  txHash: string; /**
-                   *
-                   */
-  outputIndex: number; /**
-                        *
-                        */
-  value: string; /**
-                  *
-                  */
-  script: string }>> {
+  /** Get the UTXO set for the current account. */
+  async getUTXOs(): Promise<Array<{ txHash: string; outputIndex: number; value: string; script: string }>> {
     const { address } = await this.getCurrentAccount();
     return super.getUTXOs(address);
   }

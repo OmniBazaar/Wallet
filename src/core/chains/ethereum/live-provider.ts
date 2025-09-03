@@ -110,7 +110,8 @@ export const ETHEREUM_NETWORKS = {
  *
  */
 export class LiveEthereumProvider {
-  protected provider: ethers.providers.JsonRpcProvider;
+  /** Underlying JSON-RPC provider */
+  protected provider: ethers.JsonRpcProvider;
   private network: EthereumNetwork;
   private signer: ethers.Signer | null = null;
   
@@ -125,7 +126,7 @@ export class LiveEthereumProvider {
     }
     
     this.network = network;
-    this.provider = new ethers.providers.JsonRpcProvider(network.rpcUrl, {
+    this.provider = new ethers.JsonRpcProvider(network.rpcUrl, {
       chainId: network.chainId,
       name: network.name
     });
@@ -134,7 +135,7 @@ export class LiveEthereumProvider {
   /**
    * Get the provider instance
    */
-  getProvider(): ethers.providers.JsonRpcProvider {
+  getProvider(): ethers.JsonRpcProvider {
     return this.provider;
   }
 
@@ -156,7 +157,7 @@ export class LiveEthereumProvider {
     }
     
     this.network = network;
-    this.provider = new ethers.providers.JsonRpcProvider(network.rpcUrl, {
+    this.provider = new ethers.JsonRpcProvider(network.rpcUrl, {
       chainId: network.chainId,
       name: network.name
     });
@@ -186,12 +187,11 @@ export class LiveEthereumProvider {
    * Get account balance
    * @param address
    */
-  async getBalance(address?: string): Promise<ethers.BigNumber> {
+  async getBalance(address?: string): Promise<bigint> {
     const targetAddress = address || keyringService.getActiveAccount()?.address;
     if (!targetAddress) {
       throw new Error('No address provided');
     }
-    
     return await this.provider.getBalance(targetAddress);
   }
 
@@ -201,28 +201,28 @@ export class LiveEthereumProvider {
    */
   async getFormattedBalance(address?: string): Promise<string> {
     const balance = await this.getBalance(address);
-    return ethers.utils.formatEther(balance);
+    return ethers.formatEther(balance);
   }
 
   /**
    * Estimate gas for transaction
    * @param transaction
    */
-  async estimateGas(transaction: ethers.providers.TransactionRequest): Promise<ethers.BigNumber> {
+  async estimateGas(transaction: ethers.TransactionRequest): Promise<bigint> {
     return await this.provider.estimateGas(transaction);
   }
 
   /**
    * Get current gas price
    */
-  async getGasPrice(): Promise<ethers.BigNumber> {
+  async getGasPrice(): Promise<bigint> {
     return await this.provider.getGasPrice();
   }
 
   /**
    * Get EIP-1559 fee data
    */
-  async getFeeData(): Promise<ethers.providers.FeeData> {
+  async getFeeData(): Promise<ethers.FeeData> {
     return await this.provider.getFeeData();
   }
 
@@ -230,7 +230,7 @@ export class LiveEthereumProvider {
    * Send transaction
    * @param transaction
    */
-  async sendTransaction(transaction: ethers.providers.TransactionRequest): Promise<ethers.providers.TransactionResponse> {
+  async sendTransaction(transaction: ethers.TransactionRequest): Promise<ethers.TransactionResponse> {
     const signer = await this.getSigner();
     return await signer.sendTransaction(transaction);
   }
@@ -239,7 +239,7 @@ export class LiveEthereumProvider {
    * Get transaction receipt
    * @param txHash
    */
-  async getTransactionReceipt(txHash: string): Promise<ethers.providers.TransactionReceipt | null> {
+  async getTransactionReceipt(txHash: string): Promise<ethers.TransactionReceipt | null> {
     return await this.provider.getTransactionReceipt(txHash);
   }
 
@@ -248,7 +248,7 @@ export class LiveEthereumProvider {
    * @param txHash
    * @param confirmations
    */
-  async waitForTransaction(txHash: string, confirmations = 1): Promise<ethers.providers.TransactionReceipt> {
+  async waitForTransaction(txHash: string, confirmations = 1): Promise<ethers.TransactionReceipt> {
     return await this.provider.waitForTransaction(txHash, confirmations);
   }
 
@@ -256,7 +256,7 @@ export class LiveEthereumProvider {
    * Call contract method (read-only)
    * @param transaction
    */
-  async call(transaction: ethers.providers.TransactionRequest): Promise<string> {
+  async call(transaction: ethers.TransactionRequest): Promise<string> {
     return await this.provider.call(transaction);
   }
 
@@ -271,7 +271,7 @@ export class LiveEthereumProvider {
    * Get block
    * @param blockHashOrNumber
    */
-  async getBlock(blockHashOrNumber: string | number): Promise<ethers.providers.Block> {
+  async getBlock(blockHashOrNumber: string | number): Promise<ethers.Block> {
     return await this.provider.getBlock(blockHashOrNumber);
   }
 
@@ -279,7 +279,7 @@ export class LiveEthereumProvider {
    * Get transaction
    * @param txHash
    */
-  async getTransaction(txHash: string): Promise<ethers.providers.TransactionResponse | null> {
+  async getTransaction(txHash: string): Promise<ethers.TransactionResponse | null> {
     return await this.provider.getTransaction(txHash);
   }
 
@@ -333,25 +333,27 @@ export class LiveEthereumProvider {
  */
 class KeyringSigner extends ethers.Signer {
   readonly address: string;
+  private readonly _provider: ethers.Provider;
   
-  constructor(address: string, provider: ethers.providers.Provider) {
+  constructor(address: string, provider: ethers.Provider) {
     super();
     this.address = address;
-    ethers.utils.defineReadOnly(this, 'provider', provider);
+    this._provider = provider;
   }
+  get provider(): ethers.Provider { return this._provider; }
 
   async getAddress(): Promise<string> {
     return this.address;
   }
 
-  async signMessage(message: string | ethers.utils.Bytes): Promise<string> {
-    const messageString = typeof message === 'string' ? message : ethers.utils.hexlify(message);
+  async signMessage(message: string | Uint8Array): Promise<string> {
+    const messageString = typeof message === 'string' ? message : ethers.hexlify(message);
     return await keyringService.signMessage(this.address, messageString);
   }
 
-  async signTransaction(transaction: ethers.providers.TransactionRequest): Promise<string> {
+  async signTransaction(transaction: ethers.TransactionRequest): Promise<string> {
     // Populate transaction
-    const tx = await ethers.utils.resolveProperties(transaction);
+    const tx = { ...transaction } as Record<string, unknown>;
     
     // Remove from field for signing
     if ('from' in tx) {
@@ -361,7 +363,7 @@ class KeyringSigner extends ethers.Signer {
     return await keyringService.signTransaction(this.address, tx);
   }
 
-  async sendTransaction(transaction: ethers.providers.TransactionRequest): Promise<ethers.providers.TransactionResponse> {
+  async sendTransaction(transaction: ethers.TransactionRequest): Promise<ethers.TransactionResponse> {
     // Sign transaction
     const signedTx = await this.signTransaction(transaction);
     
@@ -369,10 +371,10 @@ class KeyringSigner extends ethers.Signer {
     if (!this.provider) {
       throw new Error('Provider not available');
     }
-    return await this.provider.sendTransaction(signedTx);
+    return await (this.provider as ethers.JsonRpcProvider).broadcastTransaction(signedTx);
   }
 
-  connect(provider: ethers.providers.Provider): KeyringSigner {
+  connect(provider: ethers.Provider): KeyringSigner {
     return new KeyringSigner(this.address, provider);
   }
 }

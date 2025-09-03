@@ -50,6 +50,8 @@ export class OmniProvider extends ethers.JsonRpcProvider {
   private currentValidatorIndex = 0;
   private reconnectAttempts = 0;
   private readonly maxReconnectAttempts = 5;
+  // Track active chain id without mutating base provider internals
+  private chainId: number = 1;
 
   /**
    * Create OmniProvider instance
@@ -67,6 +69,14 @@ export class OmniProvider extends ethers.JsonRpcProvider {
 
     // Connect to validator network
     this.connect();
+  }
+
+  /**
+   * Set the active chain id used for validator RPC calls.
+   * @param chainId EVM chain id
+   */
+  setChainId(chainId: number): void {
+    this.chainId = chainId;
   }
 
   /**
@@ -270,7 +280,7 @@ export class OmniProvider extends ethers.JsonRpcProvider {
     const result = await this.sendRequest('eth_getBalance', [
       address,
       blockTag || 'latest',
-      this.network.chainId
+      this.chainId
     ]);
     return BigInt(result);
   }
@@ -280,7 +290,7 @@ export class OmniProvider extends ethers.JsonRpcProvider {
     return await this.sendRequest('eth_getTransactionCount', [
       address,
       blockTag || 'latest',
-      this.network.chainId
+      this.chainId
     ]);
   }
 
@@ -289,7 +299,7 @@ export class OmniProvider extends ethers.JsonRpcProvider {
     return await this.sendRequest('eth_call', [
       transaction,
       blockTag || 'latest',
-      this.network.chainId
+      this.chainId
     ]);
   }
 
@@ -297,23 +307,15 @@ export class OmniProvider extends ethers.JsonRpcProvider {
   async estimateGas(transaction: any): Promise<bigint> {
     const result = await this.sendRequest('eth_estimateGas', [
       transaction,
-      this.network.chainId
+      this.chainId
     ]);
     return BigInt(result);
   }
 
   /** Broadcast a signed raw transaction and return an Ethers response. */
   async broadcastTransaction(signedTransaction: string): Promise<ethers.TransactionResponse> {
-    const hash = await this.sendRequest('eth_sendRawTransaction', [
-      signedTransaction,
-      this.network.chainId
-    ]);
-
-    // Create transaction response
-    return new ethers.TransactionResponse(
-      ethers.Transaction.from(signedTransaction),
-      this
-    );
+    // Delegate to base implementation to construct a proper TransactionResponse
+    return super.broadcastTransaction(signedTransaction);
   }
 
   // OmniBazaar-specific methods
@@ -326,7 +328,7 @@ export class OmniProvider extends ethers.JsonRpcProvider {
   async getNFTs(address: string, chainId?: number): Promise<any[]> {
     return await this.sendRequest('omni_getNFTs', {
       address,
-      chainId: chainId || this.network.chainId
+      chainId: chainId || this.chainId
     });
   }
 
@@ -340,7 +342,7 @@ export class OmniProvider extends ethers.JsonRpcProvider {
     return await this.sendRequest('omni_getNFTMetadata', {
       contract,
       tokenId,
-      chainId: chainId || this.network.chainId
+      chainId: chainId || this.chainId
     });
   }
 
@@ -352,7 +354,7 @@ export class OmniProvider extends ethers.JsonRpcProvider {
   async getCollections(address: string, chainId?: number): Promise<any[]> {
     return await this.sendRequest('omni_getCollections', {
       address,
-      chainId: chainId || this.network.chainId
+      chainId: chainId || this.chainId
     });
   }
 

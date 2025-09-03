@@ -79,6 +79,10 @@ type ParsedConfig = {
   exacts: Map<string, ExactSearchConfig>;
 };
 
+/**
+ * Parse a compact debug configuration string into a structured config.
+ * Avoids undefined option values to satisfy exactOptionalPropertyTypes.
+ */
 function parseConfig(string: string): ParsedConfig {
   const wildcards = new Map<string, WildcardSearchConfig>();
   const exacts = new Map<string, ExactSearchConfig>();
@@ -86,14 +90,16 @@ function parseConfig(string: string): ParsedConfig {
   let defaultAllow = false;
   let defaultLevel = "info";
   const lines = string
-    .replaceAll("\n", "")
+    // Use split/join for broad runtime compatibility
+    .split("\n").join("")
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
   const lineCount = lines.length;
 
   for (let linei = 0; linei < lineCount; linei++) {
-    const line = lines[linei].trim();
+    const raw = lines[linei] ?? '';
+    const line = raw.trim();
     if (line === "*") {
       defaultAllow = true;
     } else if (/^\([a-zA-Z]\)$/i.test(line)) {
@@ -101,7 +107,7 @@ function parseConfig(string: string): ParsedConfig {
     } else {
       let lineWithoutLevel: string;
       const levelmatch = line.match(/\([a-zA-Z]+\)/i);
-      let level: undefined | string;
+      let level: string | undefined;
       if (levelmatch) {
         const levelRaw = levelmatch[0];
         const leveli = line.indexOf(levelRaw);
@@ -136,18 +142,20 @@ function parseConfig(string: string): ParsedConfig {
       }
 
       if (wildcardi === -1) {
-        exacts.set(lineWithoutWildcard, {
+        const exact: ExactSearchConfig = {
           forceAllow,
           forceDisallow,
-          level: level ? levelToNumber(level) : undefined,
-        });
+          ...(level !== undefined ? { level: levelToNumber(level) } : {}),
+        };
+        exacts.set(lineWithoutWildcard, exact);
       } else {
-        wildcards.set(lineWithoutWildcard, {
+        const wc: WildcardSearchConfig = {
           prefix: lineWithoutWildcard,
           forceAllow,
           forceDisallow,
-          level: level ? levelToNumber(level) : undefined,
-        });
+          ...(level !== undefined ? { level: levelToNumber(level) } : {}),
+        };
+        wildcards.set(lineWithoutWildcard, wc);
       }
     }
   }
@@ -170,7 +178,7 @@ const defaultParsedConfig: ParsedConfig = {
 function getDebugConfigString(): undefined | string {
   // Load from global
   if (typeof globalThis !== "undefined") {
-    const confString = globalThis?.__ENKRYPT_DEBUG_LOG_CONF__;
+    const confString = (globalThis as any)?.__ENKRYPT_DEBUG_LOG_CONF__;
     if (typeof confString === "string") return confString;
   }
   return undefined;
@@ -228,24 +236,24 @@ class DebugLogEnabler {
 }
 
 // Initialise this before creating a DebugLogEnabler instance
-let currentConfString = globalThis.__ENKRYPT_DEBUG_LOG_CONF__;
-Object.defineProperty(globalThis, "__ENKRYPT_DEBUG_LOG_CONF__", {
+let currentConfString = (globalThis as any).__ENKRYPT_DEBUG_LOG_CONF__;
+Object.defineProperty(globalThis as any, "__ENKRYPT_DEBUG_LOG_CONF__", {
   get() {
     return currentConfString;
   },
   set(value) {
     currentConfString = value;
-    (globalThis.__ENKRYPT_DEBUG_LOG_ENABLER__ as DebugLogEnabler)?.refresh?.();
+    ((globalThis as any).__ENKRYPT_DEBUG_LOG_ENABLER__ as DebugLogEnabler)?.refresh?.();
   },
 });
 
 // Parses the debug logger configuration string, provides
 // log levels and caches results
-globalThis.__ENKRYPT_DEBUG_LOG_ENABLER__ = new DebugLogEnabler();
-globalThis.__ENKRYPT_DEBUG_LOG_ENABLER__.refresh();
+;(globalThis as any).__ENKRYPT_DEBUG_LOG_ENABLER__ = new DebugLogEnabler();
+;(globalThis as any).__ENKRYPT_DEBUG_LOG_ENABLER__.refresh();
 
 function getEnabler(): DebugLogEnabler {
-  return globalThis.__ENKRYPT_DEBUG_LOG_ENABLER__;
+  return (globalThis as any).__ENKRYPT_DEBUG_LOG_ENABLER__;
 }
 
 /**

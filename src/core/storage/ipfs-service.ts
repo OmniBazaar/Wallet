@@ -77,9 +77,9 @@ export class IPFSService {
   }
 
   /**
-   * Upload a file to IPFS
-   * @param file
-   * @param filename
+   * Upload a file/blob to IPFS and return its CID string.
+   * @param file File or Blob to upload
+   * @param filename Optional filename/path used in IPFS
    */
   async uploadFile(file: File | Blob, filename?: string): Promise<string> {
     if (!this.client) {
@@ -104,9 +104,9 @@ export class IPFSService {
   }
 
   /**
-   * Upload JSON data to IPFS
-   * @param data
-   * @param filename
+   * Upload a JSON serializable object to IPFS and return CID.
+   * @param data JSON-serializable object
+   * @param filename Optional filename for the JSON blob
    */
   async uploadJSON(data: Record<string, unknown>, filename = 'data.json'): Promise<string> {
     try {
@@ -118,10 +118,7 @@ export class IPFSService {
     }
   }
 
-  /**
-   * Pin content to IPFS (ensure it stays available)
-   * @param hash
-   */
+  /** Pin content to IPFS to ensure availability. @param hash CID */
   async pinContent(hash: string): Promise<void> {
     try {
       await this.client.pin.add(hash);
@@ -130,10 +127,7 @@ export class IPFSService {
     }
   }
 
-  /**
-   * Unpin content from IPFS
-   * @param hash
-   */
+  /** Unpin content from IPFS. @param hash CID */
   async unpinContent(hash: string): Promise<void> {
     try {
       await this.client.pin.rm(hash);
@@ -142,10 +136,7 @@ export class IPFSService {
     }
   }
 
-  /**
-   * Get content from IPFS
-   * @param hash
-   */
+  /** Retrieve raw content bytes from IPFS. @param hash CID */
   async getContent(hash: string): Promise<Uint8Array> {
     try {
       const chunks: Uint8Array[] = [];
@@ -169,10 +160,7 @@ export class IPFSService {
     }
   }
 
-  /**
-   * Get JSON content from IPFS
-   * @param hash
-   */
+  /** Retrieve JSON content from IPFS, decoding UTF‑8. @param hash CID */
   async getJSON(hash: string): Promise<Record<string, unknown>> {
     try {
       const content = await this.getContent(hash);
@@ -183,10 +171,7 @@ export class IPFSService {
     }
   }
 
-  /**
-   * Check if content exists on IPFS
-   * @param hash
-   */
+  /** Check if content exists on IPFS by probing a byte. @param hash CID */
   async contentExists(hash: string): Promise<boolean> {
     try {
       // Try to get the first byte
@@ -198,20 +183,14 @@ export class IPFSService {
     }
   }
 
-  /**
-   * Get gateway URL for content
-   * @param hash
-   */
+  /** Build a public gateway URL for a CID. @param hash CID or ipfs:// URL */
   getGatewayUrl(hash: string): string {
     // Remove ipfs:// protocol if present
     const cleanHash = hash.replace('ipfs://', '');
     return `${this.config.gateway}/${cleanHash}`;
   }
 
-  /**
-   * Get content stats
-   * @param hash
-   */
+  /** Get content stats from IPFS object API. @param hash CID */
   async getStats(hash: string): Promise<{
     /**
      *
@@ -248,9 +227,7 @@ export class IPFSService {
     }
   }
 
-  /**
-   * List pinned content
-   */
+  /** List currently pinned CIDs. */
   async listPinned(): Promise<string[]> {
     try {
       const pins: string[] = [];
@@ -264,8 +241,8 @@ export class IPFSService {
   }
 
   /**
-   * Upload multiple files to IPFS
-   * @param files
+   * Upload multiple files to IPFS and return their CIDs and paths.
+   * @param files Array of { file, filename }
    */
   async uploadMultipleFiles(files: Array<{ /**
                                             *
@@ -294,8 +271,9 @@ export class IPFSService {
   }
 
   /**
-   * Create a directory structure on IPFS
-   * @param files
+   * Create a directory with multiple paths and contents on IPFS.
+   * @param files Array of { path, content }
+   * @returns CID of the created directory
    */
   async uploadDirectory(files: Array<{ /**
                                         *

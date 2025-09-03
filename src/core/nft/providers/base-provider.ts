@@ -96,17 +96,19 @@ export class BaseNFTProvider implements ChainProvider {
       const contract = new ethers.Contract(contractAddress, erc721Abi, provider);
       
       const [tokenURI, name, owner] = await Promise.all([
-        contract.tokenURI(tokenId).catch(() => ''),
-        contract.name().catch(() => 'Unknown Collection'),
-        contract.ownerOf(tokenId).catch(() => '0x0000000000000000000000000000000000000000')
+        this.callContract<string>(contract as any, 'tokenURI', tokenId),
+        this.callContract<string>(contract as any, 'name'),
+        this.callContract<string>(contract as any, 'ownerOf', tokenId)
       ]);
       
       // Parse metadata
       let metadata: any = { name: `${name} #${tokenId}`, description: '' };
       if (tokenURI) {
         if (tokenURI.startsWith('data:')) {
-          const json = tokenURI.split(',')[1];
-          metadata = JSON.parse(atob(json));
+          const json = tokenURI.split(',')[1] ?? '';
+          if (json) {
+            metadata = JSON.parse(atob(json));
+          }
         } else if (tokenURI.startsWith('ipfs://')) {
           const ipfsGateway = 'https://ipfs.io/ipfs/';
           const ipfsHash = tokenURI.replace('ipfs://', '');
@@ -157,7 +159,7 @@ export class BaseNFTProvider implements ChainProvider {
         if (!collectionMap.has(nft.contractAddress)) {
           collectionMap.set(nft.contractAddress, {
             id: `base_collection_${nft.contractAddress}`,
-            name: nft.name.split('#')[0].trim() || 'Unknown Collection',
+            name: (nft.name?.split('#')[0] ?? nft.name).toString().trim() || 'Unknown Collection',
             description: '',
             contract: nft.contractAddress,
             contractAddress: nft.contractAddress,
@@ -234,7 +236,7 @@ export class BaseNFTProvider implements ChainProvider {
       attributes: metadata.attributes || [],
       contract: nft.contract.address,
       contractAddress: nft.contract.address,
-      tokenStandard: nft.id.tokenMetadata?.tokenType || 'ERC721',
+      tokenStandard: ((nft.id.tokenMetadata?.tokenType || 'ERC721') as string).toUpperCase() === 'ERC1155' ? 'ERC1155' : 'ERC721',
       blockchain: 'base',
       owner: '',
       creator: metadata.creator || '',
@@ -257,7 +259,7 @@ export class BaseNFTProvider implements ChainProvider {
       attributes: nft.extra_metadata?.attributes || [],
       contract: nft.contract_address,
       contractAddress: nft.contract_address,
-      tokenStandard: nft.contract?.type || 'ERC721',
+      tokenStandard: ((nft.contract?.type || 'ERC721') as string).toUpperCase() === 'ERC1155' ? 'ERC1155' : 'ERC721',
       blockchain: 'base',
       owner: nft.owners?.[0]?.owner_address || '',
       creator: nft.contract?.deployed_by || '',
@@ -303,26 +305,28 @@ export class BaseNFTProvider implements ChainProvider {
           const contract = new ethers.Contract(contractAddress, erc721Abi, provider);
           
           // Get balance
-          const balance = await contract.balanceOf(address);
+          const balance = await this.callContract<bigint>(contract as any, 'balanceOf', address);
           if (balance === 0n) continue;
           
           // Get collection name
-          const collectionName = await contract.name().catch(() => 'Unknown Collection');
+          const collectionName = (await this.callContract<string>(contract as any, 'name')) || 'Unknown Collection';
           
           // Get up to 10 NFTs from this collection
           const limit = Math.min(Number(balance), 10);
           
           for (let i = 0; i < limit; i++) {
             try {
-              const tokenId = await contract.tokenOfOwnerByIndex(address, i);
-              const tokenURI = await contract.tokenURI(tokenId).catch(() => '');
+              const tokenId = await this.callContract<bigint>(contract as any, 'tokenOfOwnerByIndex', address, i);
+              const tokenURI = (await this.callContract<string>(contract as any, 'tokenURI', tokenId)) || '';
               
               // Parse metadata if available
               let metadata: any = {};
               if (tokenURI.startsWith('data:')) {
                 // On-chain metadata
-                const json = tokenURI.split(',')[1];
-                metadata = JSON.parse(atob(json));
+                const json = tokenURI.split(',')[1] ?? '';
+                if (json) {
+                  metadata = JSON.parse(atob(json));
+                }
               } else if (tokenURI.startsWith('ipfs://')) {
                 // IPFS metadata
                 const ipfsGateway = 'https://ipfs.io/ipfs/';
@@ -555,5 +559,17 @@ export class BaseNFTProvider implements ChainProvider {
       connected: workingApis.length > 0 || Boolean(this.config.rpcUrl),
       apis: workingApis
     };
+  }
+
+  /** Safely call a contract method with optional presence. */
+  private async callContract<T>(contract: any, method: string, ...args: unknown[]): Promise<T> {
+    try {
+      const fn = contract?.[method as keyof typeof contract] as unknown;
+      if (typeof fn !== 'function') return undefined as unknown as T;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+      return await (fn as (...a: unknown[]) => Promise<T> | T)(...args);
+    } catch {
+      return undefined as unknown as T;
+    }
   }
 }

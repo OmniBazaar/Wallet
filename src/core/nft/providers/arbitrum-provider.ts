@@ -95,10 +95,11 @@ export class ArbitrumNFTProvider implements ChainProvider {
       
       const contract = new ethers.Contract(contractAddress, erc721Abi, provider);
       
+      const c: any = contract;
       const [tokenURI, name, owner] = await Promise.all([
-        contract.tokenURI(tokenId).catch(() => ''),
-        contract.name().catch(() => 'Unknown Collection'),
-        contract.ownerOf(tokenId).catch(() => '0x0000000000000000000000000000000000000000')
+        c?.['tokenURI']?.(tokenId).catch(() => ''),
+        c?.['name']?.().catch(() => 'Unknown Collection'),
+        c?.['ownerOf']?.(tokenId).catch(() => '0x0000000000000000000000000000000000000000')
       ]);
       
       // Parse metadata

@@ -1,180 +1,44 @@
 /**
- * Unit conversion utilities
- *
- * Primary Attribution:
- * Richard Moore <ricmoo@me.com>
- * https://github.com/ethers-io
- *
- * Note: Richard is a god of ether gods. Follow and respect him, and use Ethers.io!
+ * Unit conversion utilities (bigint-based, strict-mode friendly)
  */
 
-import { toBN } from "web3-utils";
-
-const zero = toBN(0);
-const negative1 = toBN(-1);
-
-/**
- * Returns value of unit in Wei
- * @param decimals The decimal places for the unit
- * @returns Value of the unit (in Wei)
- * @throws Error if the unit is not correct
- */
-const getValueOfUnit = (decimals: number): ReturnType<typeof toBN> => toBN(10).pow(toBN(decimals));
-
-/**
- * Convert various number types to string representation
- * @param arg Number to convert (string, number, or BN-like object)
- * @returns String representation of the number
- * @throws Error if conversion fails
- */
-const numberToString = (arg: string | number | { toString(): string; toPrecision?(): string; toTwos?: boolean; dividedToIntegerBy?: boolean }): string => {
-  if (typeof arg === "string") {
-    if (!arg.match(/^-?[0-9.]+$/)) {
-      throw new Error(
-        `while converting number to string, invalid number value '${arg}', should be a number matching (^-?[0-9.]+).`,
-      );
-    }
-    return arg;
+/** Convert base units to decimal string. */
+export function fromBase(weiInput: string, decimals: number, options?: { pad?: boolean; commify?: boolean }): string {
+  const v = BigInt(weiInput || '0');
+  const base = 10n ** BigInt(decimals);
+  const whole = v / base;
+  let frac = (v % base).toString().padStart(decimals, '0');
+  if (!options?.pad) {
+    frac = frac.replace(/0+$/, '');
   }
-  if (typeof arg === "number") {
-    return String(arg);
+  let wholeStr = whole.toString();
+  if (options?.commify) {
+    wholeStr = wholeStr.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   }
-  if (
-    typeof arg === "object" &&
-    arg.toString &&
-    (arg.toTwos === true || arg.dividedToIntegerBy === true)
-  ) {
-    if (arg.toPrecision != null) {
-      return String(arg.toPrecision());
-    }
-    return arg.toString(10);
+  return frac.length ? `${wholeStr}.${frac}` : wholeStr;
+}
+
+/** Convert decimal string to base units string. */
+export function toBase(etherInput: string, decimals: number): string {
+  if (!/^\s*-?\d*(?:\.\d*)?\s*$/.test(etherInput)) {
+    throw new Error(`Invalid number '${etherInput}'`);
   }
-  throw new Error(
-    `while converting number to string, invalid number value '${arg}' type ${typeof arg}.`,
-  );
-};
-
-/**
- * @param weiInput
- * @param decimals
- * @param optionsInput
- * @param optionsInput.pad
- * @param optionsInput.commify
- * @returns base10 numeric string
- */
-const fromBase = (
-  weiInput: string,
-  decimals: number,
-  optionsInput?: { pad?: boolean; commify?: boolean },
-): string => {
-  let wei = toBN(weiInput);
-  const negative = wei.lt(zero);
-  const base = getValueOfUnit(decimals);
-  const baseLength = base.toString().length - 1 || 1;
-  const options = optionsInput || {};
-
-  if (negative) {
-    wei = wei.mul(negative1);
+  let ether = etherInput.trim();
+  const negative = ether.startsWith('-');
+  if (negative) ether = ether.slice(1);
+  const [wholePart = '0', fracRaw = '0'] = ether.split('.');
+  const base = 10n ** BigInt(decimals);
+  if (fracRaw.length > decimals) {
+    throw new Error(`Too many decimal places for ${decimals}`);
   }
-
-  let fraction = wei.mod(base).toString(10);
-
-  while (fraction.length < baseLength) {
-    fraction = `0${fraction}`;
-  }
-  if (!options.pad) {
-    // eslint-disable-next-line prefer-destructuring
-    fraction = (fraction.match(/^([0-9]*[1-9]|0)(0*)/) as string[])[1];
-  }
-
-  let whole = wei.div(base).toString(10);
-
-  if (options.commify) {
-    whole = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  }
-
-  let value = `${whole}${fraction === "0" ? "" : `.${fraction}`}`;
-
-  if (negative) {
-    value = `-${value}`;
-  }
-
-  return value;
-};
-
-/**
- *
- * @param etherInput
- * @param decimals
- */
-const toBase = (etherInput: string, decimals: number): string => {
-  let ether = numberToString(etherInput);
-  const base = getValueOfUnit(decimals);
-  const baseLength = base.toString().length - 1 || 1;
-
-  // Is it negative?
-  const negative = ether.substring(0, 1) === "-";
-  if (negative) {
-    ether = ether.substring(1);
-  }
-
-  if (ether === ".") {
-    throw new Error(
-      `[ethjs-unit] while converting number ${etherInput} to wei, invalid value`,
-    );
-  }
-
-  // Split it into a whole and fractional part
-  const comps = ether.split(".");
-  if (comps.length > 2) {
-    throw new Error(
-      `[ethjs-unit] while converting number ${etherInput} to wei,  too many decimal points`,
-    );
-  }
-
-  let whole = comps[0];
-  let fraction = comps[1];
-
-  if (!whole) {
-    whole = "0";
-  }
-  if (!fraction) {
-    fraction = "0";
-  }
-  if (fraction.length > baseLength) {
-    throw new Error(
-      `[ethjs-unit] while converting number ${etherInput} to wei, too many decimal places`,
-    );
-  }
-
-  while (fraction.length < baseLength) {
-    fraction += "0";
-  }
-
-  whole = toBN(whole);
-  fraction = toBN(fraction);
-  let wei = whole.mul(base).add(fraction);
-
-  if (negative) {
-    wei = wei.mul(negative1);
-  }
-
+  const fracPadded = (fracRaw + '0'.repeat(decimals)).slice(0, decimals);
+  let wei = BigInt(wholePart || '0') * base + BigInt(fracPadded || '0');
+  if (negative) wei = -wei;
   return wei.toString();
-};
+}
 
-/**
- *
- * @param amount
- * @param decimals
- */
-const isValidDecimals = (amount: string, decimals: number): boolean => {
-  const numDecimals = amount.split(".")[1]?.length;
-
-  if (numDecimals && numDecimals > decimals) {
-    return false;
-  }
-
-  return true;
-};
-
-export { fromBase, toBase, isValidDecimals };
+/** Check if amount has <= decimals decimal places. */
+export function isValidDecimals(amount: string, decimals: number): boolean {
+  const numDecimals = amount.split('.')[1]?.length;
+  return !numDecimals || numDecimals <= decimals;
+}

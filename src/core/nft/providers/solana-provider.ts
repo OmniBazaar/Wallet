@@ -250,7 +250,8 @@ export class SolanaNFTProvider implements ChainProvider {
       blockchain: 'solana',
       owner,
       creator: token.collection || 'unknown',
-      price: token.price ? (token.price / 1e9).toString() : undefined, // Convert lamports to SOL
+      // Convert lamports to SOL and always provide a string
+      price: token.price ? (token.price / 1e9).toString() : '0',
       currency: 'SOL',
       isListed: Boolean(token.listingPrice),
       marketplaceUrl: `https://magiceden.io/item-details/${token.mintAddress}`
@@ -343,26 +344,7 @@ export class SolanaNFTProvider implements ChainProvider {
     }
     return result;
   }
-      owner,
-      creator: this.generateSolanaMintAddress(),
-      price: (Math.random() * 10 + 0.5).toFixed(2), // 0.5-10.5 SOL
-      currency: 'SOL',
-      isListed: Math.random() > 0.4,
-      royalties: Math.floor(Math.random() * 10) + 2.5 // 2.5-12.5%
-    };
-  }
 
-  /**
-   * Generate a mock Solana mint address
-   */
-  private generateSolanaMintAddress(): string {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz123456789';
-    let result = '';
-    for (let i = 0; i < 44; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return result;
-  }
 
   /**
    * Search NFTs on Solana

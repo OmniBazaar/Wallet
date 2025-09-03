@@ -6,7 +6,7 @@
  * our hybrid architecture.
  */
 
-import { providers, Contract, BigNumber, utils } from 'ethers';
+import { ethers } from 'ethers';
 import {
   ProviderName,
   ProviderRPCRequest,
@@ -64,7 +64,7 @@ export const EthereumNetworks: { [key: string]: EthereumNetwork } = {
  */
 export class EthereumProvider extends EventEmitter implements EthereumProviderInterface {
   network: EthereumNetwork;
-  provider: providers.JsonRpcProvider;
+  provider: ethers.JsonRpcProvider;
   namespace: string;
   toWindow: (message: string) => void;
   chainId: string;
@@ -87,7 +87,7 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
     this.namespace = ProviderName.ethereum;
     this.chainId = this.network.chainID;
     this.networkVersion = parseInt(this.network.chainID, 16).toString();
-    this.provider = new providers.JsonRpcProvider(this.network.node);
+    this.provider = new ethers.JsonRpcProvider(this.network.node);
 
     // Set up provider event listeners
     this.setupEventListeners();
@@ -96,7 +96,7 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
   /** Set up event listeners for provider state changes. */
   private setupEventListeners(): void {
     // Listen for network changes
-    this.provider.on('network', (newNetwork: { chainId: number }, oldNetwork: { chainId: number } | null) => {
+    (this.provider as any).on('network', (newNetwork: { chainId: number }, oldNetwork: { chainId: number } | null) => {
       if (oldNetwork != null) {
         this.emit('chainChanged', '0x' + newNetwork.chainId.toString(16));
         this.sendNotification(JSON.stringify({
@@ -119,7 +119,7 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
     this.networkVersion = parseInt(ethNetwork.chainID, 16).toString();
 
     // Create new provider instance
-    this.provider = new providers.JsonRpcProvider(ethNetwork.node);
+    this.provider = new ethers.JsonRpcProvider(ethNetwork.node);
     this.setupEventListeners();
 
     // Emit chain changed event if different
@@ -174,7 +174,7 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
       case 'eth_getBalance': {
         if (params[0]) {
           const balance = await this.provider.getBalance(params[0], 'latest');
-          return utils.hexlify(balance);
+          return ethers.hexlify(balance);
         }
         throw new Error('Missing address parameter');
       }
@@ -226,7 +226,7 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
       case 'eth_estimateGas': {
         if (params[0]) {
           const gasEstimate = await this.provider.estimateGas(params[0]);
-          return utils.hexlify(gasEstimate);
+          return ethers.hexlify(gasEstimate);
         }
         throw new Error('Missing transaction object');
       }
@@ -234,7 +234,7 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
       case 'eth_gasPrice': {
         try {
           const gasPrice = await this.provider.getGasPrice();
-          return utils.hexlify(gasPrice);
+          return ethers.hexlify(gasPrice);
         } catch (error) {
           console.warn('Failed to get gas price:', error);
           return '0x' + (20 * 1e9).toString(16); // 20 gwei fallback
@@ -243,7 +243,7 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
 
       case 'eth_blockNumber': {
         const blockNumber = await this.provider.getBlockNumber();
-        return utils.hexlify(blockNumber);
+        return ethers.hexlify(blockNumber);
       }
 
       case 'eth_getBlockByNumber': {
@@ -360,7 +360,7 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
       'function symbol() view returns (string)'
     ];
 
-    const contract = new Contract(tokenAddress, tokenABI, this.provider);
+    const contract = new ethers.Contract(tokenAddress, tokenABI, this.provider);
     const balance = await contract.balanceOf(userAddress);
     return balance.toString();
   }
@@ -374,9 +374,9 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
    */
   async estimateTokenTransferGas(tokenAddress: string, to: string, amount: string): Promise<string> {
     const tokenABI = ['function transfer(address to, uint256 amount) returns (bool)'];
-    const contract = new Contract(tokenAddress, tokenABI, this.provider);
+    const contract = new ethers.Contract(tokenAddress, tokenABI, this.provider);
 
-    const gasEstimate = await contract.transfer.estimateGas(to, amount);
+    const gasEstimate = await contract.estimateGas.transfer(to, amount);
     return gasEstimate.toString();
   }
 
@@ -392,7 +392,7 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
       'function ownerOf(uint256 tokenId) view returns (address)'
     ];
 
-    const contract = new Contract(contractAddress, nftABI, this.provider);
+    const contract = new ethers.Contract(contractAddress, nftABI, this.provider);
     const [tokenURI, owner] = await Promise.all([
       contract.tokenURI(tokenId),
       contract.ownerOf(tokenId)
@@ -406,8 +406,9 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
    * @param balance - Balance in wei as string
    * @returns Formatted balance in ETH
    */
-  formatBalance(balance: string): string {
-    return utils.formatEther(balance);
+  formatBalance(balance: string | bigint): string {
+    const b = typeof balance === 'string' ? BigInt(balance) : balance;
+    return ethers.formatEther(b);
   }
 
   /**
@@ -415,8 +416,8 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
    * @param amount - Amount in ETH as string
    * @returns Amount in wei as BigNumber
    */
-  parseAmount(amount: string): BigNumber {
-    return utils.parseEther(amount);
+  parseAmount(amount: string): bigint {
+    return ethers.parseEther(amount);
   }
 }
 
@@ -430,7 +431,7 @@ export { LiveEthereumProvider, createLiveEthereumProvider, liveEthereumProvider 
  * @param _networkName - Network name (currently unused)
  * @returns Promise resolving to JsonRpcProvider instance
  */
-export async function getProvider(_networkName?: string): Promise<providers.JsonRpcProvider> {
+export async function getProvider(_networkName?: string): Promise<ethers.JsonRpcProvider> {
   const { liveEthereumProvider } = await import('./live-provider');
   return liveEthereumProvider.getProvider();
 }

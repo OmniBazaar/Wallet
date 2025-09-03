@@ -6,7 +6,7 @@
  */
 
 import { OmniProvider } from './OmniProvider';
-import { ethers } from 'ethers';
+// No direct ethers types needed here; avoid mutating provider internals
 
 /**
  *
@@ -30,10 +30,8 @@ export class ProviderFactory {
   static getProvider(chainId: number): OmniProvider {
     if (!this.providers.has(chainId)) {
       const provider = new OmniProvider(this.walletId);
-      
-      // Configure for specific chain
-      provider._network = this.getNetworkConfig(chainId);
-      
+      // Track chain id via explicit setter (do not mutate base fields)
+      provider.setChainId(chainId);
       this.providers.set(chainId, provider);
     }
     
@@ -44,26 +42,7 @@ export class ProviderFactory {
    * Get network configuration
    * @param chainId
    */
-  private static getNetworkConfig(chainId: number): ethers.Network {
-    const networks: Record<number, { /**
-                                      *
-                                      */
-    name: string; /**
-                   *
-                   */
-    chainId: number }> = {
-      1: { name: 'ethereum', chainId: 1 },
-      137: { name: 'polygon', chainId: 137 },
-      56: { name: 'bsc', chainId: 56 },
-      43114: { name: 'avalanche', chainId: 43114 },
-      42161: { name: 'arbitrum', chainId: 42161 },
-      10: { name: 'optimism', chainId: 10 },
-      8453: { name: 'base', chainId: 8453 }
-    };
-    
-    const config = networks[chainId] || { name: 'unknown', chainId };
-    return new ethers.Network(config.name, config.chainId);
-  }
+  // Network configuration is handled within the validator; no local mutation needed
   
   /**
    * Get all active providers

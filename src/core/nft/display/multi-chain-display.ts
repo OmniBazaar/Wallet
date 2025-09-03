@@ -345,7 +345,8 @@ export class MultiChainNFTDisplay {
         ],
         contract: `0x${Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}`,
         contractAddress: `0x${Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}`,
-        tokenStandard: chainConfig.nftStandards[0],
+        // Ensure a valid token standard string for strict types
+        tokenStandard: chainConfig.nftStandards[0] || 'other',
         blockchain: chainConfig.name.toLowerCase(),
         owner: address,
         creator: `0x${Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}`,
@@ -372,7 +373,7 @@ export class MultiChainNFTDisplay {
       description: `Sample collection from ${chainConfig.name}`,
       contract: `0x${Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}`,
       contractAddress: `0x${Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}`,
-      tokenStandard: chainConfig.nftStandards[0],
+      tokenStandard: chainConfig.nftStandards[0] || 'other',
       blockchain: chainConfig.name.toLowerCase(),
       creator: `0x${Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}`,
       verified: true,
@@ -430,7 +431,7 @@ export class MultiChainNFTDisplay {
     currency: string;
     listingType: 'fixed_price';
     title: string;
-    description?: string;
+    description: string;
     category: string;
     tags: string[];
     featured: boolean;
@@ -453,7 +454,7 @@ export class MultiChainNFTDisplay {
       currency: nft.currency || 'ETH',
       listingType: 'fixed_price' as const,
       title: nft.name,
-      description: nft.description,
+      description: nft.description || '',
       category: nft.attributes.find(attr => attr.trait_type === 'Category')?.value as string || 'general',
       tags: [],
       featured: false,

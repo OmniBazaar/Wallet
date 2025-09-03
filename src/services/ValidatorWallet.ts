@@ -195,17 +195,11 @@ export class ValidatorWalletService {
     type: WalletAccount['type'],
     chainId: string,
     options?: {
-      /**
-       *
-       */
+      /** Optional BIP‑39 mnemonic phrase */
       mnemonic?: string;
-      /**
-       *
-       */
+      /** Optional raw private key hex string */
       privateKey?: string;
-      /**
-       *
-       */
+      /** Optional BIP‑44 derivation path */
       derivationPath?: string;
     }
   ): Promise<WalletAccount> {

@@ -246,7 +246,7 @@ export class EthereumNFTProvider implements ChainProvider {
       attributes: metadata.attributes || [],
       contract: nft.contract.address,
       contractAddress: nft.contract.address,
-      tokenStandard: nft.id.tokenMetadata?.tokenType || 'ERC721',
+      tokenStandard: ((nft.id.tokenMetadata?.tokenType || 'ERC721') as string).toUpperCase() === 'ERC1155' ? 'ERC1155' : 'ERC721',
       blockchain: 'ethereum',
       owner: 'unknown',
       creator: metadata.creator || 'unknown',
@@ -299,15 +299,15 @@ export class EthereumNFTProvider implements ChainProvider {
       attributes: asset.traits || [],
       contract: asset.asset_contract.address,
       contractAddress: asset.asset_contract.address,
-      tokenStandard: asset.asset_contract.schema_name || 'ERC721',
+      tokenStandard: ((asset.asset_contract.schema_name || 'ERC721') as string).toUpperCase() === 'ERC1155' ? 'ERC1155' : 'ERC721',
       blockchain: 'ethereum',
       owner: asset.owner?.address || 'unknown',
       creator: asset.creator?.address || 'unknown',
       price: asset.last_sale?.total_price ?
-        (parseInt(asset.last_sale.total_price) / 1e18).toString() : undefined,
+        (parseInt(asset.last_sale.total_price) / 1e18).toString() : '0',
       currency: 'ETH',
       isListed: Boolean(asset.sell_orders?.length),
-      marketplaceUrl: asset.permalink
+      marketplaceUrl: asset.permalink || ''
     };
   }
 

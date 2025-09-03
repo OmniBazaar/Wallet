@@ -221,18 +221,16 @@ export class FaucetService {
   ]);
   
   /**
-   *
-   * @param provider
-   * @param validatorEndpoint
+   * Create a FaucetService using a provider and validator endpoint.
+   * @param provider Ethers provider used to add networks to wallets
+   * @param validatorEndpoint Base URL to the validator faucet API
    */
   constructor(provider: ethers.Provider, validatorEndpoint?: string) {
     this.provider = provider;
     this.validatorEndpoint = validatorEndpoint || 'http://localhost:3001';
   }
   
-  /**
-   * Initialize the faucet service
-   */
+  /** Initialize background status updates and fetch initial stats. */
   async initialize(): Promise<void> {
     // Start periodic status updates
     this.startStatusUpdates();
@@ -244,8 +242,8 @@ export class FaucetService {
   }
   
   /**
-   * Claim tokens from faucet
-   * @param request
+   * Claim testnet tokens via the validator faucet service.
+   * @param request Faucet claim request payload
    */
   async claimTokens(request: FaucetClaimRequest): Promise<FaucetClaimResponse> {
     try {
@@ -337,8 +335,8 @@ export class FaucetService {
   }
   
   /**
-   * Get user's faucet status
-   * @param address
+   * Get per‑network faucet status for a user (cached with periodic refresh).
+   * @param address User address
    */
   async getUserStatus(address: string): Promise<FaucetStatus> {
     // Check cache
@@ -364,11 +362,7 @@ export class FaucetService {
     }
   }
   
-  /**
-   * Process status data from validator
-   * @param address
-   * @param data
-   */
+  /** Normalize status data from the validator API. */
   private processStatusData(address: string, data: any): FaucetStatus {
     const claims = new Map<TestnetType, any>();
     
@@ -404,10 +398,7 @@ export class FaucetService {
     };
   }
   
-  /**
-   * Get default status for new users
-   * @param address
-   */
+  /** Build a default status object for new users with claimable networks. */
   private getDefaultStatus(address: string): FaucetStatus {
     const claims = new Map<TestnetType, any>();
     
@@ -438,9 +429,7 @@ export class FaucetService {
   }
   
   /**
-   * Check verification requirements
-   * @param userVerification
-   * @param required
+   * Compute missing verification methods for a user against required set.
    */
   private checkVerification(
     userVerification: FaucetStatus['verification'],
@@ -472,14 +461,10 @@ export class FaucetService {
   }
   
   /**
-   * Verify user identity
-   * @param address
-   * @param method
-   * @param verificationData
-   * @param verificationData.email
-   * @param verificationData.phone
-   * @param verificationData.socialHandle
-   * @param verificationData.verificationCode
+   * Verify a user’s identity using the selected verification method.
+   * @param address User address
+   * @param method Verification method to use
+   * @param verificationData Method-specific data (email/phone/handles/codes)
    */
   async verifyIdentity(
     address: string,

@@ -156,10 +156,10 @@ export class XOMFeeProtocolService {
   ]);
   
   /**
-   *
-   * @param provider
-   * @param signer
-   * @param validatorEndpoint
+   * Create an XOM fee protocol service for tracking and claiming rewards.
+   * @param provider Ethers provider (used for network context)
+   * @param signer Optional signer for claim execution
+   * @param validatorEndpoint Validator REST endpoint for rewards API
    */
   constructor(
     provider: ethers.Provider,
@@ -171,9 +171,7 @@ export class XOMFeeProtocolService {
     this.validatorEndpoint = validatorEndpoint || 'http://localhost:3001/api/rewards';
   }
   
-  /**
-   * Initialize the service
-   */
+  /** Initialize periodic reward updates and caches. */
   async initialize(): Promise<void> {
     // Start periodic reward updates
     this.startRewardUpdates();
@@ -181,10 +179,10 @@ export class XOMFeeProtocolService {
   }
   
   /**
-   * Track a rewarded action
-   * @param address
-   * @param type
-   * @param metadata
+   * Track a rewarded action and register a pending reward with validator.
+   * @param address User address
+   * @param type Reward type
+   * @param metadata Optional metadata payload per action
    */
   async trackAction(
     address: string,
@@ -239,11 +237,7 @@ export class XOMFeeProtocolService {
     }
   }
   
-  /**
-   * Check if user is eligible for reward
-   * @param address
-   * @param type
-   */
+  /** Check reward eligibility with validator. */
   private async checkEligibility(address: string, type: RewardType): Promise<boolean> {
     try {
       const response = await fetch(

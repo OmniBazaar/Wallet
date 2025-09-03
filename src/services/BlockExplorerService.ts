@@ -207,9 +207,9 @@ export class BlockExplorerService {
   private cacheTimeout = 60000; // 1 minute cache
   
   /**
-   *
-   * @param provider
-   * @param validatorEndpoint
+   * Create a BlockExplorerService with a provider and optional validator endpoint.
+   * @param provider Ethers provider used for on-chain reads (non-Omni networks)
+   * @param validatorEndpoint Validator REST endpoint for OmniCoin explorer
    */
   constructor(provider: ethers.Provider, validatorEndpoint?: string) {
     this.provider = provider;
@@ -272,17 +272,15 @@ export class BlockExplorerService {
     ]);
   }
   
-  /**
-   * Initialize the service
-   */
+  /** Initialize internal state (placeholder for future setup). */
   async initialize(): Promise<void> {
     console.log('Block Explorer Service initialized');
   }
   
   /**
-   * Get transaction details
-   * @param hash
-   * @param network
+   * Get transaction details from OmniCoin or external explorer API.
+   * @param hash Transaction hash
+   * @param network Target network (defaults to OmniCoin)
    */
   async getTransaction(
     hash: string,
@@ -385,9 +383,9 @@ export class BlockExplorerService {
   }
   
   /**
-   * Get address details
-   * @param address
-   * @param network
+   * Get address details (balance, tx count, tokens/NFTs when available).
+   * @param address Wallet/contract address
+   * @param network Target network (defaults to OmniCoin)
    */
   async getAddress(
     address: string,
@@ -435,9 +433,9 @@ export class BlockExplorerService {
   }
   
   /**
-   * Get token details
-   * @param tokenAddress
-   * @param network
+   * Get token details (name/symbol/decimals/totalSupply) for ERC‑20‑like tokens.
+   * @param tokenAddress Token contract address
+   * @param network Target network (defaults to OmniCoin)
    */
   async getToken(
     tokenAddress: string,
@@ -497,8 +495,8 @@ export class BlockExplorerService {
   }
   
   /**
-   * Search across all supported networks
-   * @param query
+   * Search across supported networks for addresses, tx hashes, blocks, and tokens.
+   * @param query Free‑form query string
    */
   async search(query: string): Promise<SearchResult[]> {
     const results: SearchResult[] = [];
@@ -571,11 +569,11 @@ export class BlockExplorerService {
   }
   
   /**
-   * Get transaction history for address
-   * @param address
-   * @param network
-   * @param page
-   * @param limit
+   * Get transaction history for an address on OmniCoin or external networks.
+   * @param address Wallet address
+   * @param network Network (defaults to OmniCoin)
+   * @param page Page number (default 1)
+   * @param limit Page size (default 20)
    */
   async getTransactionHistory(
     address: string,

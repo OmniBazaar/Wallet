@@ -144,9 +144,7 @@ export class ValidatorBalanceService {
     this.ipfsStorage = this.validatorClient.getStorage();
   }
 
-  /**
-   * Initialize balance service
-   */
+  /** Initialize the balance service (validator client, caches, history). */
   async initialize(): Promise<void> {
     try {
       // Initialize validator client

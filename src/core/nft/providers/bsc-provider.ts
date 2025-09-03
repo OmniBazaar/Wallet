@@ -91,11 +91,11 @@ export class BSCNFTProvider implements ChainProvider {
       ];
       
       const contract = new ethers.Contract(contractAddress, erc721Abi, provider);
-      
+      const c: any = contract;
       const [tokenURI, name, owner] = await Promise.all([
-        contract.tokenURI(tokenId).catch(() => ''),
-        contract.name().catch(() => 'Unknown Collection'),
-        contract.ownerOf(tokenId).catch(() => '0x0000000000000000000000000000000000000000')
+        c?.['tokenURI']?.(tokenId).catch(() => ''),
+        c?.['name']?.().catch(() => 'Unknown Collection'),
+        c?.['ownerOf']?.(tokenId).catch(() => '0x0000000000000000000000000000000000000000')
       ]);
       
       // Parse metadata
@@ -129,7 +129,8 @@ export class BSCNFTProvider implements ChainProvider {
         attributes: metadata.attributes || [],
         contract: contractAddress,
         contractAddress,
-        tokenStandard: 'BEP721',
+        // BSC is EVM compatible; use ERC721
+        tokenStandard: 'ERC721',
         blockchain: 'bsc',
         owner,
         creator: '',
@@ -214,7 +215,7 @@ export class BSCNFTProvider implements ChainProvider {
       attributes: metadata.attributes || [],
       contract: nft.token_address,
       contractAddress: nft.token_address,
-      tokenStandard: nft.contract_type || 'BEP721',
+      tokenStandard: nft.contract_type === 'ERC1155' ? 'ERC1155' : 'ERC721',
       blockchain: 'bsc',
       owner: nft.owner_of || '',
       creator: nft.minter_address || '',
@@ -256,19 +257,19 @@ export class BSCNFTProvider implements ChainProvider {
           const contract = new ethers.Contract(contractAddress, erc721Abi, provider);
           
           // Get balance
-          const balance = await contract.balanceOf(address);
+          const balance = await (contract as any)?.['balanceOf']?.(address);
           if (balance === 0n) continue;
           
           // Get collection name
-          const collectionName = await contract.name().catch(() => 'Unknown Collection');
+          const collectionName = await (contract as any)?.['name']?.().catch(() => 'Unknown Collection');
           
           // Get up to 10 NFTs from this collection
           const limit = Math.min(Number(balance), 10);
           
           for (let i = 0; i < limit; i++) {
             try {
-              const tokenId = await contract.tokenOfOwnerByIndex(address, i);
-              const tokenURI = await contract.tokenURI(tokenId).catch(() => '');
+              const tokenId = await (contract as any)?.['tokenOfOwnerByIndex']?.(address, i);
+              const tokenURI = await (contract as any)?.['tokenURI']?.(tokenId).catch(() => '');
               
               // Parse metadata if available
               let metadata: any = {};
@@ -306,7 +307,7 @@ export class BSCNFTProvider implements ChainProvider {
                 attributes: metadata.attributes || [],
                 contract: contractAddress,
                 contractAddress,
-                tokenStandard: 'BEP721',
+                tokenStandard: 'ERC721',
                 blockchain: 'bsc',
                 owner: address,
                 creator: '',

@@ -190,9 +190,9 @@ export class KYCService {
   };
   
   /**
-   *
-   * @param provider
-   * @param config
+   * Create a KYC service configured for Sumsub sandbox by default.
+   * @param provider Ethers provider (for network context/logging)
+   * @param config Optional overrides for tokens, URLs and validator endpoint
    */
   constructor(provider: ethers.Provider, config?: Partial<KYCServiceConfig>) {
     this.provider = provider;
@@ -209,9 +209,7 @@ export class KYCService {
     };
   }
   
-  /**
-   * Initialize the KYC service
-   */
+  /** Initialize by requesting an access token from Sumsub. */
   async initialize(): Promise<void> {
     // Get access token for Sumsub API
     await this.refreshAccessToken();
@@ -220,8 +218,8 @@ export class KYCService {
   }
   
   /**
-   * Get user's KYC status
-   * @param address
+   * Get the user’s current KYC status with caching.
+   * @param address User wallet address
    */
   async getUserKYCStatus(address: string): Promise<UserKYCData> {
     // Check cache
