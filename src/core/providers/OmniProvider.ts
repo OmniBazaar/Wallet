@@ -148,7 +148,7 @@ export class OmniProvider extends ethers.JsonRpcProvider {
    */
   private selectValidator(): string {
     // Round-robin selection for load balancing
-    const validator = this.validators[this.currentValidatorIndex];
+    const validator = this.validators[this.currentValidatorIndex] ?? 'ws://localhost:8546';
     this.currentValidatorIndex = (this.currentValidatorIndex + 1) % this.validators.length;
     return validator;
   }
@@ -276,7 +276,7 @@ export class OmniProvider extends ethers.JsonRpcProvider {
   // Override ethers.js methods to use our validator network
 
   /** Get native balance for an address. */
-  async getBalance(address: string, blockTag?: string | number): Promise<bigint> {
+  override async getBalance(address: string, blockTag?: string | number): Promise<bigint> {
     const result = await this.sendRequest('eth_getBalance', [
       address,
       blockTag || 'latest',
@@ -286,7 +286,7 @@ export class OmniProvider extends ethers.JsonRpcProvider {
   }
 
   /** Get transaction count (nonce) for an address. */
-  async getTransactionCount(address: string, blockTag?: string | number): Promise<number> {
+  override async getTransactionCount(address: string, blockTag?: string | number): Promise<number> {
     return await this.sendRequest('eth_getTransactionCount', [
       address,
       blockTag || 'latest',
@@ -295,7 +295,7 @@ export class OmniProvider extends ethers.JsonRpcProvider {
   }
 
   /** Execute a call against the current chain. */
-  async call(transaction: any, blockTag?: string | number): Promise<string> {
+  override async call(transaction: any, blockTag?: string | number): Promise<string> {
     return await this.sendRequest('eth_call', [
       transaction,
       blockTag || 'latest',
@@ -304,7 +304,7 @@ export class OmniProvider extends ethers.JsonRpcProvider {
   }
 
   /** Estimate gas for a transaction. */
-  async estimateGas(transaction: any): Promise<bigint> {
+  override async estimateGas(transaction: any): Promise<bigint> {
     const result = await this.sendRequest('eth_estimateGas', [
       transaction,
       this.chainId
@@ -313,7 +313,7 @@ export class OmniProvider extends ethers.JsonRpcProvider {
   }
 
   /** Broadcast a signed raw transaction and return an Ethers response. */
-  async broadcastTransaction(signedTransaction: string): Promise<ethers.TransactionResponse> {
+  override async broadcastTransaction(signedTransaction: string): Promise<ethers.TransactionResponse> {
     // Delegate to base implementation to construct a proper TransactionResponse
     return super.broadcastTransaction(signedTransaction);
   }

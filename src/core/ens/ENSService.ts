@@ -9,7 +9,6 @@ import { ContractManager, ENS_CONFIG } from '../contracts/ContractConfig';
 export class ENSService {
   private static instance: ENSService;
   private contractManager: ContractManager;
-  private ensResolver: ethers.Contract;
   private ensRegistry: ethers.Contract;
 
   private constructor() {

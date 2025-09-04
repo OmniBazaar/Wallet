@@ -316,7 +316,7 @@ export const UnifiedLoginForm: React.FC<UnifiedLoginFormProps> = ({
         {/* Tabs */}
         <Tabs
           value={activeTab}
-          onChange={(e, v) => setActiveTab(v)}
+          onChange={(e: React.SyntheticEvent, v: number) => setActiveTab(v)}
           variant="fullWidth"
           sx={{ mb: 2 }}
         >
@@ -341,7 +341,7 @@ export const UnifiedLoginForm: React.FC<UnifiedLoginFormProps> = ({
               fullWidth
               label="Username"
               value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUsername(e.target.value)}
               disabled={loading}
               error={isNullAccount}
               helperText={
@@ -370,7 +370,7 @@ export const UnifiedLoginForm: React.FC<UnifiedLoginFormProps> = ({
               type={showPassword ? 'text' : 'password'}
               label="Password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
               disabled={loading || isNullAccount}
               InputProps={{
                 endAdornment: (
@@ -438,7 +438,7 @@ export const UnifiedLoginForm: React.FC<UnifiedLoginFormProps> = ({
               fullWidth
               label="Username"
               value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUsername(e.target.value)}
               disabled={loading}
               error={isLegacyUser}
               helperText={
@@ -466,7 +466,7 @@ export const UnifiedLoginForm: React.FC<UnifiedLoginFormProps> = ({
               type={showPassword ? 'text' : 'password'}
               label="Password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
               disabled={loading}
               helperText="Minimum 12 characters"
               error={password.length > 0 && password.length < 12}
@@ -489,7 +489,7 @@ export const UnifiedLoginForm: React.FC<UnifiedLoginFormProps> = ({
               type={showPassword ? 'text' : 'password'}
               label="Confirm Password"
               value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setConfirmPassword(e.target.value)}
               disabled={loading}
               error={confirmPassword.length > 0 && confirmPassword !== password}
               helperText={

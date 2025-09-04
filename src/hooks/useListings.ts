@@ -39,9 +39,9 @@ export const useListings = (contractAddress: string): UseListingsReturn => {
         const initProvider = async () => {
             try {
                 const provider = new OmniProvider(1, {
-                    validatorUrl: process.env.VALIDATOR_URL || 'wss://validator.omnibazaar.com',
+                    validatorUrl: (process?.env?.VALIDATOR_URL as string | undefined) ?? 'wss://validator.omnibazaar.com',
                     walletId: 'marketplace-listings',
-                    authKey: process.env.OMNI_AUTH_KEY
+                    authKey: process?.env?.OMNI_AUTH_KEY as string | undefined
                 });
                 setOmniProvider(provider);
             } catch (error) {

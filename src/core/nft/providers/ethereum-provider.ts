@@ -41,9 +41,9 @@ export class EthereumNFTProvider implements ChainProvider {
     // Initialize OmniProvider if configured
     if (config.useOmniProvider) {
       this.omniProvider = new OmniProvider(1, {
-        validatorUrl: process.env.VALIDATOR_URL || 'wss://validator.omnibazaar.com',
+        validatorUrl: (process?.env?.VALIDATOR_URL as string | undefined) ?? 'wss://validator.omnibazaar.com',
         walletId: 'ethereum-nft-provider',
-        authKey: process.env.OMNI_AUTH_KEY
+        authKey: process?.env?.OMNI_AUTH_KEY as string | undefined
       });
     }
   }

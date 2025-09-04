@@ -134,18 +134,19 @@ export class MultiChainEVMProvider extends LiveEthereumProvider {
   /**
    * Get gas price with network-specific adjustments
    */
-  async getGasPrice(): Promise<ethers.BigNumber> {
-    const gasPrice = await this.provider.getGasPrice();
+  async getGasPrice(): Promise<bigint> {
+    const feeData = await this.provider.getFeeData();
+    let gasPrice = feeData.gasPrice ?? 20n * 10n ** 9n; // fallback 20 gwei
 
     // Apply network-specific adjustments
     switch (this.currentNetwork.shortName) {
       case 'bsc':
         // BSC often needs slightly higher gas price
-        return gasPrice.mul(110).div(100); // +10%
+        return (gasPrice * 110n) / 100n; // +10%
 
       case 'polygon':
         // Polygon can use lower gas price
-        return gasPrice.mul(90).div(100); // -10%
+        return (gasPrice * 90n) / 100n; // -10%
 
       default:
         return gasPrice;
@@ -156,7 +157,7 @@ export class MultiChainEVMProvider extends LiveEthereumProvider {
    * Estimate gas with network-specific limits
    * @param transaction
    */
-  async estimateGas(transaction: ethers.TransactionRequest): Promise<ethers.BigNumber> {
+  async estimateGas(transaction: ethers.TransactionRequest): Promise<bigint> {
     const estimate = await this.provider.estimateGas(transaction);
 
     // Apply network-specific adjustments
@@ -164,10 +165,10 @@ export class MultiChainEVMProvider extends LiveEthereumProvider {
       case 'arbitrum':
       case 'optimism':
         // L2s might need higher gas limits
-        return estimate.mul(120).div(100); // +20%
+        return (estimate * 120n) / 100n; // +20%
 
       default:
-        return estimate.mul(110).div(100); // +10% buffer
+        return (estimate * 110n) / 100n; // +10% buffer
     }
   }
 
@@ -186,7 +187,7 @@ export class MultiChainEVMProvider extends LiveEthereumProvider {
   async getFormattedBalance(address?: string): Promise<string> {
     const addr = address || await this.getAddress();
     const balance = await this.provider.getBalance(addr);
-    const formatted = ethers.utils.formatEther(balance);
+    const formatted = ethers.formatEther(balance);
     return `${formatted} ${this.currentNetwork.currency}`;
   }
 

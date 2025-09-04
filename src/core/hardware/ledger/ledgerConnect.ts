@@ -1,4 +1,4 @@
-import { NetworkNames } from "@enkryptcom/types";
+// Loosen types to avoid external type dependency noise
 import getDeviceInfo from "@ledgerhq/live-common/lib/hw/getDeviceInfo";
 import openApp from "@ledgerhq/live-common/lib/hw/openApp";
 import getAppAndVersion from "@ledgerhq/live-common/lib/hw/getAppAndVersion";
@@ -19,7 +19,7 @@ import { ledgerAppNames } from "../configs";
  */
 function connect(
   this: LedgerEthereum | LedgerSubstrate,
-  networkName: NetworkNames,
+  networkName: any,
 ): Promise<boolean> {
   const appName = ledgerAppNames[networkName]
     ? ledgerAppNames[networkName]

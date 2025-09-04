@@ -5,7 +5,7 @@
  * with the KeyringService for transaction signing and account management.
  */
 
-import { ethers } from 'ethers';
+import { ethers, type InterfaceAbi } from 'ethers';
 import { keyringService } from '../../keyring/KeyringService';
 
 /**
@@ -52,7 +52,7 @@ export const ETHEREUM_NETWORKS = {
   mainnet: {
     name: 'Ethereum Mainnet',
     chainId: 1,
-    rpcUrl: process.env.ETHEREUM_RPC_URL || 'https://rpc.ankr.com/eth',
+    rpcUrl: (process?.env?.ETHEREUM_RPC_URL as string | undefined) ?? 'https://rpc.ankr.com/eth',
     blockExplorer: 'https://etherscan.io',
     nativeCurrency: {
       name: 'Ether',
@@ -63,7 +63,7 @@ export const ETHEREUM_NETWORKS = {
   sepolia: {
     name: 'Sepolia Testnet',
     chainId: 11155111,
-    rpcUrl: process.env.SEPOLIA_RPC_URL || 'https://rpc.sepolia.org',
+    rpcUrl: (process?.env?.SEPOLIA_RPC_URL as string | undefined) ?? 'https://rpc.sepolia.org',
     blockExplorer: 'https://sepolia.etherscan.io',
     nativeCurrency: {
       name: 'Sepolia Ether',
@@ -74,7 +74,7 @@ export const ETHEREUM_NETWORKS = {
   polygon: {
     name: 'Polygon Mainnet',
     chainId: 137,
-    rpcUrl: process.env.POLYGON_RPC_URL || 'https://polygon-rpc.com',
+    rpcUrl: (process?.env?.POLYGON_RPC_URL as string | undefined) ?? 'https://polygon-rpc.com',
     blockExplorer: 'https://polygonscan.com',
     nativeCurrency: {
       name: 'MATIC',
@@ -85,7 +85,7 @@ export const ETHEREUM_NETWORKS = {
   arbitrum: {
     name: 'Arbitrum One',
     chainId: 42161,
-    rpcUrl: process.env.ARBITRUM_RPC_URL || 'https://arb1.arbitrum.io/rpc',
+    rpcUrl: (process?.env?.ARBITRUM_RPC_URL as string | undefined) ?? 'https://arb1.arbitrum.io/rpc',
     blockExplorer: 'https://arbiscan.io',
     nativeCurrency: {
       name: 'Arbitrum Ether',
@@ -96,7 +96,7 @@ export const ETHEREUM_NETWORKS = {
   optimism: {
     name: 'Optimism',
     chainId: 10,
-    rpcUrl: process.env.OPTIMISM_RPC_URL || 'https://mainnet.optimism.io',
+    rpcUrl: (process?.env?.OPTIMISM_RPC_URL as string | undefined) ?? 'https://mainnet.optimism.io',
     blockExplorer: 'https://optimistic.etherscan.io',
     nativeCurrency: {
       name: 'Optimism Ether',
@@ -119,7 +119,7 @@ export class LiveEthereumProvider {
    *
    * @param networkName
    */
-  constructor(networkName = 'mainnet') {
+  constructor(networkName: keyof typeof ETHEREUM_NETWORKS = 'mainnet') {
     const network = ETHEREUM_NETWORKS[networkName];
     if (!network) {
       throw new Error(`Unknown network: ${networkName}`);
@@ -150,7 +150,7 @@ export class LiveEthereumProvider {
    * Switch to a different network
    * @param networkName
    */
-  async switchNetwork(networkName: string): Promise<void> {
+  async switchNetwork(networkName: keyof typeof ETHEREUM_NETWORKS): Promise<void> {
     const network = ETHEREUM_NETWORKS[networkName];
     if (!network) {
       throw new Error(`Unknown network: ${networkName}`);
@@ -216,7 +216,8 @@ export class LiveEthereumProvider {
    * Get current gas price
    */
   async getGasPrice(): Promise<bigint> {
-    return await this.provider.getGasPrice();
+    const fee = await this.provider.getFeeData();
+    return fee.gasPrice ?? 20n * 10n ** 9n;
   }
 
   /**
@@ -248,7 +249,7 @@ export class LiveEthereumProvider {
    * @param txHash
    * @param confirmations
    */
-  async waitForTransaction(txHash: string, confirmations = 1): Promise<ethers.TransactionReceipt> {
+  async waitForTransaction(txHash: string, confirmations = 1): Promise<ethers.TransactionReceipt | null> {
     return await this.provider.waitForTransaction(txHash, confirmations);
   }
 
@@ -271,7 +272,7 @@ export class LiveEthereumProvider {
    * Get block
    * @param blockHashOrNumber
    */
-  async getBlock(blockHashOrNumber: string | number): Promise<ethers.Block> {
+  async getBlock(blockHashOrNumber: string | number): Promise<ethers.Block | null> {
     return await this.provider.getBlock(blockHashOrNumber);
   }
 
@@ -288,7 +289,7 @@ export class LiveEthereumProvider {
    * @param address
    * @param abi
    */
-  getContract(address: string, abi: ethers.ContractInterface): ethers.Contract {
+  getContract(address: string, abi: InterfaceAbi): ethers.Contract {
     return new ethers.Contract(address, abi, this.provider);
   }
 
@@ -297,7 +298,7 @@ export class LiveEthereumProvider {
    * @param address
    * @param abi
    */
-  async getContractWithSigner(address: string, abi: ethers.ContractInterface): Promise<ethers.Contract> {
+  async getContractWithSigner(address: string, abi: InterfaceAbi): Promise<ethers.Contract> {
     const signer = await this.getSigner();
     return new ethers.Contract(address, abi, signer);
   }
@@ -331,16 +332,14 @@ export class LiveEthereumProvider {
 /**
  * Custom signer that uses KeyringService for signing
  */
-class KeyringSigner extends ethers.Signer {
+class KeyringSigner extends ethers.AbstractSigner {
   readonly address: string;
-  private readonly _provider: ethers.Provider;
   
   constructor(address: string, provider: ethers.Provider) {
     super();
     this.address = address;
-    this._provider = provider;
+    Object.defineProperty(this, 'provider', { value: provider, enumerable: true });
   }
-  get provider(): ethers.Provider { return this._provider; }
 
   async getAddress(): Promise<string> {
     return this.address;
@@ -353,7 +352,7 @@ class KeyringSigner extends ethers.Signer {
 
   async signTransaction(transaction: ethers.TransactionRequest): Promise<string> {
     // Populate transaction
-    const tx = { ...transaction } as Record<string, unknown>;
+    const tx: any = { ...transaction };
     
     // Remove from field for signing
     if ('from' in tx) {
@@ -377,6 +376,14 @@ class KeyringSigner extends ethers.Signer {
   connect(provider: ethers.Provider): KeyringSigner {
     return new KeyringSigner(this.address, provider);
   }
+
+  async signTypedData(
+    _domain: ethers.TypedDataDomain,
+    _types: Record<string, ethers.TypedDataField[]>,
+    _value: Record<string, any>
+  ): Promise<string> {
+    throw new Error('signTypedData not supported');
+  }
 }
 
 // Factory function to create provider
@@ -384,8 +391,8 @@ class KeyringSigner extends ethers.Signer {
  *
  * @param networkName
  */
-export function createLiveEthereumProvider(networkName?: string): LiveEthereumProvider {
-  return new LiveEthereumProvider(networkName);
+export function createLiveEthereumProvider(networkName?: keyof typeof ETHEREUM_NETWORKS): LiveEthereumProvider {
+  return new LiveEthereumProvider(networkName as keyof typeof ETHEREUM_NETWORKS | undefined);
 }
 
 // Default provider instance

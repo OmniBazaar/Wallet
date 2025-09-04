@@ -1,6 +1,6 @@
 import type Transport from "@ledgerhq/hw-transport";
 import webUsbTransport from "@ledgerhq/hw-transport-webusb";
-import { HWwalletCapabilities, NetworkNames } from "@enkryptcom/types";
+import { HWwalletCapabilities } from "@enkryptcom/types";
 import { ExtrinsicPayload } from "@polkadot/types/interfaces";
 import { u8aToBuffer } from "@polkadot/util";
 import { LedgerApps } from "./substrateApps";
@@ -22,13 +22,13 @@ import ConnectToLedger from "../ledgerConnect";
 class LedgerSubstrate implements HWWalletProvider {
   transport: Transport | null;
 
-  network: NetworkNames;
+  network: string;
 
   /**
    *
    * @param network
    */
-  constructor(network: NetworkNames) {
+  constructor(network: string) {
     this.transport = null;
     this.network = network;
   }
@@ -114,7 +114,7 @@ class LedgerSubstrate implements HWWalletProvider {
    *
    * @param networkName
    */
-  isConnected(networkName: NetworkNames): Promise<boolean> {
+  isConnected(networkName: string): Promise<boolean> {
     return ConnectToLedger.bind(this)(networkName);
   }
 

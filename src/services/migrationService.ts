@@ -7,7 +7,7 @@ import { ethers } from 'ethers';
 import { VirtualWitnessNode } from '../../../Migrate/virtual_witness_node';
 
 /** API URL for migration service */
-const API_URL = process.env.REACT_APP_MIGRATION_API_URL ?? 'http://localhost:3001';
+const API_URL = (process?.env?.REACT_APP_MIGRATION_API_URL as string | undefined) ?? 'http://localhost:3001';
 
 /** Result of migration operation */
 interface MigrationResult {
@@ -30,7 +30,7 @@ export const migrateLegacyBalance = async (
 ): Promise<MigrationResult> => {
   try {
     // Initialize virtual witness node
-    const node = new VirtualWitnessNode(process.env.REACT_APP_WITNESS_NODE_DATA_DIR || 'witness_node_data_dir');
+    const node = new VirtualWitnessNode((process?.env?.REACT_APP_WITNESS_NODE_DATA_DIR as string | undefined) || 'witness_node_data_dir');
 
     // Verify legacy account
     const account = node.get_account(username);

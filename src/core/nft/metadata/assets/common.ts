@@ -154,7 +154,7 @@ export async function parseUserAssets({
     // Ensure assets are checked if connected to hardhat
     const assets = parsedAssetsDict[mainnetOrOptimismChainId];
     assets[ethereumOrOptimismAsset.uniqueId] = ethereumOrOptimismAsset;
-    if (process.env.IS_TESTING === 'true') {
+    if ((process?.env?.IS_TESTING as string | undefined) === 'true') {
       assets[USDC_MAINNET_ASSET.uniqueId] = USDC_MAINNET_ASSET;
       assets[DAI_MAINNET_ASSET.uniqueId] = DAI_MAINNET_ASSET;
     }

@@ -1,5 +1,5 @@
 import { getHDPath } from "@trezor/connect/lib/utils/pathUtils";
-import { HWwalletCapabilities, NetworkNames } from "@enkryptcom/types";
+import { HWwalletCapabilities } from "@enkryptcom/types";
 import HDKey from "hdkey";
 import { bufferToHex } from "@enkryptcom/utils";
 import type { TrezorConnect } from "@trezor/connect-web";
@@ -12,7 +12,7 @@ import {
   PathType,
   SignTransactionRequest,
   SignTypedMessageRequest,
-} from "../../types";
+} from "../types";
 import { supportedPaths, TrezorNetworkConfigs } from "./configs";
 import getTrezorConnect from "../trezorConnect";
 
@@ -20,7 +20,7 @@ import getTrezorConnect from "../trezorConnect";
  *
  */
 class TrezorBitcoin implements HWWalletProvider {
-  network: NetworkNames;
+  network: string;
   TrezorConnect: TrezorConnect;
   HDNodes: Record<string, HDKey>;
 
@@ -28,7 +28,7 @@ class TrezorBitcoin implements HWWalletProvider {
    *
    * @param network
    */
-  constructor(network: NetworkNames) {
+  constructor(network: string) {
     this.network = network;
     this.HDNodes = {};
   }
@@ -160,8 +160,8 @@ class TrezorBitcoin implements HWWalletProvider {
   /**
    *
    */
-  static getSupportedNetworks(): NetworkNames[] {
-    return Object.keys(supportedPaths) as NetworkNames[];
+  static getSupportedNetworks(): string[] {
+    return Object.keys(supportedPaths);
   }
 
   /**

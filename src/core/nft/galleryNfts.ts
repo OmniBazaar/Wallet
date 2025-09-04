@@ -62,7 +62,7 @@ async function galleryNftsQueryFunction({
   pageParam,
 }: QueryFunctionArgs<typeof galleryNftsQueryKey>): Promise<{ data: unknown[]; nextPageParam?: unknown }> {
   if (
-    process.env.IS_TESTING === 'true' &&
+    (process?.env?.IS_TESTING as string | undefined) === 'true' &&
     isLowerCaseMatch(address, EMPTY_WALLET_ADDRESS)
   ) {
     return getGalleryNftsTestData({ sort });

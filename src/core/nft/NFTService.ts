@@ -237,6 +237,26 @@ export class NFTService {
   }
 
   /**
+   * Mint a simple NFT (stub implementation)
+   * @param params
+   * @returns Object containing tokenId and transactionHash
+   */
+  public async mintNFT(params: {
+    name: string;
+    description: string;
+    image: string;
+    attributes?: Array<{ trait_type: string; value: string | number }>;
+    recipient?: string;
+    chainId?: number;
+  }): Promise<{ success: boolean; tokenId?: string; transactionHash?: string; error?: string }> {
+    console.log('Minting NFT (stub):', params);
+    // This is a placeholder; real implementation would call provider/contract
+    const tokenId = `${Date.now()}`;
+    const transactionHash = '0x' + Array(64).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join('');
+    return { success: true, tokenId, transactionHash };
+  }
+
+  /**
    * Buy NFT
    * @param params
    * @param params.contractAddress

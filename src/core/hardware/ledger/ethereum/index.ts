@@ -1,7 +1,7 @@
 import type Transport from "@ledgerhq/hw-transport";
 import webUsbTransport from "@ledgerhq/hw-transport-webusb";
 import ledgerService from "@ledgerhq/hw-app-eth/lib/services/ledger";
-import { HWwalletCapabilities, NetworkNames } from "@enkryptcom/types";
+import { HWwalletCapabilities } from "@enkryptcom/types";
 import EthApp from "@ledgerhq/hw-app-eth";
 import { toRpcSig, publicToAddress } from "@ethereumjs/util";
 import { LegacyTransaction, FeeMarketEIP1559Transaction } from "@ethereumjs/tx";
@@ -17,7 +17,7 @@ import {
   SignMessageRequest,
   SignTransactionRequest,
   SignTypedMessageRequest,
-} from "../../types";
+} from "../types";
 import { supportedPaths } from "./configs";
 import ConnectToLedger from "../ledgerConnect";
 
@@ -26,8 +26,7 @@ import ConnectToLedger from "../ledgerConnect";
  */
 class LedgerEthereum implements HWWalletProvider {
   transport: Transport | null;
-
-  network: NetworkNames;
+  network: string;
 
   HDNodes: Record<string, HDKey>;
 
@@ -35,7 +34,7 @@ class LedgerEthereum implements HWWalletProvider {
    *
    * @param network
    */
-  constructor(network: NetworkNames) {
+  constructor(network: string) {
     this.transport = null;
     this.network = network;
     this.HDNodes = {};
@@ -69,7 +68,7 @@ class LedgerEthereum implements HWWalletProvider {
     if (!supportedPaths[this.network])
       return Promise.reject(new Error("ledger-ethereum: Invalid network name"));
     const isHardened = options.pathType.basePath.split("/").length - 1 === 2;
-    const connection = new EthApp(this.transport);
+    const connection = new EthApp(this.transport!);
     if (!isHardened) {
       if (!this.HDNodes[options.pathType.basePath]) {
         const rootPub = await connection.getAddress(
@@ -107,7 +106,7 @@ class LedgerEthereum implements HWWalletProvider {
    * @param options
    */
   signPersonalMessage(options: SignMessageRequest): Promise<string> {
-    const connection = new EthApp(this.transport);
+    const connection = new EthApp(this.transport!);
     return connection
       .signPersonalMessage(
         options.pathType.path.replace(`{index}`, options.pathIndex),
@@ -121,7 +120,7 @@ class LedgerEthereum implements HWWalletProvider {
    * @param options
    */
   async signTransaction(options: SignTransactionRequest): Promise<string> {
-    const connection = new EthApp(this.transport);
+    const connection = new EthApp(this.transport!);
     let tx: LegacyTransaction | FeeMarketEIP1559Transaction;
     let msgToSign: string;
     if ((options.transaction as LegacyTransaction).gasPrice) {

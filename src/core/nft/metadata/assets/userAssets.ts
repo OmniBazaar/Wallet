@@ -323,7 +323,7 @@ export function useUserAssets<TSelectResult = UserAssetsResult>(
     queryFn: userAssetsQueryFunction,
     ...config,
     refetchInterval: USER_ASSETS_REFETCH_INTERVAL,
-    staleTime: process.env.IS_TESTING === 'true' ? 0 : 1000,
+    staleTime: ((process?.env?.IS_TESTING as string | undefined) === 'true') ? 0 : 1000,
     placeholderData: (previousData) => previousData,
   });
 }

@@ -23,7 +23,7 @@ export class TrueStatelessENSService {
     
     // OmniCoin provider for direct queries
     this.omnicoinProvider = new ethers.JsonRpcProvider(
-      process.env.OMNICOIN_RPC_URL || 'https://testnet.omnicoin.io/rpc'
+      (process?.env?.OMNICOIN_RPC_URL as string | undefined) ?? 'https://testnet.omnicoin.io/rpc'
     );
     
     // OmniCoin Registry contract instance
@@ -34,7 +34,7 @@ export class TrueStatelessENSService {
     ];
     
     this.omnicoinRegistryContract = new ethers.Contract(
-      process.env.OMNICOIN_REGISTRY_ADDRESS || '',
+      (process?.env?.OMNICOIN_REGISTRY_ADDRESS as string | undefined) ?? '',
       REGISTRY_ABI,
       this.omnicoinProvider
     );
@@ -223,7 +223,7 @@ export class TrueStatelessENSService {
       return {
         chainId: network.chainId.toString(),
         blockNumber,
-        registryAddress: process.env.OMNICOIN_REGISTRY_ADDRESS || ''
+        registryAddress: (process?.env?.OMNICOIN_REGISTRY_ADDRESS as string | undefined) ?? ''
       };
     } catch (error) {
       console.error('Error getting OmniCoin network info:', error);

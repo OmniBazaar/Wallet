@@ -1,4 +1,4 @@
-import { HWwalletCapabilities, NetworkNames } from "@enkryptcom/types";
+import { HWwalletCapabilities } from "@enkryptcom/types";
 import HDKey from "hdkey";
 import { bigIntToHex, bufferToHex, hexToBuffer } from "@enkryptcom/utils";
 import { publicToAddress, toRpcSig } from "@ethereumjs/util";
@@ -13,7 +13,7 @@ import {
   SignMessageRequest,
   SignTransactionRequest,
   SignTypedMessageRequest,
-} from "../../types";
+} from "../types";
 import { supportedPaths } from "./configs";
 import getTrezorConnect from "../trezorConnect";
 
@@ -21,7 +21,7 @@ import getTrezorConnect from "../trezorConnect";
  *
  */
 class TrezorEthereum implements HWWalletProvider {
-  network: NetworkNames;
+  network: string;
   TrezorConnect: TrezorConnect;
   HDNodes: Record<string, HDKey>;
 
@@ -29,7 +29,7 @@ class TrezorEthereum implements HWWalletProvider {
    *
    * @param network
    */
-  constructor(network: NetworkNames) {
+  constructor(network: string) {
     this.network = network;
     this.HDNodes = {};
   }

@@ -113,7 +113,7 @@ export class NFTDiscoveryService {
 
       const response = await fetch(url, {
         headers: {
-          'X-API-KEY': this.apiKeys.simplehash || '',
+          'X-API-KEY': this.apiKeys['simplehash'] || '',
         }
       });
 
@@ -144,7 +144,7 @@ export class NFTDiscoveryService {
 
       const response = await fetch(url, {
         headers: {
-          'api-key': this.apiKeys.helius || '',
+          'api-key': this.apiKeys['helius'] || '',
         }
       });
 
@@ -216,11 +216,7 @@ export class NFTDiscoveryService {
     /**
      *
      */
-    collection?: { /**
-                    *
-                    */
-      name?: string
-    };
+    // collection field defined below with expanded shape
     /**
      *
      */
@@ -228,6 +224,30 @@ export class NFTDiscoveryService {
                   *
                   */
       type?: string
+    };
+    owners?: Array<{ owner_address?: string }>;
+    previews?: { image_medium_url?: string };
+    external_url?: string;
+    extra_metadata?: { attributes?: Array<{ trait_type: string; value: unknown }> };
+    background_color?: string;
+    collection?: {
+      collection_id?: string;
+      name?: string;
+      description?: string;
+      image_url?: string;
+      external_url?: string;
+      twitter_username?: string;
+      discord_url?: string;
+      marketplace_pages?: Array<{ verified?: boolean }>;
+      spam_score?: number;
+      floor_prices?: Array<{ value: number; marketplace_id?: string; payment_token?: { symbol?: string } }>;
+    };
+    last_sale?: {
+      unit_price?: number | string;
+      payment_token?: { symbol?: string };
+      timestamp?: string;
+      from_address?: string;
+      to_address?: string;
     };
   }>, chain: string): NFT[] {
     return nfts.map(nft => ({
@@ -489,7 +509,7 @@ export class NFTDiscoveryService {
 
       const response = await fetch(url, {
         headers: {
-          'X-API-KEY': this.apiKeys.simplehash || '',
+          'X-API-KEY': this.apiKeys['simplehash'] || '',
         }
       });
 
@@ -522,7 +542,7 @@ export class NFTDiscoveryService {
 
       const response = await fetch(url, {
         headers: {
-          'X-API-KEY': this.apiKeys.simplehash || '',
+          'X-API-KEY': this.apiKeys['simplehash'] || '',
         }
       });
 

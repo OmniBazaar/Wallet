@@ -81,7 +81,7 @@ export interface MarketplaceListing {
  */
 export class IPFSClient {
   private gateway: string;
-  private pinningService?: string;
+  private pinningService: string | undefined;
   private client?: IPFSHTTPClient;
   private initialized = false;
   private apiConfig: {
@@ -244,12 +244,18 @@ export class IPFSClient {
       // Upload metadata
       const metadataResult = await this.uploadJSON(finalMetadata);
 
-      return {
+      const result: {
+        metadataHash: string;
+        metadataUrl: string;
+        imageHash?: string;
+        imageUrl?: string;
+      } = {
         metadataHash: metadataResult.hash,
         metadataUrl: metadataResult.url,
-        imageHash,
-        imageUrl
       };
+      if (imageHash) result.imageHash = imageHash;
+      if (imageUrl) result.imageUrl = imageUrl;
+      return result;
 
     } catch (error) {
       console.warn('❌ Failed to upload NFT metadata:', error);

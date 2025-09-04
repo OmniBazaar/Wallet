@@ -1,7 +1,7 @@
-import { BitcoinProvider } from './provider';
+import { BitcoinProvider, UTXO } from './provider';
 import BitcoinNetworks from './networks';
 import { KeyringService } from '../../keyring/KeyringService';
-import { TransactionRequest } from '@/types';
+import { TransactionRequest, Transaction } from '@/types';
 
 /**
  *
@@ -89,7 +89,7 @@ export class LiveBitcoinProvider extends BitcoinProvider {
   }
 
   /** Get transaction history for the current account or a supplied address. */
-  async getTransactionHistory(address?: string, limit = 10): Promise<Array<{ hash: string; from: string; to: string; value: string; timestamp: number; status: string }>> {
+  async getTransactionHistory(address?: string, limit = 10): Promise<Transaction[]> {
     if (!address) {
       const account = await this.getCurrentAccount();
       address = account.address;
@@ -140,7 +140,7 @@ export class LiveBitcoinProvider extends BitcoinProvider {
   }
 
   /** Get the UTXO set for the current account. */
-  async getUTXOs(): Promise<Array<{ txHash: string; outputIndex: number; value: string; script: string }>> {
+  async getUTXOs(): Promise<UTXO[]> {
     const { address } = await this.getCurrentAccount();
     return super.getUTXOs(address);
   }

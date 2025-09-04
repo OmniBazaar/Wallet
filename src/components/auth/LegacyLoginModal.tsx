@@ -455,7 +455,7 @@ export const LegacyLoginModal: React.FC<LegacyLoginModalProps> = ({
                   fullWidth
                   label="Legacy Username"
                   value={username}
-                  onChange={(e) => setUsername(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUsername(e.target.value)}
                   margin="normal"
                   helperText={
                     username.toLowerCase() === 'null' 
@@ -470,7 +470,7 @@ export const LegacyLoginModal: React.FC<LegacyLoginModalProps> = ({
                   type="password"
                   label="Legacy Password"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
                   margin="normal"
                   helperText="Enter your OmniCoin v1 password"
                   disabled={loading || username.toLowerCase() === 'null'}
@@ -506,7 +506,7 @@ export const LegacyLoginModal: React.FC<LegacyLoginModalProps> = ({
                   type="password"
                   label="New Password"
                   value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewPassword(e.target.value)}
                   margin="normal"
                   helperText="Minimum 12 characters"
                   disabled={loading}
@@ -516,7 +516,7 @@ export const LegacyLoginModal: React.FC<LegacyLoginModalProps> = ({
                   type="password"
                   label="Confirm Password"
                   value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setConfirmPassword(e.target.value)}
                   margin="normal"
                   error={confirmPassword !== '' && confirmPassword !== newPassword}
                   helperText={

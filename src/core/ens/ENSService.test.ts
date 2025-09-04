@@ -28,9 +28,9 @@ jest.mock('../contracts/ContractConfig', () => ({
 // Mock ethers
 jest.mock('ethers', () => ({
   ethers: {
-    isAddress: jest.fn((addr) => addr.startsWith('0x') && addr.length === 42),
+    isAddress: jest.fn((addr: string) => addr.startsWith('0x') && addr.length === 42),
     ZeroAddress: '0x0000000000000000000000000000000000000000',
-    namehash: jest.fn((name) => '0x' + '1'.repeat(64)), // Mock namehash
+    namehash: jest.fn((name: string) => '0x' + '1'.repeat(64)), // Mock namehash
     Contract: jest.fn().mockImplementation(() => ({
       resolver: jest.fn().mockResolvedValue('0x1234567890123456789012345678901234567890'),
       addr: jest.fn().mockResolvedValue('0x1234567890123456789012345678901234567890')

@@ -64,7 +64,7 @@ export function createNFTProvider(
 ): ChainProvider | null {
   // Default to using OmniProvider
   const useOmniProvider = config.useOmniProvider !== false;
-  const validatorUrl = config.validatorUrl || (process.env?.VALIDATOR_URL ?? 'wss://validator.omnibazaar.com');
+  const validatorUrl = config.validatorUrl || (process.env?.['VALIDATOR_URL'] ?? 'wss://validator.omnibazaar.com');
   
   // Base configuration for all providers
   const apiKeyProps = {
@@ -166,7 +166,7 @@ export async function checkOmniProviderAvailability(
   validatorUrl?: string
 ): Promise<boolean> {
   try {
-    const url = validatorUrl || process.env?.VALIDATOR_URL || 'wss://validator.omnibazaar.com';
+    const url = validatorUrl || process.env?.['VALIDATOR_URL'] || 'wss://validator.omnibazaar.com';
     
     // Try to connect with WebSocket
     return new Promise((resolve) => {

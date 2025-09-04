@@ -3,7 +3,7 @@
  * Manages bridge quotes, executions, and monitoring
  */
 
-import { BigNumber, constants, Contract, utils } from 'ethers';
+import { ethers, Interface } from 'ethers';
 import { 
   BridgeRoute, 
   BridgeQuoteRequest, 
@@ -74,9 +74,9 @@ export class BridgeService {
     
     // Sort by best output amount
     const sortedRoutes = validQuotes.sort((a, b) => {
-      const aAmount = BigNumber.from(a.toAmount);
-      const bAmount = BigNumber.from(b.toAmount);
-      return bAmount.gt(aAmount) ? 1 : -1;
+      const aAmount = BigInt(a.toAmount);
+      const bAmount = BigInt(b.toAmount);
+      return bAmount > aAmount ? 1 : -1;
     });
     
     return {
@@ -190,9 +190,9 @@ export class BridgeService {
     const toToken = this.getTokenInfo(request.toChain, request.toToken || request.fromToken);
     
     // Calculate estimated output (mock calculation)
-    const inputAmount = BigNumber.from(request.amount);
-    const bridgeFee = inputAmount.mul(10).div(10000); // 0.1% fee
-    const outputAmount = inputAmount.sub(bridgeFee);
+    const inputAmount = BigInt(request.amount);
+    const bridgeFee = (inputAmount * 10n) / 10000n; // 0.1% fee
+    const outputAmount = inputAmount - bridgeFee;
     
     const route: BridgeRoute = {
       id: `${bridge}-${Date.now()}`,
@@ -229,7 +229,7 @@ export class BridgeService {
   } {
     // Check if it's a known bridge token
     const tokenAddresses = BRIDGE_TOKENS[tokenSymbol as keyof typeof BRIDGE_TOKENS];
-    const address = tokenAddresses?.[chain as keyof typeof tokenAddresses] || constants.AddressZero;
+    const address = tokenAddresses?.[chain as keyof typeof tokenAddresses] || ethers.ZeroAddress;
     
     return {
       address,
@@ -253,7 +253,7 @@ export class BridgeService {
     const steps = [];
     
     // Most bridges require approval for ERC20
-    if (token.address !== constants.AddressZero) {
+    if (token.address !== ethers.ZeroAddress) {
       steps.push({
         type: 'approve' as const,
         description: `Approve ${token.symbol} for bridge`,
@@ -301,26 +301,13 @@ export class BridgeService {
     const bridgeAddress = this.getBridgeAddress(route.bridge, route.fromChain);
     
     // Create approval transaction
-    const tokenContract = new Contract(
-      route.fromToken.address,
-      ['function approve(address spender, uint256 amount) returns (bool)'],
-      provider as { call: (transaction: { to: string; data: string }) => Promise<string> }
-    );
-    
-    const tx = await tokenContract.populateTransaction.approve(
-      bridgeAddress,
-      constants.MaxUint256
-    );
-    
-    // Execute through provider manager
-    if (!tx.to) {
-      throw new Error('Invalid transaction: missing recipient address');
-    }
+    const iface = new Interface(['function approve(address spender, uint256 amount) returns (bool)']);
+    const data = iface.encodeFunctionData('approve', [bridgeAddress, ethers.MaxUint256]);
     await providerManager.sendTransaction(
-      tx.to,
+      route.fromToken.address,
       '0',
       route.fromChain as ChainType,
-      tx.data
+      data
     );
   }
   
@@ -338,10 +325,10 @@ export class BridgeService {
     const bridgeAddress = this.getBridgeAddress(route.bridge, route.fromChain);
     
     // For native tokens, send directly
-    if (route.fromToken.address === constants.AddressZero) {
+    if (route.fromToken.address === ethers.ZeroAddress) {
       const txHash = await providerManager.sendTransaction(
         bridgeAddress,
-        utils.formatUnits(route.fromAmount, route.fromToken.decimals),
+        ethers.formatUnits(BigInt(route.fromAmount), route.fromToken.decimals),
         route.fromChain as ChainType
       );
       return txHash as string;
@@ -424,7 +411,7 @@ export class BridgeService {
       // Add other bridge addresses
     };
     
-    return addresses[bridge]?.[chain] || constants.AddressZero;
+    return addresses[bridge]?.[chain] || ethers.ZeroAddress;
   }
   
   /**
@@ -471,7 +458,7 @@ export class BridgeService {
       toChain,
       fromToken: token,
       amount,
-      fromAddress: constants.AddressZero, // Just for estimation
+      fromAddress: ethers.ZeroAddress, // Just for estimation
     };
     
     const { routes } = await this.getQuotes(request);

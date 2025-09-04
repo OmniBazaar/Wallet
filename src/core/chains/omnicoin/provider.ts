@@ -121,7 +121,7 @@ export const OmniCoinNetworks: { [key: string]: EthereumNetwork } = {
     chainID: '0x1B58', // 7000 in decimal
     slip44: 7000,
     coingeckoID: 'omnicoin',
-    provider: ProviderName.ethereum as ProviderName,
+    provider: ProviderName.ETHEREUM,
     displayAddress: (address: string) => address,
     identicon: (address: string) => `https://api.dicebear.com/7.x/identicon/svg?seed=${address}`,
     basePath: 'm/44\'/7000\'/0\'/0'
@@ -138,7 +138,7 @@ export const OmniCoinNetworks: { [key: string]: EthereumNetwork } = {
     node: 'https://testnet.omnicoin.io',
     chainID: '0x1B5A', // 7002 in decimal
     slip44: 7000,
-    provider: ProviderName.ethereum as ProviderName,
+    provider: ProviderName.ETHEREUM,
     displayAddress: (address: string) => address,
     identicon: (address: string) => `https://api.dicebear.com/7.x/identicon/svg?seed=${address}`,
     basePath: 'm/44\'/7000\'/0\'/0'
@@ -153,7 +153,7 @@ export class OmniCoinProvider extends CotiProvider {
   private marketplaceListings: Map<string, MarketplaceListing> = new Map();
   private escrowContracts: Map<string, EscrowInfo> = new Map();
   private nodeConnections: string[] = [];
-  private provider: ethers.providers.JsonRpcProvider;
+  protected provider: ethers.JsonRpcProvider;
   private config: OmniCoinConfig;
   private wallet?: ethers.Wallet;
 
@@ -169,7 +169,7 @@ export class OmniCoinProvider extends CotiProvider {
     config?: Partial<OmniCoinConfig>
   ) {
     super(toWindow, network);
-    this.namespace = ProviderName.ethereum as ProviderName; // OmniCoin is EVM compatible via COTI
+    this.namespace = ProviderName.ETHEREUM; // OmniCoin is EVM compatible via COTI
 
     // Default OmniCoin configuration
     this.config = {
@@ -182,10 +182,10 @@ export class OmniCoinProvider extends CotiProvider {
     };
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-    this.provider = new ethers.providers.JsonRpcProvider(this.config.rpcUrl, {
+    this.provider = new ethers.JsonRpcProvider(this.config.rpcUrl, {
       chainId: this.config.chainId,
       name: this.config.name
-    }) as ethers.providers.JsonRpcProvider;
+    });
   }
 
   // Override request method to add OmniCoin-specific methods
@@ -204,30 +204,30 @@ export class OmniCoinProvider extends CotiProvider {
         switch (method) {
           // Marketplace methods
           case 'omnicoin_createListing':
-            result = this.createMarketplaceListing(params[0]);
+            result = this.createMarketplaceListing(params[0] as Partial<MarketplaceListing>);
             break;
           case 'omnicoin_getListing':
-            result = this.getMarketplaceListing(params[0]);
+            result = this.getMarketplaceListing(params[0] as string);
             break;
           case 'omnicoin_getListings':
-            result = this.getMarketplaceListings(params[0]);
+            result = this.getMarketplaceListings(params[0] as { category?: string; seller?: string; maxPrice?: bigint; search?: string } | undefined);
             break;
           case 'omnicoin_updateListing':
-            result = this.updateMarketplaceListing(params[0], params[1]);
+            result = this.updateMarketplaceListing(params[0] as string, params[1] as Partial<MarketplaceListing>);
             break;
           case 'omnicoin_purchaseItem':
-            result = await this.purchaseItem(params[0], params[1]);
+            result = await this.purchaseItem(params[0] as string, params[1] as string);
             break;
 
           // Escrow methods
           case 'omnicoin_createEscrow':
-            result = this.createEscrow(params[0]);
+            result = this.createEscrow(params[0] as { buyer: string; seller: string; amount: bigint; listingId: string });
             break;
           case 'omnicoin_releaseEscrow':
-            result = this.releaseEscrow(params[0]);
+            result = this.releaseEscrow(params[0] as string);
             break;
           case 'omnicoin_getEscrow':
-            result = this.getEscrow(params[0]);
+            result = this.getEscrow(params[0] as string);
             break;
 
           // Node discovery methods
@@ -235,7 +235,7 @@ export class OmniCoinProvider extends CotiProvider {
             result = this.discoverMarketplaceNodes();
             break;
           case 'omnicoin_connectToNode':
-            result = this.connectToMarketplaceNode(params[0]);
+            result = this.connectToMarketplaceNode(params[0] as string);
             break;
           case 'omnicoin_getConnectedNodes':
             result = this.getConnectedNodes();
@@ -595,7 +595,10 @@ export class OmniCoinProvider extends CotiProvider {
     layer: string; /**
                   *
                   */
-    features: string[]
+    features: string[];
+    marketplaceIntegrated?: boolean;
+    escrowSupport?: boolean;
+    migrationSupport?: boolean;
   } {
     return {
       ...super.getCotiNetworkInfo(),
@@ -680,7 +683,7 @@ export class OmniCoinProvider extends CotiProvider {
   /**
    * Get the underlying ethers provider
    */
-  getProvider(): ethers.providers.JsonRpcProvider {
+  getProvider(): ethers.JsonRpcProvider {
     return this.provider;
   }
 
@@ -710,7 +713,7 @@ export class OmniCoinProvider extends CotiProvider {
    */
   getContract(
     address: string,
-    abi: ethers.ContractInterface,
+    abi: import('ethers').InterfaceAbi,
     signer?: ethers.Wallet
   ): ethers.Contract {
     const contractSigner = signer || this.wallet;
@@ -734,7 +737,7 @@ export class OmniCoinProvider extends CotiProvider {
 
       return {
         address,
-        balance: ethers.utils.formatEther(balance),
+        balance: ethers.formatEther(balance),
         nonce
       };
     } catch (error) {
@@ -758,7 +761,7 @@ export class OmniCoinProvider extends CotiProvider {
    * Estimate gas for a transaction
    * @param transaction
    */
-  async estimateGas(transaction: ethers.providers.TransactionRequest): Promise<string> {
+  async estimateGas(transaction: ethers.TransactionRequest): Promise<string> {
     try {
       const gasEstimate = await this.provider.estimateGas(transaction);
       return gasEstimate.toString();
@@ -771,7 +774,7 @@ export class OmniCoinProvider extends CotiProvider {
    * Send a transaction
    * @param transaction
    */
-  async sendTransaction(transaction: ethers.providers.TransactionRequest): Promise<ethers.providers.TransactionResponse> {
+  async sendTransaction(transaction: ethers.TransactionRequest): Promise<ethers.TransactionResponse> {
     try {
       if (!this.wallet) {
         throw new Error('No wallet set for signing transaction');
@@ -788,7 +791,7 @@ export class OmniCoinProvider extends CotiProvider {
    * Get transaction receipt
    * @param txHash
    */
-  async getTransactionReceipt(txHash: string): Promise<ethers.providers.TransactionReceipt | null> {
+  async getTransactionReceipt(txHash: string): Promise<ethers.TransactionReceipt | null> {
     try {
       return await this.provider.getTransactionReceipt(txHash);
     } catch (error) {
@@ -810,7 +813,7 @@ export class OmniCoinProvider extends CotiProvider {
   /**
    * Get network information
    */
-  async getNetwork(): Promise<ethers.providers.Network> {
+  async getNetwork(): Promise<ethers.Network> {
     try {
       return await this.provider.getNetwork();
     } catch (error) {
@@ -841,7 +844,7 @@ export class OmniCoinProvider extends CotiProvider {
     txHash: string,
     confirmations = 1,
     timeout = 120000
-  ): Promise<ethers.providers.TransactionReceipt | null> {
+  ): Promise<ethers.TransactionReceipt | null> {
     try {
       return await this.provider.waitForTransaction(txHash, confirmations, timeout);
     } catch (error) {
@@ -856,7 +859,7 @@ export class OmniCoinProvider extends CotiProvider {
   async getXOMBalance(address: string): Promise<string> {
     try {
       const balance = await this.provider.getBalance(address);
-      return ethers.utils.formatEther(balance);
+      return ethers.formatEther(balance);
     } catch (error) {
       throw new Error(`Failed to get XOM balance: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
@@ -880,7 +883,7 @@ export class OmniCoinProvider extends CotiProvider {
         tokenContract.decimals()
       ]);
 
-      return ethers.utils.formatUnits(balance, decimals);
+      return ethers.formatUnits(balance, decimals);
     } catch (error) {
       throw new Error(`Failed to get token balance: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
@@ -898,32 +901,23 @@ export class OmniCoinProvider extends CotiProvider {
     fromBlock = 0,
     _toBlock: string | number = 'latest',
     limit = 100
-  ): Promise<ethers.providers.TransactionResponse[]> {
+  ): Promise<ethers.TransactionResponse[]> {
     try {
       // Note: This is a simplified version. In practice, you'd need to use
       // an indexing service or scan blocks for transactions
       const currentBlock = await this.getBlockNumber();
-      const transactions: ethers.providers.TransactionResponse[] = [];
+      const transactions: ethers.TransactionResponse[] = [];
 
       // Scan recent blocks for transactions involving this address
       const startBlock = Math.max(currentBlock - limit, fromBlock);
 
       for (let i = currentBlock; i >= startBlock; i--) {
         try {
-          const block = await this.provider.getBlockWithTransactions(i);
+          const block = await this.provider.getBlock(i, true);
           if (block && block.transactions) {
             for (const tx of block.transactions) {
               if (typeof tx === 'object' && (tx.from === address || tx.to === address)) {
-                transactions.push({
-                  hash: tx.hash,
-                  from: tx.from,
-                  to: tx.to,
-                  value: tx.value?.toString(),
-                  gasPrice: tx.gasPrice?.toString(),
-                  gasLimit: tx.gasLimit?.toString(),
-                  blockNumber: i,
-                  timestamp: block.timestamp
-                });
+                transactions.push(tx as unknown as ethers.TransactionResponse);
               }
             }
           }
@@ -945,7 +939,7 @@ export class OmniCoinProvider extends CotiProvider {
    */
   isValidAddress(address: string): boolean {
     try {
-      return ethers.utils.isAddress(address);
+      return ethers.isAddress(address);
     } catch (error) {
       return false;
     }
@@ -969,7 +963,7 @@ export class OmniCoinProvider extends CotiProvider {
    */
   parseXOM(amount: string): bigint {
     try {
-      return BigInt(ethers.utils.parseEther(amount).toString());
+      return ethers.parseEther(amount);
     } catch (error) {
       return BigInt(0);
     }
@@ -988,7 +982,7 @@ export class OmniCoinProvider extends CotiProvider {
    */
   updateRPCUrl(newUrl: string): void {
     this.config.rpcUrl = newUrl;
-    this.provider = new ethers.providers.JsonRpcProvider(newUrl, {
+    this.provider = new ethers.JsonRpcProvider(newUrl, {
       chainId: this.config.chainId,
       name: this.config.name
     });
@@ -1010,7 +1004,7 @@ export { LiveOmniCoinProvider, createLiveOmniCoinProvider, liveOmniCoinProvider 
  *
  * @param _networkName
  */
-export async function getOmniCoinProvider(_networkName?: string): Promise<ethers.providers.JsonRpcProvider> {
+export async function getOmniCoinProvider(_networkName?: string): Promise<ethers.JsonRpcProvider> {
   const { liveOmniCoinProvider } = await import('./live-provider');
   return liveOmniCoinProvider.getProvider();
 }

@@ -34,7 +34,7 @@ export const EthereumNetworks: { [key: string]: EthereumNetwork } = {
     chainID: '0x1',
     slip44: 60,
     coingeckoID: 'ethereum',
-    provider: ProviderName.ethereum,
+    provider: ProviderName.ETHEREUM,
     displayAddress: (address: string) => address,
     identicon: (address: string) => `https://api.dicebear.com/7.x/identicon/svg?seed=${address}`,
     basePath: 'm/44\'/60\'/0\'/0'
@@ -51,7 +51,7 @@ export const EthereumNetworks: { [key: string]: EthereumNetwork } = {
     node: 'https://rpc.sepolia.org',
     chainID: '0xaa36a7',
     slip44: 60,
-    provider: ProviderName.ethereum,
+    provider: ProviderName.ETHEREUM,
     displayAddress: (address: string) => address,
     identicon: (address: string) => `https://api.dicebear.com/7.x/identicon/svg?seed=${address}`,
     basePath: 'm/44\'/60\'/0\'/0'
@@ -84,7 +84,7 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
     super();
     this.network = network;
     this.toWindow = toWindow;
-    this.namespace = ProviderName.ethereum;
+    this.namespace = ProviderName.ETHEREUM;
     this.chainId = this.network.chainID;
     this.networkVersion = parseInt(this.network.chainID, 16).toString();
     this.provider = new ethers.JsonRpcProvider(this.network.node);
@@ -155,7 +155,7 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
    * @param request RPC request to process
    * @returns Result data for the RPC call
    */
-  private async handleRPCRequest(request: ProviderRPCRequest): Promise<string | string[] | number> {
+  private async handleRPCRequest(request: ProviderRPCRequest): Promise<unknown> {
     const { method, params = [] } = request;
 
     switch (method) {
@@ -172,98 +172,121 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
         return this.selectedAddress ? [this.selectedAddress] : [];
 
       case 'eth_getBalance': {
-        if (params[0]) {
-          const balance = await this.provider.getBalance(params[0], 'latest');
-          return ethers.hexlify(balance);
+        const address = params[0];
+        if (typeof address === 'string') {
+          const balance = await this.provider.getBalance(address, 'latest');
+          return ethers.toQuantity(balance);
         }
         throw new Error('Missing address parameter');
       }
 
       case 'eth_sendTransaction': {
-        if (params[0]) {
-          return await this.sendTransaction(params[0]);
+        const tx = params[0];
+        if (tx && typeof tx === 'object') {
+          return await this.sendTransaction(tx as { to: string; value?: string; data?: string; gas?: string; gasPrice?: string });
         }
         throw new Error('Missing transaction parameter');
       }
 
       case 'eth_signTransaction': {
-        if (params[0]) {
-          return await this.signTransaction(params[0]);
+        const tx = params[0];
+        if (tx && typeof tx === 'object') {
+          return await this.signTransaction(tx as { to: string; value?: string; data?: string; gas?: string; gasPrice?: string });
         }
         throw new Error('Missing transaction parameter');
       }
 
       case 'personal_sign': {
-        if (params[0] && params[1]) {
-          return await this.personalSign(params[0], params[1]);
+        const msg = params[0];
+        const addr = params[1];
+        if (typeof msg === 'string' && typeof addr === 'string') {
+          return await this.personalSign(msg, addr);
         }
         throw new Error('Missing parameters for personal_sign');
       }
 
       case 'eth_signTypedData_v4': {
-        if (params[0] && params[1]) {
-          return await this.signTypedData(params[0], params[1]);
+        const addr = params[0];
+        const data = params[1];
+        if (typeof addr === 'string' && typeof data === 'string') {
+          return await this.signTypedData(addr, data);
         }
         throw new Error('Missing parameters for eth_signTypedData_v4');
       }
 
       case 'eth_getTransactionReceipt': {
-        if (params[0]) {
-          const receipt = await this.provider.getTransactionReceipt(params[0]);
+        const hash = params[0];
+        if (typeof hash === 'string') {
+          const receipt = await this.provider.getTransactionReceipt(hash);
           return receipt;
         }
         throw new Error('Missing transaction hash');
       }
 
       case 'eth_getTransactionByHash': {
-        if (params[0]) {
-          const tx = await this.provider.getTransaction(params[0]);
+        const hash = params[0];
+        if (typeof hash === 'string') {
+          const tx = await this.provider.getTransaction(hash);
           return tx;
         }
         throw new Error('Missing transaction hash');
       }
 
       case 'eth_estimateGas': {
-        if (params[0]) {
-          const gasEstimate = await this.provider.estimateGas(params[0]);
-          return ethers.hexlify(gasEstimate);
+        const tx = params[0];
+        if (tx && typeof tx === 'object') {
+          const gasEstimate = await this.provider.estimateGas(tx as ethers.TransactionRequest);
+          return ethers.toQuantity(gasEstimate);
         }
         throw new Error('Missing transaction object');
       }
 
       case 'eth_gasPrice': {
         try {
-          const gasPrice = await this.provider.getGasPrice();
-          return ethers.hexlify(gasPrice);
+          const feeData = await this.provider.getFeeData();
+          const gasPrice = feeData.gasPrice ?? 20n * 10n ** 9n; // fallback 20 gwei
+          return ethers.toQuantity(gasPrice);
         } catch (error) {
           console.warn('Failed to get gas price:', error);
-          return '0x' + (20 * 1e9).toString(16); // 20 gwei fallback
+          return '0x' + (20 * 1e9).toString(16); // 20 gwei fallback (legacy)
         }
       }
 
       case 'eth_blockNumber': {
         const blockNumber = await this.provider.getBlockNumber();
-        return ethers.hexlify(blockNumber);
+        return ethers.toQuantity(blockNumber);
       }
 
       case 'eth_getBlockByNumber': {
-        if (params[0] !== undefined) {
-          const block = await this.provider.getBlock(params[0]);
+        const blockTag = params[0];
+        if (typeof blockTag === 'string' || typeof blockTag === 'number') {
+          const block = await this.provider.getBlock(blockTag as any);
           return block;
         }
         throw new Error('Missing block parameter');
       }
 
       // Subscription methods (for WebSocket-like functionality)
-      case 'eth_subscribe':
-        return await this.handleSubscription(params[0], params[1]);
+      case 'eth_subscribe': {
+        const subType = params[0] as string;
+        const subParams = params[1] as string[] | undefined;
+        if (typeof subType === 'string') {
+          return await this.handleSubscription(subType, subParams);
+        }
+        throw new Error('Missing subscription type');
+      }
 
-      case 'eth_unsubscribe':
-        return await this.handleUnsubscription(params[0]);
+      case 'eth_unsubscribe': {
+        const subId = params[0];
+        if (typeof subId === 'string') {
+          return await this.handleUnsubscription(subId);
+        }
+        throw new Error('Missing subscription id');
+      }
 
       default:
         // Forward unknown methods to the provider
-        return await this.provider.send(method, params);
+        return await this.provider.send(method, params as any[]);
     }
   }
 
@@ -299,7 +322,7 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
         this.provider.on('block', (blockNumber: number) => {
           this.sendNotification(JSON.stringify({
             subscription: subscriptionId,
-            result: { number: utils.hexlify(blockNumber) }
+            result: { number: ethers.toQuantity(blockNumber) }
           }));
         });
         break;
@@ -375,8 +398,8 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
   async estimateTokenTransferGas(tokenAddress: string, to: string, amount: string): Promise<string> {
     const tokenABI = ['function transfer(address to, uint256 amount) returns (bool)'];
     const contract = new ethers.Contract(tokenAddress, tokenABI, this.provider);
-
-    const gasEstimate = await contract.estimateGas.transfer(to, amount);
+    const fn = contract.getFunction('transfer');
+    const gasEstimate = await fn.estimateGas(to, amount);
     return gasEstimate.toString();
   }
 
