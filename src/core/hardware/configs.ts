@@ -7,6 +7,10 @@ export const bip44Paths = {
   ethereumClassicLedger: "m/44'/61'/0'",
   ethereumClassicLedgerLive: "m/44'/61'/0'/0",
   ethereumTestnetLedger: "m/44'/1'/0'",
+  // Bitcoin-family Ledger paths
+  bitcoinSegwitLedger: "m/84'/0'/0'/0",
+  litecoinSegwitLedger: "m/84'/2'/0'/0",
+  dogecoinLedger: "m/44'/3'/0'/0",
   rootstock: "m/44'/137'/0'",
   solanaLedger: "m/44'/501'/0'",
   substrateLedger: "m/44'/354'/0'",
@@ -14,6 +18,10 @@ export const bip44Paths = {
   ethereum: "m/44'/60'/0'/0/0",
   ethereumClassic: "m/44'/61'/0'/0/0",
   solanaTrezor: "m/44'/501'/0'",
+  // Bitcoin-family Trezor paths
+  bitcoinSegwitTrezor: "m/84'/0'/0'/0",
+  litecoinSegwitTrezor: "m/84'/2'/0'/0",
+  dogecoinTrezor: "m/44'/3'/0'/0",
 };
 
 export const ledgerAppNames: Record<string, string> = {

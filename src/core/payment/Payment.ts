@@ -61,7 +61,7 @@ export class Payment {
   async sendPayment(request: PaymentRequest): Promise<PaymentResponse> {
     try {
       // Convert amount to wei
-      const amount = ethers.utils.parseUnits(request.amount, OmniCoinMetadata.decimals);
+      const amount = ethers.parseUnits(request.amount, OmniCoinMetadata.decimals);
 
       // Create and send transaction
       const tx = Transaction.createTokenTransfer(
@@ -98,12 +98,24 @@ export class Payment {
         throw new PaymentError('Transaction not found', 'TX_NOT_FOUND');
       }
       const receipt = await tx.wait();
-
+      if (!receipt) {
+        return {
+          transactionHash,
+          status: 'pending',
+        };
+      }
+      let confirmations: number | undefined;
+      const rc: any = receipt as any;
+      if (typeof rc.confirmations === 'function') {
+        confirmations = await rc.confirmations();
+      } else {
+        confirmations = rc.confirmations ?? undefined;
+      }
       return {
-        transactionHash: receipt.transactionHash,
-        status: receipt.status ? 'confirmed' : 'failed',
-        blockNumber: receipt.blockNumber,
-        confirmations: receipt.confirmations
+        transactionHash: (rc.transactionHash ?? rc.hash) as string,
+        status: rc.status ? 'confirmed' : 'failed',
+        blockNumber: rc.blockNumber ?? undefined,
+        confirmations,
       };
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -118,9 +130,9 @@ export class Payment {
    *
    * @param request
    */
-  async estimateGas(request: PaymentRequest): Promise<ethers.BigNumber> {
+  async estimateGas(request: PaymentRequest): Promise<bigint> {
     try {
-      const amount = ethers.utils.parseUnits(request.amount, OmniCoinMetadata.decimals);
+      const amount = ethers.parseUnits(request.amount, OmniCoinMetadata.decimals);
       const tx = Transaction.createTokenTransfer(
         OmniCoinMetadata.contractAddress,
         request.to,

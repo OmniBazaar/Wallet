@@ -90,7 +90,8 @@ class BrowserStorage implements StorageInterface {
             console.error('BrowserStorage.get error:', chrome.runtime.lastError);
             resolve(null);
           } else {
-            resolve(result[namespacedKey]);
+            const value = result[namespacedKey] as T | undefined;
+            resolve(value ?? null);
           }
         });
       } catch (error) {

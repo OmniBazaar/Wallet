@@ -128,8 +128,8 @@ export class StakingService {
   private tokenContract: ethers.Contract | null = null;
 
   // Contract addresses (would be loaded from config)
-  private readonly STAKING_CONTRACT_ADDRESS = process.env.STAKING_CONTRACT || '0x0000000000000000000000000000000000000000';
-  private readonly XOM_TOKEN_ADDRESS = process.env.XOM_TOKEN || '0x0000000000000000000000000000000000000000';
+  private readonly STAKING_CONTRACT_ADDRESS = (process?.env?.['STAKING_CONTRACT'] as string | undefined) || '0x0000000000000000000000000000000000000000';
+  private readonly XOM_TOKEN_ADDRESS = (process?.env?.['XOM_TOKEN'] as string | undefined) || '0x0000000000000000000000000000000000000000';
 
   // Staking tiers
   private readonly STAKING_TIERS: StakingTier[] = [
@@ -201,9 +201,9 @@ export class StakingService {
     try {
       // Try OmniProvider first
       this.omniProvider = new OmniProvider(1, {
-        validatorUrl: process.env.VALIDATOR_URL || 'wss://validator.omnibazaar.com',
+        validatorUrl: (process?.env?.['VALIDATOR_URL'] as string | undefined) || 'wss://validator.omnibazaar.com',
         walletId: 'staking-service',
-        authKey: process.env.OMNI_AUTH_KEY
+        authKey: process?.env?.['OMNI_AUTH_KEY'] as string | undefined
       });
 
       // Initialize contracts

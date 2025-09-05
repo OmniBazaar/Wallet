@@ -1,4 +1,5 @@
-import { TransactionRequest, AbiCoder, concat } from 'ethers';
+import { AbiCoder, concat } from 'ethers';
+import type { TransactionRequest, AddressLike } from 'ethers';
 
 /** Core transaction data for blockchain transactions */
 export interface TransactionData {
@@ -77,13 +78,13 @@ export class Transaction {
      */
     toEthersTransaction(): TransactionRequest {
         return {
-            to: this.data.to,
+            to: (this.data.to as unknown as AddressLike) ?? null,
             value: this.data.value,
             data: this.data.data,
             gasLimit: this.options.gasLimit ?? this.data.gasLimit,
             maxFeePerGas: this.options.maxFeePerGas,
             maxPriorityFeePerGas: this.options.maxPriorityFeePerGas,
-            nonce: this.data.nonce,
+            nonce: this.data.nonce ?? null,
             chainId: this.data.chainId
         };
     }

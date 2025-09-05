@@ -143,13 +143,14 @@ export class SimplifiedNFTMinter {
       );
 
       console.warn('NFT minting completed successfully');
-      return {
+      const result: MintingResult = {
         success: true,
         tokenId,
-        transactionHash: mintResult.transactionHash,
-        ipfsHash: ipfsResult.hash,
-        nftItem
+        nftItem,
       };
+      if (mintResult.transactionHash) result.transactionHash = mintResult.transactionHash;
+      if (ipfsResult.hash) result.ipfsHash = ipfsResult.hash;
+      return result;
 
     } catch (error) {
       console.warn('NFT minting error:', error);

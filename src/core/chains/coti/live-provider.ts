@@ -56,7 +56,7 @@ export const COTI_NETWORKS: Record<string, COTINetwork> = {
   mainnet: {
     name: 'COTI v2 Mainnet',
     chainId: 7777777, // To be confirmed
-    rpcUrl: (process?.env?.COTI_RPC_URL as string | undefined) ?? 'https://mainnet.coti.io/rpc',
+    rpcUrl: (process?.env?.['COTI_RPC_URL'] as string | undefined) ?? 'https://mainnet.coti.io/rpc',
     blockExplorer: 'https://explorer.coti.io',
     nativeCurrency: {
       name: 'COTI',
@@ -68,7 +68,7 @@ export const COTI_NETWORKS: Record<string, COTINetwork> = {
   testnet: {
     name: 'COTI v2 Testnet',
     chainId: 7777778, // To be confirmed
-    rpcUrl: (process?.env?.COTI_TESTNET_RPC_URL as string | undefined) ?? 'https://testnet.coti.io/rpc',
+    rpcUrl: (process?.env?.['COTI_TESTNET_RPC_URL'] as string | undefined) ?? 'https://testnet.coti.io/rpc',
     blockExplorer: 'https://testnet-explorer.coti.io',
     nativeCurrency: {
       name: 'Test COTI',
@@ -375,16 +375,16 @@ class COTIKeyringSigner extends ethers.AbstractSigner {
     Object.defineProperty(this, 'provider', { value: provider, enumerable: true });
   }
 
-  async getAddress(): Promise<string> {
+  override async getAddress(): Promise<string> {
     return this.address;
   }
 
-  async signMessage(message: string | Uint8Array): Promise<string> {
+  override async signMessage(message: string | Uint8Array): Promise<string> {
     const messageString = typeof message === 'string' ? message : ethers.hexlify(message);
     return await keyringService.signMessage(this.address, messageString);
   }
 
-  async signTransaction(transaction: ethers.TransactionRequest): Promise<string> {
+  override async signTransaction(transaction: ethers.TransactionRequest): Promise<string> {
     // Populate transaction
     const tx: any = { ...(transaction as any) };
     
@@ -396,7 +396,7 @@ class COTIKeyringSigner extends ethers.AbstractSigner {
     return await keyringService.signTransaction(this.address, tx);
   }
 
-  async sendTransaction(transaction: ethers.TransactionRequest): Promise<ethers.TransactionResponse> {
+  override async sendTransaction(transaction: ethers.TransactionRequest): Promise<ethers.TransactionResponse> {
     // Sign transaction
     const signedTx = await this.signTransaction(transaction);
     
@@ -417,11 +417,11 @@ class COTIKeyringSigner extends ethers.AbstractSigner {
     return await (this.provider as ethers.JsonRpcProvider).send('coti_sendPrivateTransaction', [signedTx]);
   }
 
-  connect(provider: ethers.Provider): COTIKeyringSigner {
+  override connect(provider: ethers.Provider): COTIKeyringSigner {
     return new COTIKeyringSigner(this.address, provider, this.privacyMode);
   }
 
-  async signTypedData(
+  override async signTypedData(
     _domain: ethers.TypedDataDomain,
     _types: Record<string, ethers.TypedDataField[]>,
     _value: Record<string, any>

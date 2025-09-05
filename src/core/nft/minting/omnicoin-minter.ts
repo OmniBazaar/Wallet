@@ -145,13 +145,14 @@ export class OmniCoinNFTMinter {
         await this.createMarketplaceListing(nftItem, mintRequest);
       }
 
-      return {
+      const result: MintingResult = {
         success: true,
         tokenId,
-        transactionHash: mintResult.transactionHash,
-        ipfsHash: ipfsResult.ipfsHash,
-        nftItem
+        nftItem,
       };
+      if (mintResult.transactionHash) result.transactionHash = mintResult.transactionHash;
+      if (ipfsResult.ipfsHash) result.ipfsHash = ipfsResult.ipfsHash;
+      return result;
 
     } catch (error) {
       console.warn('NFT minting error:', error);

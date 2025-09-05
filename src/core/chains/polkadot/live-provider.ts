@@ -6,6 +6,8 @@ import { PolkadotProvider, PolkadotNetworkConfig, SubstrateTransaction } from '.
 import { keyringService } from '../../keyring/KeyringService';
 import { POLKADOT_NETWORKS } from './networks';
 import { encodeAddress } from '@polkadot/util-crypto';
+import { WsProvider } from '@polkadot/api';
+import { Keyring } from '@polkadot/keyring';
 
 /**
  *
@@ -58,16 +60,15 @@ export class LivePolkadotProvider extends PolkadotProvider {
    */
   async sendNativeToken(to: string, amount: string): Promise<string> {
     const from = await this.getAddress();
-    const privateKey = await keyringService.exportPrivateKey(from);
-
-    const transaction: TransactionRequest = {
+    const tx: SubstrateTransaction = {
       from,
       to,
-      value: amount
+      value: amount,
+      section: 'balances',
+      method: 'transfer',
+      args: []
     };
-
-    const signedTx = await this.signTransaction(privateKey, transaction);
-    return await this.sendTransaction(signedTx);
+    return this.signAndSendTransaction(tx);
   }
 
   /**
@@ -91,38 +92,9 @@ export class LivePolkadotProvider extends PolkadotProvider {
    * @param transaction
    */
   async signAndSendTransaction(transaction: SubstrateTransaction): Promise<string> {
-    const from = await this.getAddress();
-    const privateKey = await keyringService.exportPrivateKey(from);
-
-    const api = await this.ensureApi();
-    const keyPair = this.keyring.addFromUri(privateKey);
-
-    // Create the appropriate transaction based on method and section
-    let tx;
-    if (transaction.section === 'balances' && transaction.method === 'transfer') {
-      tx = api.tx.balances.transfer(transaction.to, transaction.value);
-    } else {
-      // Handle other transaction types
-      tx = api.tx[transaction.section][transaction.method](...transaction.args);
-    }
-
-    // Add tip if specified
-    if (transaction.tip) {
-      tx = tx.addTip(transaction.tip);
-    }
-
-    // Sign and send
-    return new Promise((resolve, reject) => {
-      tx.signAndSend(keyPair, ({ status, dispatchError }) => {
-        if (status.isFinalized) {
-          if (dispatchError) {
-            reject(new Error(`Transaction failed: ${dispatchError.toString()}`));
-          } else {
-            resolve(status.asFinalized.toString());
-          }
-        }
-      }).catch(reject);
-    });
+    // Signing with KeyringService for substrate is pending integration.
+    // Prevent silent failures by failing fast here.
+    throw new Error('Substrate signing not configured in KeyringService');
   }
 
   /**
@@ -152,15 +124,14 @@ export class LivePolkadotProvider extends PolkadotProvider {
     const addr = address || await this.getAddress();
 
     // Get staking info
-    const [stakingInfo, nominators] = await Promise.all([
-      api.query.staking.bonded(addr),
-      api.query.staking.nominators(addr)
-    ]);
+    const staking = (api.query as any)['staking'];
+    const bonded = await staking?.['bonded'](addr);
+    const nominators = await staking?.['nominators'](addr);
 
     return {
-      bonded: stakingInfo.toString(),
-      isNominator: nominators.isSome,
-      targets: nominators.isSome ? nominators.unwrap().targets.map(t => t.toString()) : []
+      bonded: bonded?.toString() ?? '0',
+      unbonding: '0',
+      nominators: nominators?.isSome ? nominators.unwrap().targets.map((t: any) => t.toString()) : []
     };
   }
 

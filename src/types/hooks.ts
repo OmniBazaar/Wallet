@@ -1,7 +1,7 @@
 // import { BrowserProvider } from 'ethers'; // TODO: implement provider integration
 import { TokenInfo } from './index';
 // import { TransactionResponse } from 'ethers'; // TODO: implement transaction integration
-import { ListingNode } from './listing';
+// Use locally-declared ListingNode to avoid conflicts with listing.ts
 
 /**
  * Result interface for the useTokenBalance hook

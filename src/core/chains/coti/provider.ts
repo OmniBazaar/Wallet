@@ -177,7 +177,7 @@ export const CotiNetworks: { [key: string]: EthereumNetwork } = {
  * @augments EthereumProvider
  */
 export class CotiProvider extends EthereumProvider {
-  private userOnboardInfo?: OnboardInfo;
+  private userOnboardInfo: OnboardInfo | undefined;
   private autoOnboard = true;
   private mpcClient?: any; // MPC client for Garbled Circuits
   private privacyEnabled = false;
@@ -189,7 +189,7 @@ export class CotiProvider extends EthereumProvider {
    */
   constructor(
     toWindow: (message: string) => void,
-    network: EthereumNetwork = CotiNetworks.testnet
+    network: EthereumNetwork = CotiNetworks['testnet']!
   ) {
     super(toWindow, network);
     this.namespace = ProviderName.ETHEREUM; // COTI is EVM compatible
@@ -200,7 +200,7 @@ export class CotiProvider extends EthereumProvider {
    *
    * @param request
    */
-  async request(request: ProviderRPCRequest): Promise<OnMessageResponse> {
+  override async request(request: ProviderRPCRequest): Promise<OnMessageResponse> {
     const { method, params = [] } = request;
 
     // Handle COTI-specific methods
@@ -503,7 +503,7 @@ export class CotiProvider extends EthereumProvider {
    *
    * @param network
    */
-  async setRequestProvider(network: BaseNetwork): Promise<void> {
+  override async setRequestProvider(network: BaseNetwork): Promise<void> {
     await super.setRequestProvider(network);
 
     // Clear onboard info when switching networks
@@ -562,7 +562,7 @@ export class CotiProvider extends EthereumProvider {
       return {
         xom: ethers.formatEther(xomBalance),
         pxom: pxomBalance,
-        pxomDecrypted,
+        ...(pxomDecrypted ? { pxomDecrypted } : {}),
         totalUsd: '0' // Would calculate from price oracle
       };
     } catch (error) {
@@ -587,7 +587,11 @@ export class CotiProvider extends EthereumProvider {
       const bridgeAbi = ['function swapToPrivate(uint256 amount)'];
       const bridgeContract = new ethers.Contract(bridgeAddress, bridgeAbi, this.provider);
 
-      const tx = await bridgeContract.swapToPrivate(amountWei);
+      const swapFn = (bridgeContract as any)['swapToPrivate'];
+      if (typeof swapFn !== 'function') {
+        throw new Error('Bridge contract missing swapToPrivate');
+      }
+      const tx = await swapFn(amountWei);
       await tx.wait();
 
       console.log(`Converted ${amount} XOM to ${ethers.formatEther(netAmount)} pXOM`);
@@ -612,7 +616,11 @@ export class CotiProvider extends EthereumProvider {
       const bridgeAbi = ['function swapToPublic(uint256 amount)'];
       const bridgeContract = new ethers.Contract(bridgeAddress, bridgeAbi, this.provider);
 
-      const tx = await bridgeContract.swapToPublic(amountWei);
+      const swapFn = (bridgeContract as any)['swapToPublic'];
+      if (typeof swapFn !== 'function') {
+        throw new Error('Bridge contract missing swapToPublic');
+      }
+      const tx = await swapFn(amountWei);
       await tx.wait();
 
       console.log(`Converted ${amount} pXOM to ${amount} XOM`);

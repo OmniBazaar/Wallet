@@ -361,7 +361,8 @@ export function getNetworkByChainId(chainId: number): EVMNetworkConfig | undefin
  */
 export function getRpcUrl(network: EVMNetworkConfig): string {
   if (Array.isArray(network.rpcUrl)) {
-    return network.rpcUrl[0];
+    // Ensure a string is returned under strict mode
+    return network.rpcUrl[0] ?? '';
   }
   return network.rpcUrl;
 }

@@ -90,8 +90,8 @@ export const OMNICOIN_NETWORKS = {
   mainnet: {
     name: 'OmniCoin Mainnet',
     chainId: 999999, // Custom chain ID for OmniCoin
-    rpcUrl: (process?.env?.OMNICOIN_RPC_URL as string | undefined) ?? 'https://api.omnibazaar.com/rpc',
-    validatorUrl: (process?.env?.VALIDATOR_URL as string | undefined) ?? 'https://validator.omnibazaar.com',
+    rpcUrl: (process?.env?.['OMNICOIN_RPC_URL'] as string | undefined) ?? 'https://api.omnibazaar.com/rpc',
+    validatorUrl: (process?.env?.['VALIDATOR_URL'] as string | undefined) ?? 'https://validator.omnibazaar.com',
     blockExplorer: 'https://explorer.omnibazaar.com',
     nativeCurrency: {
       name: 'OmniCoin',
@@ -107,8 +107,8 @@ export const OMNICOIN_NETWORKS = {
   testnet: {
     name: 'OmniCoin Testnet',
     chainId: 999998,
-    rpcUrl: (process?.env?.OMNICOIN_TESTNET_RPC_URL as string | undefined) ?? 'https://testnet-api.omnibazaar.com/rpc',
-    validatorUrl: (process?.env?.VALIDATOR_TESTNET_URL as string | undefined) ?? 'https://testnet-validator.omnibazaar.com',
+    rpcUrl: (process?.env?.['OMNICOIN_TESTNET_RPC_URL'] as string | undefined) ?? 'https://testnet-api.omnibazaar.com/rpc',
+    validatorUrl: (process?.env?.['VALIDATOR_TESTNET_URL'] as string | undefined) ?? 'https://testnet-validator.omnibazaar.com',
     blockExplorer: 'https://testnet-explorer.omnibazaar.com',
     nativeCurrency: {
       name: 'Test OmniCoin',
@@ -513,16 +513,16 @@ class OmniCoinKeyringSigner extends ethers.AbstractSigner {
     Object.defineProperty(this, 'provider', { value: provider, enumerable: true });
   }
 
-  async getAddress(): Promise<string> {
+  override async getAddress(): Promise<string> {
     return this.address;
   }
 
-  async signMessage(message: string | Uint8Array): Promise<string> {
+  override async signMessage(message: string | Uint8Array): Promise<string> {
     const messageString = typeof message === 'string' ? message : ethers.hexlify(message);
     return await keyringService.signMessage(this.address, messageString);
   }
 
-  async signTransaction(transaction: ethers.TransactionRequest): Promise<string> {
+  override async signTransaction(transaction: ethers.TransactionRequest): Promise<string> {
     // Populate transaction
     const tx: any = { ...(transaction as any) };
     
@@ -534,7 +534,7 @@ class OmniCoinKeyringSigner extends ethers.AbstractSigner {
     return await keyringService.signTransaction(this.address, tx);
   }
 
-  async sendTransaction(transaction: ethers.TransactionRequest): Promise<ethers.TransactionResponse> {
+  override async sendTransaction(transaction: ethers.TransactionRequest): Promise<ethers.TransactionResponse> {
     // Sign transaction
     const signedTx = await this.signTransaction(transaction);
     
@@ -562,11 +562,11 @@ class OmniCoinKeyringSigner extends ethers.AbstractSigner {
     return await (this.provider as ethers.JsonRpcProvider).send('omni_sendPrivateTransaction', [signedTx]);
   }
 
-  connect(provider: ethers.Provider): OmniCoinKeyringSigner {
+  override connect(provider: ethers.Provider): OmniCoinKeyringSigner {
     return new OmniCoinKeyringSigner(this.address, provider, this.privacyMode, this.validatorClient);
   }
 
-  async signTypedData(
+  override async signTypedData(
     _domain: ethers.TypedDataDomain,
     _types: Record<string, ethers.TypedDataField[]>,
     _value: Record<string, any>

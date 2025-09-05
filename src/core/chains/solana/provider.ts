@@ -117,7 +117,7 @@ export interface SPLToken {
  *
  */
 export class SolanaProvider extends BaseProvider {
-  protected connection: Connection;
+  protected connection: any;
   protected commitment: 'processed' | 'confirmed' | 'finalized';
 
   /**
@@ -203,7 +203,7 @@ export class SolanaProvider extends BaseProvider {
    * Get all token balances including SOL
    * @param address
    */
-  async getAllBalances(address: string): Promise<TokenAccountBalancePair[]> {
+  async getAllBalances(address: string): Promise<any[]> {
     const publicKey = new PublicKey(address);
     
     // Get SOL balance
@@ -212,7 +212,7 @@ export class SolanaProvider extends BaseProvider {
     // Get SPL token balances
     const tokenBalances = await this.getTokenBalances(address);
     
-    const balances: TokenAccountBalancePair[] = [
+    const balances: any[] = [
       {
         address: publicKey.toBase58(),
         lamports: solBalance,
@@ -240,8 +240,8 @@ export class SolanaProvider extends BaseProvider {
    * Build transaction
    * @param transaction
    */
-  async buildTransaction(transaction: SolanaTransaction): Promise<Transaction> {
-    const tx = new Transaction();
+  async buildTransaction(transaction: SolanaTransaction): Promise<any> {
+    const tx = new (Transaction as any)();
     
     // Add fee payer
     if (transaction.feePayer) {
@@ -483,7 +483,7 @@ export class SolanaProvider extends BaseProvider {
    * @param callback
    */
   async subscribeToBlocks(callback: (blockNumber: number) => void): Promise<() => void> {
-    const subscription = this.connection.onSlotChange((slotInfo) => {
+    const subscription = this.connection.onSlotChange((slotInfo: any) => {
       callback(slotInfo.slot);
     });
 

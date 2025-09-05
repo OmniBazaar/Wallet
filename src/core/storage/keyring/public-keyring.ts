@@ -1,9 +1,7 @@
-import {
-  SignerType,
-  Errors,
-  WalletType,
-  EnkryptAccount,
-} from '@enkryptcom/types';
+import { SignerType, Errors, WalletType } from '@enkryptcom/types';
+import type { EnkryptAccount } from '@enkryptcom/types';
+// Declare dev flag to satisfy type-check in strict mode
+declare const __IS_DEV__: boolean;
 import { KeyRingBase } from './keyring';
 
 /**

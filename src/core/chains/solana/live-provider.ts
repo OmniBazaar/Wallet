@@ -57,17 +57,8 @@ export class LiveSolanaProvider extends SolanaProvider {
    * @param lamports Amount in lamports as string
    */
   async sendNativeToken(to: string, lamports: string): Promise<string> {
-    const from = await this.getAddress();
-    const privateKey = await keyringService.exportPrivateKey(from);
-
-    const transaction: TransactionRequest = {
-      from,
-      to,
-      value: lamports
-    };
-
-    const signedTx = await this.signTransaction(privateKey, transaction);
-    return await this.sendTransaction(signedTx);
+    // TODO: Integrate Solana signing with KeyringService secret management.
+    throw new Error('Solana signing not configured in KeyringService');
   }
 
   /**
@@ -83,12 +74,8 @@ export class LiveSolanaProvider extends SolanaProvider {
     amount: string,
     decimals: number
   ): Promise<string> {
-    const from = await this.getAddress();
-    const privateKey = await keyringService.exportPrivateKey(from);
-
-    // Convert amount to proper units
-    const amountNumber = parseFloat(amount);
-    return await this.sendToken(privateKey, to, mint, amountNumber, decimals);
+    // TODO: Integrate Solana signing with KeyringService secret management.
+    throw new Error('Solana signing not configured in KeyringService');
   }
 
   /** Get native balance for the active account. */
@@ -139,51 +126,12 @@ export class LiveSolanaProvider extends SolanaProvider {
    * @returns Associated token account address (base58)
    */
   async createTokenAccount(mint: string): Promise<string> {
-    const from = await this.getAddress();
-    const privateKey = await keyringService.exportPrivateKey(from);
-    const keypair = Keypair.fromSecretKey(bs58.decode(privateKey));
-
-    const { PublicKey } = await import('@solana/web3.js');
-    const {
-      getAssociatedTokenAddress,
-      createAssociatedTokenAccountInstruction,
-      TOKEN_PROGRAM_ID,
-      ASSOCIATED_TOKEN_PROGRAM_ID
-    } = await import('@solana/spl-token');
-
-    const mintPubkey = new PublicKey(mint);
-    const associatedTokenAddress = await getAssociatedTokenAddress(
-      mintPubkey,
-      keypair.publicKey
-    );
-
-    const transaction = new Transaction();
-    transaction.add(
-      createAssociatedTokenAccountInstruction(
-        keypair.publicKey,
-        associatedTokenAddress,
-        keypair.publicKey,
-        mintPubkey,
-        TOKEN_PROGRAM_ID,
-        ASSOCIATED_TOKEN_PROGRAM_ID
-      )
-    );
-
-    const { blockhash } = await this.connection.getLatestBlockhash();
-    transaction.recentBlockhash = blockhash;
-    transaction.feePayer = keypair.publicKey;
-    transaction.sign(keypair);
-
-    const signature = await this.connection.sendRawTransaction(
-      transaction.serialize()
-    );
-    
-    await this.connection.confirmTransaction(signature, this.commitment);
-    return associatedTokenAddress.toBase58();
+    // TODO: Integrate Solana signing with KeyringService secret management.
+    throw new Error('Solana signing not configured in KeyringService');
   }
 
   /** Get transaction history for the active account. @param limit Optional max items */
-  async getActiveTransactionHistory(limit?: number): Promise<Transaction[]> {
+  async getActiveTransactionHistory(limit?: number): Promise<BaseTransaction[]> {
     const address = await this.getAddress();
     return this.getTransactionHistory(address, limit);
   }
@@ -264,7 +212,8 @@ export class LiveSolanaProvider extends SolanaProvider {
   /** Check if the current network is a devnet/testnet. */
   isTestnet(): boolean {
     const network = this.getCurrentNetwork();
-    return network.chainId.includes('devnet') || network.chainId.includes('testnet');
+    const id = String(network.chainId);
+    return id.includes('devnet') || id.includes('testnet');
   }
 
   /**
@@ -282,4 +231,4 @@ export class LiveSolanaProvider extends SolanaProvider {
 }
 
 // Import Transaction type
-import { Transaction, TransactionRequest } from '@/types';
+import { Transaction as BaseTransaction, TransactionRequest } from '@/types';

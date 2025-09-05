@@ -40,15 +40,15 @@ class OmniBazaarMarketplaceExample {
     // Initialize providers with actual API keys (replace with real keys)
     this.nftDisplay.initializeProviders({
       ethereum: {
-        alchemyApiKey: process.env.ALCHEMY_ETHEREUM_API_KEY,
-        openseaApiKey: process.env.OPENSEA_API_KEY
+        alchemyApiKey: process?.env?.['ALCHEMY_ETHEREUM_API_KEY'] as string | undefined,
+        openseaApiKey: process?.env?.['OPENSEA_API_KEY'] as string | undefined
       },
       polygon: {
-        alchemyApiKey: process.env.ALCHEMY_POLYGON_API_KEY
+        alchemyApiKey: process?.env?.['ALCHEMY_POLYGON_API_KEY'] as string | undefined
       },
       solana: {
-        heliusApiKey: process.env.HELIUS_API_KEY,
-        magicEdenApiKey: process.env.MAGICEDEN_API_KEY
+        heliusApiKey: process?.env?.['HELIUS_API_KEY'] as string | undefined,
+        magicEdenApiKey: process?.env?.['MAGICEDEN_API_KEY'] as string | undefined
       }
     });
 

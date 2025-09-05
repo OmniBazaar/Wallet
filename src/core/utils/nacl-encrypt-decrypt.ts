@@ -1,4 +1,10 @@
-import { EthEncryptedData } from "@enkryptcom/types";
+// Local minimal type to avoid external dependency/types issues
+export interface EthEncryptedData {
+  version: string;
+  nonce: string;
+  ephemPublicKey: string;
+  ciphertext: string;
+}
 import { box as naclBox, randomBytes } from "tweetnacl";
 import {
   decodeBase64,
@@ -171,6 +177,4 @@ export {
   naclDecrypt,
   /** Encrypts data using NaCl */
   naclEncrypt,
-  /** NaCl encryption version identifier */
-  NACL_VERSION,
 };

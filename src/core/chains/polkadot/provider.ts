@@ -59,7 +59,7 @@ export interface SubstrateTransaction {
   /**
    *
    */
-  args: Array<string | number | boolean>;
+  args: Array<unknown>;
   /**
    *
    */
@@ -145,8 +145,10 @@ export class PolkadotProvider extends BaseProvider {
    */
   async getBalance(address: string): Promise<string> {
     const api = await this.ensureApi();
-    const { data: balance } = await api.query.system.account(address);
-    return balance.free.toString();
+    const system = (api.query as any)['system'];
+    const account = await system?.['account'](address);
+    const free = account?.data?.free ?? account?.free;
+    return free?.toString?.() ?? '0';
   }
 
   /**
@@ -169,7 +171,7 @@ export class PolkadotProvider extends BaseProvider {
     const keyPair = this.keyring.addFromUri(privateKey);
     
     // Create the transfer
-    const transfer = api.tx.balances.transfer(transaction.to, transaction.value || '0');
+    const transfer = (api.tx as any)['balances']?.['transfer'](transaction.to, transaction.value || '0');
     
     // Sign the transaction
     const signedTx = await transfer.signAsync(keyPair);
@@ -183,19 +185,8 @@ export class PolkadotProvider extends BaseProvider {
    */
   async sendTransaction(signedTransaction: string): Promise<string> {
     const api = await this.ensureApi();
-    
-    return new Promise((resolve, reject) => {
-      api.rpc.author.submitExtrinsic(signedTransaction).subscribe({
-        next: (result) => {
-          if (result.isInBlock || result.isFinalized) {
-            resolve(result.toString());
-          }
-        },
-        error: (error) => {
-          reject(error);
-        }
-      });
-    });
+    const hash = await api.rpc.author.submitExtrinsic(signedTransaction as any);
+    return hash.toString();
   }
 
   /**

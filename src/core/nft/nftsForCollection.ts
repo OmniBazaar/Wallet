@@ -1,14 +1,14 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { Address } from 'viem';
+import type { Address } from 'viem';
 
 import { fetchNfts } from '~/core/network/nfts';
-import {
+import { createQueryKey } from '~/core/react-query';
+import type {
   InfiniteQueryConfig,
   QueryFunctionArgs,
   QueryFunctionResult,
-  createQueryKey,
 } from '~/core/react-query';
-import { ChainName } from '~/core/types/chains';
+import type { ChainName } from '~/core/types/chains';
 import {
   filterSimpleHashNFTs,
   simpleHashNFTToUniqueAsset,
@@ -59,7 +59,7 @@ export const MOCK_NFTS_FOR_COLLECTION = [
     marketplaceId: null,
     marketplaceName: null,
     name: 'Circuit Breaker Hacker',
-    network: ChainName.mainnet,
+    network: 'mainnet' as unknown as ChainName,
     permalink: '',
     poapDropId: '168746',
     predominantColor: '#0e061b',

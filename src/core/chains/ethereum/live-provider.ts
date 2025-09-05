@@ -52,7 +52,7 @@ export const ETHEREUM_NETWORKS = {
   mainnet: {
     name: 'Ethereum Mainnet',
     chainId: 1,
-    rpcUrl: (process?.env?.ETHEREUM_RPC_URL as string | undefined) ?? 'https://rpc.ankr.com/eth',
+    rpcUrl: (process?.env?.['ETHEREUM_RPC_URL'] as string | undefined) ?? 'https://rpc.ankr.com/eth',
     blockExplorer: 'https://etherscan.io',
     nativeCurrency: {
       name: 'Ether',
@@ -63,7 +63,7 @@ export const ETHEREUM_NETWORKS = {
   sepolia: {
     name: 'Sepolia Testnet',
     chainId: 11155111,
-    rpcUrl: (process?.env?.SEPOLIA_RPC_URL as string | undefined) ?? 'https://rpc.sepolia.org',
+    rpcUrl: (process?.env?.['SEPOLIA_RPC_URL'] as string | undefined) ?? 'https://rpc.sepolia.org',
     blockExplorer: 'https://sepolia.etherscan.io',
     nativeCurrency: {
       name: 'Sepolia Ether',
@@ -74,7 +74,7 @@ export const ETHEREUM_NETWORKS = {
   polygon: {
     name: 'Polygon Mainnet',
     chainId: 137,
-    rpcUrl: (process?.env?.POLYGON_RPC_URL as string | undefined) ?? 'https://polygon-rpc.com',
+    rpcUrl: (process?.env?.['POLYGON_RPC_URL'] as string | undefined) ?? 'https://polygon-rpc.com',
     blockExplorer: 'https://polygonscan.com',
     nativeCurrency: {
       name: 'MATIC',
@@ -85,7 +85,7 @@ export const ETHEREUM_NETWORKS = {
   arbitrum: {
     name: 'Arbitrum One',
     chainId: 42161,
-    rpcUrl: (process?.env?.ARBITRUM_RPC_URL as string | undefined) ?? 'https://arb1.arbitrum.io/rpc',
+    rpcUrl: (process?.env?.['ARBITRUM_RPC_URL'] as string | undefined) ?? 'https://arb1.arbitrum.io/rpc',
     blockExplorer: 'https://arbiscan.io',
     nativeCurrency: {
       name: 'Arbitrum Ether',
@@ -96,7 +96,7 @@ export const ETHEREUM_NETWORKS = {
   optimism: {
     name: 'Optimism',
     chainId: 10,
-    rpcUrl: (process?.env?.OPTIMISM_RPC_URL as string | undefined) ?? 'https://mainnet.optimism.io',
+    rpcUrl: (process?.env?.['OPTIMISM_RPC_URL'] as string | undefined) ?? 'https://mainnet.optimism.io',
     blockExplorer: 'https://optimistic.etherscan.io',
     nativeCurrency: {
       name: 'Optimism Ether',
@@ -341,16 +341,16 @@ class KeyringSigner extends ethers.AbstractSigner {
     Object.defineProperty(this, 'provider', { value: provider, enumerable: true });
   }
 
-  async getAddress(): Promise<string> {
+  override async getAddress(): Promise<string> {
     return this.address;
   }
 
-  async signMessage(message: string | Uint8Array): Promise<string> {
+  override async signMessage(message: string | Uint8Array): Promise<string> {
     const messageString = typeof message === 'string' ? message : ethers.hexlify(message);
     return await keyringService.signMessage(this.address, messageString);
   }
 
-  async signTransaction(transaction: ethers.TransactionRequest): Promise<string> {
+  override async signTransaction(transaction: ethers.TransactionRequest): Promise<string> {
     // Populate transaction
     const tx: any = { ...transaction };
     
@@ -362,7 +362,7 @@ class KeyringSigner extends ethers.AbstractSigner {
     return await keyringService.signTransaction(this.address, tx);
   }
 
-  async sendTransaction(transaction: ethers.TransactionRequest): Promise<ethers.TransactionResponse> {
+  override async sendTransaction(transaction: ethers.TransactionRequest): Promise<ethers.TransactionResponse> {
     // Sign transaction
     const signedTx = await this.signTransaction(transaction);
     
@@ -373,11 +373,11 @@ class KeyringSigner extends ethers.AbstractSigner {
     return await (this.provider as ethers.JsonRpcProvider).broadcastTransaction(signedTx);
   }
 
-  connect(provider: ethers.Provider): KeyringSigner {
+  override connect(provider: ethers.Provider): KeyringSigner {
     return new KeyringSigner(this.address, provider);
   }
 
-  async signTypedData(
+  override async signTypedData(
     _domain: ethers.TypedDataDomain,
     _types: Record<string, ethers.TypedDataField[]>,
     _value: Record<string, any>

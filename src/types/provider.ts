@@ -122,7 +122,8 @@ export interface MiddlewareFunction {
  */
 export abstract class BackgroundProviderInterface extends EventEmitter {
   abstract namespace: string;
-  abstract toWindow: (message: string) => void;
+  // Not abstract to allow assignment in base constructor
+  toWindow: (message: string) => void;
   middlewares: MiddlewareFunction[] = [];
 
   /**
@@ -147,7 +148,8 @@ export abstract class BackgroundProviderInterface extends EventEmitter {
  * Provides core blockchain functionality
  */
 export abstract class ProviderAPIInterface {
-  abstract node: string;
+  // Not abstract to allow assignment in base constructor
+  node: string;
 
   /**
    *

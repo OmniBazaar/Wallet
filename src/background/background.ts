@@ -38,7 +38,7 @@ function initializeProviders(): void {
   // Initialize Ethereum provider
   const ethereumProvider = new EthereumProvider(
     (message: string) => sendToContentScript(message),
-    EthereumNetworks.ethereum
+    EthereumNetworks['ethereum']
   );
 
   providers.set(ProviderName.ETHEREUM, ethereumProvider);
@@ -278,7 +278,7 @@ async function connectAccount(data: {
         const activeAccount = keyringService.getActiveAccount();
         return {
           success: true,
-          address: activeAccount?.address
+          ...(activeAccount?.address ? { address: activeAccount.address } : {})
         };
       } else if (data.authMethod === 'web2' && data.username && data.password) {
         // Initialize Web2 wallet with username/password
@@ -288,7 +288,7 @@ async function connectAccount(data: {
         const activeAccount = keyringService.getActiveAccount();
         return {
           success: true,
-          address: activeAccount?.address
+          ...(activeAccount?.address ? { address: activeAccount.address } : {})
         };
       } else {
         return {
@@ -306,7 +306,7 @@ async function connectAccount(data: {
       const activeAccount = keyringService.getActiveAccount();
       return {
         success: true,
-        address: activeAccount?.address
+        ...(activeAccount?.address ? { address: activeAccount.address } : {})
       };
     }
 
@@ -503,8 +503,8 @@ async function mintNFT(data: {
 
     return {
       success: true,
-      tokenId: result.tokenId,
-      transactionHash: result.transactionHash
+      ...(result.tokenId ? { tokenId: result.tokenId } : {}),
+      ...(result.transactionHash ? { transactionHash: result.transactionHash } : {})
     };
   } catch (error) {
     console.error('Failed to mint NFT:', error);
@@ -576,7 +576,7 @@ async function createMarketplaceListing(data: {
     return {
       success: true,
       listingId: result.id,
-      nftTokenId: nftResult.tokenId
+      ...(nftResult.tokenId ? { nftTokenId: nftResult.tokenId } : {})
     };
   } catch (error) {
     console.error('Failed to create marketplace listing:', error);

@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Address } from 'viem';
+import type { Address } from 'viem';
 
 import { fetchNft } from '~/core/network/nfts';
 import { createQueryKey } from '~/core/react-query';
@@ -40,7 +40,7 @@ export function useNft(
       { contractAddress, chainId, tokenId },
       { persisterVersion: 1 },
     ),
-    queryFn: ({ queryKey }) => fetchNft(queryKey[0]),
+    queryFn: (ctx: { queryKey: unknown[] }) => fetchNft((ctx.queryKey as unknown[])[0]),
     initialData,
     initialDataUpdatedAt: initialData != null ? Date.now() : 0,
     enabled: contractAddress != null && chainId != null && tokenId != null,

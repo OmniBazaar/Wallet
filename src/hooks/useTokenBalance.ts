@@ -86,7 +86,7 @@ export const useTokenBalance = (tokenAddress: string): {
             const balance = await contract.balanceOf(address);
 
             setBalance(balance.toString());
-            setFormattedBalance(ethers.utils.formatUnits(balance, tokenInfo.decimals));
+            setFormattedBalance(ethers.formatUnits(balance, tokenInfo.decimals));
 
         } catch (err) {
             setError('Failed to fetch token balance');

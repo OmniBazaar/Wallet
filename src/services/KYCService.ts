@@ -55,6 +55,9 @@ export enum DocumentType {
   COMPANY_REGISTRATION = 'COMPANY_REGISTRATION'
 }
 
+/** Simple type for tier limits */
+type TierLimit = { daily: string; monthly: string; perTransaction: string };
+
 /**
  * User KYC data
  */
@@ -199,10 +202,10 @@ export class KYCService {
     
     // Default configuration for Sumsub testnet/sandbox
     this.config = {
-      appToken: process.env.SUMSUB_APP_TOKEN || 'sbx:test_app_token_omnibazaar',
-      secretKey: process.env.SUMSUB_SECRET_KEY || 'test_secret_key_omnibazaar',
+      appToken: (process?.env?.['SUMSUB_APP_TOKEN'] as string | undefined) || 'sbx:test_app_token_omnibazaar',
+      secretKey: (process?.env?.['SUMSUB_SECRET_KEY'] as string | undefined) || 'test_secret_key_omnibazaar',
       apiUrl: 'https://api.sumsub.com',
-      webhookSecret: process.env.SUMSUB_WEBHOOK_SECRET || 'test_webhook_secret',
+      webhookSecret: (process?.env?.['SUMSUB_WEBHOOK_SECRET'] as string | undefined) || 'test_webhook_secret',
       isTestnet: true, // Always use testnet for development
       validatorEndpoint: 'http://localhost:3001/api/kyc',
       ...config
@@ -653,7 +656,7 @@ export class KYCService {
     description: string;
     requirements: string[];
     benefits: string[];
-    limits: typeof this.TIER_LIMITS[KYCTier.TIER_0];
+    limits: TierLimit;
   } {
     const tierInfo = {
       [KYCTier.TIER_0]: {
@@ -802,14 +805,20 @@ export class KYCService {
    * @param tier
    */
   private getLevelName(tier: KYCTier): string {
-    const levelNames = {
-      [KYCTier.TIER_1]: 'basic-kyc',
-      [KYCTier.TIER_2]: 'identity-verification',
-      [KYCTier.TIER_3]: 'enhanced-kyc',
-      [KYCTier.TIER_4]: 'institutional-kyc'
-    };
-    
-    return levelNames[tier] || 'basic-kyc';
+    switch (tier) {
+      case KYCTier.TIER_0:
+        return 'basic-kyc';
+      case KYCTier.TIER_1:
+        return 'basic-kyc';
+      case KYCTier.TIER_2:
+        return 'identity-verification';
+      case KYCTier.TIER_3:
+        return 'enhanced-kyc';
+      case KYCTier.TIER_4:
+        return 'institutional-kyc';
+      default:
+        return 'basic-kyc';
+    }
   }
   
   /**
@@ -824,7 +833,7 @@ export class KYCService {
       status: data.status || VerificationStatus.NOT_STARTED,
       applicantId: data.applicantId,
       tierStatus: data.tierStatus || this.getDefaultTierStatus(),
-      limits: this.TIER_LIMITS[data.currentTier || KYCTier.TIER_0],
+      limits: this.TIER_LIMITS[(Number(data.currentTier) as KYCTier) || KYCTier.TIER_0],
       lastUpdated: Date.now(),
       expiryDate: data.expiryDate
     };

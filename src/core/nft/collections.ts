@@ -1,19 +1,20 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { Address, Chain } from 'viem';
+import type { Address, Chain } from 'viem';
 
 import {
   fetchNftCollections,
   polygonAllowListFetcher,
 } from '~/core/network/nfts';
 import type { UseInfiniteQueryResult } from '@tanstack/react-query';
-import {
+import { createQueryKey } from '~/core/react-query';
+import type {
   InfiniteQueryConfig,
   QueryFunctionArgs,
   QueryFunctionResult,
-  createQueryKey,
 } from '~/core/react-query';
 import { NftSort } from '~/core/state/nfts';
-import { ChainName, chainNameToIdMapping } from '~/core/types/chains';
+import { chainNameToIdMapping } from '~/core/types/chains';
+import type { ChainName } from '~/core/types/chains';
 import { SimpleHashCollectionDetails } from '~/core/types/nfts';
 import {
   simpleHashSupportedChainNames,

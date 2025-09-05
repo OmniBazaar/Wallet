@@ -16,7 +16,7 @@ export interface ChainConfig {
   /** Block explorer base URL */
   explorer: string;
   /** Supported NFT standards on this chain */
-  nftStandards: string[];
+  nftStandards: Array<'ERC721' | 'ERC1155' | 'SPL' | 'other'>;
   /** Marketplaces commonly used on this chain */
   supportedMarketplaces: string[];
 }
@@ -87,7 +87,8 @@ export class MultiChainNFTDisplay {
         chainId: 56,
         rpcUrl: 'https://bsc-dataseed.binance.org',
         explorer: 'https://bscscan.com',
-        nftStandards: ['ERC721', 'ERC1155', 'BEP721', 'BEP1155'],
+        // BSC is EVM-compatible; use ERC standards to fit our union
+        nftStandards: ['ERC721', 'ERC1155'],
         supportedMarketplaces: ['PancakeSwap', 'BakerySwap']
       },
       {
@@ -103,7 +104,7 @@ export class MultiChainNFTDisplay {
         chainId: 101, // Custom ID for non-EVM
         rpcUrl: 'https://api.mainnet-beta.solana.com',
         explorer: 'https://explorer.solana.com',
-        nftStandards: ['SPL', 'Metaplex'],
+        nftStandards: ['SPL'],
         supportedMarketplaces: ['Magic Eden', 'Solanart', 'Digital Eyes']
       },
       {
@@ -257,8 +258,8 @@ export class MultiChainNFTDisplay {
         switch (query.sortBy) {
           case 'price_asc':
           case 'price_desc': {
-            const priceA = parseFloat(a.price || '0');
-            const priceB = parseFloat(b.price || '0');
+            const priceA = parseFloat(a.price ?? '0');
+            const priceB = parseFloat(b.price ?? '0');
             return (priceA - priceB) * order;
           }
           case 'created_desc':
@@ -444,6 +445,8 @@ export class MultiChainNFTDisplay {
     likes: number;
     shares: number;
   } {
+    const categoryAttr = nft.attributes.find(attr => attr.trait_type === 'Category');
+    const category = typeof categoryAttr?.value === 'string' ? categoryAttr.value : 'general';
     return {
       id: `listing_${nft.id}`,
       nftId: nft.id,
@@ -455,7 +458,7 @@ export class MultiChainNFTDisplay {
       listingType: 'fixed_price' as const,
       title: nft.name,
       description: nft.description || '',
-      category: nft.attributes.find(attr => attr.trait_type === 'Category')?.value as string || 'general',
+      category,
       tags: [],
       featured: false,
       verified: true,

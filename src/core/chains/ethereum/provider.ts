@@ -79,7 +79,7 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
    */
   constructor(
     toWindow: (message: string) => void,
-    network: EthereumNetwork = EthereumNetworks.ethereum
+    network: EthereumNetwork = EthereumNetworks['ethereum']!
   ) {
     super();
     this.network = network;
@@ -290,13 +290,13 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
     }
   }
 
-  private async sendTransaction(_txParams: { to: string; value?: string; data?: string; gas?: string; gasPrice?: string }): Promise<string> {
+  protected async sendTransaction(_txParams: { to: string; value?: string; data?: string; gas?: string; gasPrice?: string }): Promise<string> {
     // This will be integrated with the keyring for signing
     // For now, return a placeholder
     throw new Error('Transaction signing not yet implemented - requires keyring integration');
   }
 
-  private async signTransaction(_txParams: { to: string; value?: string; data?: string; gas?: string; gasPrice?: string }): Promise<string> {
+  protected async signTransaction(_txParams: { to: string; value?: string; data?: string; gas?: string; gasPrice?: string }): Promise<string> {
     // This will be integrated with the keyring for signing
     throw new Error('Transaction signing not yet implemented - requires keyring integration');
   }
@@ -384,7 +384,11 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
     ];
 
     const contract = new ethers.Contract(tokenAddress, tokenABI, this.provider);
-    const balance = await contract.balanceOf(userAddress);
+    const balanceFn = (contract as any)['balanceOf'];
+    if (typeof balanceFn !== 'function') {
+      throw new Error('Token contract does not implement balanceOf');
+    }
+    const balance = await balanceFn(userAddress);
     return balance.toString();
   }
 
@@ -416,9 +420,14 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
     ];
 
     const contract = new ethers.Contract(contractAddress, nftABI, this.provider);
+    const tokenURIFn = (contract as any)['tokenURI'];
+    const ownerOfFn = (contract as any)['ownerOf'];
+    if (typeof tokenURIFn !== 'function' || typeof ownerOfFn !== 'function') {
+      throw new Error('NFT contract missing tokenURI or ownerOf');
+    }
     const [tokenURI, owner] = await Promise.all([
-      contract.tokenURI(tokenId),
-      contract.ownerOf(tokenId)
+      tokenURIFn(tokenId),
+      ownerOfFn(tokenId)
     ]);
 
     return { tokenURI, owner };

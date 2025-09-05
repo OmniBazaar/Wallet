@@ -46,7 +46,7 @@ export class MultiChainEVMProvider extends LiveEthereumProvider {
    * Switch to a different EVM network
    * @param networkKey Network identifier to switch to
    */
-  async switchNetwork(networkKey: string): Promise<void> {
+  override async switchNetwork(networkKey: string): Promise<void> {
     const network = ALL_NETWORKS[networkKey];
     if (network == null) {
       throw new Error(`Unknown network: ${networkKey}`);
@@ -134,7 +134,7 @@ export class MultiChainEVMProvider extends LiveEthereumProvider {
   /**
    * Get gas price with network-specific adjustments
    */
-  async getGasPrice(): Promise<bigint> {
+  override async getGasPrice(): Promise<bigint> {
     const feeData = await this.provider.getFeeData();
     let gasPrice = feeData.gasPrice ?? 20n * 10n ** 9n; // fallback 20 gwei
 
@@ -157,7 +157,7 @@ export class MultiChainEVMProvider extends LiveEthereumProvider {
    * Estimate gas with network-specific limits
    * @param transaction
    */
-  async estimateGas(transaction: ethers.TransactionRequest): Promise<bigint> {
+  override async estimateGas(transaction: ethers.TransactionRequest): Promise<bigint> {
     const estimate = await this.provider.estimateGas(transaction);
 
     // Apply network-specific adjustments
@@ -184,7 +184,7 @@ export class MultiChainEVMProvider extends LiveEthereumProvider {
    * Get formatted balance with native currency symbol
    * @param address
    */
-  async getFormattedBalance(address?: string): Promise<string> {
+  override async getFormattedBalance(address?: string): Promise<string> {
     const addr = address || await this.getAddress();
     const balance = await this.provider.getBalance(addr);
     const formatted = ethers.formatEther(balance);
@@ -195,7 +195,7 @@ export class MultiChainEVMProvider extends LiveEthereumProvider {
    * Send transaction with network-specific handling
    * @param transaction
    */
-  async sendTransaction(transaction: ethers.TransactionRequest): Promise<ethers.TransactionResponse> {
+  override async sendTransaction(transaction: ethers.TransactionRequest): Promise<ethers.TransactionResponse> {
     // Add chain ID to prevent replay attacks
     transaction.chainId = this.currentNetwork.chainId;
 

@@ -216,7 +216,7 @@ export class BlockExplorerService {
     this.validatorEndpoint = validatorEndpoint || 'http://localhost:3001/api/explorer';
     
     // Initialize explorer configurations
-    this.explorerConfigs = new Map([
+    this.explorerConfigs = new Map<ExplorerNetwork, ExplorerConfig>([
       [ExplorerNetwork.OMNICOIN, {
         name: 'OmniCoin Explorer',
         baseUrl: 'https://explorer.omnibazaar.com',
@@ -229,7 +229,9 @@ export class BlockExplorerService {
         name: 'Etherscan',
         baseUrl: 'https://etherscan.io',
         apiUrl: 'https://api.etherscan.io/api',
-        apiKey: process.env.ETHERSCAN_API_KEY,
+        ...(process?.env?.['ETHERSCAN_API_KEY']
+          ? { apiKey: process.env['ETHERSCAN_API_KEY'] as string }
+          : {}),
         chainId: 1,
         nativeToken: 'ETH',
         blockTime: 12
@@ -246,7 +248,9 @@ export class BlockExplorerService {
         name: 'Snowtrace',
         baseUrl: 'https://snowtrace.io',
         apiUrl: 'https://api.snowtrace.io/api',
-        apiKey: process.env.SNOWTRACE_API_KEY,
+        ...(process?.env?.['SNOWTRACE_API_KEY']
+          ? { apiKey: process.env['SNOWTRACE_API_KEY'] as string }
+          : {}),
         chainId: 43114,
         nativeToken: 'AVAX',
         blockTime: 2
@@ -255,7 +259,9 @@ export class BlockExplorerService {
         name: 'Polygonscan',
         baseUrl: 'https://polygonscan.com',
         apiUrl: 'https://api.polygonscan.com/api',
-        apiKey: process.env.POLYGONSCAN_API_KEY,
+        ...(process?.env?.['POLYGONSCAN_API_KEY']
+          ? { apiKey: process.env['POLYGONSCAN_API_KEY'] as string }
+          : {}),
         chainId: 137,
         nativeToken: 'MATIC',
         blockTime: 2
@@ -264,7 +270,9 @@ export class BlockExplorerService {
         name: 'BscScan',
         baseUrl: 'https://bscscan.com',
         apiUrl: 'https://api.bscscan.com/api',
-        apiKey: process.env.BSCSCAN_API_KEY,
+        ...(process?.env?.['BSCSCAN_API_KEY']
+          ? { apiKey: process.env['BSCSCAN_API_KEY'] as string }
+          : {}),
         chainId: 56,
         nativeToken: 'BNB',
         blockTime: 3
@@ -368,7 +376,9 @@ export class BlockExplorerService {
           transactionCount: block.transactions.length,
           gasUsed: block.gasUsed.toString(),
           gasLimit: block.gasLimit.toString(),
-          baseFeePerGas: block.baseFeePerGas?.toString(),
+          ...(block.baseFeePerGas != null
+            ? { baseFeePerGas: block.baseFeePerGas.toString() }
+            : {}),
           size: 0, // Would need additional API call
           difficulty: block.difficulty.toString()
         };
@@ -413,14 +423,18 @@ export class BlockExplorerService {
           this.provider.getCode(address)
         ]);
         
-        const details: AddressDetails = {
+        const ens = await this.provider.lookupAddress(address);
+        const baseDetails: AddressDetails = {
           address,
           balance: ethers.formatEther(balance),
           transactionCount: txCount,
           tokens: [], // Would need token balance API
           nfts: [], // Would need NFT API
           isContract: code !== '0x',
-          ensName: await this.provider.lookupAddress(address)
+        };
+        const details: AddressDetails = {
+          ...baseDetails,
+          ...(ens != null ? { ensName: ens } : {}),
         };
         
         this.setCache(cacheKey, details);
@@ -464,13 +478,12 @@ export class BlockExplorerService {
           'function totalSupply() view returns (uint256)'
         ];
         
-        const contract = new ethers.Contract(tokenAddress, erc20Abi, this.provider);
-        
+        const contract: any = new (ethers as any).Contract(tokenAddress, erc20Abi, this.provider);
         const [name, symbol, decimals, totalSupply] = await Promise.all([
-          contract.name(),
-          contract.symbol(),
-          contract.decimals(),
-          contract.totalSupply()
+          (contract['name'] as () => Promise<string>)(),
+          (contract['symbol'] as () => Promise<string>)(),
+          (contract['decimals'] as () => Promise<number>)(),
+          (contract['totalSupply'] as () => Promise<bigint>)(),
         ]);
         
         const details: TokenDetails = {

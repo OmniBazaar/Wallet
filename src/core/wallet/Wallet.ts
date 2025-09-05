@@ -1,4 +1,6 @@
 import { BrowserProvider, TransactionResponse, Contract } from 'ethers';
+import type { TransactionRequest } from 'ethers';
+import * as ethers from 'ethers';
 import { Transaction } from './Transaction';
 // import { SupportedAssets } from './assets'; // TODO: implement asset support
 import { getOmniCoinBalance, OmniCoinMetadata } from '../blockchain/OmniCoin';
@@ -435,8 +437,8 @@ export class WalletImpl implements Wallet {
     tx.gasLimit = gasLimit;
 
     // Get gas price
-    const gasPrice = await this.provider.getGasPrice();
-    tx.gasPrice = gasPrice;
+    const fee = await this.provider.getFeeData();
+    if (fee.gasPrice) tx.gasPrice = fee.gasPrice;
 
     // Sign and send transaction
     const signedTx = await this.signer?.sendTransaction(tx);
@@ -475,8 +477,8 @@ export class WalletImpl implements Wallet {
     tx.gasLimit = gasLimit;
 
     // Get gas price
-    const gasPrice = await this.provider.getGasPrice();
-    tx.gasPrice = gasPrice;
+    const fee2 = await this.provider.getFeeData();
+    if (fee2.gasPrice) tx.gasPrice = fee2.gasPrice;
 
     // Sign and send transaction
     const signedTx = await this.signer?.sendTransaction(tx);
@@ -546,8 +548,8 @@ export class WalletImpl implements Wallet {
     tx.gasLimit = gasLimit;
 
     // Get gas price
-    const gasPrice = await this.provider.getGasPrice();
-    tx.gasPrice = gasPrice;
+    const fee3 = await this.provider.getFeeData();
+    if (fee3.gasPrice) tx.gasPrice = fee3.gasPrice;
 
     // Sign and send transaction
     const signedTx = await this.signer?.sendTransaction(tx);
@@ -596,8 +598,8 @@ export class WalletImpl implements Wallet {
     tx.gasLimit = gasLimit;
 
     // Get gas price
-    const gasPrice = await this.provider.getGasPrice();
-    tx.gasPrice = gasPrice;
+    const fee4 = await this.provider.getFeeData();
+    if (fee4.gasPrice) tx.gasPrice = fee4.gasPrice;
 
     // Sign and send transaction
     const signedTx = await this.signer?.sendTransaction(tx);
@@ -689,8 +691,8 @@ export class WalletImpl implements Wallet {
     tx.gasLimit = gasLimit;
 
     // Get gas price
-    const gasPrice = await this.provider.getGasPrice();
-    tx.gasPrice = gasPrice;
+    const fee5 = await this.provider.getFeeData();
+    if (fee5.gasPrice) tx.gasPrice = fee5.gasPrice;
 
     // Sign and send transaction
     const signedTx = await this.signer?.sendTransaction(tx);
@@ -734,8 +736,8 @@ export class WalletImpl implements Wallet {
     tx.gasLimit = gasLimit;
 
     // Get gas price
-    const gasPrice = await this.provider.getGasPrice();
-    tx.gasPrice = gasPrice;
+    const fee6 = await this.provider.getFeeData();
+    if (fee6.gasPrice) tx.gasPrice = fee6.gasPrice;
 
     // Sign and send transaction
     const signedTx = await this.signer?.sendTransaction(tx);

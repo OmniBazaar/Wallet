@@ -1,16 +1,8 @@
 import KeyRing from '@enkryptcom/keyring';
 import { InternalStorageNamespace } from '@/types/provider';
 import BrowserStorage from '../common/browser-storage';
-import {
-  EnkryptAccount,
-  HWWalletAdd,
-  KeyPairAdd,
-  KeyRecordAdd,
-  MnemonicWithExtraWord,
-  SignerType,
-  SignOptions,
-  WalletType,
-} from '@enkryptcom/types';
+import type { EnkryptAccount, HWWalletAdd, KeyPairAdd, KeyRecordAdd, MnemonicWithExtraWord, SignOptions } from '@enkryptcom/types';
+import { SignerType, WalletType } from '@enkryptcom/types';
 
 /**
  * Base keyring class that provides core wallet functionality
@@ -24,13 +16,13 @@ import {
  */
 export class KeyRingBase {
   /** Private keyring instance from Enkrypt library */
-  #keyring: KeyRing;
+  #keyring: any;
   
   /**
    * Creates a new keyring base instance with browser storage
    */
   constructor() {
-    const browserStorage = new BrowserStorage(InternalStorageNamespace.keyring);
+    const browserStorage = new BrowserStorage(InternalStorageNamespace.KEYRING);
     this.#keyring = new KeyRing(browserStorage);
   }
   /**

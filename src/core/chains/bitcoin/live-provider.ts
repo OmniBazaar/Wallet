@@ -48,7 +48,7 @@ export class LiveBitcoinProvider extends BitcoinProvider {
   /**
    * Get balance for current account
    */
-  async getBalance(): Promise<string> {
+  override async getBalance(): Promise<string> {
     const { address } = await this.getCurrentAccount();
     return super.getBalance(address);
   }
@@ -56,7 +56,7 @@ export class LiveBitcoinProvider extends BitcoinProvider {
   /**
    * Get formatted balance for current account
    */
-  async getFormattedBalance(): Promise<string> {
+  override async getFormattedBalance(): Promise<string> {
     const { address } = await this.getCurrentAccount();
     return super.getFormattedBalance(address);
   }
@@ -89,7 +89,7 @@ export class LiveBitcoinProvider extends BitcoinProvider {
   }
 
   /** Get transaction history for the current account or a supplied address. */
-  async getTransactionHistory(address?: string, limit = 10): Promise<Transaction[]> {
+  override async getTransactionHistory(address?: string, limit = 10): Promise<Transaction[]> {
     if (!address) {
       const account = await this.getCurrentAccount();
       address = account.address;
@@ -101,7 +101,7 @@ export class LiveBitcoinProvider extends BitcoinProvider {
    * Sign a message with current account
    * @param message
    */
-  async signMessage(message: string): Promise<string> {
+  override async signMessage(message: string): Promise<string> {
     const seed = await this.keyring.getSeed('');
     if (!seed) {
       throw new Error('No seed available for signing');
@@ -140,7 +140,7 @@ export class LiveBitcoinProvider extends BitcoinProvider {
   }
 
   /** Get the UTXO set for the current account. */
-  async getUTXOs(): Promise<UTXO[]> {
+  override async getUTXOs(): Promise<UTXO[]> {
     const { address } = await this.getCurrentAccount();
     return super.getUTXOs(address);
   }
@@ -191,7 +191,7 @@ export class LiveBitcoinProvider extends BitcoinProvider {
    * Get explorer URL for current transaction
    * @param txHash
    */
-  getExplorerUrl(txHash: string): string {
+  override getExplorerUrl(txHash: string): string {
     return super.getExplorerUrl(txHash);
   }
 

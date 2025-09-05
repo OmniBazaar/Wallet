@@ -77,8 +77,10 @@ export const useWalletStore = defineStore('wallet', () => {
   const hasAccounts = computed(() => accounts.value.length > 0);
   const currentBalance = computed(() => currentAccount.value?.balance || '0');
 
+  type BackgroundResponse = Record<string, any>;
+
   // Send message to background script
-  async function sendToBackground(type: string, data: unknown = {}): Promise<unknown> {
+  async function sendToBackground(type: string, data: unknown = {}): Promise<BackgroundResponse> {
     return new Promise((resolve, reject) => {
       if (!chrome?.runtime) {
         reject(new Error('Chrome runtime not available'));
@@ -89,7 +91,7 @@ export const useWalletStore = defineStore('wallet', () => {
         if (chrome.runtime.lastError) {
           reject(new Error(chrome.runtime.lastError.message));
         } else {
-          resolve(response);
+          resolve((response as BackgroundResponse) ?? {});
         }
       });
     });
@@ -105,16 +107,16 @@ export const useWalletStore = defineStore('wallet', () => {
 
       const state = await sendToBackground('GET_WALLET_STATE');
 
-      if (state.error) {
-        throw new Error(state.error);
+      if (state['error']) {
+        throw new Error(state['error']);
       }
 
       // Update store state
-      isUnlocked.value = state.isUnlocked || false;
-      currentNetwork.value = state.currentNetwork || 'ethereum';
-      supportedNetworks.value = state.supportedNetworks || ['ethereum'];
-      nftCollections.value = state.nftCollections || [];
-      transactions.value = state.transactions || [];
+      isUnlocked.value = state['isUnlocked'] || false;
+      currentNetwork.value = state['currentNetwork'] || 'ethereum';
+      supportedNetworks.value = state['supportedNetworks'] || ['ethereum'];
+      nftCollections.value = state['nftCollections'] || [];
+      transactions.value = state['transactions'] || [];
 
       // Check if wallet is set up (has accounts)
       isSetup.value = hasAccounts.value;
@@ -141,11 +143,11 @@ export const useWalletStore = defineStore('wallet', () => {
     try {
       const response = await sendToBackground('CONNECT_ACCOUNT', { address });
 
-      if (response.error) {
-        throw new Error(response.error);
+      if (response['error']) {
+        throw new Error(response['error']);
       }
 
-      if (response.success) {
+      if (response['success']) {
         await refreshWalletState();
         return true;
       }
@@ -187,11 +189,11 @@ export const useWalletStore = defineStore('wallet', () => {
     try {
       const response = await sendToBackground('SWITCH_NETWORK', { network });
 
-      if (response.error) {
-        throw new Error(response.error);
+      if (response['error']) {
+        throw new Error(response['error']);
       }
 
-      if (response.success) {
+      if (response['success']) {
         currentNetwork.value = network;
         await refreshWalletState();
         return true;
@@ -215,11 +217,11 @@ export const useWalletStore = defineStore('wallet', () => {
         network: network || currentNetwork.value
       });
 
-      if (response.error) {
-        throw new Error(response.error);
+      if (response['error']) {
+        throw new Error(response['error']);
       }
 
-      return response.balance || '0';
+      return response['balance'] || '0';
     } catch (err: unknown) {
       console.error('❌ Failed to get balance:', err);
       return '0';
@@ -255,13 +257,13 @@ export const useWalletStore = defineStore('wallet', () => {
     try {
       const response = await sendToBackground('SIGN_TRANSACTION', transaction);
 
-      if (response.error) {
-        throw new Error(response.error);
+      if (response['error']) {
+        throw new Error(response['error']);
       }
 
-      if (response.success) {
+      if (response['success']) {
         await refreshWalletState();
-        return response.txHash || null;
+        return response['txHash'] || null;
       }
 
       return null;
@@ -306,13 +308,13 @@ export const useWalletStore = defineStore('wallet', () => {
     try {
       const response = await sendToBackground('MINT_NFT', metadata);
 
-      if (response.error) {
-        throw new Error(response.error);
+      if (response['error']) {
+        throw new Error(response['error']);
       }
 
-      if (response.success) {
+      if (response['success']) {
         await refreshWalletState();
-        return response.txHash || null;
+        return response['txHash'] || null;
       }
 
       return null;
@@ -354,13 +356,13 @@ export const useWalletStore = defineStore('wallet', () => {
     try {
       const response = await sendToBackground('CREATE_LISTING', listing);
 
-      if (response.error) {
-        throw new Error(response.error);
+      if (response['error']) {
+        throw new Error(response['error']);
       }
 
-      if (response.success) {
+      if (response['success']) {
         await refreshWalletState();
-        return response.listingId || null;
+        return response['listingId'] || null;
       }
 
       return null;
@@ -378,11 +380,11 @@ export const useWalletStore = defineStore('wallet', () => {
     try {
       const state = await sendToBackground('GET_WALLET_STATE');
 
-      if (!state.error) {
-        isUnlocked.value = state.isUnlocked || false;
-        currentNetwork.value = state.currentNetwork || 'ethereum';
-        nftCollections.value = state.nftCollections || [];
-        transactions.value = state.transactions || [];
+      if (!state['error']) {
+        isUnlocked.value = state['isUnlocked'] || false;
+        currentNetwork.value = state['currentNetwork'] || 'ethereum';
+        nftCollections.value = state['nftCollections'] || [];
+        transactions.value = state['transactions'] || [];
       }
     } catch (err) {
       console.warn('Failed to refresh wallet state:', err);

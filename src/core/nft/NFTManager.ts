@@ -136,13 +136,13 @@ export class NFTManager {
 
     if (nft.type === 'ERC721') {
       // ERC721 safeTransferFrom(from, to, tokenId)
-      const iface = new ethers.utils.Interface([
+      const iface = new ethers.Interface([
         'function safeTransferFrom(address from, address to, uint256 tokenId)'
       ]);
       data = iface.encodeFunctionData('safeTransferFrom', [from, to, nft.token_id]);
     } else if (nft.type === 'ERC1155') {
       // ERC1155 safeTransferFrom(from, to, id, amount, data)
-      const iface = new ethers.utils.Interface([
+      const iface = new ethers.Interface([
         'function safeTransferFrom(address from, address to, uint256 id, uint256 amount, bytes data)'
       ]);
       data = iface.encodeFunctionData('safeTransferFrom', [

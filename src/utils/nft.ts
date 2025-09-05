@@ -62,10 +62,12 @@ export interface NFT {
  * @param address Contract address to test
  * @returns True if the contract behaves like ERC‑721
  */
-export const isERC721 = async (provider: ethers.providers.Provider, address: string): Promise<boolean> => {
+export const isERC721 = async (provider: ethers.Provider, address: string): Promise<boolean> => {
     try {
         const contract = new ethers.Contract(address, ERC721_ABI, provider);
-        await contract.balanceOf(ethers.constants.AddressZero);
+        const balanceOf = (contract as any)['balanceOf'];
+        if (typeof balanceOf !== 'function') return false;
+        await balanceOf(ethers.ZeroAddress);
         return true;
     } catch {
         return false;
@@ -80,10 +82,12 @@ export const isERC721 = async (provider: ethers.providers.Provider, address: str
  * @param address Contract address to test
  * @returns True if the contract behaves like ERC‑1155
  */
-export const isERC1155 = async (provider: ethers.providers.Provider, address: string): Promise<boolean> => {
+export const isERC1155 = async (provider: ethers.Provider, address: string): Promise<boolean> => {
     try {
         const contract = new ethers.Contract(address, ERC1155_ABI, provider);
-        await contract.balanceOf(ethers.constants.AddressZero, 0);
+        const balanceOf = (contract as any)['balanceOf'];
+        if (typeof balanceOf !== 'function') return false;
+        await balanceOf(ethers.ZeroAddress, 0);
         return true;
     } catch {
         return false;
@@ -107,11 +111,14 @@ export const getNFTMetadata = async (tokenURI: string): Promise<NFTMetadata> => 
             tokenURI = `https://ipfs.io/ipfs/${tokenURI.replace('ipfs://', '')}`;
         }
 
-        // Mock implementation - in production would fetch from IPFS/HTTP
+        const resp = await fetch(tokenURI);
+        if (!resp.ok) throw new Error(`Failed to load metadata: ${resp.status}`);
+        const data = await resp.json();
         return {
-            name: 'Mock NFT',
-            description: 'Mock NFT description',
-            image: 'https://via.placeholder.com/300'
+            name: data.name ?? 'Unnamed NFT',
+            description: data.description ?? '',
+            image: data.image ?? '' ,
+            attributes: Array.isArray(data.attributes) ? data.attributes : undefined
         };
     } catch (error) {
         console.error('Error fetching NFT metadata:', error);
@@ -134,7 +141,7 @@ export const getNFTMetadata = async (tokenURI: string): Promise<NFTMetadata> => 
  * @returns The token URI or an empty string if unavailable
  */
 export const getNFTTokenURI = async (
-    provider: ethers.providers.Provider,
+    provider: ethers.Provider,
     contractAddress: string,
     tokenId: string,
     tokenType: 'ERC721' | 'ERC1155'
@@ -147,9 +154,11 @@ export const getNFTTokenURI = async (
 
     try {
         if (tokenType === 'ERC721') {
-            return await contract.tokenURI(tokenId);
+            const fn = (contract as any)['tokenURI'];
+            return typeof fn === 'function' ? await fn(tokenId) : '';
         } else {
-            return await contract.uri(tokenId);
+            const fn = (contract as any)['uri'];
+            return typeof fn === 'function' ? await fn(tokenId) : '';
         }
     } catch (error) {
         console.error('Error fetching token URI:', error);
@@ -168,7 +177,7 @@ export const getNFTTokenURI = async (
  * @returns Array of NFT descriptors with optional metadata/balance
  */
 export const getOwnedNFTs = async (
-    provider: ethers.providers.Provider,
+    provider: ethers.Provider,
     ownerAddress: string,
     contractAddress: string
 ): Promise<NFT[]> => {
@@ -178,12 +187,18 @@ export const getOwnedNFTs = async (
         // Check if contract is ERC721
         if (await isERC721(provider, contractAddress)) {
             const contract = new ethers.Contract(contractAddress, ERC721_ABI, provider);
-            const balance = await contract.balanceOf(ownerAddress);
+            const balanceFn = (contract as any)['balanceOf'];
+            const tokenOfOwnerByIndex = (contract as any)['tokenOfOwnerByIndex'];
+            const tokenURI = (contract as any)['tokenURI'];
+            if (typeof balanceFn !== 'function' || typeof tokenOfOwnerByIndex !== 'function' || typeof tokenURI !== 'function') {
+                throw new Error('ERC721 methods missing');
+            }
+            const balance = await balanceFn(ownerAddress);
 
             for (let i = 0; i < Number(balance); i++) {
-                const tokenId = await contract.tokenOfOwnerByIndex(ownerAddress, i);
-                const tokenURI = await contract.tokenURI(tokenId);
-                const metadata = await getNFTMetadata(tokenURI);
+                const tokenId = await tokenOfOwnerByIndex(ownerAddress, i);
+                const uri = await tokenURI(tokenId);
+                const metadata = await getNFTMetadata(uri);
 
                 nfts.push({
                     contractAddress,
@@ -200,11 +215,16 @@ export const getOwnedNFTs = async (
             // Note: ERC1155 requires additional logic to get all token IDs
             // This is a simplified version
             const tokenId = '0'; // You'll need to implement logic to get all token IDs
-            const balance = await contract.balanceOf(ownerAddress, tokenId);
+            const balanceFn = (contract as any)['balanceOf'];
+            const uriFn = (contract as any)['uri'];
+            if (typeof balanceFn !== 'function' || typeof uriFn !== 'function') {
+                throw new Error('ERC1155 methods missing');
+            }
+            const balance = await balanceFn(ownerAddress, tokenId);
 
             if (balance > 0n) {
-                const tokenURI = await contract.uri(tokenId);
-                const metadata = await getNFTMetadata(tokenURI);
+                const uri = await uriFn(tokenId);
+                const metadata = await getNFTMetadata(uri);
 
                 nfts.push({
                     contractAddress,
