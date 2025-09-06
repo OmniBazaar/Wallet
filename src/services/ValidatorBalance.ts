@@ -144,6 +144,16 @@ export class ValidatorBalanceService {
     this.ipfsStorage = this.validatorClient.getStorage();
   }
 
+  /** Update the user identifier used by this service. */
+  public setUserId(userId: string): void {
+    this.config.userId = userId;
+  }
+
+  /** Expose a readonly view of the current configuration. */
+  public getConfig(): Readonly<ValidatorBalanceConfig> {
+    return this.config;
+  }
+
   /** Initialize the balance service (validator client, caches, history). */
   async initialize(): Promise<void> {
     try {

@@ -493,9 +493,9 @@ export class BlockExplorerService {
           decimals,
           totalSupply: ethers.formatUnits(totalSupply, decimals),
           holders: 0, // Would need additional API
-          priceUsd: undefined,
-          marketCap: undefined,
-          volume24h: undefined
+          // priceUsd omitted when unknown
+          // marketCap omitted when unknown
+          // volume24h omitted when unknown
         };
         
         this.setCache(cacheKey, details);

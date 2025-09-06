@@ -100,7 +100,7 @@ async function sendToContentScript(message: string): Promise<void> {
 }
 
 // Handle messages from content scripts and popup
-chrome.runtime.onMessage.addListener(async (message: unknown, sender: chrome.runtime.MessageSender, sendResponse: (response?: unknown) => void) => {
+chrome.runtime.onMessage.addListener(async (message: unknown, sender: any, sendResponse: (response?: unknown) => void) => {
   const msg = (typeof message === 'object' && message !== null ? message : { type: 'UNKNOWN' }) as { type: string; data?: unknown };
   console.warn('📨 Background received message:', msg.type);
 
@@ -588,7 +588,7 @@ async function createMarketplaceListing(data: {
 }
 
 // Handle extension installation
-chrome.runtime.onInstalled.addListener(async (details: chrome.runtime.InstalledDetails) => {
+chrome.runtime.onInstalled.addListener(async (details: { reason: string }) => {
   console.warn('🎉 OmniBazaar Wallet installed:', details.reason);
 
   if (details.reason === 'install') {
@@ -610,14 +610,14 @@ chrome.runtime.onStartup.addListener(async () => {
 });
 
 // Handle tab updates for provider context
-chrome.tabs.onActivated.addListener((activeInfo: chrome.tabs.TabActiveInfo) => {
+chrome.tabs.onActivated.addListener((activeInfo: { tabId: number }) => {
   currentTab = activeInfo.tabId;
 });
 
 // Handle window focus changes
 chrome.windows.onFocusChanged.addListener((windowId: number) => {
   if (windowId !== chrome.windows.WINDOW_ID_NONE) {
-    chrome.tabs.query({ active: true, windowId }).then((tabs: chrome.tabs.Tab[]) => {
+    chrome.tabs.query({ active: true, windowId }).then((tabs: Array<{ id?: number }>) => {
       if (tabs[0]?.id) {
         currentTab = tabs[0].id;
       }

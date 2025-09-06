@@ -149,6 +149,16 @@ export class ValidatorWalletService {
     });
   }
 
+  /** Update the user identifier used by this service. */
+  public setUserId(userId: string): void {
+    this.config.userId = userId;
+  }
+
+  /** Expose a readonly view of the current configuration. */
+  public getConfig(): Readonly<ValidatorWalletConfig> {
+    return this.config;
+  }
+
   /**
    * Initialize wallet service with Validator integration
    */

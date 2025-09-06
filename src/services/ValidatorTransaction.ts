@@ -208,6 +208,16 @@ export class ValidatorTransactionService {
     this.feeDistribution = this.validatorClient.getFeeDistribution();
   }
 
+  /** Update the user identifier used by this service. */
+  public setUserId(userId: string): void {
+    this.config.userId = userId;
+  }
+
+  /** Expose a readonly view of the current configuration. */
+  public getConfig(): Readonly<ValidatorTransactionConfig> {
+    return this.config;
+  }
+
   /**
    * Initialize transaction service
    */

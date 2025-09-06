@@ -1,6 +1,7 @@
+/* @jsxImportSource react */
 import React, { createContext, useContext, useReducer } from 'react';
-import { ethers } from 'ethers';
-import { WalletState, WalletContextType, TokenInfo, Transaction } from '../types/wallet';
+import { BrowserProvider, Contract, formatEther, formatUnits, parseEther, parseUnits } from 'ethers';
+import { WalletState, WalletContextType, TokenInfo, Transaction } from '../../types/wallet';
 
 /**
  * Initial state for the wallet context
@@ -19,7 +20,7 @@ const initialState: WalletState = {
  */
 type Action =
   | { type: 'CONNECT_START' }
-  | { type: 'CONNECT_SUCCESS'; payload: { address: string; chainId: number; provider: ethers.providers.Web3Provider } }
+  | { type: 'CONNECT_SUCCESS'; payload: { address: string; chainId: number; provider: BrowserProvider } }
   | { type: 'CONNECT_ERROR'; payload: string }
   | { type: 'DISCONNECT' }
   | { type: 'UPDATE_CHAIN_ID'; payload: number };
@@ -81,25 +82,25 @@ export function WalletProvider({ children }: { children: React.ReactNode }): JSX
     try {
       dispatch({ type: 'CONNECT_START' });
 
-      if (window.ethereum == null) {
+      if ((window as any).ethereum == null) {
         throw new Error('Please install MetaMask or another Web3 wallet');
       }
 
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
-      const accounts = await provider.send('eth_requestAccounts', []);
+      const provider = new BrowserProvider((window as any).ethereum);
+      const accounts: string[] = await provider.send('eth_requestAccounts', []);
       const network = await provider.getNetwork();
 
       dispatch({
         type: 'CONNECT_SUCCESS',
         payload: {
           address: accounts[0],
-          chainId: network.chainId,
+          chainId: Number(network.chainId),
           provider,
         },
       });
 
       // Set up event listeners
-      window.ethereum.on('accountsChanged', (accounts: string[]) => {
+      (window as any).ethereum.on('accountsChanged', (accounts: string[]) => {
         if (accounts.length === 0) {
           dispatch({ type: 'DISCONNECT' });
         } else {
@@ -114,7 +115,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }): JSX
         }
       });
 
-      window.ethereum.on('chainChanged', (chainId: string) => {
+      (window as any).ethereum.on('chainChanged', (chainId: string) => {
         dispatch({ type: 'UPDATE_CHAIN_ID', payload: parseInt(chainId, 16) });
       });
     } catch (error) {
@@ -136,7 +137,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }): JSX
    */
   const switchNetwork = async (chainId: number): Promise<void> => {
     try {
-      await window.ethereum.request({
+      await (window as any).ethereum.request({
         method: 'wallet_switchEthereumChain',
         params: [{ chainId: `0x${chainId.toString(16)}` }],
       });
@@ -159,22 +160,22 @@ export function WalletProvider({ children }: { children: React.ReactNode }): JSX
     }
 
     try {
-      const signer = state.provider.getSigner();
-      let tx;
+      const signer = await state.provider.getSigner();
+      let tx: any;
 
       if (token) {
         // ERC20 token transfer
-        const contract = new ethers.Contract(
+        const contract = new Contract(
           token.address,
           ['function transfer(address to, uint256 amount) returns (bool)'],
           signer
         );
-        tx = await contract.transfer(to, ethers.utils.parseUnits(value, token.decimals));
+        tx = await contract.transfer(to, parseUnits(value, token.decimals));
       } else {
         // Native token transfer
         tx = await signer.sendTransaction({
           to,
-          value: ethers.utils.parseEther(value),
+          value: parseEther(value),
         });
       }
 
@@ -197,16 +198,16 @@ export function WalletProvider({ children }: { children: React.ReactNode }): JSX
 
     try {
       if (token) {
-        const contract = new ethers.Contract(
+        const contract = new Contract(
           token.address,
           ['function balanceOf(address owner) view returns (uint256)'],
           state.provider
         );
         const balance = await contract.balanceOf(state.address);
-        return ethers.utils.formatUnits(balance, token.decimals);
+        return formatUnits(balance, token.decimals);
       } else {
         const balance = await state.provider.getBalance(state.address);
-        return ethers.utils.formatEther(balance);
+        return formatEther(balance);
       }
     } catch (error) {
       throw new Error('Failed to get balance');

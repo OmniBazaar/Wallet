@@ -1,95 +1,75 @@
-// Lightweight shims to reduce type noise in strict mode
+// Ambient module declarations for packages without local types.
 
-// Browser extension APIs
-declare namespace chrome {
-  // Minimal runtime messaging surface used in the app
-  namespace runtime {
-    interface MessageSender { tab?: { id?: number } | undefined; id?: string }
-    interface InstalledDetails { reason?: string; previousVersion?: string }
-    function sendMessage(message: unknown): Promise<unknown>;
-    const onMessage: {
-      addListener: (
-        callback: (
-          message: unknown,
-          sender: MessageSender,
-          sendResponse: (response?: unknown) => void
-        ) => boolean | void | Promise<boolean | void>
-      ) => void
-    };
-    const onInstalled: { addListener: (callback: (details: InstalledDetails) => void) => void };
-    const onStartup: { addListener: (callback: () => void) => void };
-    function getURL(path: string): string;
-  }
+declare module 'styled-components' {
+  import type * as React from 'react';
+  export const ThemeProvider: React.FC<{ theme: unknown; children?: React.ReactNode }>;
+  export function css(strings: TemplateStringsArray, ...interpolations: any[]): any;
+  export const keyframes: any;
+  const styled: any;
+  export default styled;
+}
 
-  // Minimal tabs API typings used by background script
-  namespace tabs {
-    interface Tab { id?: number; url?: string }
-    interface TabActiveInfo { tabId: number; windowId: number }
-    function sendMessage(tabId: number, message: unknown): Promise<void>;
-    function create(createProperties: { url: string }): void;
-    function query(queryInfo: { active: boolean; windowId: number }): Promise<Tab[]>;
-    const onActivated: { addListener: (callback: (activeInfo: TabActiveInfo) => void) => void };
-  }
-
-  // Minimal windows API surface used
-  namespace windows {
-    const WINDOW_ID_NONE: number;
-    const onFocusChanged: { addListener: (callback: (windowId: number) => void) => void };
+declare module 'ledger-bitcoin' {
+  export default class LedgerBTC {
+    constructor(transport: unknown);
   }
 }
 
-// Global WebSocket for environments where DOM lib isn’t present
-declare const WebSocket: any;
+declare module '@metamask/eth-sig-util' {
+  export function recoverPersonalSignature(opts: { data: string; signature: string }): string;
+}
 
-// Minimal JSX support for TSX usage without pulling full React/Vue types
+declare module '@rainbow-me/swaps' {
+  const Swaps: any;
+  export default Swaps;
+}
+
+declare module 'bcryptjs' {
+  export function hash(data: string, saltOrRounds?: number | string): Promise<string>;
+  export function compare(data: string, encrypted: string): Promise<boolean>;
+}
+
+// Additional ambient declarations to satisfy TS where external types are absent
+declare module '@apollo/client' {
+  export const gql: any;
+  const Apollo: any;
+  export default Apollo;
+}
+
+declare module '@tanstack/react-query' { const anyQuery: any; export = anyQuery; }
+declare module 'viem' { const anyViem: any; export = anyViem; }
+declare module '@metaplex-foundation/mpl-token-metadata' { const anyMeta: any; export = anyMeta; }
+declare module '@trezor/connect-web' { const anyTrezor: any; export = anyTrezor; }
+declare module '@trezor/connect-webextension' { const anyTrezorExt: any; export = anyTrezorExt; }
+declare module '@trezor/connect-plugin-ethereum' { const anyTrezorEth: any; export = anyTrezorEth; }
+declare module '@ethereumjs/tx' { const anyTx: any; export = anyTx; }
+declare module '@ledgerhq/live-common/lib/hw/getDeviceInfo' { const anyX: any; export = anyX; }
+declare module '@ledgerhq/live-common/lib/hw/openApp' { const anyX: any; export = anyX; }
+declare module '@ledgerhq/live-common/lib/hw/getAppAndVersion' { const anyX: any; export = anyX; }
+declare module '@ledgerhq/hw-app-solana' { const anyX: any; export = anyX; }
+declare module '@zondax/ledger-substrate' { const anyX: any; export = anyX; }
+declare module '@enkryptcom/types' { const anyX: any; export = anyX; }
+declare module '@enkryptcom/utils' { const anyX: any; export = anyX; }
+declare module '@enkryptcom/keyring' { const anyX: any; export = anyX; }
+declare module 'tweetnacl-util' { const anyX: any; export = anyX; }
+declare module 'hdkey' { const anyX: any; export = anyX; }
+declare module 'elliptic' { const anyX: any; export = anyX; }
+
+// Minimal JSX namespace to allow TSX without full React types
 declare namespace JSX {
   interface IntrinsicElements { [elemName: string]: any }
-  // Keep Element very loose to avoid conflicts across renderers
-  interface Element {}
+  type Element = any;
 }
 
-// Node-style process/env used in a few places
-declare const process: { env?: Record<string, string | undefined> };
+// Basic chrome global for extension context if types not present
+declare namespace chrome {
+  const runtime: any;
+  const tabs: any;
+}
 
-// Vite-style import meta used in some services
-interface ImportMeta { env?: Record<string, string | undefined> }
+// Window ethereum typing
+interface Window { ethereum?: any; phantom?: any; }
 
-// Jest globals for isolated unit tests without @types/jest
-declare const jest: any;
-declare function describe(name: string, fn: () => void): void;
-declare function it(name: string, fn: () => void | Promise<void>): void;
-declare function beforeEach(fn: () => void | Promise<void>): void;
-declare function afterEach(fn: () => void | Promise<void>): void;
-declare function expect(actual: any): any;
-
-// Frequently missing external module typings — treat them as any
-declare module '@metaplex-foundation/mpl-token-metadata';
-declare module '@tanstack/react-query';
-declare module 'viem';
-declare module 'hdkey';
-declare module 'tweetnacl-util';
-declare module '@apollo/client';
-declare module '@ledgerhq/*';
-declare module '@ledgerhq/live-common/*';
-declare module '@trezor/*';
-declare module '@zondax/ledger-substrate';
-declare module '@enkryptcom/*';
-declare module '@enkryptcom/types';
-declare module '@enkryptcom/utils';
-declare module '@ethereumjs/tx';
-declare module '@ethereumjs/util';
-declare module '@ethereumjs/rlp';
-declare module '@coti-io/coti-sdk-typescript';
-declare module '@polkadot/*';
-declare module '@solana/web3.js';
-declare module '@mui/material';
-declare module '@mui/icons-material';
-
-// Path alias shims used by imported example files
-declare module '~/core/*';
-declare module '~/entries/*';
-declare module '~/logger';
-declare module '~/test/*';
-
-// Permit '@/...' imports used within Wallet without a repo-level path mapping
-declare module '@/*';
+// Vite import.meta.env typing (minimal)
+interface ImportMetaEnv { [key: string]: string | undefined }
+interface ImportMeta { readonly env: ImportMetaEnv }

@@ -1,6 +1,7 @@
+/* @jsxImportSource react */
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { useWalletContext } from '../../../../../contexts/WalletContext';
+import { useWallet } from '../../../contexts/WalletContext';
 import { OmniCoinLoading } from './OmniCoinLoading';
 import { OmniCoinToast } from './OmniCoinToast';
 
@@ -84,8 +85,9 @@ const AddressText = styled.code`
  * 
  * @returns JSX element for wallet connection interface
  */
-export const WalletConnect: React.FC = () => {
-    const { address, chainId, isConnecting, error, connect, disconnect, getAvailableWallets } = useWalletContext();
+const WalletConnect: React.FC = () => {
+    const { state, connect, disconnect } = useWallet();
+    const { address, chainId, isConnecting, error } = state;
     const [showToast, setShowToast] = useState(false);
     const [toastMessage, setToastMessage] = useState('');
     const [toastType, setToastType] = useState<'success' | 'error' | 'info' | 'pending'>('info');
@@ -94,13 +96,13 @@ export const WalletConnect: React.FC = () => {
      * Handles wallet connection for a specific provider
      * @param providerId - ID of the wallet provider to connect
      */
-    const handleConnect = async (providerId: string): Promise<void> => {
+    const handleConnect = async (): Promise<void> => {
         try {
             setToastType('pending');
             setToastMessage('Connecting to wallet...');
             setShowToast(true);
 
-            await connect(providerId);
+            await connect();
 
             setToastType('success');
             setToastMessage('Wallet connected successfully!');
@@ -119,8 +121,6 @@ export const WalletConnect: React.FC = () => {
         setToastMessage('Wallet disconnected');
         setShowToast(true);
     };
-
-    const availableWallets = getAvailableWallets();
 
     if (isConnecting) {
         return <OmniCoinLoading text="Connecting to wallet..." />;
@@ -149,17 +149,12 @@ export const WalletConnect: React.FC = () => {
                 <>
                     <StatusText>Connect your wallet:</StatusText>
                     <ProviderList>
-                        {availableWallets.map(provider => (
-                            <ProviderButton
-                                key={provider.id}
-                                onClick={() => handleConnect(provider.id)}
-                                disabled={!provider.isInstalled()}
-                                aria-label={`Connect with ${provider.name}`}
-                            >
-                                <ProviderIcon src={provider.icon} alt={provider.name} />
-                                {provider.name}
-                            </ProviderButton>
-                        ))}
+                        <ProviderButton
+                          onClick={() => handleConnect()}
+                          aria-label="Connect Wallet"
+                        >
+                          Connect Wallet
+                        </ProviderButton>
                     </ProviderList>
                 </>
             )}
@@ -169,4 +164,6 @@ export const WalletConnect: React.FC = () => {
             )}
         </ConnectContainer>
     );
-}; 
+};
+
+export default WalletConnect;

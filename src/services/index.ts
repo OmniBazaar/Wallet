@@ -4,10 +4,17 @@
  * Central export point for all Validator service integrations
  */
 
-// Main services
-export { ValidatorWalletService, validatorWallet } from './ValidatorWallet';
-export { ValidatorTransactionService, validatorTransaction } from './ValidatorTransaction';
-export { ValidatorBalanceService, validatorBalance } from './ValidatorBalance';
+// Main services: import for local usage and export types/classes separately
+import { validatorWallet, ValidatorWalletService } from './ValidatorWallet';
+import { validatorTransaction, ValidatorTransactionService } from './ValidatorTransaction';
+import { validatorBalance, ValidatorBalanceService } from './ValidatorBalance';
+
+// Re-export preconfigured singletons for consumers that dynamically import
+export { validatorWallet, validatorTransaction, validatorBalance };
+
+export { ValidatorWalletService };
+export { ValidatorTransactionService };
+export { ValidatorBalanceService };
 
 // Types
 export type {
@@ -54,10 +61,10 @@ export {
  */
 export async function initializeValidatorServices(userId: string): Promise<void> {
   try {
-    // Update user IDs
-    validatorWallet.config.userId = userId;
-    validatorTransaction.config.userId = userId;
-    validatorBalance.config.userId = userId;
+    // Update user IDs via public setters
+    validatorWallet.setUserId(userId);
+    validatorTransaction.setUserId(userId);
+    validatorBalance.setUserId(userId);
 
     // Initialize services
     await validatorWallet.initialize();

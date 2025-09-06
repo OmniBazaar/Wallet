@@ -73,9 +73,9 @@ export function useValidatorWallet(): {
       globalWalletState.error.value = null;
 
       // Update user ID in service configs
-      walletService.config.userId = userId;
-      transactionService.config.userId = userId;
-      balanceService.config.userId = userId;
+      walletService.setUserId(userId);
+      transactionService.setUserId(userId);
+      balanceService.setUserId(userId);
 
       // Initialize services
       await walletService.initialize();
@@ -541,8 +541,8 @@ export function useValidatorWalletStatus(): {
 
       // Update network info
       networkInfo.value = {
-        networkId: validatorWallet.config.networkId,
-        endpoint: validatorWallet.config.validatorEndpoint
+        networkId: validatorWallet.getConfig().networkId,
+        endpoint: validatorWallet.getConfig().validatorEndpoint
       };
     } catch (error) {
       console.error('Error checking service health:', error);

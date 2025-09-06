@@ -59,7 +59,9 @@
       ]
     },
     "types": [
-      "node"
+      "node",
+      "jest",
+      "chrome"
     ]
   },
   "include": [

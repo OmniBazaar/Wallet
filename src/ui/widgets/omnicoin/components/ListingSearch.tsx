@@ -1,6 +1,15 @@
+/* @jsxImportSource react */
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { SearchFilters } from '../../../../../types/listing';
+// Minimal search filter type to avoid external type import
+interface SearchFilters {
+  type?: 'product' | 'service' | string;
+  category?: string;
+  priceRange?: { min?: number; max?: number };
+  location?: { city?: string; country?: string };
+  sortBy?: 'price' | 'rating' | 'date' | 'popularity' | string;
+  sortOrder?: 'asc' | 'desc' | string;
+}
 // import { OmniCoinLoading } from './OmniCoinLoading';
 // import { OmniCoinToast } from './OmniCoinToast';
 

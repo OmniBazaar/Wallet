@@ -1,8 +1,8 @@
 import { useState, useCallback } from 'react';
-import { ethers } from 'ethers';
-import { WalletState, WalletError } from '../types';
+import { BrowserProvider, Contract, parseEther } from 'ethers';
+import { WalletState } from '../types/wallet';
 import { getProvider, getAvailableProviders } from '../config/providers';
-import { getNetworkByChainId } from '../config/networks';
+import { getNetworkByChainId, getRpcUrl } from '../core/chains/evm/networks';
 
 /**
  * React hook for managing wallet connection state and operations.
@@ -17,7 +17,7 @@ export const useWallet = (): {
     /** Current chain ID */
     chainId: number | null;
     /** Browser provider instance */
-    provider: ethers.BrowserProvider | null;
+    provider: BrowserProvider | null;
     /** Whether connection is in progress */
     isConnecting: boolean;
     /** Connection error message */
@@ -40,12 +40,14 @@ export const useWallet = (): {
         isInstalled: boolean;
     }>;
 } => {
+    type WalletError = Error & { code?: number; data?: Record<string, unknown> };
     const [state, setState] = useState<WalletState>({
         address: null,
         chainId: null,
         provider: null,
+        isConnected: false,
         isConnecting: false,
-        error: null
+        error: null,
     });
 
     /**
@@ -56,6 +58,7 @@ export const useWallet = (): {
             address: null,
             chainId: null,
             provider: null,
+            isConnected: false,
             isConnecting: false,
             error: null
         });
@@ -67,7 +70,7 @@ export const useWallet = (): {
      *
      * @param providerId Identifier of the wallet provider to connect
      */
-    const connect = useCallback(async (providerId: string): Promise<void> => {
+    const connect = useCallback(async (providerId: import('../config/providers').ProviderId): Promise<void> => {
         try {
             setState(prev => ({ ...prev, isConnecting: true, error: null }));
 
@@ -76,39 +79,40 @@ export const useWallet = (): {
                 throw new Error(`Provider ${providerId} not found`);
             }
 
-            const provider = await providerConfig.getProvider();
-            if (!provider) {
+            const injected = await providerConfig.getProvider();
+            if (!injected) {
                 throw new Error('Provider not available');
             }
 
-            const ethersProvider = new ethers.BrowserProvider(provider);
-            const accounts = await ethersProvider.send('eth_requestAccounts', []);
+            const ethersProvider = new BrowserProvider(injected as any);
+            const accounts: string[] = await ethersProvider.send('eth_requestAccounts', []);
             const network = await ethersProvider.getNetwork();
 
             setState({
-                address: accounts[0],
-                chainId: network.chainId,
+                address: accounts[0] ?? null,
+                chainId: Number(network.chainId),
                 provider: ethersProvider,
+                isConnected: true,
                 isConnecting: false,
                 error: null
             });
 
             // Setup event listeners
-            provider.on('accountsChanged', (accounts: string[]) => {
+            (injected as any).on?.('accountsChanged', (accounts: string[]) => {
                 setState(prev => ({
                     ...prev,
                     address: accounts[0] || null
                 }));
             });
 
-            provider.on('chainChanged', (chainId: string) => {
+            (injected as any).on?.('chainChanged', (chainId: string) => {
                 setState(prev => ({
                     ...prev,
                     chainId: parseInt(chainId, 16)
                 }));
             });
 
-            provider.on('disconnect', () => {
+            (injected as any).on?.('disconnect', () => {
                 resetState();
             });
 
@@ -127,12 +131,19 @@ export const useWallet = (): {
      * clear local connection state.
      */
     const disconnect = useCallback((): void => {
-        if (state.provider) {
-            const provider = state.provider.provider;
-            if (provider.disconnect) {
-                provider.disconnect();
+        // EIP-1193 providers may support a disconnect method
+        void (async () => {
+            try {
+                if (state.provider) {
+                    const raw: any = (state.provider as any).provider ?? null;
+                    if (raw?.disconnect) {
+                        await raw.disconnect();
+                    }
+                }
+            } catch {
+                // swallow
             }
-        }
+        })();
         resetState();
     }, [state.provider, resetState]);
 
@@ -148,34 +159,28 @@ export const useWallet = (): {
                 throw new Error('No provider connected');
             }
 
-            const provider = state.provider.provider;
-            const network = getNetworkByChainId(`0x${chainId.toString(16)}`);
+            const provider = (state.provider as any).provider ?? state.provider;
+            const network = getNetworkByChainId(chainId);
 
             if (!network) {
                 throw new Error(`Network with chainId ${chainId} not supported`);
             }
 
             try {
-                await provider.request({
+                await (provider as any).request({
                     method: 'wallet_switchEthereumChain',
-                    params: [{ chainId: network.chainId }]
+                    params: [{ chainId: `0x${network.chainId.toString(16)}` }]
                 });
             } catch (switchError: unknown) {
-                if ((switchError as { /**
-                                       *
-                                       */
-                    code?: number
-                }).code === 4902) {
-                    await provider.request({
+                if ((switchError as { code?: number }).code === 4902) {
+                    await (provider as any).request({
                         method: 'wallet_addEthereumChain',
                         params: [{
-                            chainId: network.chainId,
+                            chainId: `0x${network.chainId.toString(16)}`,
                             chainName: network.name,
-                            nativeCurrency: network.nativeCurrency,
-                            rpcUrls: Array.isArray(network.rpcUrls)
-                                ? network.rpcUrls
-                                : network.rpcUrls.mainnet,
-                            blockExplorerUrls: network.blockExplorerUrls
+                            nativeCurrency: { name: network.currency, symbol: network.currency, decimals: 18 },
+                            rpcUrls: [getRpcUrl(network)],
+                            blockExplorerUrls: network.explorer ? [network.explorer] : []
                         }]
                     });
                 } else {

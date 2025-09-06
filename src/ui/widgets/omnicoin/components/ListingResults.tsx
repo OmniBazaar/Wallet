@@ -1,6 +1,6 @@
+/* @jsxImportSource react */
 import React from 'react';
 import styled from 'styled-components';
-import { ListingNode } from '../../../../../types/listing';
 import { OmniCoinLoading } from './OmniCoinLoading';
 import { OmniCoinToast } from './OmniCoinToast';
 
@@ -99,6 +99,23 @@ const EmptyState = styled.div`
   padding: 2rem;
   color: ${props => props.theme.colors.textSecondary};
 `;
+
+// Minimal listing types to decouple from external type import
+interface ListingSeller { avatar?: string; name?: string; rating?: number }
+interface ListingLocation { city?: string; country?: string }
+interface ListingMetadata {
+  image: string;
+  title: string;
+  price: string;
+  currency: string;
+  description?: string;
+  type?: 'product' | 'service' | string;
+  productDetails?: { condition?: string };
+  serviceDetails?: { serviceType?: string };
+  seller?: ListingSeller;
+  location?: ListingLocation;
+}
+interface ListingNode { id: string; metadata: ListingMetadata }
 
 interface ListingResultsProps {
   listings: ListingNode[];

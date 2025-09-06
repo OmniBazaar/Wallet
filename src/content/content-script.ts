@@ -17,7 +17,7 @@ const injectedProviders = new Set<string>();
  * Message handler for background script communications
  * Handles provider notifications and page context requests
  */
-chrome.runtime.onMessage.addListener((message: unknown, sender: chrome.runtime.MessageSender, sendResponse: (response?: unknown) => void) => {
+chrome.runtime.onMessage.addListener((message: unknown, _sender: unknown, sendResponse: (response?: unknown) => void) => {
   const msg = (typeof message === 'object' && message !== null ? message : { type: 'UNKNOWN' }) as { type: string; data?: unknown };
   console.warn('📨 Content script received message:', msg.type);
 
@@ -77,7 +77,19 @@ function handleProviderNotification(data: string): void {
  * @throws {Error} When the Chrome runtime encounters an error
  */
 async function sendToBackground(type: string, data: unknown): Promise<any> {
-  return chrome.runtime.sendMessage({ type, data });
+  return await new Promise((resolve) => {
+    try {
+      const maybePromise = chrome.runtime.sendMessage({ type, data }, (response: unknown) => {
+        resolve(response);
+      });
+      // Some environments return a Promise; handle that too
+      if (maybePromise && typeof (maybePromise as Promise<unknown>).then === 'function') {
+        (maybePromise as Promise<unknown>).then(resolve).catch((err) => resolve({ error: String(err) }));
+      }
+    } catch (err) {
+      resolve({ error: err instanceof Error ? err.message : String(err) });
+    }
+  });
 }
 
 /** Event callback function type for provider event handling */
