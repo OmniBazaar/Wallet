@@ -42,11 +42,11 @@ interface OracleMetrics {
 
 /** Oracle node service for bridging name data between COTI and Ethereum */
 export class OracleNodeService extends EventEmitter {
-  private cotiProvider: ethers.Provider;
-  private ethereumProvider: ethers.Provider;
-  private signer: ethers.Wallet;
-  private registryContract: ethers.Contract;
-  private oracleContract: ethers.Contract;
+  private cotiProvider!: ethers.Provider;
+  private ethereumProvider!: ethers.Provider;
+  private signer!: ethers.Wallet;
+  private registryContract!: ethers.Contract;
+  private oracleContract!: ethers.Contract;
   private isRunning = false;
   private updateQueue: NameUpdate[] = [];
   private metrics: OracleMetrics;
@@ -111,8 +111,18 @@ export class OracleNodeService extends EventEmitter {
     );
   }
 
+  /**
+   * Ensure providers are initialized
+   */
+  private ensureInitialized(): void {
+    if (!this.cotiProvider || !this.ethereumProvider || !this.signer || !this.registryContract || !this.oracleContract) {
+      throw new Error('Oracle node service not properly initialized');
+    }
+  }
+
   /** Start the oracle node service and begin monitoring/updates. */
   public async start(): Promise<void> {
+    this.ensureInitialized();
     if (this.isRunning) {
       console.warn('Oracle node service is already running');
       return;
@@ -162,11 +172,12 @@ export class OracleNodeService extends EventEmitter {
    * Test connections to both networks
    */
   private async testConnections(): Promise<void> {
+    this.ensureInitialized();
     console.warn('🔍 Testing network connections...');
 
     // Test COTI connection
     try {
-      const cotiBlockNumber = await this.cotiProvider.getBlockNumber();
+      const cotiBlockNumber = await this.cotiProvider!.getBlockNumber();
       console.warn(`✅ COTI connection OK (block: ${cotiBlockNumber})`);
     } catch (error) {
       throw new Error(`COTI connection failed: ${(error as Error).message}`);
@@ -182,7 +193,7 @@ export class OracleNodeService extends EventEmitter {
 
     // Test oracle health
     try {
-      const isHealthy = await this.oracleContract.isHealthy();
+      const isHealthy = await this.oracleContract?.['isHealthy']?.();
       console.warn(`✅ Oracle health: ${isHealthy}`);
     } catch (error) {
       console.warn(`⚠️  Oracle health check failed: ${(error as Error).message}`);
@@ -250,6 +261,7 @@ export class OracleNodeService extends EventEmitter {
 
   /** Process queued name updates (single or batch). */
   private async processUpdateQueue(): Promise<void> {
+    this.ensureInitialized();
     if (this.updateQueue.length === 0) {
       return;
     }
@@ -263,7 +275,10 @@ export class OracleNodeService extends EventEmitter {
 
       if (batch.length === 1) {
         // Single update
-        await this.updateSingleName(batch[0]);
+        const firstUpdate = batch[0];
+        if (firstUpdate) {
+          await this.updateSingleName(firstUpdate);
+        }
       } else {
         // Batch update
         await this.updateBatchNames(batch);
@@ -299,7 +314,11 @@ export class OracleNodeService extends EventEmitter {
     console.warn(`🔄 Updating single name: ${update.username} -> ${update.address}`);
 
     try {
-      const tx = await this.oracleContract.updateName(update.username, update.address);
+      if (!this.oracleContract) {
+        throw new Error('Oracle contract not initialized');
+      }
+      
+      const tx = await this.oracleContract['updateName'](update.username, update.address);
       const receipt = await tx.wait();
 
       console.warn(`✅ Single update completed (gas: ${receipt.gasUsed})`);
@@ -330,7 +349,11 @@ export class OracleNodeService extends EventEmitter {
       const usernames = updates.map(u => u.username);
       const addresses = updates.map(u => u.address);
 
-      const tx = await this.oracleContract.batchUpdateNames(usernames, addresses);
+      if (!this.oracleContract) {
+        throw new Error('Oracle contract not initialized');
+      }
+      
+      const tx = await this.oracleContract['batchUpdateNames'](usernames, addresses);
       const receipt = await tx.wait();
 
       console.warn(`✅ Batch update completed (gas: ${receipt.gasUsed})`);
@@ -385,8 +408,13 @@ export class OracleNodeService extends EventEmitter {
 
   /** Query a name from the COTI registry contract. */
   public async queryCotiName(username: string): Promise<string> {
+    this.ensureInitialized();
     try {
-      const address = await this.registryContract.resolve(username);
+      if (!this.registryContract) {
+        throw new Error('Registry contract not initialized');
+      }
+      
+      const address = await this.registryContract['resolve'](username);
       return address;
     } catch (error) {
       console.warn(`❌ Failed to query COTI name: ${(error as Error).message}`);
@@ -396,8 +424,9 @@ export class OracleNodeService extends EventEmitter {
 
   /** Query a name from the Ethereum oracle contract. */
   public async queryEthereumName(username: string): Promise<string> {
+    this.ensureInitialized();
     try {
-      const address = await this.oracleContract.queryName(username);
+      const address = await this.oracleContract!['queryName'](username);
       return address;
     } catch (error) {
       console.warn(`❌ Failed to query Ethereum name: ${(error as Error).message}`);
@@ -407,6 +436,7 @@ export class OracleNodeService extends EventEmitter {
 
   /** Force a sync for a specific username from COTI → Ethereum. */
   public async forceSyncName(username: string): Promise<void> {
+    this.ensureInitialized();
     console.warn(`🔄 Force syncing name: ${username}`);
 
     try {
@@ -433,6 +463,7 @@ export class OracleNodeService extends EventEmitter {
 
   /** Perform a health check across providers and recent activity. */
   public async healthCheck(): Promise<boolean> {
+    this.ensureInitialized();
     try {
       // Check if running
       if (!this.isRunning) {
@@ -440,7 +471,7 @@ export class OracleNodeService extends EventEmitter {
       }
 
       // Check oracle health
-      const oracleHealthy = await this.oracleContract.isHealthy();
+      const oracleHealthy = await this.oracleContract?.['isHealthy']?.();
 
       // Check recent activity
       const timeSinceLastUpdate = Date.now() - this.metrics.lastUpdateTime;

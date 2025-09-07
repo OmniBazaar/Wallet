@@ -169,80 +169,28 @@ export class NFTManager {
 
   /**
    * Transfer Solana NFT
-   * @param nft
-   * @param to
+   * @param nft NFT to transfer
+   * @param to Recipient address
+   * @returns Transaction hash
    */
   private async transferSolanaNFT(
     nft: SolanaNFT,
     to: string
   ): Promise<string> {
-    const solanaProvider = providerManager.getProvider('solana') as { /**
-                                                                       *
-                                                                       */
-      sendTransaction: (transaction: unknown) => Promise<string>
-    } | null;
-    if (!solanaProvider) {
+    const solanaProvider = providerManager.getProvider('solana');
+    if (!solanaProvider || !('getAddress' in solanaProvider)) {
       throw new Error('Solana provider not initialized');
     }
 
-    const from = await solanaProvider.getAddress();
-    const privateKey = await keyringService.exportPrivateKey(from);
+    // For now, throw an error as Solana signing is not yet configured
+    throw new Error('Solana NFT transfers not yet implemented - requires KeyringService signing integration');
 
-    // Import necessary Solana libraries
-    const { PublicKey, Transaction } = await import('@solana/web3.js');
-    const {
-      getAssociatedTokenAddress,
-      createAssociatedTokenAccountInstruction,
-      createTransferInstruction,
-      TOKEN_PROGRAM_ID,
-    } = await import('@solana/spl-token');
-
-    const fromPubkey = new PublicKey(from);
-    const toPubkey = new PublicKey(to);
-    const mintPubkey = new PublicKey(nft.mint);
-
-    // Get token accounts
-    const fromTokenAccount = await getAssociatedTokenAddress(mintPubkey, fromPubkey);
-    const toTokenAccount = await getAssociatedTokenAddress(mintPubkey, toPubkey);
-
-    const transaction = new Transaction();
-
-    // Check if recipient has token account
-    const connection = solanaProvider.connection;
-    const toAccountInfo = await connection.getAccountInfo(toTokenAccount);
-
-    if (toAccountInfo == null) {
-      // Create associated token account for recipient
-      transaction.add(
-        createAssociatedTokenAccountInstruction(
-          fromPubkey,
-          toTokenAccount,
-          toPubkey,
-          mintPubkey,
-          TOKEN_PROGRAM_ID
-        )
-      );
-    }
-
-    // Add transfer instruction (NFTs have amount of 1)
-    transaction.add(
-      createTransferInstruction(
-        fromTokenAccount,
-        toTokenAccount,
-        fromPubkey,
-        1, // NFTs always have amount of 1
-        [],
-        TOKEN_PROGRAM_ID
-      )
-    );
-
-    // Send transaction
-    const { blockhash } = await connection.getLatestBlockhash();
-    transaction.recentBlockhash = blockhash;
-    transaction.feePayer = fromPubkey;
-
-    const signedTx = await solanaProvider.signTransaction(privateKey, transaction);
-    return await solanaProvider.sendTransaction(signedTx);
+    // TODO: Implement when KeyringService supports Solana signing
+    // This will involve:
+    // 1. Getting the active account address
+    // 2. Creating the SPL token transfer transaction
+    // 3. Signing with KeyringService
+    // 4. Sending via the provider
   }
 
   /**
@@ -356,7 +304,7 @@ export class NFTManager {
       totalNFTs: nfts.length,
       byChain,
       byCollection,
-      totalFloorValue: totalFloorValue > 0 ? totalFloorValue : undefined
+      ...(totalFloorValue > 0 && { totalFloorValue })
     };
   }
 }

@@ -86,13 +86,13 @@ export class Transaction {
   toEthersTransaction(): TransactionRequest {
     return {
       to: (this.data.to as unknown as AddressLike) ?? null,
-      value: this.data.value,
-      data: this.data.data,
-      gasLimit: this.options.gasLimit ?? this.data.gasLimit,
-      maxFeePerGas: this.options.maxFeePerGas,
-      maxPriorityFeePerGas: this.options.maxPriorityFeePerGas,
-      nonce: this.data.nonce ?? null,
-      chainId: this.data.chainId
+      ...(this.data.value != null && { value: this.data.value }),
+      ...(this.data.data && { data: this.data.data }),
+      ...((this.options.gasLimit ?? this.data.gasLimit) != null && { gasLimit: this.options.gasLimit ?? this.data.gasLimit }),
+      ...(this.options.maxFeePerGas != null && { maxFeePerGas: this.options.maxFeePerGas }),
+      ...(this.options.maxPriorityFeePerGas != null && { maxPriorityFeePerGas: this.options.maxPriorityFeePerGas }),
+      ...(this.data.nonce != null && { nonce: this.data.nonce }),
+      ...(this.data.chainId != null && { chainId: this.data.chainId })
     };
   }
 

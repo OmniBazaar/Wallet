@@ -16,6 +16,12 @@ export type SignTransactionRequest = {
   transaction: any;
 };
 
+export type SignMessageRequest = {
+  pathType: PathType;
+  pathIndex: number;
+  message: Buffer;
+};
+
 export type SignTypedMessageRequest = {
   primaryType?: string;
   message?: Record<string, unknown>;

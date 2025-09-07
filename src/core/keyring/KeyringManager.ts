@@ -12,7 +12,7 @@
 
 import { ethers } from 'ethers';
 import * as bip39 from 'bip39';
-import { HDNode } from '@ethers/hdnode';
+import { HDNodeWallet } from 'ethers';
 import * as crypto from 'crypto';
 import { ContractManager, defaultConfig } from '../contracts/ContractConfig';
 import { ENSService } from '../ens/ENSService';
@@ -197,7 +197,7 @@ export class KeyringManager {
     }
 
     // Create HD wallet from mnemonic
-    const hdNode = HDNode.fromMnemonic(seedPhrase);
+    const hdNode = HDNodeWallet.fromPhrase(seedPhrase);
 
     // Generate accounts for different chains
     const accounts: MultiChainKeys = {
@@ -213,7 +213,7 @@ export class KeyringManager {
    * @param hdNode
    * @param username
    */
-  private async createEthereumAccount(hdNode: HDNode, username: string): Promise<AccountKeys> {
+  private async createEthereumAccount(hdNode: HDNodeWallet, username: string): Promise<AccountKeys> {
     // Standard Ethereum derivation path: m/44'/60'/0'/0/0
     const ethPath = "m/44'/60'/0'/0/0";
     const ethNode = hdNode.derivePath(ethPath);
@@ -222,9 +222,9 @@ export class KeyringManager {
     const wallet = new ethers.Wallet(privateKey);
 
     return {
-      mnemonic: hdNode.mnemonic,
+      mnemonic: hdNode.mnemonic!.phrase,
       privateKey: privateKey,
-      publicKey: wallet.publicKey,
+      publicKey: wallet.signingKey.publicKey,
       address: wallet.address,
       omniAddress: `${username}.omnicoin` // Future ENS-style implementation
     };
@@ -235,7 +235,7 @@ export class KeyringManager {
    * @param hdNode
    * @param username
    */
-  private async createOmniCoinAccount(hdNode: HDNode, username: string): Promise<AccountKeys> {
+  private async createOmniCoinAccount(hdNode: HDNodeWallet, username: string): Promise<AccountKeys> {
     // Custom OmniCoin derivation path: m/44'/9999'/0'/0/0 (9999 = custom coin type)
     const omniPath = "m/44'/9999'/0'/0/0";
     const omniNode = hdNode.derivePath(omniPath);
@@ -245,7 +245,7 @@ export class KeyringManager {
     const address = this.generateOmniCoinAddress(omniNode.publicKey);
 
     return {
-      mnemonic: hdNode.mnemonic,
+      mnemonic: hdNode.mnemonic!.phrase,
       privateKey: privateKey,
       publicKey: omniNode.publicKey,
       address: address,
@@ -313,7 +313,11 @@ export class KeyringManager {
     try {
       // Query registry contract to check if username is available
       const registryContract = this.contractManager.getRegistryContract();
-      const isAvailable = await registryContract.isAvailable(username);
+      const isAvailableMethod = registryContract['isAvailable'];
+      if (!isAvailableMethod) {
+        throw new Error('isAvailable method not found on registry contract');
+      }
+      const isAvailable = await isAvailableMethod.call(registryContract, username);
       return isAvailable;
     } catch (error) {
       console.warn('Error checking username uniqueness:', error);
@@ -330,7 +334,11 @@ export class KeyringManager {
     try {
       // Query registry contract to check if address has a registered name
       const registryContract = this.contractManager.getRegistryContract();
-      const primaryName = await registryContract.reverseResolve(address);
+      const reverseResolveMethod = registryContract['reverseResolve'];
+      if (!reverseResolveMethod) {
+        throw new Error('reverseResolve method not found on registry contract');
+      }
+      const primaryName = await reverseResolveMethod.call(registryContract, address);
       return primaryName !== '';
     } catch (error) {
       console.warn('Error verifying account exists:', error);
@@ -420,7 +428,11 @@ export class KeyringManager {
   public async resolveUsername(username: string): Promise<string | null> {
     try {
       const registryContract = this.contractManager.getRegistryContract();
-      const address = await registryContract.resolve(username);
+      const resolveMethod = registryContract['resolve'];
+      if (!resolveMethod) {
+        throw new Error('resolve method not found on registry contract');
+      }
+      const address = await resolveMethod.call(registryContract, username);
       return address !== ethers.ZeroAddress ? address : null;
     } catch (error) {
       console.warn('Error resolving username:', error);
@@ -435,7 +447,11 @@ export class KeyringManager {
   public async resolveUsernameViaEthereum(username: string): Promise<string | null> {
     try {
       const resolverContract = this.contractManager.getResolverContract();
-      const address = await resolverContract.resolve(username);
+      const resolveMethod = resolverContract['resolve'];
+      if (!resolveMethod) {
+        throw new Error('resolve method not found on resolver contract');
+      }
+      const address = await resolveMethod.call(resolverContract, username);
       return address !== ethers.ZeroAddress ? address : null;
     } catch (error) {
       console.warn('Error resolving username via Ethereum:', error);
@@ -450,7 +466,11 @@ export class KeyringManager {
   public async reverseResolve(address: string): Promise<string | null> {
     try {
       const registryContract = this.contractManager.getRegistryContract();
-      const username = await registryContract.reverseResolve(address);
+      const reverseResolveMethod = registryContract['reverseResolve'];
+      if (!reverseResolveMethod) {
+        throw new Error('reverseResolve method not found on registry contract');
+      }
+      const username = await reverseResolveMethod.call(registryContract, address);
       return username !== '' ? username : null;
     } catch (error) {
       console.warn('Error reverse resolving address:', error);

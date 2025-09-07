@@ -28,6 +28,8 @@ declare module 'styled-components' {
             };
             /** Border color */
             border: string;
+            /** Secondary text color (legacy) */
+            textSecondary: string;
             /** Disabled state color */
             disabled: string;
             /** Success state color */

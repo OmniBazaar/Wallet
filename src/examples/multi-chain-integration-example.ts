@@ -25,9 +25,11 @@ class OmniBazaarMarketplaceExample {
 
     // Initialize the NFT minter for OmniCoin
     this.nftMinter = new SimplifiedNFTMinter({
-      blockchain: 'omnicoin',
       rpcUrl: 'http://localhost:8888',
-      contractAddress: '0x0000000000000000000000000000000000000000'
+      contractAddress: '0x0000000000000000000000000000000000000000',
+      marketplaceAddress: '0x1111111111111111111111111111111111111111',
+      ipfsGateway: 'https://ipfs.io/ipfs',
+      defaultRoyalty: 5
     });
 
     this.setupMultiChainProviders();
@@ -40,15 +42,15 @@ class OmniBazaarMarketplaceExample {
     // Initialize providers with actual API keys (replace with real keys)
     this.nftDisplay.initializeProviders({
       ethereum: {
-        alchemyApiKey: process?.env?.['ALCHEMY_ETHEREUM_API_KEY'] as string | undefined,
-        openseaApiKey: process?.env?.['OPENSEA_API_KEY'] as string | undefined
+        ...(process?.env?.['ALCHEMY_ETHEREUM_API_KEY'] ? { alchemyApiKey: process.env['ALCHEMY_ETHEREUM_API_KEY'] } : {}),
+        ...(process?.env?.['OPENSEA_API_KEY'] ? { openseaApiKey: process.env['OPENSEA_API_KEY'] } : {})
       },
       polygon: {
-        alchemyApiKey: process?.env?.['ALCHEMY_POLYGON_API_KEY'] as string | undefined
+        ...(process?.env?.['ALCHEMY_POLYGON_API_KEY'] ? { alchemyApiKey: process.env['ALCHEMY_POLYGON_API_KEY'] } : {})
       },
       solana: {
-        heliusApiKey: process?.env?.['HELIUS_API_KEY'] as string | undefined,
-        magicEdenApiKey: process?.env?.['MAGICEDEN_API_KEY'] as string | undefined
+        ...(process?.env?.['HELIUS_API_KEY'] ? { heliusApiKey: process.env['HELIUS_API_KEY'] } : {}),
+        ...(process?.env?.['MAGICEDEN_API_KEY'] ? { magicEdenApiKey: process.env['MAGICEDEN_API_KEY'] } : {})
       }
     });
 
@@ -91,13 +93,65 @@ class OmniBazaarMarketplaceExample {
           { trait_type: 'Type', value: 'Product Listing' },
           ...(productData.location ? [{ trait_type: 'Location', value: productData.location }] : [])
         ],
-        to: sellerAddress,
+        royalties: 5,
         listImmediately: true,
-        price: productData.price,
-        currency: 'XOM'
+        listingPrice: productData.price,
+        listingCurrency: 'XOM',
+        category: productData.category,
+        useIPFS: true
       };
 
-      const result = await this.nftMinter.mintNFT(mintRequest);
+      const mockListingData: import('../types/listing').ListingMetadata = {
+        id: 'test-listing-' + Date.now(),
+        type: 'product',
+        seller: {
+          name: 'Test Seller',
+          address: sellerAddress,
+          location: {
+            city: 'Test City',
+            country: 'Test Country'
+          },
+          contactInfo: {
+            email: 'test@example.com'
+          },
+          rating: 5.0,
+          totalSales: 0,
+          joinedDate: new Date().toISOString(),
+          verified: true
+        },
+        details: {
+          name: productData.name,
+          description: productData.description,
+          category: productData.category,
+          tags: [],
+          condition: 'new' as const,
+          images: [productData.imageUrl],
+          price: {
+            amount: productData.price,
+            currency: 'XOM'
+          },
+          quantity: 1,
+          availability: true
+        },
+        listingNode: {
+          address: 'test-node-address',
+          name: 'Test Node',
+          description: 'Test listing node',
+          location: {
+            country: 'Test Country',
+            city: 'Test City'
+          },
+          status: 'active' as const,
+          lastSync: new Date().toISOString()
+        },
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        status: 'active' as const,
+        views: 0,
+        favorites: 0
+      };
+      
+      const result = await this.nftMinter.mintListingNFT(mintRequest, mockListingData, sellerAddress);
 
       console.warn('✅ NFT minted successfully:', {
         transactionHash: result.transactionHash,
@@ -105,7 +159,7 @@ class OmniBazaarMarketplaceExample {
         ipfsHash: result.ipfsHash
       });
 
-      return result.transactionHash;
+      return result.transactionHash ?? 'unknown';
     } catch (error) {
       console.error('❌ Failed to mint NFT:', error);
       throw error;
@@ -190,9 +244,9 @@ class OmniBazaarMarketplaceExample {
 
       const searchQuery = {
         query: searchTerm,
-        category: filters?.category,
-        blockchain: filters?.blockchain,
-        priceRange: filters?.priceRange,
+        ...(filters?.category ? { category: filters.category } : {}),
+        ...(filters?.blockchain ? { blockchain: filters.blockchain } : {}),
+        ...(filters?.priceRange ? { priceRange: filters.priceRange } : {}),
         limit: 20
       };
 

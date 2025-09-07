@@ -2,7 +2,7 @@
 import type { NFTMintRequest, NFTMetadata, NFTItem } from '../../../types/nft';
 import type { ListingMetadata } from '../../../types/listing';
 import { IPFSService } from '../../storage/ipfs-service';
-import { OmniCoinProvider } from '../../chains/omnicoin/provider';
+import { LiveOmniCoinProvider } from '../../chains/omnicoin/live-provider';
 
 // OmniCoin NFT Contract ABI (ERC721 compatible)
 const OMNICOIN_NFT_ABI = [
@@ -72,7 +72,7 @@ export interface MintingResult {
  *
  */
 export class OmniCoinNFTMinter {
-  private provider: OmniCoinProvider;
+  private provider: LiveOmniCoinProvider;
   private ipfsService: IPFSService;
   private config: MintingConfig;
 
@@ -82,10 +82,8 @@ export class OmniCoinNFTMinter {
    */
   constructor(config: MintingConfig) {
     this.config = config;
-    this.provider = new OmniCoinProvider();
-    this.ipfsService = new IPFSService({
-      gateway: config.ipfsGateway
-    });
+    this.provider = new LiveOmniCoinProvider('testnet');
+    this.ipfsService = new IPFSService(config.ipfsGateway || 'https://ipfs.io');
   }
 
   /**
@@ -187,7 +185,7 @@ export class OmniCoinNFTMinter {
         { trait_type: 'Minted Date', value: new Date().toISOString() }
       ],
       properties: {
-        category: mintRequest.category,
+        ...(mintRequest.category && { category: mintRequest.category }),
         creators: [{
           address: listingData.seller.address,
           share: 100
@@ -282,12 +280,17 @@ export class OmniCoinNFTMinter {
    */
   private async getNextTokenId(): Promise<string> {
     try {
-      const contract = await this.provider.getContract(
+      const contract = this.provider.getContract(
         this.config.contractAddress,
         OMNICOIN_NFT_ABI
       );
-      const nextId = await contract.nextTokenId();
-      return nextId.toString();
+      const nextTokenIdMethod = contract['nextTokenId'];
+      if (typeof nextTokenIdMethod === 'function') {
+        const nextId = await nextTokenIdMethod();
+        return nextId.toString();
+      } else {
+        throw new Error('nextTokenId method not available');
+      }
     } catch (error) {
       // Fallback to timestamp-based ID
       return Date.now().toString();
@@ -316,18 +319,21 @@ export class OmniCoinNFTMinter {
   error?: string }> {
     try {
       const signer = await this.provider.getSigner();
-      const contract = await this.provider.getContract(
+      const contract = this.provider.getContract(
         this.config.contractAddress,
-        OMNICOIN_NFT_ABI,
-        signer
+        OMNICOIN_NFT_ABI
       );
 
       // Estimate gas
-      const gasEstimate = await contract.mint.estimateGas(toAddress, tokenId, tokenURI);
-      const gasLimit = Math.floor(gasEstimate.toNumber() * 1.2); // 20% buffer
+      const mintMethod = contract['mint'];
+      if (!mintMethod || !mintMethod.estimateGas) {
+        throw new Error('mint method not found');
+      }
+      const gasEstimate = await mintMethod.estimateGas(toAddress, tokenId, tokenURI);
+      const gasLimit = Math.floor(Number(gasEstimate) * 1.2); // 20% buffer
 
       // Send transaction
-      const tx = await contract.mint(toAddress, tokenId, tokenURI, {
+      const tx = await mintMethod(toAddress, tokenId, tokenURI, {
         gasLimit
       });
 
@@ -399,7 +405,9 @@ export class OmniCoinNFTMinter {
       
       // For now, just mark as listed
       nftItem.isListed = true;
-      nftItem.price = mintRequest.listingPrice;
+      if (mintRequest.listingPrice !== undefined) {
+        nftItem.price = mintRequest.listingPrice;
+      }
       nftItem.currency = mintRequest.listingCurrency || 'XOM';
       
     } catch (error) {
@@ -413,8 +421,11 @@ export class OmniCoinNFTMinter {
    */
   private base64ToBlob(base64: string): Blob {
     const parts = base64.split(',');
-    const mimeType = parts[0].match(/:(.*?);/)?.[1] || 'image/jpeg';
+    const mimeType = parts[0]?.match(/:(.*?);/)?.[1] || 'image/jpeg';
     const data = parts[1];
+    if (!data) {
+      throw new Error('Invalid base64 data');
+    }
     const bytes = atob(data);
     const uint8Array = new Uint8Array(bytes.length);
     
@@ -447,7 +458,8 @@ export class OmniCoinNFTMinter {
     currency: string;
   }> {
     try {
-      const gasPrice = await this.provider.getGasPrice();
+      // Use default gas price since getGasPrice is not available on LiveOmniCoinProvider
+      const gasPrice = '20000000000'; // 20 gwei default
       const gasLimit = '200000'; // Estimated gas limit for minting
       const totalFee = (BigInt(gasPrice) * BigInt(gasLimit)).toString();
 

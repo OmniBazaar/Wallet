@@ -338,10 +338,11 @@ export class TransactionService {
       }
 
       // Resolve destination address
-      resolvedAddress = await this.keyringManager.resolveAddressForChain(
+      const resolved = await this.keyringManager.resolveAddressForChain(
         request.to,
         request.chainType
       );
+      resolvedAddress = resolved ?? undefined;
 
       if (!resolvedAddress) {
         errors.push(`Could not resolve address: ${request.to}`);
@@ -378,21 +379,15 @@ export class TransactionService {
       return {
         valid: errors.length === 0,
         errors,
-        resolvedAddress
+        ...(resolvedAddress && { resolvedAddress })
       };
     } catch (error) {
-      errors.push(`Validation error: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      errors.push(`Validation error: ${errorMessage}`);
       return { valid: false, errors };
     }
   }
 
-  /**
-   * Placeholder: returns an empty list until history backend is wired.
-   */
-  public async getTransactionHistory(): Promise<TransactionResult[]> {
-    // TODO: Implement transaction history retrieval
-    return [];
-  }
 
   /**
    * Check whether a value is a valid address or resolvable name.

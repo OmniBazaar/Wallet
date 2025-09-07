@@ -6,12 +6,34 @@ export interface EthEncryptedData {
   ciphertext: string;
 }
 import { box as naclBox, randomBytes } from "tweetnacl";
-import {
-  decodeBase64,
-  encodeUTF8,
-  decodeUTF8,
-  encodeBase64,
-} from "tweetnacl-util";
+// Using native implementations instead of tweetnacl-util
+const decodeBase64 = (str: string): Uint8Array => {
+  const binary = atob(str);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+};
+
+const encodeBase64 = (bytes: Uint8Array): string => {
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) {
+    const byte = bytes[i];
+    if (byte !== undefined) {
+      binary += String.fromCharCode(byte);
+    }
+  }
+  return btoa(binary);
+};
+
+const encodeUTF8 = (str: string): Uint8Array => {
+  return new TextEncoder().encode(str);
+};
+
+const decodeUTF8 = (bytes: Uint8Array): string => {
+  return new TextDecoder().decode(bytes);
+};
 import { hexToBuffer, utf8ToHex } from ".";
 
 /** NaCl encryption version identifier */
@@ -85,7 +107,7 @@ const naclDecrypt = ({
       );
       let output;
       try {
-        output = encodeUTF8(decryptedMessage as Uint8Array);
+        output = decodeUTF8(decryptedMessage as Uint8Array);
         return output;
       } catch (err) {
         throw new Error("Decryption failed.");
@@ -143,7 +165,7 @@ const naclEncrypt = ({
       } catch (err) {
         throw new Error("Bad public key");
       }
-      const msgParamsUInt8Array = decodeUTF8(data);
+      const msgParamsUInt8Array = encodeUTF8(data);
       const nonce = randomBytes(24);
       const encryptedMessage = naclBox(
         msgParamsUInt8Array,

@@ -21,17 +21,26 @@ const bip32ToAddressNList = (path: string): number[] => {
   if (segments.length === 1 && segments[0] === "") return [];
   const ret = new Array(segments.length);
   for (let i = 0; i < segments.length; i++) {
-    const tmp = /(\d+)([hH']?)/.exec(segments[i]);
+    const segment = segments[i];
+    if (!segment) {
+      throw new Error("Invalid segment");
+    }
+    const tmp = /(\d+)([hH']?)/.exec(segment);
     if (tmp === null) {
       throw new Error("Invalid input");
     }
-    ret[i] = parseInt(tmp[1], 10);
+    const childIndex = tmp[1];
+    if (!childIndex) {
+      throw new Error("Invalid child index format");
+    }
+    ret[i] = parseInt(childIndex, 10);
     if (ret[i] >= HARDENED) {
       throw new Error("Invalid child index");
     }
-    if (tmp[2] === "h" || tmp[2] === "H" || tmp[2] === "'") {
+    const modifier = tmp[2];
+    if (modifier === "h" || modifier === "H" || modifier === "'") {
       ret[i] += HARDENED;
-    } else if (tmp[2].length !== 0) {
+    } else if (modifier && modifier.length !== 0) {
       throw new Error("Invalid modifier");
     }
   }

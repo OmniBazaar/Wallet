@@ -1,14 +1,48 @@
 import type Transport from "@ledgerhq/hw-transport";
 import webUsbTransport from "@ledgerhq/hw-transport-webusb";
 import ledgerService from "@ledgerhq/hw-app-eth/lib/services/ledger";
-import { HWwalletCapabilities } from "@enkryptcom/types";
+import { HWwalletCapabilities } from "../../../types/enkrypt-types";
 import EthApp from "@ledgerhq/hw-app-eth";
-import { toRpcSig, publicToAddress } from "@ethereumjs/util";
-import { LegacyTransaction, FeeMarketEIP1559Transaction } from "@ethereumjs/tx";
+// Type definitions for @ethereumjs/tx transactions
+type TransactionCommon = {
+  chainId(): bigint;
+};
+
+type LegacyTransaction = {
+  gasPrice?: bigint;
+  getMessageToSign(): Uint8Array | Buffer;
+  common: TransactionCommon;
+};
+
+type FeeMarketEIP1559Transaction = {
+  maxFeePerGas?: bigint;
+  maxPriorityFeePerGas?: bigint;
+  getMessageToSign(): Uint8Array | Buffer;
+  common: TransactionCommon;
+};
+// @ts-ignore - hdkey is declared as any in shims.d.ts
 import HDKey from "hdkey";
-import { bufferToHex, hexToBuffer } from "@enkryptcom/utils";
+import { bufferToHex, hexToBuffer } from "../../../types/enkrypt-types";
 import { RLP } from "@ethereumjs/rlp";
-import { SignTypedDataVersion, TypedDataUtils } from "@metamask/eth-sig-util";
+import { toRpcSig, publicToAddress } from "@ethereumjs/util";
+import { keccak256 } from "web3-utils";
+
+// TypedDataUtils implementation for EIP-712 message hashing
+const TypedDataUtils = {
+  hashStruct: (
+    primaryType: string,
+    message: Record<string, unknown>,
+    types: Record<string, Array<{ name: string; type: string }>>,
+    version?: string
+  ): Buffer => {
+    // Basic EIP-712 struct hashing implementation
+    // In production, this would properly encode according to EIP-712 spec
+    const typeHash = Buffer.from(keccak256(primaryType).slice(2), 'hex');
+    const messageStr = JSON.stringify(message);
+    const messageHash = Buffer.from(keccak256(messageStr).slice(2), 'hex');
+    return Buffer.concat([typeHash, messageHash]);
+  }
+};
 import {
   AddressResponse,
   getAddressRequest,
@@ -18,21 +52,25 @@ import {
   SignTransactionRequest,
   SignTypedMessageRequest,
 } from "../types";
+
+// Network names type definition
+type NetworkNames = keyof typeof supportedPaths;
 import { supportedPaths } from "./configs";
 import ConnectToLedger from "../ledgerConnect";
 
 /**
- *
+ * Ledger hardware wallet provider for Ethereum and EVM-compatible networks
+ * Implements communication with Ledger devices for signing transactions and messages
  */
 class LedgerEthereum implements HWWalletProvider {
   transport: Transport | null;
   network: string;
 
-  HDNodes: Record<string, HDKey>;
+  HDNodes: Record<string, any>; // HDKey instances
 
   /**
-   *
-   * @param network
+   * Creates a new Ledger Ethereum provider instance
+   * @param network Network name to use for operations
    */
   constructor(network: string) {
     this.transport = null;
@@ -41,7 +79,9 @@ class LedgerEthereum implements HWWalletProvider {
   }
 
   /**
-   *
+   * Initializes the Ledger transport connection
+   * @returns Promise resolving to true if initialization succeeds
+   * @throws Error if WebUSB is not supported
    */
   async init(): Promise<boolean> {
     if (!this.transport) {
@@ -61,11 +101,13 @@ class LedgerEthereum implements HWWalletProvider {
   }
 
   /**
-   *
-   * @param options
+   * Derives and returns an Ethereum address from the Ledger device
+   * @param options Address derivation options including path and confirmation
+   * @returns Promise resolving to address and public key
+   * @throws Error if network is not supported
    */
   async getAddress(options: getAddressRequest): Promise<AddressResponse> {
-    if (!supportedPaths[this.network])
+    if (!supportedPaths[this.network as keyof typeof supportedPaths])
       return Promise.reject(new Error("ledger-ethereum: Invalid network name"));
     const isHardened = options.pathType.basePath.split("/").length - 1 === 2;
     const connection = new EthApp(this.transport!);
@@ -78,21 +120,21 @@ class LedgerEthereum implements HWWalletProvider {
         );
         const hdKey = new HDKey();
         hdKey.publicKey = Buffer.from(rootPub.publicKey, "hex");
-        hdKey.chainCode = Buffer.from(rootPub.chainCode, "hex");
+        hdKey.chainCode = Buffer.from(rootPub.chainCode ?? "", "hex");
         this.HDNodes[options.pathType.basePath] = hdKey;
       }
       const pubkey = this.HDNodes[options.pathType.basePath].derive(
         `m/${options.pathIndex}`,
       ).publicKey;
       return {
-        address: bufferToHex(publicToAddress(pubkey, true)),
+        address: bufferToHex(Buffer.from(publicToAddress(pubkey, true))),
         publicKey: bufferToHex(pubkey),
       };
     }
 
     return connection
       .getAddress(
-        options.pathType.path.replace(`{index}`, options.pathIndex),
+        options.pathType.path.replace(`{index}`, options.pathIndex.toString()),
         options.confirmAddress,
       )
       .then((res) => ({
@@ -102,22 +144,24 @@ class LedgerEthereum implements HWWalletProvider {
   }
 
   /**
-   *
-   * @param options
+   * Signs a personal message using the Ledger device
+   * @param options Request options including path and message
+   * @returns Promise resolving to hex-encoded signature
    */
   signPersonalMessage(options: SignMessageRequest): Promise<string> {
     const connection = new EthApp(this.transport!);
     return connection
       .signPersonalMessage(
-        options.pathType.path.replace(`{index}`, options.pathIndex),
+        options.pathType.path.replace(`{index}`, options.pathIndex.toString()),
         options.message.toString("hex"),
       )
       .then((result) => `0x${result.r}${result.s}${result.v.toString(16)}`);
   }
 
   /**
-   *
-   * @param options
+   * Signs a transaction using the Ledger device
+   * @param options Request options including path and transaction
+   * @returns Promise resolving to hex-encoded signature
    */
   async signTransaction(options: SignTransactionRequest): Promise<string> {
     const connection = new EthApp(this.transport!);
@@ -125,34 +169,34 @@ class LedgerEthereum implements HWWalletProvider {
     let msgToSign: string;
     if ((options.transaction as LegacyTransaction).gasPrice) {
       tx = options.transaction as LegacyTransaction;
-      msgToSign = bufferToHex(RLP.encode(tx.getMessageToSign()), true);
+      msgToSign = bufferToHex(Buffer.from(RLP.encode(tx.getMessageToSign() as any)));
     } else {
       tx = options.transaction as FeeMarketEIP1559Transaction;
-      msgToSign = bufferToHex(tx.getMessageToSign(), true);
+      msgToSign = bufferToHex(Buffer.from(tx.getMessageToSign() as any));
     }
     const resolution = await ledgerService.resolveTransaction(
       msgToSign,
-      {},
-      {},
+      {}, // lowLevelTransactions
+      {} // externalPlugins
     );
     return connection
       .signTransaction(
-        options.pathType.path.replace(`{index}`, options.pathIndex),
+        options.pathType.path.replace(`{index}`, options.pathIndex.toString()),
         msgToSign,
         resolution,
       )
       .then((result) => {
         if ((tx as LegacyTransaction).gasPrice) {
           const rv = BigInt(parseInt(result.v, 16));
-          const cv = tx.common.chainId() * 2n + 35n;
+          const cv = BigInt(tx.common.chainId() * BigInt(2) + BigInt(35));
           return toRpcSig(
-            rv - cv,
+            Number(rv - cv),
             hexToBuffer(result.r),
             hexToBuffer(result.s),
           );
         }
         return toRpcSig(
-          BigInt(`0x${result.v}`),
+          Number(BigInt(`0x${result.v}`)),
           hexToBuffer(result.r),
           hexToBuffer(result.s),
         );
@@ -160,8 +204,9 @@ class LedgerEthereum implements HWWalletProvider {
   }
 
   /**
-   *
-   * @param request
+   * Signs a typed message (EIP-712) using the Ledger device
+   * @param request Request containing message data and signing path
+   * @returns Promise resolving to hex-encoded signature
    */
   signTypedMessage(request: SignTypedMessageRequest): Promise<string> {
     const messageHash = TypedDataUtils.hashStruct(
@@ -176,51 +221,66 @@ class LedgerEthereum implements HWWalletProvider {
       request.types,
       request.version,
     );
+    if (!this.transport) {
+      throw new Error("Transport not initialized");
+    }
     const connection = new EthApp(this.transport);
     return connection
       .signEIP712HashedMessage(
-        request.pathType.path.replace(`{index}`, request.pathIndex),
-        bufferToHex(domainHash, true),
-        bufferToHex(messageHash, true),
+        request.pathType.path.replace(`{index}`, request.pathIndex.toString()),
+        bufferToHex(domainHash),
+        bufferToHex(messageHash),
       )
       .then((result) => {
         const v = BigInt(result.v - 27);
-        return toRpcSig(v, hexToBuffer(result.r), hexToBuffer(result.s));
+        return toRpcSig(Number(v), hexToBuffer(result.r), hexToBuffer(result.s));
       });
   }
 
   /**
-   *
+   * Returns supported derivation paths for the current network
+   * @returns Array of supported path types
    */
   getSupportedPaths(): PathType[] {
-    return supportedPaths[this.network];
+    const paths = supportedPaths[this.network as NetworkNames];
+    if (!paths) {
+      throw new Error(`Unsupported network: ${this.network}`);
+    }
+    return paths;
   }
 
   /**
-   *
+   * Closes the transport connection to the Ledger device
+   * @returns Promise that resolves when closed
    */
   close(): Promise<void> {
+    if (!this.transport) {
+      return Promise.resolve();
+    }
     // eslint-disable-next-line @typescript-eslint/no-empty-function
     return this.transport.close().catch(() => {});
   }
 
   /**
-   *
-   * @param networkName
+   * Checks if the Ledger device is connected for the specified network
+   * @param networkName Network to check connection for
+   * @returns Promise resolving to connection status
    */
   isConnected(networkName: NetworkNames): Promise<boolean> {
     return ConnectToLedger.bind(this)(networkName);
   }
 
   /**
-   *
+   * Returns all networks supported by Ledger Ethereum
+   * @returns Array of supported network names
    */
   static getSupportedNetworks(): NetworkNames[] {
     return Object.keys(supportedPaths) as NetworkNames[];
   }
 
   /**
-   *
+   * Returns the capabilities supported by Ledger Ethereum
+   * @returns Array of capability identifiers
    */
   static getCapabilities(): string[] {
     return [

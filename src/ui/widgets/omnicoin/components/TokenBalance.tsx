@@ -1,96 +1,91 @@
 /* @jsxImportSource react */
 import React, { useState } from 'react';
-import styled from 'styled-components';
-import { useTokenBalance } from '../../../../../hooks/useTokenBalance';
-import { useTokenTransfer } from '../../../../../hooks/useTokenTransfer';
+import { useTokenBalance } from '../../../../hooks/useTokenBalance';
+import { useTokenTransfer } from '../../../../hooks/useTokenTransfer';
 import { OmniCoinLoading } from './OmniCoinLoading';
 import { OmniCoinToast } from './OmniCoinToast';
-import { OmniCoinTooltip } from './OmniCoinTooltip';
 
-const BalanceContainer = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  padding: 1rem;
-  background: ${props => props.theme.colors.background};
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-`;
+const balanceContainerStyle: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '1rem',
+  padding: '1rem',
+  background: '#ffffff',
+  borderRadius: '8px',
+  boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
+};
 
-const TokenInfo = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-`;
+const tokenInfoStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '1rem'
+};
 
-const TokenIcon = styled.img`
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-`;
+const tokenIconStyle: React.CSSProperties = {
+  width: '32px',
+  height: '32px',
+  borderRadius: '50%'
+};
 
-const TokenDetails = styled.div`
-  flex: 1;
-`;
+const tokenDetailsStyle: React.CSSProperties = {
+  flex: 1
+};
 
-const TokenName = styled.h3`
-  margin: 0;
-  font-size: 1rem;
-  color: ${props => props.theme.colors.text.primary};
-`;
+const tokenNameStyle: React.CSSProperties = {
+  margin: '0',
+  fontSize: '1rem',
+  color: '#1f2937'
+};
 
-const TokenSymbol = styled.span`
-  font-size: 0.875rem;
-  color: ${props => props.theme.colors.text.secondary};
-`;
+const tokenSymbolStyle: React.CSSProperties = {
+  fontSize: '0.875rem',
+  color: '#6b7280'
+};
 
-const BalanceAmount = styled.div`
-  font-size: 1.25rem;
-  font-weight: bold;
-  color: ${props => props.theme.colors.text.primary};
-`;
+const balanceAmountStyle: React.CSSProperties = {
+  fontSize: '1.25rem',
+  fontWeight: 'bold',
+  color: '#1f2937'
+};
 
-const TransferForm = styled.form`
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-`;
+const transferFormStyle: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '0.5rem'
+};
 
-const Input = styled.input`
-  padding: 0.5rem;
-  border: 1px solid ${props => props.theme.colors.border};
-  border-radius: 4px;
-  font-size: 0.875rem;
+const inputStyle: React.CSSProperties = {
+  padding: '0.5rem',
+  border: '1px solid #d1d5db',
+  borderRadius: '4px',
+  fontSize: '0.875rem'
+};
 
-  &:focus {
-    outline: none;
-    border-color: ${props => props.theme.colors.primary};
-  }
-`;
+const buttonStyle: React.CSSProperties = {
+  padding: '0.5rem 1rem',
+  background: '#3b82f6',
+  color: 'white',
+  border: 'none',
+  borderRadius: '4px',
+  cursor: 'pointer',
+  transition: 'all 0.2s ease'
+};
 
-const Button = styled.button`
-  padding: 0.5rem 1rem;
-  background: ${props => props.theme.colors.primary};
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-
-  &:hover {
-    opacity: 0.9;
-  }
-
-  &:disabled {
-    background: ${props => props.theme.colors.disabled};
-    cursor: not-allowed;
-  }
-`;
+const buttonDisabledStyle: React.CSSProperties = {
+  ...buttonStyle,
+  background: '#9ca3af',
+  cursor: 'not-allowed'
+};
 
 interface TokenBalanceProps {
   tokenAddress: string;
 }
 
+/**
+ * Component for displaying token balance and transfer functionality
+ * @param props - Component props
+ * @returns Token balance component
+ */
 export const TokenBalance: React.FC<TokenBalanceProps> = ({ tokenAddress }) => {
   const { tokenInfo, balance: _balance, formattedBalance, isLoading: isBalanceLoading, error: balanceError } = useTokenBalance(tokenAddress);
   const { transfer, isTransferring, error: transferError } = useTokenTransfer(tokenAddress);
@@ -100,7 +95,11 @@ export const TokenBalance: React.FC<TokenBalanceProps> = ({ tokenAddress }) => {
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error' | 'info' | 'pending'>('info');
 
-  const handleTransfer = async (e: React.FormEvent): Promise<void> => {
+  /**
+   * Handle token transfer form submission
+   * @param e - Form event
+   */
+  const handleTransfer = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
 
     if (!tokenInfo) return;
@@ -122,6 +121,22 @@ export const TokenBalance: React.FC<TokenBalanceProps> = ({ tokenAddress }) => {
     }
   };
 
+  /**
+   * Handle input change with proper typing
+   * @param e - Change event
+   */
+  const handleRecipientChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
+    setRecipient(e.target.value);
+  };
+
+  /**
+   * Handle amount change with proper typing
+   * @param e - Change event
+   */
+  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
+    setAmount(e.target.value);
+  };
+
   if (isBalanceLoading) {
     return <OmniCoinLoading text="Loading token balance..." />;
   }
@@ -135,7 +150,7 @@ export const TokenBalance: React.FC<TokenBalanceProps> = ({ tokenAddress }) => {
   }
 
   return (
-    <BalanceContainer>
+    <div style={balanceContainerStyle}>
       {showToast && (
         <OmniCoinToast
           message={toastMessage}
@@ -144,46 +159,57 @@ export const TokenBalance: React.FC<TokenBalanceProps> = ({ tokenAddress }) => {
         />
       )}
 
-      <TokenInfo>
-        <TokenIcon src={tokenInfo.logoURI} alt={tokenInfo.symbol} />
-        <TokenDetails>
-          <TokenName>{tokenInfo.name}</TokenName>
-          <TokenSymbol>{tokenInfo.symbol}</TokenSymbol>
-        </TokenDetails>
-        <BalanceAmount>
-          <OmniCoinTooltip content="Your current token balance">
-            {formattedBalance} {tokenInfo.symbol}
-          </OmniCoinTooltip>
-        </BalanceAmount>
-      </TokenInfo>
+      <div style={tokenInfoStyle}>
+        {tokenInfo.logoURI && (
+          <img 
+            src={tokenInfo.logoURI} 
+            alt={tokenInfo.symbol}
+            style={tokenIconStyle}
+          />
+        )}
+        <div style={tokenDetailsStyle}>
+          <h3 style={tokenNameStyle}>{tokenInfo.name}</h3>
+          <span style={tokenSymbolStyle}>{tokenInfo.symbol}</span>
+        </div>
+        <div style={balanceAmountStyle} title="Your current token balance">
+          {formattedBalance} {tokenInfo.symbol}
+        </div>
+      </div>
 
-      <TransferForm onSubmit={handleTransfer} aria-label="Token Transfer Form">
-        <Input
+      <form style={transferFormStyle} onSubmit={handleTransfer} aria-label="Token Transfer Form">
+        <input
           type="text"
           placeholder="Recipient Address"
           value={recipient}
-          onChange={(e) => setRecipient(e.target.value)}
+          onChange={handleRecipientChange}
           required
           aria-label="Recipient Address"
+          style={inputStyle}
         />
-        <Input
+        <input
           type="number"
           placeholder="Amount"
           value={amount}
-          onChange={(e) => setAmount(e.target.value)}
+          onChange={handleAmountChange}
           required
           min="0"
           step="any"
           aria-label="Amount"
+          style={inputStyle}
         />
-        <Button type="submit" disabled={isTransferring} aria-label="Transfer Token">
+        <button 
+          type="submit" 
+          disabled={isTransferring} 
+          aria-label="Transfer Token"
+          style={isTransferring ? buttonDisabledStyle : buttonStyle}
+        >
           {isTransferring ? 'Transferring...' : 'Transfer'}
-        </Button>
-      </TransferForm>
+        </button>
+      </form>
 
       {transferError && (
         <OmniCoinToast type="error" message={transferError} />
       )}
-    </BalanceContainer>
+    </div>
   );
 }; 

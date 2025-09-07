@@ -1,6 +1,6 @@
 /* @jsxImportSource react */
 import React from 'react';
-import styled from 'styled-components';
+import styled, { DefaultTheme } from 'styled-components';
 import { OmniCoinLoading } from './OmniCoinLoading';
 import { OmniCoinToast } from './OmniCoinToast';
 
@@ -16,7 +16,7 @@ const Grid = styled.div`
 `;
 
 const ListingCard = styled.div`
-  background: ${props => props.theme.colors.background};
+  background: ${(props: { theme: DefaultTheme }) => props.theme.colors.background};
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   overflow: hidden;
@@ -40,13 +40,13 @@ const ListingContent = styled.div`
 const ListingTitle = styled.h3`
   margin: 0 0 0.5rem;
   font-size: 1.1rem;
-  color: ${props => props.theme.colors.text.primary};
+  color: ${(props: { theme: DefaultTheme }) => props.theme.colors.text.primary};
 `;
 
 const ListingPrice = styled.div`
   font-size: 1.2rem;
   font-weight: bold;
-  color: ${props => props.theme.colors.primary};
+  color: ${(props: { theme: DefaultTheme }) => props.theme.colors.primary};
   margin-bottom: 0.5rem;
 `;
 
@@ -55,7 +55,7 @@ const ListingDetails = styled.div`
   flex-direction: column;
   gap: 0.5rem;
   font-size: 0.875rem;
-  color: ${props => props.theme.colors.text.secondary};
+  color: ${(props: { theme: DefaultTheme }) => props.theme.colors.text.secondary};
 `;
 
 const ListingLocation = styled.div`
@@ -63,7 +63,7 @@ const ListingLocation = styled.div`
   align-items: center;
   gap: 0.5rem;
   font-size: 0.875rem;
-  color: ${props => props.theme.colors.text.secondary};
+  color: ${(props: { theme: DefaultTheme }) => props.theme.colors.text.secondary};
 `;
 
 const SellerInfo = styled.div`
@@ -72,7 +72,7 @@ const SellerInfo = styled.div`
   gap: 0.5rem;
   margin-top: 1rem;
   padding-top: 1rem;
-  border-top: 1px solid ${props => props.theme.colors.border};
+  border-top: 1px solid ${(props: { theme: DefaultTheme }) => props.theme.colors.border};
 `;
 
 const SellerAvatar = styled.img`
@@ -84,20 +84,20 @@ const SellerAvatar = styled.img`
 
 const SellerName = styled.span`
   font-size: 0.875rem;
-  color: ${props => props.theme.colors.text.primary};
+  color: ${(props: { theme: DefaultTheme }) => props.theme.colors.text.primary};
 `;
 
 const Rating = styled.div`
   display: flex;
   align-items: center;
   gap: 0.25rem;
-  color: ${props => props.theme.colors.primary};
+  color: ${(props: { theme: DefaultTheme }) => props.theme.colors.primary};
 `;
 
 const EmptyState = styled.div`
   text-align: center;
   padding: 2rem;
-  color: ${props => props.theme.colors.textSecondary};
+  color: ${(props: { theme: DefaultTheme }) => props.theme.colors.textSecondary};
 `;
 
 // Minimal listing types to decouple from external type import

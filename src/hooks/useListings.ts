@@ -38,11 +38,7 @@ export const useListings = (contractAddress: string): UseListingsReturn => {
     useEffect(() => {
         const initProvider = async () => {
             try {
-                const provider = new OmniProvider(1, {
-                    validatorUrl: (process?.env?.['VALIDATOR_URL'] as string | undefined) ?? 'wss://validator.omnibazaar.com',
-                    walletId: 'marketplace-listings',
-                    authKey: process?.env?.['OMNI_AUTH_KEY'] as string | undefined
-                });
+                const provider = new OmniProvider('marketplace-listings');
                 setOmniProvider(provider);
             } catch (error) {
                 console.error('Failed to initialize OmniProvider:', error);

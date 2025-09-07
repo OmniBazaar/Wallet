@@ -1,6 +1,6 @@
 /* @jsxImportSource react */
 import React, { useState } from 'react';
-import styled from 'styled-components';
+import styled, { DefaultTheme } from 'styled-components';
 // Minimal search filter type to avoid external type import
 interface SearchFilters {
   type?: 'product' | 'service' | string;
@@ -15,7 +15,7 @@ interface SearchFilters {
 
 const SearchContainer = styled.div`
   padding: 1rem;
-  background: ${props => props.theme.colors.background};
+  background: ${(props: { theme: DefaultTheme }) => props.theme.colors.background};
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 `;
@@ -35,37 +35,37 @@ const InputGroup = styled.div`
 
 const Label = styled.label`
   font-size: 0.875rem;
-  color: ${props => props.theme.colors.text.primary};
+  color: ${(props: { theme: DefaultTheme }) => props.theme.colors.text.primary};
 `;
 
 const Input = styled.input`
   padding: 0.5rem;
-  border: 1px solid ${props => props.theme.colors.border};
+  border: 1px solid ${(props: { theme: DefaultTheme }) => props.theme.colors.border};
   border-radius: 4px;
   font-size: 0.875rem;
 
   &:focus {
     outline: none;
-    border-color: ${props => props.theme.colors.primary};
+    border-color: ${(props: { theme: DefaultTheme }) => props.theme.colors.primary};
   }
 `;
 
 const Select = styled.select`
   padding: 0.5rem;
-  border: 1px solid ${props => props.theme.colors.border};
+  border: 1px solid ${(props: { theme: DefaultTheme }) => props.theme.colors.border};
   border-radius: 4px;
   font-size: 0.875rem;
   background: white;
 
   &:focus {
     outline: none;
-    border-color: ${props => props.theme.colors.primary};
+    border-color: ${(props: { theme: DefaultTheme }) => props.theme.colors.primary};
   }
 `;
 
 const Button = styled.button`
   padding: 0.5rem 1rem;
-  background: ${props => props.theme.colors.primary};
+  background: ${(props: { theme: DefaultTheme }) => props.theme.colors.primary};
   color: white;
   border: none;
   border-radius: 4px;
@@ -77,7 +77,7 @@ const Button = styled.button`
   }
 
   &:disabled {
-    background: ${props => props.theme.colors.disabled};
+    background: ${(props: { theme: DefaultTheme }) => props.theme.colors.disabled};
     cursor: not-allowed;
   }
 `;
@@ -91,7 +91,7 @@ const FilterTags = styled.div`
 
 const FilterTag = styled.span`
   padding: 0.25rem 0.5rem;
-  background: ${props => props.theme.colors.backgroundAlt};
+  background: ${(props: { theme: DefaultTheme }) => props.theme.colors.backgroundAlt};
   border-radius: 4px;
   font-size: 0.875rem;
   display: flex;
@@ -102,13 +102,13 @@ const FilterTag = styled.span`
 const RemoveButton = styled.button`
   background: none;
   border: none;
-  color: ${props => props.theme.colors.text.secondary};
+  color: ${(props: { theme: DefaultTheme }) => props.theme.colors.text.secondary};
   cursor: pointer;
   padding: 0;
   font-size: 1rem;
 
   &:hover {
-    color: ${props => props.theme.colors.text.primary};
+    color: ${(props: { theme: DefaultTheme }) => props.theme.colors.text.primary};
   }
 `;
 
@@ -134,7 +134,7 @@ export const ListingSearch: React.FC<ListingSearchProps> = ({ onSearch, isLoadin
             setFilters(prev => ({
                 ...prev,
                 [parent]: {
-                    ...prev[parent as keyof SearchFilters],
+                    ...(prev[parent as keyof SearchFilters] as Record<string, unknown> || {}),
                     [child]: value ? Number(value) : undefined,
                 },
             }));
@@ -174,7 +174,7 @@ export const ListingSearch: React.FC<ListingSearchProps> = ({ onSearch, isLoadin
             setFilters(prev => ({
                 ...prev,
                 [parent]: {
-                    ...prev[parent as keyof SearchFilters],
+                    ...(prev[parent as keyof SearchFilters] as Record<string, unknown> || {}),
                     [child]: undefined,
                 },
             }));

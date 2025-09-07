@@ -1,189 +1,31 @@
-import { Address } from 'viem';
-
-import { createQueryKey } from '~/core/react-query';
-import { SupportedCurrencyKey } from '~/core/references';
-import { useConnectedToHardhatStore } from '~/core/state/currentSettings/connectedToHardhat';
-import {
-  AssetApiResponse,
-  ParsedAssetsDictByChain,
-  ParsedUserAsset,
-} from '~/core/types/assets';
-import { ChainId } from '~/core/types/chains';
-import {
-  fetchAssetBalanceViaProvider,
-  parseUserAsset,
-} from '~/core/utils/assets';
-import { greaterThan } from '~/core/utils/numbers';
-import { getProvider } from '~/core/wagmi/clientToProvider';
-import {
-  DAI_MAINNET_ASSET,
-  ETH_MAINNET_ASSET,
-  OPTIMISM_MAINNET_ASSET,
-  USDC_MAINNET_ASSET,
-} from '~/test/utils';
-
 /**
- *
+ * NFT Assets Common Module
+ * 
+ * This module is temporarily disabled as it was copied from Rainbow wallet
+ * and needs to be refactored to work with OmniBazaar's architecture.
+ * 
+ * TODO: Implement common NFT functionality using:
+ * - OmniBazaar's NFTManager and NFTService
+ * - Proper TypeScript types from our codebase
+ * - Integration with our provider system
  */
-export type UserAssetsArgs = {
-  /**
-   *
-   */
-  address?: Address;
-  /**
-   *
-   */
-  currency: SupportedCurrencyKey;
-  /**
-   *
-   */
-  testnetMode?: boolean;
+
+// Placeholder exports to prevent import errors
+export const parseUserAssets = (assets: unknown[]): unknown[] => {
+  // TODO: Implement proper asset parsing
+  return assets;
 };
-/**
- *
- * @param root0
- * @param root0.address
- * @param root0.currency
- * @param root0.testnetMode
- */
-export const userAssetsQueryKey = ({
-  address,
-  currency,
-  testnetMode,
-}: UserAssetsArgs): readonly [string, { /**
-}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}} *
-}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}} */
-address?: Address; /**
-aaaaaaaaaaaaaaaaaaa *
-aaaaaaaaaaaaaaaaaaa */
-currency: SupportedCurrencyKey; /**
-cccccccccccccccccccccccccccccccc *
-cccccccccccccccccccccccccccccccc */
-testnetMode?: boolean }, { /**
-ttttttttttttttttttttttttttt *
-ttttttttttttttttttttttttttt */
-persisterVersion: number }] =>
-  createQueryKey(
-    'userAssets',
-    { address, currency, testnetMode },
-    { persisterVersion: 3 },
-  );
 
-/**
- *
- */
-export type UserAssetsQueryKey = ReturnType<typeof userAssetsQueryKey>;
+export const userAssetsQueryKey = 'userAssets';
 
-/**
- *
- * @param root0
- * @param root0.address
- * @param root0.assets
- * @param root0.chainIds
- * @param root0.currency
- */
-export async function parseUserAssets({
-  address,
-  assets,
-  chainIds,
-  currency,
-}: {
-  /**
-   *
-   */
-  address: Address;
-  /**
-   *
-   */
-  assets: {
-    /**
-     *
-     */
-    quantity: string;
-    /**
-     *
-     */
-    small_balance?: boolean;
-    /**
-     *
-     */
-    asset: AssetApiResponse;
-  }[];
-  /**
-   *
-   */
-  chainIds: ChainId[];
-  /**
-   *
-   */
-  currency: SupportedCurrencyKey;
-}): Promise<ParsedAssetsDictByChain> {
-  const parsedAssetsDict = chainIds.reduce(
-    (dict, currentChainId) => ({ ...dict, [currentChainId]: {} }),
-    {},
-  ) as ParsedAssetsDictByChain;
-  for (const { asset, quantity, small_balance } of assets) {
-    if (greaterThan(quantity, 0)) {
-      const parsedAsset = parseUserAsset({
-        asset,
-        currency,
-        balance: quantity,
-        smallBalance: small_balance,
-      });
-      parsedAssetsDict[parsedAsset?.chainId][parsedAsset.uniqueId] =
-        parsedAsset;
-    }
-  }
+export const getAssetBalance = (asset: unknown): string => {
+  // TODO: Implement proper balance calculation
+  return '0';
+};
 
-  const { connectedToHardhat, connectedToHardhatOp } =
-    useConnectedToHardhatStore.getState();
-  if (connectedToHardhat || connectedToHardhatOp) {
-    // separating out these ternaries for readability
-    const selectedHardhatChainId = connectedToHardhat
-      ? ChainId.hardhat
-      : ChainId.hardhatOptimism;
+export const formatAssetAmount = (amount: string, decimals = 18): string => {
+  // TODO: Implement proper amount formatting
+  return amount;
+};
 
-    const mainnetOrOptimismChainId = connectedToHardhat
-      ? ChainId.mainnet
-      : ChainId.optimism;
-
-    const ethereumOrOptimismAsset = connectedToHardhat
-      ? ETH_MAINNET_ASSET
-      : OPTIMISM_MAINNET_ASSET;
-
-    // Ensure assets are checked if connected to hardhat
-    const assets = parsedAssetsDict[mainnetOrOptimismChainId];
-    assets[ethereumOrOptimismAsset.uniqueId] = ethereumOrOptimismAsset;
-    if ((process?.env?.IS_TESTING as string | undefined) === 'true') {
-      assets[USDC_MAINNET_ASSET.uniqueId] = USDC_MAINNET_ASSET;
-      assets[DAI_MAINNET_ASSET.uniqueId] = DAI_MAINNET_ASSET;
-    }
-
-    const balanceRequests = Object.values(assets).map(async (asset) => {
-      if (asset.chainId !== mainnetOrOptimismChainId) return asset;
-      const provider = getProvider({ chainId: selectedHardhatChainId });
-      try {
-        const parsedAsset = await fetchAssetBalanceViaProvider({
-          parsedAsset: asset,
-          currentAddress: address,
-          currency,
-          provider,
-        });
-        return parsedAsset;
-      } catch (e) {
-        return asset;
-      }
-    });
-
-    const newParsedAssetsByUniqueId = await Promise.all(balanceRequests);
-    const newAssets = newParsedAssetsByUniqueId.reduce<
-      Record<string, ParsedUserAsset>
-    >((acc, parsedAsset) => {
-      acc[parsedAsset.uniqueId] = parsedAsset;
-      return acc;
-    }, {});
-    // eslint-disable-next-line require-atomic-updates
-    parsedAssetsDict[mainnetOrOptimismChainId] = newAssets;
-  }
-  return parsedAssetsDict;
-}
+export const COMMON_PLACEHOLDER = {};

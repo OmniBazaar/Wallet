@@ -185,7 +185,7 @@ export class SwapService {
       const config = this.dexConfigs.get('uniswap')!;
 
       // Check if on Ethereum mainnet
-      const chainId = await this.provider.getNetwork().then(n => n.chainId);
+      const chainId = await this.provider.getNetwork().then(n => Number(n.chainId));
       if (chainId !== config.chainId) {
         return null;
       }
@@ -196,25 +196,30 @@ export class SwapService {
         'function quoteExactInputSingle(address tokenIn, address tokenOut, uint24 fee, uint256 amountIn, uint160 sqrtPriceLimitX96) external returns (uint256 amountOut)'
       ];
 
-      const quoter = new ethers.Contract(quoterAddress, quoterABI, this.provider);
-      const amountIn = ethers.utils.parseEther(amount);
+      const quoter = new ethers.Contract(quoterAddress, quoterABI, this.provider) as ethers.Contract & {
+        quoteExactInputSingle: {
+          staticCall: (tokenIn: string, tokenOut: string, fee: number, amountIn: bigint, sqrtPriceLimitX96: bigint) => Promise<bigint>;
+        };
+      };
+      const amountIn = ethers.parseEther(amount);
 
       // Try different fee tiers
       const fees = [500, 3000, 10000]; // 0.05%, 0.3%, 1%
-      let bestOutput = ethers.BigNumber.from(0);
+      let bestOutput = 0n;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       let bestFee = 0;
 
       for (const fee of fees) {
         try {
-          const output = await quoter.callStatic.quoteExactInputSingle(
+          const output = await quoter.quoteExactInputSingle.staticCall(
             fromToken,
             toToken,
             fee,
             amountIn,
-            0
+            0n
           );
 
-          if (output.gt(bestOutput)) {
+          if (output > bestOutput) {
             bestOutput = output;
             bestFee = fee;
           }
@@ -223,20 +228,21 @@ export class SwapService {
         }
       }
 
-      if (bestOutput.eq(0)) {
+      if (bestOutput === 0n) {
         return null;
       }
 
       // Calculate slippage
       const expectedOutput = bestOutput;
-      const worstOutput = expectedOutput.mul(995).div(1000); // 0.5% slippage
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const worstOutput = (expectedOutput * 995n) / 1000n; // 0.5% slippage
       const slippage = 0.5;
 
       return {
         fromToken,
         toToken,
         inputAmount: amount,
-        outputAmount: ethers.utils.formatEther(bestOutput),
+        outputAmount: ethers.formatEther(bestOutput),
         estimatedSlippage: slippage,
         path: [fromToken, toToken],
         dex: 'uniswap',
@@ -263,7 +269,7 @@ export class SwapService {
       const config = this.dexConfigs.get('traderjoe')!;
 
       // Check if on Avalanche
-      const chainId = await this.provider.getNetwork().then(n => n.chainId);
+      const chainId = await this.provider.getNetwork().then(n => Number(n.chainId));
       if (chainId !== config.chainId) {
         return null;
       }
@@ -274,7 +280,7 @@ export class SwapService {
       ];
 
       const router = new ethers.Contract(config.router, routerABI, this.provider);
-      const amountIn = ethers.utils.parseEther(amount);
+      const amountIn = ethers.parseEther(amount);
 
       // Try direct path
       const path = [fromToken, toToken];
@@ -293,7 +299,7 @@ export class SwapService {
         fromToken,
         toToken,
         inputAmount: amount,
-        outputAmount: ethers.utils.formatEther(outputAmount),
+        outputAmount: ethers.formatEther(outputAmount),
         estimatedSlippage: slippage,
         path,
         dex: 'traderjoe',
@@ -326,7 +332,7 @@ export class SwapService {
       throw new Error(`Slippage too high: ${route.estimatedSlippage}% > ${maxSlippage}%`);
     }
 
-    const signer = this.provider.getSigner();
+    const signer = await this.provider.getSigner();
     const address = await signer.getAddress();
     const to = recipient || address;
 
@@ -359,7 +365,7 @@ export class SwapService {
     deadline: number,
     skipConfirmation: boolean
   ): Promise<ethers.ContractTransaction> {
-    const signer = this.provider.getSigner();
+    const signer = await this.provider.getSigner();
     const config = this.dexConfigs.get('omnidex')!;
 
     const routerABI = [
@@ -368,8 +374,8 @@ export class SwapService {
 
     const router = new ethers.Contract(config.router, routerABI, signer);
 
-    const amountIn = ethers.utils.parseEther(route.inputAmount);
-    const amountOutMin = ethers.utils.parseEther(route.outputAmount).mul(995).div(1000); // 0.5% slippage
+    const amountIn = ethers.parseEther(route.inputAmount);
+    const amountOutMin = (ethers.parseEther(route.outputAmount) * 995n) / 1000n; // 0.5% slippage
 
     // Approve router if needed
     await this.approveTokenIfNeeded(route.fromToken, config.router, amountIn);
@@ -406,7 +412,7 @@ export class SwapService {
     maxSlippage: number,
     skipConfirmation: boolean
   ): Promise<ethers.ContractTransaction> {
-    const signer = this.provider.getSigner();
+    const signer = await this.provider.getSigner();
     const config = this.dexConfigs.get('uniswap')!;
 
     const routerABI = [
@@ -415,10 +421,8 @@ export class SwapService {
 
     const router = new ethers.Contract(config.router, routerABI, signer);
 
-    const amountIn = ethers.utils.parseEther(route.inputAmount);
-    const amountOutMin = ethers.utils.parseEther(route.outputAmount)
-      .mul(1000 - maxSlippage * 10)
-      .div(1000);
+    const amountIn = ethers.parseEther(route.inputAmount);
+    const amountOutMin = (ethers.parseEther(route.outputAmount) * BigInt(1000 - maxSlippage * 10)) / 1000n;
 
     // Approve router if needed
     await this.approveTokenIfNeeded(route.fromToken, config.router, amountIn);
@@ -456,7 +460,7 @@ export class SwapService {
     maxSlippage: number,
     skipConfirmation: boolean
   ): Promise<ethers.ContractTransaction> {
-    const signer = this.provider.getSigner();
+    const signer = await this.provider.getSigner();
     const config = this.dexConfigs.get('traderjoe')!;
 
     const routerABI = [
@@ -465,10 +469,8 @@ export class SwapService {
 
     const router = new ethers.Contract(config.router, routerABI, signer);
 
-    const amountIn = ethers.utils.parseEther(route.inputAmount);
-    const amountOutMin = ethers.utils.parseEther(route.outputAmount)
-      .mul(1000 - maxSlippage * 10)
-      .div(1000);
+    const amountIn = ethers.parseEther(route.inputAmount);
+    const amountOutMin = (ethers.parseEther(route.outputAmount) * BigInt(1000 - maxSlippage * 10)) / 1000n;
 
     // Approve router if needed
     await this.approveTokenIfNeeded(route.fromToken, config.router, amountIn);
@@ -496,9 +498,9 @@ export class SwapService {
   private async approveTokenIfNeeded(
     token: string,
     spender: string,
-    amount: ethers.BigNumber
+    amount: bigint
   ): Promise<void> {
-    const signer = this.provider.getSigner();
+    const signer = await this.provider.getSigner();
     const address = await signer.getAddress();
 
     const tokenABI = [
@@ -509,11 +511,11 @@ export class SwapService {
     const tokenContract = new ethers.Contract(token, tokenABI, signer);
 
     // Check current allowance
-    const allowance = await tokenContract.allowance(address, spender);
+    const allowance = await tokenContract['allowance'](address, spender);
 
     // Approve if needed
-    if (allowance.lt(amount)) {
-      const tx = await tokenContract.approve(spender, ethers.constants.MaxUint256);
+    if (allowance < amount) {
+      const tx = await tokenContract['approve'](spender, ethers.MaxUint256);
       await tx.wait();
     }
   }

@@ -1,74 +1,24 @@
-import { useState, useCallback } from 'react';
-import { ethers } from 'ethers';
-import { useWallet } from './useWallet';
-
-const ERC721_ABI = [
-    'function safeTransferFrom(address from, address to, uint256 tokenId)'
-];
-
-const ERC1155_ABI = [
-    'function safeTransferFrom(address from, address to, uint256 id, uint256 amount, bytes data)'
-];
-
 /**
- * React hook that exposes NFT transfer helpers for ERC‑721 and ERC‑1155.
- * Creates a contract instance with the connected signer and provides a
- * single `transfer` function that adapts to the token standard.
- *
- * @param contractAddress NFT contract address
- * @param tokenType Token standard: 'ERC721' or 'ERC1155'
- * @returns Reactive state and `transfer` helper
+ * NFT Transfer Hook
+ * 
+ * This hook is temporarily disabled as it was copied from another codebase
+ * and needs to be refactored to work with OmniBazaar's architecture.
+ * 
+ * TODO: Implement NFT transfer hook using:
+ * - OmniBazaar's NFTService and transfer functionality
+ * - Proper TypeScript types from our codebase
+ * - Integration with our provider system
  */
-export const useNFTTransfer = (contractAddress: string, tokenType: 'ERC721' | 'ERC1155'): {
-    /** Whether a transfer is currently in progress */
-    isTransferring: boolean;
-    /** Last error message (if any) */
-    error: string | null;
-    /** Transfer an NFT (amount is used only for ERC‑1155) */
-    transfer: (to: string, tokenId: string, amount?: string) => Promise<ethers.TransactionReceipt>;
-} => {
-    const { provider, address } = useWallet();
-    const [isTransferring, setIsTransferring] = useState(false);
-    const [error, setError] = useState<string | null>(null);
 
-    const transfer = useCallback(async (to: string, tokenId: string, amount = '1') => {
-        if (!provider || !address) {
-            throw new Error('Wallet not connected');
-        }
-
-        try {
-            setIsTransferring(true);
-            setError(null);
-
-            const signer = provider.getSigner();
-            const contract = new ethers.Contract(
-                contractAddress,
-                tokenType === 'ERC721' ? ERC721_ABI : ERC1155_ABI,
-                signer
-            );
-
-            let tx;
-            if (tokenType === 'ERC721') {
-                tx = await contract.safeTransferFrom(address, to, tokenId);
-            } else {
-                tx = await contract.safeTransferFrom(address, to, tokenId, amount, '0x');
-            }
-
-            const receipt = await tx.wait();
-            return receipt;
-
-        } catch (err) {
-            const error = err as Error;
-            setError(error.message || 'Failed to transfer NFT');
-            throw error;
-        } finally {
-            setIsTransferring(false);
-        }
-    }, [provider, address, contractAddress, tokenType]);
-
-    return {
-        isTransferring,
-        error,
-        transfer
-    };
-}; 
+// Placeholder hook to prevent import errors
+export const useNFTTransfer = () => {
+  // TODO: Implement using NFTService
+  return {
+    transferNFT: async () => {
+      // TODO: Implement NFT transfer logic
+      throw new Error('NFT transfer not implemented');
+    },
+    isTransferring: false,
+    error: null
+  };
+};

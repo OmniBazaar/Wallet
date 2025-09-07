@@ -41,6 +41,28 @@ const TOKEN_ABI = [
   'function balanceOf(address account) view returns (uint256)'
 ];
 
+interface TokenContractMethods {
+  approve: (spender: string, amount: bigint) => Promise<ethers.ContractTransactionResponse>;
+  allowance: (owner: string, spender: string) => Promise<bigint>;
+  balanceOf: (account: string) => Promise<bigint>;
+}
+
+interface StakingContractMethods {
+  stake: (amount: bigint, duration: bigint, usePrivacy: boolean) => Promise<ethers.ContractTransactionResponse>;
+  unstake: (amount: bigint) => Promise<ethers.ContractTransactionResponse>;
+  claimRewards: () => Promise<ethers.ContractTransactionResponse>;
+  compound: () => Promise<ethers.ContractTransactionResponse>;
+  emergencyWithdraw: () => Promise<ethers.ContractTransactionResponse>;
+  getStakeInfo: (user: string) => Promise<[bigint, bigint, bigint, bigint, boolean, boolean]>;
+  calculateReward: (user: string) => Promise<bigint>;
+  getTierInfo: (tier: bigint) => Promise<[bigint, bigint]>;
+  minStakeAmount: () => Promise<bigint>;
+  maxStakeAmount: () => Promise<bigint>;
+  baseRewardRate: () => Promise<bigint>;
+  isStakingEnabled: () => Promise<boolean>;
+  getParticipationScore: (user: string) => Promise<bigint>;
+}
+
 /** Information about a user's stake */
 export interface StakeInfo {
   /** Staking tier (0-3) */
@@ -200,11 +222,7 @@ export class StakingService {
   private async initializeProvider(): Promise<void> {
     try {
       // Try OmniProvider first
-      this.omniProvider = new OmniProvider(1, {
-        validatorUrl: (process?.env?.['VALIDATOR_URL'] as string | undefined) || 'wss://validator.omnibazaar.com',
-        walletId: 'staking-service',
-        authKey: process?.env?.['OMNI_AUTH_KEY'] as string | undefined
-      });
+      this.omniProvider = new OmniProvider('staking-service');
 
       // Initialize contracts
       this.stakingContract = new ethers.Contract(
@@ -225,7 +243,7 @@ export class StakingService {
 
       // Fallback to standard provider
       this.provider = new ethers.JsonRpcProvider(
-        process.env.RPC_URL || 'https://ethereum.publicnode.com'
+        process.env['RPC_URL'] || 'https://ethereum.publicnode.com'
       );
 
       this.stakingContract = new ethers.Contract(
@@ -268,14 +286,14 @@ export class StakingService {
       const tokenWithSigner = this.tokenContract.connect(signer || this.provider);
 
       // Check allowance
-      const allowance = await tokenWithSigner.allowance(
-        await signer?.getAddress(),
+      const allowance = await (tokenWithSigner as unknown as TokenContractMethods).allowance(
+        await (signer?.getAddress() ?? ''),
         this.STAKING_CONTRACT_ADDRESS
       );
 
       // Approve if needed
       if (allowance < amountWei) {
-        const approveTx = await tokenWithSigner.approve(
+        const approveTx = await (tokenWithSigner as unknown as TokenContractMethods).approve(
           this.STAKING_CONTRACT_ADDRESS,
           amountWei
         );
@@ -283,8 +301,11 @@ export class StakingService {
       }
 
       // Stake tokens
-      const tx = await stakingWithSigner.stake(amountWei, durationSeconds, usePrivacy);
+      const tx = await (stakingWithSigner as unknown as StakingContractMethods).stake(amountWei, BigInt(durationSeconds), usePrivacy);
       const receipt = await tx.wait();
+      if (!receipt) {
+        throw new Error('Transaction failed to confirm');
+      }
 
       return {
         success: true,
@@ -316,8 +337,11 @@ export class StakingService {
       const amountWei = ethers.parseEther(amount);
       const stakingWithSigner = this.stakingContract.connect(signer || this.provider);
 
-      const tx = await stakingWithSigner.unstake(amountWei);
+      const tx = await (stakingWithSigner as unknown as StakingContractMethods).unstake(amountWei);
       const receipt = await tx.wait();
+      if (!receipt) {
+        throw new Error('Transaction failed to confirm');
+      }
 
       return {
         success: true,
@@ -346,8 +370,11 @@ export class StakingService {
 
       const stakingWithSigner = this.stakingContract.connect(signer || this.provider);
 
-      const tx = await stakingWithSigner.claimRewards();
+      const tx = await (stakingWithSigner as unknown as StakingContractMethods).claimRewards();
       const receipt = await tx.wait();
+      if (!receipt) {
+        throw new Error('Transaction failed to confirm');
+      }
 
       // Get claimed amount from events
       const event = receipt.logs.find((log: any) =>
@@ -384,8 +411,11 @@ export class StakingService {
 
       const stakingWithSigner = this.stakingContract.connect(signer || this.provider);
 
-      const tx = await stakingWithSigner.compound();
+      const tx = await (stakingWithSigner as unknown as StakingContractMethods).compound();
       const receipt = await tx.wait();
+      if (!receipt) {
+        throw new Error('Transaction failed to confirm');
+      }
 
       return {
         success: true,
@@ -423,17 +453,17 @@ export class StakingService {
         throw new Error('Contract not initialized');
       }
 
-      const info = await this.stakingContract.getStakeInfo(address);
-      const rewards = await this.stakingContract.calculateReward(address);
-      const participationScore = await this.stakingContract.getParticipationScore(address);
+      const info = await (this.stakingContract as unknown as StakingContractMethods).getStakeInfo(address);
+      const rewards = await (this.stakingContract as unknown as StakingContractMethods).calculateReward(address);
+      const participationScore = await (this.stakingContract as unknown as StakingContractMethods).getParticipationScore(address);
 
       return {
-        tier: Number(info.tier),
-        startTime: Number(info.startTime),
-        lastRewardTime: Number(info.lastRewardTime),
-        commitmentDuration: Number(info.commitmentDuration),
-        isActive: info.isActive,
-        usePrivacy: info.usePrivacy,
+        tier: Number(info[0]), // tier
+        startTime: Number(info[1]), // startTime
+        lastRewardTime: Number(info[2]), // lastRewardTime
+        commitmentDuration: Number(info[3]), // commitmentDuration
+        isActive: info[4], // isActive
+        usePrivacy: info[5], // usePrivacy
         rewards: ethers.formatEther(rewards),
         participationScore: Number(participationScore)
       };
@@ -453,7 +483,10 @@ export class StakingService {
         throw new Error('Contract not initialized');
       }
 
-      const rewards = await this.stakingContract.calculateReward(address);
+      const rewards = await this.stakingContract?.['calculateReward']?.(address);
+      if (!rewards) {
+        throw new Error('Failed to calculate rewards');
+      }
       return ethers.formatEther(rewards);
     } catch (error) {
       console.error('Failed to get pending rewards:', error);
@@ -484,17 +517,20 @@ export class StakingService {
         throw new Error('Contract not initialized');
       }
 
-      const isEnabled = await this.stakingContract.isStakingEnabled();
+      const isEnabled = await this.stakingContract?.['isStakingEnabled']?.();
+      if (typeof isEnabled === 'undefined') {
+        throw new Error('Failed to get staking status');
+      }
 
       // Get tier info
       let totalStaked = BigInt(0);
       let totalStakers = 0;
 
       for (let i = 1; i <= 5; i++) {
-        const tierInfo = await this.stakingContract.getTierInfo(i);
-        totalStakers += Number(tierInfo.totalStakers);
+        const tierInfo = await (this.stakingContract as unknown as StakingContractMethods).getTierInfo(BigInt(i));
+        totalStakers += Number(tierInfo[0]); // totalStakers
         // Note: actual staked amount is encrypted, using estimate
-        totalStaked += BigInt(tierInfo.totalTierWeight) * BigInt(10 ** 18);
+        totalStaked += BigInt(tierInfo[1]) * BigInt(10 ** 18); // totalTierWeight
       }
 
       // Get user stake if address provided
@@ -507,7 +543,7 @@ export class StakingService {
         totalStaked: ethers.formatEther(totalStaked),
         totalStakers,
         averageAPY: 10, // Average across all tiers
-        userStake: userStake || undefined,
+        ...(userStake && { userStake }),
         isEnabled
       };
     } catch (error) {
@@ -573,8 +609,11 @@ export class StakingService {
 
       const stakingWithSigner = this.stakingContract.connect(signer || this.provider);
 
-      const tx = await stakingWithSigner.emergencyWithdraw();
+      const tx = await (stakingWithSigner as unknown as StakingContractMethods).emergencyWithdraw();
       const receipt = await tx.wait();
+      if (!receipt) {
+        throw new Error('Transaction failed to confirm');
+      }
 
       return {
         success: true,

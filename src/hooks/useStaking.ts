@@ -70,7 +70,7 @@ export interface UseStakingReturn {
  * ```
  */
 export const useStaking = (): UseStakingReturn => {
-  const { address, signer, provider } = useWallet();
+  const { address, provider } = useWallet();
   const [stakingService] = useState(() => StakingService.getInstance());
 
   const [stakeInfo, setStakeInfo] = useState<StakeInfo | null>(null);
@@ -105,7 +105,7 @@ export const useStaking = (): UseStakingReturn => {
   // Fetch staking statistics
   const fetchStakingStats = useCallback(async () => {
     try {
-      const stats = await stakingService.getStakingStats(address);
+      const stats = await stakingService.getStakingStats(address ?? undefined);
       setStakingStats(stats);
     } catch (err) {
       console.error('Failed to fetch staking stats:', err);
@@ -141,7 +141,7 @@ export const useStaking = (): UseStakingReturn => {
     durationDays: number,
     usePrivacy: boolean = false
   ): Promise<boolean> => {
-    if (!signer) {
+    if (!provider) {
       setError('No wallet connected');
       return false;
     }
@@ -150,6 +150,8 @@ export const useStaking = (): UseStakingReturn => {
       setIsLoading(true);
       setError(null);
 
+      if (!provider) throw new Error('Provider not available');
+      const signer = await provider.getSigner();
       const result = await stakingService.stake(amount, durationDays, usePrivacy, signer);
 
       if (result.success) {
@@ -167,11 +169,11 @@ export const useStaking = (): UseStakingReturn => {
     } finally {
       setIsLoading(false);
     }
-  }, [signer, stakingService, refresh]);
+  }, [provider, stakingService, refresh]);
 
   // Unstake tokens
   const unstake = useCallback(async (amount: string): Promise<boolean> => {
-    if (!signer) {
+    if (!provider) {
       setError('No wallet connected');
       return false;
     }
@@ -180,6 +182,8 @@ export const useStaking = (): UseStakingReturn => {
       setIsLoading(true);
       setError(null);
 
+      if (!provider) throw new Error('Provider not available');
+      const signer = await provider.getSigner();
       const result = await stakingService.unstake(amount, signer);
 
       if (result.success) {
@@ -197,11 +201,11 @@ export const useStaking = (): UseStakingReturn => {
     } finally {
       setIsLoading(false);
     }
-  }, [signer, stakingService, refresh]);
+  }, [provider, stakingService, refresh]);
 
   // Claim rewards
   const claimRewards = useCallback(async (): Promise<{ success: boolean; amount?: string }> => {
-    if (!signer) {
+    if (!provider) {
       setError('No wallet connected');
       return { success: false };
     }
@@ -210,11 +214,16 @@ export const useStaking = (): UseStakingReturn => {
       setIsLoading(true);
       setError(null);
 
+      if (!provider) throw new Error('Provider not available');
+      const signer = await provider.getSigner();
       const result = await stakingService.claimRewards(signer);
 
       if (result.success) {
         await refresh();
-        return { success: true, amount: result.amount };
+        return { 
+          success: true, 
+          ...(result.amount && { amount: result.amount })
+        };
       } else {
         setError(result.error || 'Claim failed');
         return { success: false };
@@ -227,11 +236,11 @@ export const useStaking = (): UseStakingReturn => {
     } finally {
       setIsLoading(false);
     }
-  }, [signer, stakingService, refresh]);
+  }, [provider, stakingService, refresh]);
 
   // Compound rewards
   const compound = useCallback(async (): Promise<boolean> => {
-    if (!signer) {
+    if (!provider) {
       setError('No wallet connected');
       return false;
     }
@@ -240,6 +249,8 @@ export const useStaking = (): UseStakingReturn => {
       setIsLoading(true);
       setError(null);
 
+      if (!provider) throw new Error('Provider not available');
+      const signer = await provider.getSigner();
       const result = await stakingService.compound(signer);
 
       if (result.success) {
@@ -257,11 +268,11 @@ export const useStaking = (): UseStakingReturn => {
     } finally {
       setIsLoading(false);
     }
-  }, [signer, stakingService, refresh]);
+  }, [provider, stakingService, refresh]);
 
   // Emergency withdraw
   const emergencyWithdraw = useCallback(async (): Promise<boolean> => {
-    if (!signer) {
+    if (!provider) {
       setError('No wallet connected');
       return false;
     }
@@ -274,6 +285,8 @@ export const useStaking = (): UseStakingReturn => {
       setIsLoading(true);
       setError(null);
 
+      if (!provider) throw new Error('Provider not available');
+      const signer = await provider.getSigner();
       const result = await stakingService.emergencyWithdraw(signer);
 
       if (result.success) {
@@ -291,7 +304,7 @@ export const useStaking = (): UseStakingReturn => {
     } finally {
       setIsLoading(false);
     }
-  }, [signer, stakingService, refresh]);
+  }, [provider, stakingService, refresh]);
 
   // Calculate APY
   const calculateAPY = useCallback((amount: string, durationDays: number): number => {

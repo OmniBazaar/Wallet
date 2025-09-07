@@ -1,6 +1,10 @@
 import { bip44Paths } from "../../configs";
+import { PathType } from "../types";
 
-const supportedPaths = {
-  Solana: [bip44Paths.solanaLedger],
+const supportedPaths: Record<string, PathType[]> = {
+  Solana: [{
+    basePath: bip44Paths.solanaLedger,
+    path: bip44Paths.solanaLedger + "/{index}"
+  }],
 };
 export { supportedPaths };

@@ -86,7 +86,7 @@ export interface ClaimResult {
  */
 export class LegacyMigrationService {
   private provider: ethers.Provider;
-  private signer?: ethers.Signer;
+  private signer: ethers.Signer | undefined;
   private omniCoreContract?: ethers.Contract;
   private validatorEndpoint: string;
   private legacyUsers: Map<string, LegacyUserData>;
@@ -178,7 +178,14 @@ export class LegacyMigrationService {
     }
     
     try {
-      return await this.omniCoreContract.isUsernameAvailable(username);
+      if (!this.omniCoreContract) {
+        throw new Error('Contract not available');
+      }
+      const method = this.omniCoreContract['isUsernameAvailable'];
+      if (!method) {
+        throw new Error('Method not available');
+      }
+      return await method(username);
     } catch (error) {
       console.error('Error checking username availability:', error);
       return false;
@@ -192,9 +199,13 @@ export class LegacyMigrationService {
     }
     
     try {
-      const status = await this.omniCoreContract.getLegacyStatus(username);
+      const method = this.omniCoreContract['getLegacyStatus'];
+      if (!method) {
+        throw new Error('getLegacyStatus method not available');
+      }
+      const status = await method(username);
       
-      if (!status.reserved) {
+      if (!status[0]) { // reserved
         // Check if it's in our legacy list
         const legacyData = this.legacyUsers.get(username.toLowerCase());
         if (legacyData) {
@@ -203,7 +214,8 @@ export class LegacyMigrationService {
             isLegacyUser: true,
             isClaimed: false,
             legacyBalance: legacyData.balance,
-            newBalance: (BigInt(legacyData.balance) * this.DECIMAL_CONVERSION).toString()
+            newBalance: (BigInt(legacyData.balance) * this.DECIMAL_CONVERSION).toString(),
+            // Optional properties omitted per exactOptionalPropertyTypes
           };
         }
         return null;
@@ -212,11 +224,11 @@ export class LegacyMigrationService {
       return {
         username: username,
         isLegacyUser: true,
-        isClaimed: status.claimed,
-        legacyBalance: (BigInt(status.balance) / this.DECIMAL_CONVERSION).toString(), // Convert back to 6 decimals for display
-        newBalance: status.balance.toString(),
-        claimAddress: status.claimAddress !== ethers.ZeroAddress ? status.claimAddress : undefined,
-        claimTimestamp: status.claimed ? Date.now() / 1000 : undefined // Would need event logs for actual timestamp
+        isClaimed: status[2], // claimed
+        legacyBalance: (BigInt(status[1]) / this.DECIMAL_CONVERSION).toString(), // Convert back to 6 decimals for display - balance
+        newBalance: status[1].toString(), // balance
+        ...(status[3] !== ethers.ZeroAddress && { claimAddress: status[3] }), // claimAddress
+        ...(status[2] && { claimTimestamp: Math.floor(Date.now() / 1000) }) // claimed
       };
     } catch (error) {
       console.error('Error getting migration status:', error);
@@ -335,14 +347,14 @@ export class LegacyMigrationService {
       const recipientAddress = claimAddress || await this.signer.getAddress();
       
       // Get signature from validator
-      const nonce = ethers.randomBytes(32);
+      const nonce = ethers.hexlify(ethers.randomBytes(32));
       const signatureResponse = await fetch(`${this.validatorEndpoint}/sign-claim`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           username: validation.username,
           claimAddress: recipientAddress,
-          nonce: ethers.hexlify(nonce),
+          nonce: nonce,
           password // Validator needs to re-verify
         })
       });
@@ -358,7 +370,14 @@ export class LegacyMigrationService {
       const { signature } = await signatureResponse.json();
       
       // Submit claim to contract
-      const tx = await this.omniCoreContract.claimLegacyBalance(
+      if (!this.omniCoreContract) {
+        return { success: false, error: 'Contract not available' };
+      }
+      const method = this.omniCoreContract['claimLegacyBalance'];
+      if (!method) {
+        return { success: false, error: 'claimLegacyBalance method not available' };
+      }
+      const tx = await method(
         validation.username!,
         recipientAddress,
         nonce,
@@ -367,6 +386,9 @@ export class LegacyMigrationService {
       
       // Wait for confirmation
       const receipt = await tx.wait();
+      if (!receipt) {
+        throw new Error('Transaction failed to confirm');
+      }
       
       // Calculate claimed amount
       const legacyBalance = BigInt(validation.balance || '0');
@@ -417,8 +439,12 @@ export class LegacyMigrationService {
     }
     
     try {
-      const totalSupply = await this.omniCoreContract.totalLegacySupply();
-      const totalClaimed = await this.omniCoreContract.totalLegacyClaimed();
+      if (!this.omniCoreContract) {
+        throw new Error('Contract not initialized');
+      }
+      
+      const totalSupply = await this.omniCoreContract!['totalLegacySupply']();
+      const totalClaimed = await this.omniCoreContract!['totalLegacyClaimed']();
       const totalUnclaimed = totalSupply - totalClaimed;
       const claimRate = totalSupply > 0 ? (Number(totalClaimed) * 100) / Number(totalSupply) : 0;
       
@@ -488,10 +514,19 @@ export class LegacyMigrationService {
     try {
       // Create dummy data for estimation
       const claimAddress = await this.signer.getAddress();
-      const nonce = ethers.randomBytes(32);
+      const nonce = ethers.hexlify(ethers.randomBytes(32));
       const dummySignature = '0x' + '00'.repeat(65);
       
-      const gasEstimate = await this.omniCoreContract.estimateGas.claimLegacyBalance(
+      const method = this.omniCoreContract['claimLegacyBalance'];
+      if (!method) {
+        return '200000'; // Default estimate if method not available
+      }
+      if (!this.omniCoreContract) {
+        throw new Error('Contract not initialized');
+      }
+      
+      const estimateGas = this.omniCoreContract['estimateGas'] as any;
+      const gasEstimate = await estimateGas['claimLegacyBalance'](
         username,
         claimAddress,
         nonce,
@@ -511,6 +546,8 @@ export class LegacyMigrationService {
    * @param password
    * @param username
    */
+  // Legacy V1 password hashing - kept for reference but not currently used in production
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   private hashPasswordV1(password: string, username: string): string {
     // V1 used a combination of username as salt and multiple rounds
     // This is a simplified simulation

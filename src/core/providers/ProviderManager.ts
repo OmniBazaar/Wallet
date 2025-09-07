@@ -13,7 +13,8 @@ import { LiveBitcoinProvider } from '../chains/bitcoin/live-provider';
 import { MultiChainEVMProvider, ALL_NETWORKS } from '../chains/evm';
 import { LivePolkadotProvider, POLKADOT_NETWORKS } from '../chains/polkadot';
 import { LiveSolanaProvider, SOLANA_NETWORKS } from '../chains/solana';
-import { keyringService, ChainType } from '../keyring/KeyringService';
+import { keyringService } from '../keyring/KeyringService';
+import { ChainType } from '../keyring/BIP39Keyring';
 
 /** Network type for blockchain environments */
 export type NetworkType = 'mainnet' | 'testnet';
@@ -273,7 +274,7 @@ export class ProviderManager {
 
     // Update active account in keyring
     const accounts = await keyringService.getAccounts(chainType);
-    if (accounts.length > 0) {
+    if (accounts.length > 0 && accounts[0] && accounts[0].address) {
       keyringService.setActiveAccount(accounts[0].address);
     }
   }

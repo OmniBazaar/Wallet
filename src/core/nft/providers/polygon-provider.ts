@@ -95,9 +95,9 @@ export class PolygonNFTProvider implements ChainProvider {
       const contract = new ethers.Contract(contractAddress, erc721Abi, provider);
 
       const [tokenURI, name, owner] = await Promise.all([
-        contract.tokenURI(tokenId).catch(() => ''),
-        contract.name().catch(() => 'Unknown Collection'),
-        contract.ownerOf(tokenId).catch(() => '0x0000000000000000000000000000000000000000')
+        contract['tokenURI'] ? contract['tokenURI'](tokenId).catch(() => '') : '',
+        contract['name'] ? contract['name']().catch(() => 'Unknown Collection') : 'Unknown Collection',
+        contract['ownerOf'] ? contract['ownerOf'](tokenId).catch(() => '0x0000000000000000000000000000000000000000') : '0x0000000000000000000000000000000000000000'
       ]);
 
       // Parse metadata
@@ -317,19 +317,30 @@ export class PolygonNFTProvider implements ChainProvider {
           const contract = new ethers.Contract(contractAddress, erc721Abi, provider);
 
           // Get balance
-          const balance = await contract.balanceOf(address);
+          const balanceOfMethod = contract['balanceOf'];
+          if (!balanceOfMethod || typeof balanceOfMethod !== 'function') continue;
+          const balance = await balanceOfMethod(address);
           if (balance === 0n) continue;
 
           // Get collection name
-          const collectionName = await contract.name().catch(() => 'Unknown Collection');
+          const nameMethod = contract['name'];
+          const collectionName = nameMethod && typeof nameMethod === 'function' 
+            ? await nameMethod().catch(() => 'Unknown Collection')
+            : 'Unknown Collection';
 
           // Get up to 10 NFTs from this collection
           const limit = Math.min(Number(balance), 10);
 
           for (let i = 0; i < limit; i++) {
             try {
-              const tokenId = await contract.tokenOfOwnerByIndex(address, i);
-              const tokenURI = await contract.tokenURI(tokenId).catch(() => '');
+              const tokenOfOwnerByIndexMethod = contract['tokenOfOwnerByIndex'];
+              const tokenURIMethod = contract['tokenURI'];
+              
+              if (!tokenOfOwnerByIndexMethod || typeof tokenOfOwnerByIndexMethod !== 'function') continue;
+              if (!tokenURIMethod || typeof tokenURIMethod !== 'function') continue;
+              
+              const tokenId = await tokenOfOwnerByIndexMethod(address, i);
+              const tokenURI = await tokenURIMethod(tokenId).catch(() => '');
 
               // Parse metadata if available
               let metadata: any = {};

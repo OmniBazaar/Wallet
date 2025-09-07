@@ -129,7 +129,7 @@ export class SolanaProvider extends BaseProvider {
     this.commitment = config.commitment || 'confirmed';
     this.connection = new Connection(config.rpcUrl, {
       commitment: this.commitment,
-      wsEndpoint: config.wsUrl,
+      ...(config.wsUrl && { wsEndpoint: config.wsUrl }),
     });
   }
 

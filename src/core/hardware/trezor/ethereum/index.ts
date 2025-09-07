@@ -1,10 +1,23 @@
-import { HWwalletCapabilities } from "@enkryptcom/types";
+import { HWwalletCapabilities, NetworkNames } from "../../../types/enkrypt-types";
 import HDKey from "hdkey";
-import { bigIntToHex, bufferToHex, hexToBuffer } from "@enkryptcom/utils";
+import { bigIntToHex, bufferToHex, hexToBuffer } from "../../../types/enkrypt-types";
 import { publicToAddress, toRpcSig } from "@ethereumjs/util";
-import { FeeMarketEIP1559Transaction, LegacyTransaction } from "@ethereumjs/tx";
+import type { FeeMarketEIP1559Transaction, LegacyTransaction } from "@ethereumjs/tx";
 import type { TrezorConnect } from "@trezor/connect-web";
 import transformTypedData from "@trezor/connect-plugin-ethereum";
+
+// Transaction interface to avoid using 'any'
+interface EthereumTransaction {
+  to: { toString(): string };
+  value: bigint;
+  nonce: bigint;
+  gasLimit: bigint;
+  data: Buffer;
+  gasPrice?: bigint;
+  maxFeePerGas?: bigint;
+  maxPriorityFeePerGas?: bigint;
+  common: { chainId(): bigint };
+}
 import {
   AddressResponse,
   getAddressRequest,
@@ -18,16 +31,16 @@ import { supportedPaths } from "./configs";
 import getTrezorConnect from "../trezorConnect";
 
 /**
- *
+ * Trezor hardware wallet provider for Ethereum and EVM-compatible chains
  */
 class TrezorEthereum implements HWWalletProvider {
   network: string;
-  TrezorConnect: TrezorConnect;
-  HDNodes: Record<string, HDKey>;
+  TrezorConnect!: TrezorConnect;
+  HDNodes: Record<string, InstanceType<typeof HDKey>>;
 
   /**
-   *
-   * @param network
+   * Creates a new Trezor Ethereum provider instance
+   * @param network Network name (e.g., Ethereum, Matic, Avalanche)
    */
   constructor(network: string) {
     this.network = network;
@@ -35,7 +48,8 @@ class TrezorEthereum implements HWWalletProvider {
   }
 
   /**
-   *
+   * Initializes the Trezor connection
+   * @returns Promise that resolves to true when initialized
    */
   async init(): Promise<boolean> {
     this.TrezorConnect = await getTrezorConnect();
@@ -43,11 +57,12 @@ class TrezorEthereum implements HWWalletProvider {
   }
 
   /**
-   *
-   * @param options
+   * Derives and returns an address from the hardware wallet
+   * @param options Address request options including path and index
+   * @returns Promise with address and public key
    */
   async getAddress(options: getAddressRequest): Promise<AddressResponse> {
-    if (!supportedPaths[this.network])
+    if (!supportedPaths[this.network as keyof typeof supportedPaths])
       return Promise.reject(new Error("trezor-ethereum: Invalid network name"));
 
     if (!this.HDNodes[options.pathType.basePath]) {
@@ -75,33 +90,37 @@ class TrezorEthereum implements HWWalletProvider {
   }
 
   /**
-   *
+   * Get supported derivation paths for the current network
+   * @returns Array of supported path types
    */
   getSupportedPaths(): PathType[] {
-    return supportedPaths[this.network];
+    return supportedPaths[this.network as keyof typeof supportedPaths] || [];
   }
 
   /**
-   *
+   * Closes the hardware wallet connection
+   * @returns Promise that resolves when closed
    */
   close(): Promise<void> {
     return Promise.resolve();
   }
 
   /**
-   *
+   * Checks if the hardware wallet is connected
+   * @returns Promise that resolves to connection status
    */
   isConnected(): Promise<boolean> {
     return Promise.resolve(true);
   }
 
   /**
-   *
-   * @param options
+   * Signs a personal message with the hardware wallet
+   * @param options Message signing options including path and message
+   * @returns Promise with hex-encoded signature
    */
   async signPersonalMessage(options: SignMessageRequest): Promise<string> {
     const result = await this.TrezorConnect.ethereumSignMessage({
-      path: options.pathType.path.replace(`{index}`, options.pathIndex),
+      path: options.pathType.path.replace(`{index}`, options.pathIndex.toString()),
       message: options.message.toString("hex"),
       hex: true,
     });
@@ -110,12 +129,12 @@ class TrezorEthereum implements HWWalletProvider {
   }
 
   /**
-   *
-   * @param options
+   * Signs an Ethereum transaction with the hardware wallet
+   * @param options Transaction signing options
+   * @returns Promise with serialized signature
    */
   async signTransaction(options: SignTransactionRequest): Promise<string> {
-    let tx: LegacyTransaction | FeeMarketEIP1559Transaction =
-      options.transaction as LegacyTransaction;
+    let tx = options.transaction as EthereumTransaction;
 
     const txObject = {
       to: tx.to.toString(),
@@ -125,34 +144,34 @@ class TrezorEthereum implements HWWalletProvider {
       gasLimit: bigIntToHex(tx.gasLimit),
       data: bufferToHex(tx.data),
     };
-    if ((options.transaction as LegacyTransaction).gasPrice) {
+    if ((options.transaction as EthereumTransaction).gasPrice) {
       return this.TrezorConnect.ethereumSignTransaction({
-        path: options.pathType.path.replace(`{index}`, options.pathIndex),
-        transaction: { ...txObject, gasPrice: bigIntToHex(tx.gasPrice) },
-      }).then((result) => {
-        if (!result.success) throw new Error((result.payload as { error: string }).error);
+        path: options.pathType.path.replace(`{index}`, options.pathIndex.toString()),
+        transaction: { ...txObject, gasPrice: bigIntToHex(tx.gasPrice || 0n) },
+      }).then((result: { success: boolean; payload: { error?: string; v: string; r: string; s: string } }) => {
+        if (!result.success) throw new Error(result.payload.error || 'Transaction failed');
         const rv = BigInt(parseInt(result.payload.v, 16));
         const cv = tx.common.chainId() * 2n + 35n;
         return toRpcSig(
-          rv - cv,
+          Number(rv - cv),
           hexToBuffer(result.payload.r),
           hexToBuffer(result.payload.s),
         );
       });
     }
 
-    tx = options.transaction as FeeMarketEIP1559Transaction;
+    tx = options.transaction as EthereumTransaction;
     return this.TrezorConnect.ethereumSignTransaction({
-      path: options.pathType.path.replace(`{index}`, options.pathIndex),
+      path: options.pathType.path.replace(`{index}`, options.pathIndex.toString()),
       transaction: {
         ...txObject,
-        maxFeePerGas: bigIntToHex(tx.maxFeePerGas),
-        maxPriorityFeePerGas: bigIntToHex(tx.maxPriorityFeePerGas),
+        maxFeePerGas: bigIntToHex(tx.maxFeePerGas || 0n),
+        maxPriorityFeePerGas: bigIntToHex(tx.maxPriorityFeePerGas || 0n),
       },
-    }).then((result) => {
-      if (!result.success) throw new Error((result.payload as { error: string }).error);
+    }).then((result: { success: boolean; payload: { error?: string; v: string; r: string; s: string } }) => {
+      if (!result.success) throw new Error(result.payload.error || 'Transaction failed');
       return toRpcSig(
-        BigInt(result.payload.v),
+        Number(result.payload.v),
         hexToBuffer(result.payload.r),
         hexToBuffer(result.payload.s),
       );
@@ -160,8 +179,9 @@ class TrezorEthereum implements HWWalletProvider {
   }
 
   /**
-   *
-   * @param request
+   * Signs EIP-712 typed data with the hardware wallet
+   * @param request Typed message signing request
+   * @returns Promise with hex-encoded signature
    */
   async signTypedMessage(request: SignTypedMessageRequest): Promise<string> {
     const eip712Data = {
@@ -175,7 +195,7 @@ class TrezorEthereum implements HWWalletProvider {
       true,
     );
     const result = await this.TrezorConnect.ethereumSignTypedData({
-      path: request.pathType.path.replace(`{index}`, request.pathIndex),
+      path: request.pathType.path.replace(`{index}`, request.pathIndex.toString()),
       data: eip712Data as { domain: Record<string, unknown>; message: Record<string, unknown> },
       metamask_v4_compat: true,
       domain_separator_hash,
@@ -186,14 +206,16 @@ class TrezorEthereum implements HWWalletProvider {
   }
 
   /**
-   *
+   * Gets the list of supported network names
+   * @returns Array of supported network names
    */
   static getSupportedNetworks(): NetworkNames[] {
     return Object.keys(supportedPaths) as NetworkNames[];
   }
 
   /**
-   *
+   * Gets the capabilities of this hardware wallet provider
+   * @returns Array of capability strings
    */
   static getCapabilities(): string[] {
     return [

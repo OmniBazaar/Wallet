@@ -155,7 +155,7 @@ export class BSCNFTProvider implements ChainProvider {
         if (!collectionMap.has(nft.contractAddress)) {
           collectionMap.set(nft.contractAddress, {
             id: `bsc_collection_${nft.contractAddress}`,
-            name: nft.name.split('#')[0].trim() || 'Unknown Collection',
+            name: (nft.name || 'Unknown Collection').split('#')[0]?.trim() || 'Unknown Collection',
             description: '',
             contract: nft.contractAddress,
             contractAddress: nft.contractAddress,

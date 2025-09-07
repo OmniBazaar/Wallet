@@ -11,7 +11,7 @@ import {
   NFTDiscoveryOptions,
   NFTDiscoveryResult,
   // NFTCollection,
-  // NFTMetadata,
+  NFTMetadata,
   SolanaNFT,
   NFT_API_ENDPOINTS,
   SPECIAL_NFT_CONTRACTS,
@@ -255,48 +255,55 @@ export class NFTDiscoveryService {
       contract_address: nft.contract_address,
       token_id: nft.token_id,
       chain: chain as ChainType,
-      type: this.getNFTType(nft.contract.type),
-      standard: this.getNFTStandard(nft.contract.type),
+      type: this.getNFTType(nft.contract?.type),
+      standard: this.getNFTStandard(nft.contract?.type),
       owner: nft.owners?.[0]?.owner_address || '',
       metadata: {
         name: nft.name || 'Unnamed NFT',
-        description: nft.description,
-        image: nft.image_url || nft.previews?.image_medium_url,
-        animation_url: nft.video_url || nft.audio_url || nft.model_url,
-        external_url: nft.external_url,
-        attributes: nft.extra_metadata?.attributes || [],
-        background_color: nft.background_color,
-      },
-      collection: nft.collection ? {
+        ...(nft.description ? { description: nft.description } : {}),
+        ...((nft.image_url || nft.previews?.image_medium_url) ? { image: nft.image_url || nft.previews?.image_medium_url } : {}),
+        ...((nft.video_url || nft.audio_url || nft.model_url) ? { animation_url: nft.video_url || nft.audio_url || nft.model_url } : {}),
+        ...(nft.external_url ? { external_url: nft.external_url } : {}),
+        ...(nft.extra_metadata?.attributes ? { 
+          attributes: nft.extra_metadata.attributes.map((attr: { trait_type: string; value: unknown }) => ({
+            trait_type: attr.trait_type,
+            value: typeof attr.value === 'string' || typeof attr.value === 'number' 
+              ? attr.value 
+              : String(attr.value)
+          }))
+        } : {}),
+        ...(nft.background_color ? { background_color: nft.background_color } : {}),
+      } as NFTMetadata,
+      collection: nft.collection && nft.collection.collection_id ? {
         id: nft.collection.collection_id,
-        name: nft.collection.name,
-        description: nft.collection.description,
-        image: nft.collection.image_url,
-        external_url: nft.collection.external_url,
-        twitter: nft.collection.twitter_username,
-        discord: nft.collection.discord_url,
-        verified: nft.collection.marketplace_pages?.some((m: { /**
-                                                                *
-                                                                */
-          verified?: boolean
-        }) => m.verified),
-        spam_score: nft.collection.spam_score,
-        floor_price: nft.collection.floor_prices?.[0] ? {
-          value: nft.collection.floor_prices[0].value,
-          currency: nft.collection.floor_prices[0].payment_token?.symbol || 'ETH',
-          marketplace: nft.collection.floor_prices[0].marketplace_id,
-        } : undefined,
+        name: nft.collection.name || 'Unknown Collection',
+        ...(nft.collection.description ? { description: nft.collection.description } : {}),
+        ...(nft.collection.image_url ? { image: nft.collection.image_url } : {}),
+        ...(nft.collection.external_url ? { external_url: nft.collection.external_url } : {}),
+        ...(nft.collection.twitter_username ? { twitter: nft.collection.twitter_username } : {}),
+        ...(nft.collection.discord_url ? { discord: nft.collection.discord_url } : {}),
+        ...(nft.collection.marketplace_pages ? { 
+          verified: nft.collection.marketplace_pages.some((m: { verified?: boolean }) => m.verified) 
+        } : {}),
+        ...(nft.collection.spam_score !== undefined ? { spam_score: nft.collection.spam_score } : {}),
+        ...(nft.collection.floor_prices?.[0] ? {
+          floor_price: {
+            value: nft.collection.floor_prices[0].value,
+            currency: nft.collection.floor_prices[0].payment_token?.symbol || 'ETH',
+            ...(nft.collection.floor_prices[0].marketplace_id ? { marketplace: nft.collection.floor_prices[0].marketplace_id } : {}),
+          }
+        } : {}),
       } : undefined,
       marketplace_data: nft.last_sale ? {
         last_sale: {
           price: nft.last_sale.unit_price?.toString() || '0',
           currency: nft.last_sale.payment_token?.symbol || 'ETH',
-          date: nft.last_sale.timestamp,
-          from: nft.last_sale.from_address,
-          to: nft.last_sale.to_address,
+          date: nft.last_sale.timestamp || '',
+          from: nft.last_sale.from_address || '',
+          to: nft.last_sale.to_address || '',
         }
       } : undefined,
-    }));
+    } as NFT));
   }
 
   /**
@@ -359,7 +366,15 @@ export class NFTDiscoveryService {
                              */
           value: string | number
         }>;
+        /**
+         *
+         */
+        token_standard?: string;
       };
+      /**
+       *
+       */
+      files?: Array<{ uri?: string }>;
     };
     /**
      *
@@ -388,22 +403,52 @@ export class NFTDiscoveryService {
                         */
       share: number
     }>;
+    /**
+     *
+     */
+    grouping?: Array<{
+      /**
+       *
+       */
+      group_value: string;
+      /**
+       *
+       */
+      verified?: boolean;
+    }>;
+    /**
+     *
+     */
+    authorities?: Array<{ address: string }>;
+    /**
+     *
+     */
+    royalty?: {
+      /**
+       *
+       */
+      primary_sale_happened?: boolean;
+      /**
+       *
+       */
+      basis_points?: number;
+    };
   }>): SolanaNFT[] {
     return nfts.map(nft => ({
       id: `solana_${nft.id}`,
       contract_address: nft.id,
       token_id: nft.id,
       chain: 'solana',
-      type: NFTType.SolanaToken,
+      type: NFTType.SOLANA_TOKEN,
       standard: NFTStandard.METAPLEX,
       owner: nft.ownership.owner,
       mint: nft.id,
       metadata: {
-        name: nft.content.metadata.name || 'Unnamed NFT',
-        description: nft.content.metadata.description,
-        image: nft.content.files?.[0]?.uri || nft.content.metadata.image,
-        external_url: nft.content.metadata.external_url,
-        attributes: nft.content?.metadata?.attributes?.map((attr: { /**
+        name: nft.content?.metadata?.name || 'Unnamed NFT',
+        ...(nft.content?.metadata?.description ? { description: nft.content.metadata.description } : {}),
+        ...((nft.content?.files?.[0]?.uri || nft.content?.metadata?.image) ? { image: nft.content?.files?.[0]?.uri || nft.content?.metadata?.image } : {}),
+        ...(nft.content?.metadata?.external_url ? { external_url: nft.content.metadata.external_url } : {}),
+        ...(nft.content?.metadata?.attributes ? { attributes: nft.content.metadata.attributes.map((attr: { /**
                                                                      *
                                                                      */
           trait_type: string; /**
@@ -413,12 +458,12 @@ export class NFTDiscoveryService {
         }) => ({
           trait_type: attr.trait_type,
           value: attr.value,
-        })) || [],
-      },
+        })) } : {}),
+      } as NFTMetadata,
       collection: nft.grouping?.[0] ? {
         id: nft.grouping[0].group_value,
         name: nft.grouping[0].group_value,
-        verified: nft.grouping[0].verified,
+        ...(nft.grouping[0].verified !== undefined ? { verified: nft.grouping[0].verified } : {}),
       } : undefined,
       update_authority: nft.authorities?.[0]?.address,
       primary_sale_happened: nft.royalty?.primary_sale_happened,
@@ -438,7 +483,7 @@ export class NFTDiscoveryService {
         verified: creator.verified,
         share: creator.share,
       })) || [],
-      token_standard: nft.content.metadata.token_standard,
+      token_standard: nft.content?.metadata?.token_standard,
     } as SolanaNFT));
   }
 
@@ -446,7 +491,7 @@ export class NFTDiscoveryService {
    * Get NFT type from contract standard
    * @param standard
    */
-  private getNFTType(standard: string): NFTType {
+  private getNFTType(standard: string | undefined): NFTType {
     switch (standard?.toUpperCase()) {
       case 'ERC721':
         return NFTType.ERC721;
@@ -461,7 +506,7 @@ export class NFTDiscoveryService {
    * Get NFT standard from contract type
    * @param type
    */
-  private getNFTStandard(type: string): NFTStandard {
+  private getNFTStandard(type: string | undefined): NFTStandard {
     switch (type?.toUpperCase()) {
       case 'ERC721':
         return NFTStandard.ERC721;

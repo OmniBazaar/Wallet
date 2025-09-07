@@ -83,7 +83,7 @@ interface RewardsSummary {
  */
 export class XOMFeeProtocolService {
   private provider: ethers.Provider;
-  private signer?: ethers.Signer;
+  private signer: ethers.Signer | undefined;
   private validatorEndpoint: string;
   private rewardsCache = new Map<string, RewardsSummary>();
   private updateInterval: NodeJS.Timeout | null = null;

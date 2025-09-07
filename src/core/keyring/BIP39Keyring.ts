@@ -20,7 +20,8 @@
 import * as bip39 from 'bip39';
 import { HDNodeWallet, Mnemonic } from 'ethers';
 import * as crypto from 'crypto';
-import { ec as EC } from 'elliptic';
+import elliptic from 'elliptic';
+const EC = elliptic.ec;
 import { Keypair } from '@solana/web3.js';
 import * as bitcoin from 'bitcoinjs-lib';
 import { Keyring } from '@polkadot/keyring';
@@ -269,6 +270,34 @@ export interface SolanaTransaction {
  *
  */
 export type ChainTransaction = EthereumTransaction | BitcoinTransaction | SolanaTransaction;
+
+// Type guards
+/**
+ * Check if transaction is an Ethereum transaction
+ * @param tx Transaction to check
+ * @returns True if transaction is EthereumTransaction
+ */
+function isEthereumTransaction(tx: ChainTransaction): tx is EthereumTransaction {
+  return 'to' in tx && !('inputs' in tx) && !('recentBlockhash' in tx);
+}
+
+/**
+ * Check if transaction is a Bitcoin transaction
+ * @param tx Transaction to check
+ * @returns True if transaction is BitcoinTransaction
+ */
+function isBitcoinTransaction(tx: ChainTransaction): tx is BitcoinTransaction {
+  return 'inputs' in tx && 'outputs' in tx;
+}
+
+/**
+ * Check if transaction is a Solana transaction
+ * @param tx Transaction to check
+ * @returns True if transaction is SolanaTransaction
+ */
+function isSolanaTransaction(tx: ChainTransaction): tx is SolanaTransaction {
+  return 'recentBlockhash' in tx && 'instructions' in tx;
+}
 
 // Constants
 const PBKDF2_ITERATIONS = 100000;
@@ -546,12 +575,21 @@ export class BIP39Keyring {
       case 'ethereum':
       case 'coti':
       case 'omnicoin':
+        if (!isEthereumTransaction(transaction)) {
+          throw new Error(`Invalid transaction type for ${account.chainType} chain`);
+        }
         return this.signEthereumTransaction(childNode, transaction);
 
       case 'bitcoin':
+        if (!isBitcoinTransaction(transaction)) {
+          throw new Error('Invalid transaction type for Bitcoin chain');
+        }
         return this.signBitcoinTransaction(childNode, transaction);
 
       case 'solana':
+        if (!isSolanaTransaction(transaction)) {
+          throw new Error('Invalid transaction type for Solana chain');
+        }
         return this.signSolanaTransaction(childNode, transaction);
 
       default:

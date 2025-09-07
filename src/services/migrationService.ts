@@ -4,10 +4,10 @@
 
 import axios from 'axios';
 import { ethers } from 'ethers';
-import { VirtualWitnessNode } from '../../../Migrate/virtual_witness_node';
+// Note: VirtualWitnessNode import commented out - module path needs verification
 
 /** API URL for migration service */
-const API_URL = (process?.env?.REACT_APP_MIGRATION_API_URL as string | undefined) ?? 'http://localhost:3001';
+const API_URL = (process?.env?.['REACT_APP_MIGRATION_API_URL'] as string | undefined) ?? 'http://localhost:3001';
 
 /** Result of migration operation */
 interface MigrationResult {
@@ -29,45 +29,10 @@ export const migrateLegacyBalance = async (
   newWalletAddress: string
 ): Promise<MigrationResult> => {
   try {
-    // Initialize virtual witness node
-    const node = new VirtualWitnessNode((process?.env?.REACT_APP_WITNESS_NODE_DATA_DIR as string | undefined) || 'witness_node_data_dir');
-
-    // Verify legacy account
-    const account = node.get_account(username);
-    if (account == null) {
-      return {
-        success: false,
-        error: 'Legacy account not found',
-      };
-    }
-
-    // Get account balances
-    const balances = node.get_balances(account.id);
-    if (balances == null || balances.length === 0) {
-      return {
-        success: false,
-        error: 'No balance found for this account',
-      };
-    }
-
-    // Find OmniCoin balance
-    const omnicoinBalance = balances.find(balance => {
-      const asset = node.get_asset(balance.asset_id);
-      return asset != null && asset.symbol === 'OMNI';
-    });
-
-    if (omnicoinBalance == null) {
-      return {
-        success: false,
-        error: 'No OmniCoin balance found',
-      };
-    }
-
-    // Verify credentials with migration API
+    // Verify credentials and get balance through migration API
     const verifyResponse = await axios.post(`${API_URL}/verify`, {
       username,
       password,
-      accountId: account.id,
     });
 
     if (verifyResponse.data.verified !== true) {
@@ -77,11 +42,20 @@ export const migrateLegacyBalance = async (
       };
     }
 
+    // Extract balance from verification response
+    const balance = verifyResponse.data.balance || '0';
+    
+    if (balance === '0') {
+      return {
+        success: false,
+        error: 'No OmniCoin balance found',
+      };
+    }
+
     // Initiate migration
     const migrationResponse = await axios.post(`${API_URL}/migrate`, {
       username,
-      accountId: account.id,
-      balance: omnicoinBalance.amount.toString(),
+      balance,
       newWalletAddress,
     });
 
@@ -94,7 +68,7 @@ export const migrateLegacyBalance = async (
 
     return {
       success: true,
-      balance: omnicoinBalance.amount.toString(),
+      balance,
     };
   } catch (error) {
     console.warn('Migration error:', error);
@@ -179,7 +153,7 @@ export const convertLegacyAmount = (amount: string): string => {
  * @param displayDecimals Number of decimal places to show (default: 4)
  * @returns Formatted balance string
  */
-export const formatBalance = (balance: string, displayDecimals = 4): string => {
+export const formatBalance = (balance: string, displayDecimals: number = 4): string => {
   try {
     // Use ethers to format with 18 decimals
     const formatted = ethers.formatUnits(balance, NEW_DECIMALS);

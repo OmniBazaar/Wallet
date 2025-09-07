@@ -1,3 +1,4 @@
+import { ethers } from 'ethers';
 import type { NFTItem, NFTCollection } from '../../../types/nft';
 import type { ChainProvider } from '../display/multi-chain-display';
 import { OmniProvider } from '../../providers/OmniProvider';
@@ -40,11 +41,7 @@ export class EthereumNFTProvider implements ChainProvider {
 
     // Initialize OmniProvider if configured
     if (config.useOmniProvider) {
-      this.omniProvider = new OmniProvider(1, {
-        validatorUrl: (process?.env?.VALIDATOR_URL as string | undefined) ?? 'wss://validator.omnibazaar.com',
-        walletId: 'ethereum-nft-provider',
-        authKey: process?.env?.OMNI_AUTH_KEY as string | undefined
-      });
+      this.omniProvider = new OmniProvider('ethereum-nft-provider');
     }
   }
 
@@ -358,19 +355,26 @@ export class EthereumNFTProvider implements ChainProvider {
           const contract = new ethers.Contract(contractAddress, erc721Abi, provider);
 
           // Get balance
-          const balance = await contract.balanceOf(address);
+          const balanceOfMethod = contract['balanceOf'];
+          if (!balanceOfMethod) continue;
+          const balance = await balanceOfMethod(address);
           if (balance === 0n) continue;
 
           // Get collection name
-          const collectionName = await contract.name().catch(() => 'Unknown Collection');
+          const nameMethod = contract['name'];
+          const collectionName = nameMethod ? await nameMethod().catch(() => 'Unknown Collection') : 'Unknown Collection';
 
           // Get up to 10 NFTs from this collection
           const limit = Math.min(Number(balance), 10);
 
           for (let i = 0; i < limit; i++) {
             try {
-              const tokenId = await contract.tokenOfOwnerByIndex(address, i);
-              const tokenURI = await contract.tokenURI(tokenId).catch(() => '');
+              const tokenOfOwnerByIndexMethod = contract['tokenOfOwnerByIndex'];
+              const tokenURIMethod = contract['tokenURI'];
+              if (!tokenOfOwnerByIndexMethod || !tokenURIMethod) continue;
+              
+              const tokenId = await tokenOfOwnerByIndexMethod(address, i);
+              const tokenURI = await tokenURIMethod(tokenId).catch(() => '');
 
               // Parse metadata if available
               let metadata: any = {};

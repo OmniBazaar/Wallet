@@ -5,6 +5,7 @@ import getAppAndVersion from "@ledgerhq/live-common/lib/hw/getAppAndVersion";
 import type LedgerEthereum from "./ethereum";
 import type LedgerSubstrate from "./substrate";
 import { ledgerAppNames } from "../configs";
+import { NetworkNames } from "../../types/enkrypt-types";
 
 /**
  * Connects to a Ledger device and opens the appropriate app for the network
@@ -19,7 +20,7 @@ import { ledgerAppNames } from "../configs";
  */
 function connect(
   this: LedgerEthereum | LedgerSubstrate,
-  networkName: any,
+  networkName: string,
 ): Promise<boolean> {
   const appName = ledgerAppNames[networkName]
     ? ledgerAppNames[networkName]
@@ -34,9 +35,9 @@ function connect(
           );
         }),
     )
-    .catch((e) => {
+    .catch((e: any) => {
       if (e.message === "DeviceOnDashboardExpected") {
-        return getAppAndVersion(this.transport).then((appInfo) => {
+        return getAppAndVersion(this.transport).then((appInfo: any) => {
           if (appInfo.name !== appName)
             throw new Error(`Make sure you have ${appName} App opened`);
           return true;

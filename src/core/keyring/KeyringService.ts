@@ -176,7 +176,7 @@ export class KeyringService {
   async initializeWeb3Wallet(password: string, mnemonic?: string): Promise<string> {
     const seedPhrase = await this.bip39Keyring.initialize({
       password,
-      mnemonic,
+      ...(mnemonic && { mnemonic }),
       seedPhraseLength: 24
     });
 
@@ -373,7 +373,11 @@ export class KeyringService {
       return result.signedTransaction;
     } else {
       // Web2 signing
-      return await this.keyringManager.signTransaction(transaction, account.chainType as 'ethereum' | 'omnicoin');
+      return await this.keyringManager.signTransaction({
+        to: transaction.to,
+        value: transaction.value || '0',
+        ...(transaction.data && { data: transaction.data })
+      }, account.chainType as 'ethereum' | 'omnicoin');
     }
   }
 
@@ -553,7 +557,7 @@ export class KeyringService {
     );
 
     if (this.state.accounts.length > 0 && !this.state.activeAccount) {
-      this.state.activeAccount = this.state.accounts[0];
+      this.state.activeAccount = this.state.accounts[0] ?? null;
     }
   }
 
@@ -586,7 +590,7 @@ export class KeyringService {
     ];
 
     if (this.state.accounts.length > 0 && !this.state.activeAccount) {
-      this.state.activeAccount = this.state.accounts[0];
+      this.state.activeAccount = this.state.accounts[0] ?? null;
     }
 
     // Update balances

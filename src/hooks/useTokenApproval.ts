@@ -37,7 +37,11 @@ export const useTokenApproval = (tokenAddress: string, spenderAddress: string): 
 
         try {
             const contract = new ethers.Contract(tokenAddress, ERC20_ABI, provider);
-            const currentAllowance = await contract.allowance(address, spenderAddress);
+            const allowanceMethod = contract['allowance'];
+            if (!allowanceMethod || typeof allowanceMethod !== 'function') {
+                throw new Error('Contract does not have allowance method');
+            }
+            const currentAllowance = await allowanceMethod(address, spenderAddress);
             setAllowance(currentAllowance.toString());
         } catch (err) {
             console.error('Error checking allowance:', err);
@@ -54,10 +58,14 @@ export const useTokenApproval = (tokenAddress: string, spenderAddress: string): 
             setIsApproving(true);
             setError(null);
 
-            const signer = provider.getSigner();
+            const signer = await provider.getSigner();
             const contract = new ethers.Contract(tokenAddress, ERC20_ABI, signer);
 
-            const tx = await contract.approve(spenderAddress, amount);
+            const approveMethod = contract['approve'];
+            if (!approveMethod || typeof approveMethod !== 'function') {
+                throw new Error('Contract does not have approve method');
+            }
+            const tx = await approveMethod(spenderAddress, amount);
             await tx.wait();
 
             await checkAllowance();
@@ -73,7 +81,7 @@ export const useTokenApproval = (tokenAddress: string, spenderAddress: string): 
     }, [provider, address, tokenAddress, spenderAddress, checkAllowance]);
 
     const approveMax = useCallback(async () => {
-        return approve(ethers.constants.MaxUint256.toString());
+        return approve(ethers.MaxUint256.toString());
     }, [approve]);
 
     return {

@@ -1,30 +1,44 @@
 import { bip44Paths } from "../../configs";
+import type { PathType } from "../types";
 
-const DEFAULT_PATHS = [bip44Paths.ethereum];
-const supportedPaths = {
-  Ethereum: DEFAULT_PATHS,
-  Matic: DEFAULT_PATHS,
-  Avalanche: DEFAULT_PATHS,
-  Binance: DEFAULT_PATHS,
-  EthereumClassic: [bip44Paths.ethereumClassic],
-  Rootstock: [bip44Paths.rootstock],
-  MaticZK: DEFAULT_PATHS,
-  Moonbeam: DEFAULT_PATHS,
-  Moonriver: DEFAULT_PATHS,
-  Optimism: DEFAULT_PATHS,
-  Sepolia: [bip44Paths.ethereumTestnetLedger, ...DEFAULT_PATHS],
-  Okc: DEFAULT_PATHS,
-  ShidenEVM: DEFAULT_PATHS,
-  AstarEVM: DEFAULT_PATHS,
-  ZkSync: DEFAULT_PATHS,
-  Arbitrum: DEFAULT_PATHS,
-  Gnosis: DEFAULT_PATHS,
-  Fantom: DEFAULT_PATHS,
-  Kaia: DEFAULT_PATHS,
-  Base: DEFAULT_PATHS,
-  Celo: DEFAULT_PATHS,
-  SyscoinNEVM: DEFAULT_PATHS,
-  Telos: DEFAULT_PATHS,
-  Blast: DEFAULT_PATHS,
+const DEFAULT_PATH: PathType = {
+  basePath: "m/44'/60'/0'",
+  path: "m/44'/60'/0'/0/{index}"
+};
+
+const supportedPaths: Record<string, PathType[]> = {
+  Ethereum: [DEFAULT_PATH],
+  Matic: [DEFAULT_PATH],
+  Avalanche: [DEFAULT_PATH],
+  Binance: [DEFAULT_PATH],
+  EthereumClassic: [{
+    basePath: "m/44'/61'/0'",
+    path: "m/44'/61'/0'/0/{index}"
+  }],
+  Rootstock: [{
+    basePath: "m/44'/137'/0'",
+    path: "m/44'/137'/0'/0/{index}"
+  }],
+  MaticZK: [DEFAULT_PATH],
+  Moonbeam: [DEFAULT_PATH],
+  Moonriver: [DEFAULT_PATH],
+  Optimism: [DEFAULT_PATH],
+  Sepolia: [{
+    basePath: "m/44'/1'/0'",
+    path: "m/44'/1'/0'/0/{index}"
+  }, DEFAULT_PATH],
+  Okc: [DEFAULT_PATH],
+  ShidenEVM: [DEFAULT_PATH],
+  AstarEVM: [DEFAULT_PATH],
+  ZkSync: [DEFAULT_PATH],
+  Arbitrum: [DEFAULT_PATH],
+  Gnosis: [DEFAULT_PATH],
+  Fantom: [DEFAULT_PATH],
+  Kaia: [DEFAULT_PATH],
+  Base: [DEFAULT_PATH],
+  Celo: [DEFAULT_PATH],
+  SyscoinNEVM: [DEFAULT_PATH],
+  Telos: [DEFAULT_PATH],
+  Blast: [DEFAULT_PATH],
 };
 export { supportedPaths };

@@ -1,9 +1,9 @@
 import type Transport from "@ledgerhq/hw-transport";
 import webUsbTransport from "@ledgerhq/hw-transport-webusb";
-import { HWwalletCapabilities, NetworkNames } from "@enkryptcom/types";
+import { HWwalletCapabilities, NetworkNames } from "../../../types/enkrypt-types";
 import SolApp from "@ledgerhq/hw-app-solana";
 import HDKey from "hdkey";
-import { bufferToHex } from "@enkryptcom/utils";
+import { bufferToHex } from "../../../types/enkrypt-types";
 import {
   AddressResponse,
   getAddressRequest,
@@ -13,9 +13,18 @@ import {
   SignTransactionRequest,
   SignTypedMessageRequest,
   SolSignTransaction,
-} from "../../types";
+} from "../types";
 import { supportedPaths } from "./configs";
 import ConnectToLedger from "../ledgerConnect";
+
+// Type definitions for Ledger Solana responses
+interface SolanaAddressResponse {
+  address: Buffer;
+}
+
+interface SolanaSignResponse {
+  signature: Buffer;
+}
 
 /**
  *
@@ -25,7 +34,7 @@ class LedgerSolana implements HWWalletProvider {
 
   network: NetworkNames;
 
-  HDNodes: Record<string, HDKey>;
+  HDNodes: Record<string, InstanceType<typeof HDKey>>;
 
   /**
    *
@@ -62,15 +71,17 @@ class LedgerSolana implements HWWalletProvider {
    * @param options
    */
   async getAddress(options: getAddressRequest): Promise<AddressResponse> {
-    if (!supportedPaths[this.network])
+    if (!supportedPaths[this.network as keyof typeof supportedPaths])
       return Promise.reject(new Error("ledger-solana: Invalid network name"));
+    if (!this.transport)
+      return Promise.reject(new Error("ledger-solana: Transport not initialized"));
     const connection = new SolApp(this.transport);
     return connection
       .getAddress(
-        options.pathType.path.replace(`{index}`, options.pathIndex),
+        options.pathType.path.replace(`{index}`, options.pathIndex.toString()),
         false,
       )
-      .then((res) => ({
+      .then((res: SolanaAddressResponse) => ({
         address: bufferToHex(res.address),
         publicKey: bufferToHex(res.address),
       }));
@@ -81,13 +92,15 @@ class LedgerSolana implements HWWalletProvider {
    * @param options
    */
   async signPersonalMessage(options: SignMessageRequest): Promise<string> {
+    if (!this.transport)
+      return Promise.reject(new Error("ledger-solana: Transport not initialized"));
     const connection = new SolApp(this.transport);
     return connection
       .signOffchainMessage(
-        options.pathType.path.replace(`{index}`, options.pathIndex),
+        options.pathType.path.replace(`{index}`, options.pathIndex.toString()),
         options.message,
       )
-      .then((result) => bufferToHex(result.signature));
+      .then((result: SolanaSignResponse) => bufferToHex(result.signature));
   }
 
   /**
@@ -95,13 +108,15 @@ class LedgerSolana implements HWWalletProvider {
    * @param options
    */
   async signTransaction(options: SignTransactionRequest): Promise<string> {
+    if (!this.transport)
+      return Promise.reject(new Error("ledger-solana: Transport not initialized"));
     const connection = new SolApp(this.transport);
     return connection
       .signTransaction(
-        options.pathType.path.replace(`{index}`, options.pathIndex),
+        options.pathType.path.replace(`{index}`, options.pathIndex.toString()),
         (options.transaction as SolSignTransaction).solTx,
       )
-      .then((result) => bufferToHex(result.signature));
+      .then((result: SolanaSignResponse) => bufferToHex(result.signature));
   }
 
   /**
@@ -115,18 +130,24 @@ class LedgerSolana implements HWWalletProvider {
   }
 
   /**
-   *
+   * Gets the supported paths for the current network
+   * @returns Array of supported path types
    */
   getSupportedPaths(): PathType[] {
-    return supportedPaths[this.network];
+    const paths = supportedPaths[this.network as keyof typeof supportedPaths];
+    if (!paths) {
+      return [];
+    }
+    return paths;
   }
 
   /**
-   *
+   * Closes the transport connection
+   * @returns Promise that resolves when the transport is closed
    */
   close(): Promise<void> {
     // eslint-disable-next-line @typescript-eslint/no-empty-function
-    return this.transport.close().catch(() => {});
+    return this.transport?.close().catch(() => {}) ?? Promise.resolve();
   }
 
   /**

@@ -1,8 +1,17 @@
-import { getHDPath } from "@trezor/connect/lib/utils/pathUtils";
-import { HWwalletCapabilities } from "@enkryptcom/types";
+import { HWwalletCapabilities } from "../../../types/enkrypt-types";
 import HDKey from "hdkey";
-import { bufferToHex } from "@enkryptcom/utils";
+import { bufferToHex } from "../../../types/enkrypt-types";
 import type { TrezorConnect } from "@trezor/connect-web";
+
+// Simple implementation of getHDPath since the package is not available
+const getHDPath = (path: string): number[] => {
+  const parts = path.split('/').slice(1); // Remove 'm' prefix
+  return parts.map(part => {
+    const hardened = part.endsWith("'");
+    const index = parseInt(hardened ? part.slice(0, -1) : part, 10);
+    return hardened ? index | 0x80000000 : index;
+  });
+};
 import {
   AddressResponse,
   BitcoinSignMessage,
@@ -17,16 +26,17 @@ import { supportedPaths, TrezorNetworkConfigs } from "./configs";
 import getTrezorConnect from "../trezorConnect";
 
 /**
- *
+ * Trezor hardware wallet provider for Bitcoin-based cryptocurrencies
+ * Supports Bitcoin, Litecoin, and Dogecoin
  */
 class TrezorBitcoin implements HWWalletProvider {
   network: string;
-  TrezorConnect: TrezorConnect;
-  HDNodes: Record<string, HDKey>;
+  TrezorConnect!: TrezorConnect;
+  HDNodes: Record<string, InstanceType<typeof HDKey>>;
 
   /**
-   *
-   * @param network
+   * Creates a new Trezor Bitcoin provider instance
+   * @param network Network name (Bitcoin, Litecoin, or Dogecoin)
    */
   constructor(network: string) {
     this.network = network;
@@ -34,7 +44,8 @@ class TrezorBitcoin implements HWWalletProvider {
   }
 
   /**
-   *
+   * Initializes the Trezor connection
+   * @returns Promise that resolves to true when initialized
    */
   async init(): Promise<boolean> {
     this.TrezorConnect = await getTrezorConnect();
@@ -42,15 +53,16 @@ class TrezorBitcoin implements HWWalletProvider {
   }
 
   /**
-   *
-   * @param options
+   * Derives and returns an address from the hardware wallet
+   * @param options Address request options including path and index
+   * @returns Promise with address and public key
    */
   async getAddress(options: getAddressRequest): Promise<AddressResponse> {
-    if (!supportedPaths[this.network])
+    if (!supportedPaths[this.network as keyof typeof supportedPaths])
       return Promise.reject(new Error("trezor-bitcoin: Invalid network name"));
 
     if (!this.HDNodes[options.pathType.basePath]) {
-      const rootPub = await this.TrezorConnect.getPublicKey({
+      const rootPub = await this.TrezorConnect.getAddress({
         path: options.pathType.basePath,
         showOnTrezor: options.confirmAddress,
       } as { path: string; showOnTrezor: boolean });
@@ -75,36 +87,40 @@ class TrezorBitcoin implements HWWalletProvider {
   }
 
   /**
-   *
+   * Get supported derivation paths for the current network
    */
   getSupportedPaths(): PathType[] {
-    return supportedPaths[this.network];
+    return supportedPaths[this.network as keyof typeof supportedPaths] || [];
   }
 
   /**
-   *
+   * Closes the hardware wallet connection
+   * @returns Promise that resolves when closed
    */
   close(): Promise<void> {
     return Promise.resolve();
   }
 
   /**
-   *
+   * Checks if the hardware wallet is connected
+   * @returns Promise that resolves to connection status
    */
   isConnected(): Promise<boolean> {
     return Promise.resolve(true);
   }
 
   /**
-   *
-   * @param options
+   * Signs a personal message with the hardware wallet
+   * @param options Signing options including path and message
+   * @returns Promise with hex-encoded signature
+   * @throws Error if bip322 signing is requested
    */
   async signPersonalMessage(options: BitcoinSignMessage): Promise<string> {
     if (options.type === "bip322-simple") {
       throw new Error("trezor-bitcoin: bip322 signing not supported");
     }
     const result = await this.TrezorConnect.signMessage({
-      path: options.pathType.path.replace(`{index}`, options.pathIndex),
+      path: options.pathType.path.replace(`{index}`, options.pathIndex.toString()),
       message: options.message.toString("hex"),
       hex: true,
     } as { path: string; message: string; hex: boolean });
@@ -114,22 +130,23 @@ class TrezorBitcoin implements HWWalletProvider {
   }
 
   /**
-   *
-   * @param options
+   * Signs a Bitcoin transaction with the hardware wallet
+   * @param options Transaction signing options
+   * @returns Promise with serialized signed transaction
    */
   async signTransaction(options: SignTransactionRequest): Promise<string> {
     const transactionOptions = options.transaction as BTCSignTransaction;
     const addressN = getHDPath(
-      options.pathType.path.replace(`{index}`, options.pathIndex),
+      options.pathType.path.replace(`{index}`, options.pathIndex.toString()),
     );
     return this.TrezorConnect.signTransaction({
-      coin: TrezorNetworkConfigs[this.network].symbol,
+      coin: TrezorNetworkConfigs[this.network as keyof typeof TrezorNetworkConfigs]?.symbol || "btc",
       inputs: transactionOptions.psbtTx.txInputs.map((tx) => ({
         address_n: addressN,
         prev_hash: tx.hash.reverse().toString("hex"),
         prev_index: tx.index,
         amount: 0, // doesnt seem like this do anything
-        script_type: TrezorNetworkConfigs[this.network].isSegwit
+        script_type: TrezorNetworkConfigs[this.network as keyof typeof TrezorNetworkConfigs]?.isSegwit
           ? "SPENDWITNESS"
           : "SPENDADDRESS",
       })),
@@ -141,15 +158,16 @@ class TrezorBitcoin implements HWWalletProvider {
             script_type: "PAYTOADDRESS",
           }) as { amount: number; address: string; script_type: string },
       ),
-    }).then((res) => {
-      if (!res.success) throw new Error((res.payload as { error: string }).error);
-      return res.payload.serializedTx;
+    }).then((res: { success: boolean; payload: { error?: string; serializedTx?: string } }) => {
+      if (!res.success) throw new Error(res.payload.error || 'Transaction failed');
+      return res.payload.serializedTx || '';
     });
   }
 
   /**
-   *
-   * @param _request
+   * Signs a typed message (not supported for Bitcoin)
+   * @param _request Typed message request (unused)
+   * @returns Promise that rejects with unsupported error
    */
   signTypedMessage(_request: SignTypedMessageRequest): Promise<string> {
     return Promise.reject(
@@ -158,14 +176,16 @@ class TrezorBitcoin implements HWWalletProvider {
   }
 
   /**
-   *
+   * Gets the list of supported network names
+   * @returns Array of supported network names
    */
   static getSupportedNetworks(): string[] {
     return Object.keys(supportedPaths);
   }
 
   /**
-   *
+   * Gets the capabilities of this hardware wallet provider
+   * @returns Array of capability strings
    */
   static getCapabilities(): string[] {
     return [HWwalletCapabilities.signMessage, HWwalletCapabilities.signTx];

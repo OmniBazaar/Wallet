@@ -1,170 +1,26 @@
-import { ETH_ADDRESS } from '@rainbow-me/swaps';
-import { useQuery } from '@tanstack/react-query';
-import { Address } from 'viem';
-
-import {
-  QueryConfig,
-  QueryFunctionArgs,
-  QueryFunctionResult,
-  createQueryKey,
-} from '~/core/react-query';
-import { SupportedCurrencyKey } from '~/core/references';
-import { useNetworkStore } from '~/core/state/networks/networks';
-import { AddressOrEth, ParsedUserAsset } from '~/core/types/assets';
-import { ChainId, ChainName } from '~/core/types/chains';
-import { fetchAssetBalanceViaProvider } from '~/core/utils/assets';
-import { getChain } from '~/core/utils/chains';
-import { getProvider } from '~/core/wagmi/clientToProvider';
-
-const USER_ASSETS_REFETCH_INTERVAL = 60000;
-
 /**
- *
- * @param root0
- * @param root0.chainId
+ * User Testnet Native Asset Module
+ * 
+ * This module is temporarily disabled as it was copied from Rainbow wallet
+ * and needs to be refactored to work with OmniBazaar's architecture.
+ * 
+ * TODO: Implement testnet native asset functionality using:
+ * - OmniBazaar's TestnetService and native asset management
+ * - Proper TypeScript types from our codebase
+ * - Integration with our provider system
  */
-export const getNativeAssetMock = ({ chainId }: { /**
-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee *
-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee */
-chainId: ChainId }): ParsedUserAsset => {
-  const chain = getChain({ chainId });
-  const nativeAssetAddress =
-    useNetworkStore.getState().getChainsNativeAsset()[chainId]?.address ||
-    ETH_ADDRESS;
-  const chainLabel = useNetworkStore.getState().getChainsLabel()[chainId];
-  const nativeAssetMock = {
-    address: nativeAssetAddress as AddressOrEth,
-    balance: { amount: '', display: '' },
-    chainId: chainId,
-    chainName: chainLabel as ChainName,
-    colors: { primary: '#808088', fallback: '#E8EAF5' },
-    decimals: chain.nativeCurrency.decimals,
-    icon_url: '',
-    isNativeAsset: true,
-    mainnetAddress: undefined,
-    name: chain.nativeCurrency.name,
-    native: {
-      balance: { amount: '', display: '' },
-      price: { change: '', amount: 0, display: '' },
-    },
-    price: {
-      value: 0,
-      relative_change_24h: 0,
-    },
-    symbol: chain.nativeCurrency.symbol,
-    uniqueId: `${nativeAssetAddress}_${chain.id}`,
-  } satisfies ParsedUserAsset;
-  return nativeAssetMock;
+
+// Placeholder exports to prevent import errors
+export const useUserTestnetNativeAsset = () => {
+  // TODO: Implement using TestnetService
+  return {
+    data: null,
+    isLoading: false,
+    error: null
+  };
 };
 
-// ///////////////////////////////////////////////
-// Query Types
-
-type UserTestnetNativeAssetArgs = {
-  address: Address;
-  currency: SupportedCurrencyKey;
-  chainId: ChainId;
+export const getUserTestnetNativeAsset = async (): Promise<unknown | null> => {
+  // TODO: Implement using TestnetService
+  return null;
 };
-
-// ///////////////////////////////////////////////
-// Query Key
-
-/**
- *
- * @param root0
- * @param root0.address
- * @param root0.currency
- * @param root0.chainId
- */
-export const userTestnetNativeAssetQueryKey = ({
-  address,
-  currency,
-  chainId,
-}: UserTestnetNativeAssetArgs): readonly [string, { /**
-}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}} *
-}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}} */
-address: Address; /**
-aaaaaaaaaaaaaaaaaa *
-aaaaaaaaaaaaaaaaaa */
-currency: SupportedCurrencyKey; /**
-cccccccccccccccccccccccccccccccc *
-cccccccccccccccccccccccccccccccc */
-chainId: ChainId }, { /**
-cccccccccccccccccccccc *
-cccccccccccccccccccccc */
-persisterVersion: number }] =>
-  createQueryKey(
-    'userTestnetNativeAsset',
-    { address, currency, chainId },
-    { persisterVersion: 1 },
-  );
-
-type UserTestnetNativeAssetQueryKey = ReturnType<
-  typeof userTestnetNativeAssetQueryKey
->;
-
-// ///////////////////////////////////////////////
-// Query Function
-
-async function userTestnetNativeAssetQueryFunction({
-  queryKey: [{ address, currency, chainId }],
-}: QueryFunctionArgs<typeof userTestnetNativeAssetQueryKey>): Promise<ParsedUserAsset | null> {
-  try {
-    // Don't do anything unless it's a testnet
-    if (
-      !getChain({ chainId }).testnet &&
-      chainId !== ChainId.hardhat &&
-      chainId !== ChainId.hardhatOptimism
-    ) {
-      return null;
-    }
-
-    const nativeAsset = getNativeAssetMock({ chainId });
-    const provider = getProvider({ chainId });
-    const parsedAsset = await fetchAssetBalanceViaProvider({
-      parsedAsset: nativeAsset,
-      currentAddress: address,
-      currency,
-      provider,
-    });
-    return parsedAsset;
-  } catch (e) {
-    return null;
-  }
-}
-
-type UserAssetsResult = QueryFunctionResult<
-  typeof userTestnetNativeAssetQueryFunction
->;
-
-// ///////////////////////////////////////////////
-// Query Hook
-
-/**
- *
- * @param root0
- * @param root0.address
- * @param root0.currency
- * @param root0.chainId
- * @param config
- */
-export function useUserTestnetNativeAsset(
-  { address, currency, chainId }: UserTestnetNativeAssetArgs,
-  config: QueryConfig<
-    UserAssetsResult,
-    Error,
-    ParsedUserAsset,
-    UserTestnetNativeAssetQueryKey
-  > = {},
-): unknown {
-  return useQuery({
-    queryKey: userTestnetNativeAssetQueryKey({
-      address,
-      currency,
-      chainId,
-    }),
-    queryFn: userTestnetNativeAssetQueryFunction,
-    ...config,
-    refetchInterval: USER_ASSETS_REFETCH_INTERVAL,
-  });
-}

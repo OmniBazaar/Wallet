@@ -158,7 +158,7 @@ export class OptimismNFTProvider implements ChainProvider {
         if (!collectionMap.has(nft.contractAddress)) {
           collectionMap.set(nft.contractAddress, {
             id: `optimism_collection_${nft.contractAddress}`,
-            name: nft.name.split('#')[0].trim() || 'Unknown Collection',
+            name: (nft.name || 'Unknown Collection').split('#')[0]?.trim() || 'Unknown Collection',
             description: '',
             contract: nft.contractAddress,
             contractAddress: nft.contractAddress,

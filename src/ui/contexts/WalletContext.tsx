@@ -90,6 +90,10 @@ export function WalletProvider({ children }: { children: React.ReactNode }): JSX
       const accounts: string[] = await provider.send('eth_requestAccounts', []);
       const network = await provider.getNetwork();
 
+      if (!accounts[0]) {
+        throw new Error('No accounts available');
+      }
+
       dispatch({
         type: 'CONNECT_SUCCESS',
         payload: {
@@ -103,7 +107,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }): JSX
       (window as any).ethereum.on('accountsChanged', (accounts: string[]) => {
         if (accounts.length === 0) {
           dispatch({ type: 'DISCONNECT' });
-        } else {
+        } else if (accounts[0] && state.provider) {
           dispatch({
             type: 'CONNECT_SUCCESS',
             payload: {
@@ -170,7 +174,11 @@ export function WalletProvider({ children }: { children: React.ReactNode }): JSX
           ['function transfer(address to, uint256 amount) returns (bool)'],
           signer
         );
-        tx = await contract.transfer(to, parseUnits(value, token.decimals));
+        const transferMethod = contract['transfer'];
+        if (!transferMethod || typeof transferMethod !== 'function') {
+          throw new Error('Transfer method not available');
+        }
+        tx = await transferMethod(to, parseUnits(value, token.decimals));
       } else {
         // Native token transfer
         tx = await signer.sendTransaction({
@@ -203,7 +211,11 @@ export function WalletProvider({ children }: { children: React.ReactNode }): JSX
           ['function balanceOf(address owner) view returns (uint256)'],
           state.provider
         );
-        const balance = await contract.balanceOf(state.address);
+        const balanceOfMethod = contract['balanceOf'];
+        if (!balanceOfMethod || typeof balanceOfMethod !== 'function') {
+          throw new Error('balanceOf method not available');
+        }
+        const balance = await balanceOfMethod(state.address);
         return formatUnits(balance, token.decimals);
       } else {
         const balance = await state.provider.getBalance(state.address);

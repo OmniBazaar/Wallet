@@ -332,6 +332,10 @@ export class MultiChainNFTDisplay {
 
     for (let i = 0; i < count; i++) {
       const tokenId = (Date.now() + i).toString();
+      const isListed = Math.random() > 0.5;
+      const price = isListed ? (Math.random() * 10).toFixed(3) : undefined;
+      const currency = isListed ? (chainId === 8888 ? 'XOM' : ['ETH', 'MATIC', 'BNB', 'AVAX', 'SOL'][Math.floor(Math.random() * 5)]) : undefined;
+
       mockNFTs.push({
         id: `${chainConfig.name.toLowerCase()}_${chainId}_${tokenId}`,
         tokenId,
@@ -340,9 +344,9 @@ export class MultiChainNFTDisplay {
         image: `https://api.dicebear.com/7.x/shapes/svg?seed=${tokenId}`,
         imageUrl: `https://api.dicebear.com/7.x/shapes/svg?seed=${tokenId}`,
         attributes: [
-          { trait_type: 'Blockchain', value: chainConfig.name },
-          { trait_type: 'Category', value: ['Art', 'Gaming', 'Collectibles'][i % 3] },
-          { trait_type: 'Rarity', value: ['Common', 'Rare', 'Epic'][i % 3] }
+          { trait_type: 'Blockchain', value: chainConfig.name || 'Unknown' },
+          { trait_type: 'Category', value: ['Art', 'Gaming', 'Collectibles'][i % 3] || 'Art' },
+          { trait_type: 'Rarity', value: ['Common', 'Rare', 'Epic'][i % 3] || 'Common' }
         ],
         contract: `0x${Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}`,
         contractAddress: `0x${Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}`,
@@ -351,9 +355,9 @@ export class MultiChainNFTDisplay {
         blockchain: chainConfig.name.toLowerCase(),
         owner: address,
         creator: `0x${Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}`,
-        price: (Math.random() * 10).toFixed(3),
-        currency: chainId === 8888 ? 'XOM' : ['ETH', 'MATIC', 'BNB', 'AVAX', 'SOL'][Math.floor(Math.random() * 5)],
-        isListed: Math.random() > 0.5
+        ...(isListed && { isListed }),
+        ...(price && { price }),
+        ...(currency && { currency })
       });
     }
 

@@ -197,7 +197,7 @@ export class LiveSolanaProvider extends SolanaProvider {
     const { Connection } = await import('@solana/web3.js');
     this.connection = new Connection(network.rpcUrl, {
       commitment: this.commitment,
-      wsEndpoint: network.wsUrl,
+      ...(network.wsUrl && { wsEndpoint: network.wsUrl }),
     });
     
     // Clear cached address

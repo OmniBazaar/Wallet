@@ -316,7 +316,7 @@ export class DebugLogger {
     this._name = name;
     this._color = true;
     this._level =
-      typeof opts?.level === "string" ? levelToNumber(opts.level) : opts?.level;
+      typeof opts?.level === "string" ? levelToNumber(opts.level) : (opts?.level || 0);
   }
 
   /**

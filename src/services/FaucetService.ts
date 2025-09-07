@@ -370,16 +370,17 @@ export class FaucetService {
       const config = this.networkConfigs.get(network as TestnetType);
       if (!config) continue;
       
-      const lastClaim = claimData.lastClaim || 0;
+      const data = claimData as { lastClaim?: number; totalClaims?: number; totalAmount?: string };
+      const lastClaim = data.lastClaim || 0;
       const nextClaimTime = lastClaim + (config.claimInterval * 3600 * 1000);
       
       claims.set(network as TestnetType, {
-        totalClaims: claimData.totalClaims || 0,
+        totalClaims: data.totalClaims || 0,
         lastClaim,
-        totalAmount: claimData.totalAmount || '0',
+        totalAmount: data.totalAmount || '0',
         nextClaimTime,
         canClaim: Date.now() >= nextClaimTime && 
-                  (claimData.totalClaims || 0) < config.maxClaims
+                  (data.totalClaims || 0) < config.maxClaims
       });
     }
     
@@ -515,7 +516,9 @@ export class FaucetService {
    * Get faucet statistics
    */
   async getFaucetStats(): Promise<FaucetStats> {
-    if (this.statsCache) return this.statsCache;
+    if (this.statsCache) {
+      return this.statsCache;
+    }
     
     try {
       const response = await fetch(`${this.validatorEndpoint}/api/faucet/stats`);
@@ -526,11 +529,11 @@ export class FaucetService {
       const data = await response.json();
       
       this.statsCache = {
-        totalDistributed: new Map(Object.entries(data.totalDistributed || {})),
+        totalDistributed: new Map(Object.entries(data.totalDistributed || {}).map(([k, v]) => [k as TestnetType, String(v)])),
         uniqueUsers: data.uniqueUsers || 0,
-        dailyDistribution: new Map(Object.entries(data.dailyDistribution || {})),
-        remainingPools: new Map(Object.entries(data.remainingPools || {})),
-        avgClaimAmount: new Map(Object.entries(data.avgClaimAmount || {})),
+        dailyDistribution: new Map(Object.entries(data.dailyDistribution || {}).map(([k, v]) => [k as TestnetType, String(v)])),
+        remainingPools: new Map(Object.entries(data.remainingPools || {}).map(([k, v]) => [k as TestnetType, String(v)])),
+        avgClaimAmount: new Map(Object.entries(data.avgClaimAmount || {}).map(([k, v]) => [k as TestnetType, String(v)])),
         successRate: data.successRate || 0
       };
       

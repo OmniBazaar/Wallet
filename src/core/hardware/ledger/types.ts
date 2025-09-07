@@ -40,3 +40,28 @@ export interface HWWalletProvider {
   signTypedMessage(options: SignTypedMessageRequest): Promise<string>;
 }
 
+export interface BitcoinSignMessage extends SignMessageRequest {
+  type?: string;
+  psbtTx?: {
+    toBase64(): string;
+    data: any;
+    updateGlobal(data: any): void;
+    updateInput(index: number, data: any): void;
+    finalizeAllInputs(): void;
+    extractTransaction(): any;
+    txOutputs?: any[];
+    txInputs?: any[];
+  };
+}
+
+export interface BTCSignTransaction extends SignTransactionRequest {
+  psbtTx?: BitcoinSignMessage['psbtTx'];
+  outputs?: Array<{ value: number; address: string }>;
+  data?: string;
+  rawTxs?: string[];
+}
+
+export interface SolSignTransaction {
+  solTx: Buffer;
+}
+

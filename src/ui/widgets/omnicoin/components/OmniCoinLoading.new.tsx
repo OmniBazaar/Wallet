@@ -1,59 +1,71 @@
 /* @jsxImportSource react */
 import React from 'react';
-import styled, { keyframes } from 'styled-components';
+import { Theme } from '../../../../types/theme';
 
-const spin = keyframes`
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-`;
+// Since styled-components may not be available, use inline styles
+interface ThemeProps {
+  theme: Theme;
+}
 
-const fadeIn = keyframes`
-  from { opacity: 0; }
-  to { opacity: 1; }
-`;
+// CSS animations injected into document head
+if (typeof document !== 'undefined' && !document.getElementById('omnicoin-loading-styles-new')) {
+  const style = document.createElement('style');
+  style.id = 'omnicoin-loading-styles-new';
+  style.textContent = `
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+  `;
+  document.head.appendChild(style);
+}
 
-const LoadingContainer = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-  animation: ${fadeIn} 0.3s ease-in-out;
-`;
+const loadingContainerStyle: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
+  padding: '24px',
+  animation: 'fadeIn 0.3s ease-in-out'
+};
 
-const Spinner = styled.div`
-  width: 40px;
-  height: 40px;
-  border: 3px solid ${props => props.theme.colors.backgroundAlt};
-  border-top: 3px solid ${props => props.theme.colors.primary};
-  border-radius: 50%;
-  animation: ${spin} 1s linear infinite;
-  margin-bottom: 16px;
-`;
+const spinnerStyle: React.CSSProperties = {
+  width: '40px',
+  height: '40px',
+  border: '3px solid #f3f4f6',
+  borderTop: '3px solid #3b82f6',
+  borderRadius: '50%',
+  animation: 'spin 1s linear infinite',
+  marginBottom: '16px'
+};
 
-const LoadingText = styled.p`
-  color: ${props => props.theme.colors.text.primary};
-  font-size: 14px;
-  margin: 0;
-  text-align: center;
-`;
+const loadingTextStyle: React.CSSProperties = {
+  color: '#1f2937',
+  fontSize: '14px',
+  margin: '0',
+  textAlign: 'center'
+};
 
-const ProgressBar = styled.div`
-  width: 200px;
-  height: 4px;
-  background: ${props => props.theme.colors.backgroundAlt};
-  border-radius: 2px;
-  margin-top: 16px;
-  overflow: hidden;
-`;
+const progressBarStyle: React.CSSProperties = {
+  width: '200px',
+  height: '4px',
+  background: '#f3f4f6',
+  borderRadius: '2px',
+  marginTop: '16px',
+  overflow: 'hidden'
+};
 
-const Progress = styled.div<{ progress: number }>`
-  width: ${props => props.progress}%;
-  height: 100%;
-  background: ${props => props.theme.colors.primary};
-  border-radius: 2px;
-  transition: width 0.3s ease-in-out;
-`;
+const getProgressStyle = (progress: number): React.CSSProperties => ({
+  width: `${progress}%`,
+  height: '100%',
+  background: '#3b82f6',
+  borderRadius: '2px',
+  transition: 'width 0.3s ease-in-out'
+});
 
 interface OmniCoinLoadingProps {
     text?: string;
@@ -67,14 +79,14 @@ export const OmniCoinLoading: React.FC<OmniCoinLoadingProps> = ({
     showProgress = false
 }) => {
     return (
-        <LoadingContainer>
-            <Spinner />
-            <LoadingText>{text}</LoadingText>
+        <div style={loadingContainerStyle}>
+            <div style={spinnerStyle} />
+            <p style={loadingTextStyle}>{text}</p>
             {showProgress && (
-                <ProgressBar>
-                    <Progress progress={progress} />
-                </ProgressBar>
+                <div style={progressBarStyle}>
+                    <div style={getProgressStyle(progress)} />
+                </div>
             )}
-        </LoadingContainer>
+        </div>
     );
 }; 

@@ -1,52 +1,66 @@
-import { useQuery } from '@tanstack/react-query';
-import type { Address } from 'viem';
+/**
+ * NFT Hook for OmniBazaar Wallet
+ * 
+ * This module is temporarily simplified as it was copied from Rainbow wallet
+ * and needs to be refactored to work with OmniBazaar's architecture.
+ */
 
-import { fetchNft } from '~/core/network/nfts';
-import { createQueryKey } from '~/core/react-query';
-import { ChainId } from '~/core/types/chains';
-import { UniqueAsset } from '~/core/types/nfts';
+import type { NFT } from './types';
+
+/**
+ * Hook parameters for fetching NFT data
+ */
+export interface UseNftParams {
+  /** NFT contract address */
+  contractAddress: string;
+  /** Chain ID where NFT exists */
+  chainId: number;
+  /** Token ID of the NFT */
+  tokenId: string;
+}
+
+/**
+ * Options for the useNft hook
+ */
+export interface UseNftOptions {
+  /** Initial NFT data */
+  initialData?: NFT;
+  /** Whether to enable the query */
+  enabled?: boolean;
+}
+
+/**
+ * Result of the useNft hook
+ */
+export interface UseNftResult {
+  /** NFT data */
+  data?: NFT;
+  /** Loading state */
+  isLoading: boolean;
+  /** Error state */
+  error: Error | null;
+  /** Refetch function */
+  refetch: () => Promise<void>;
+}
 
 /**
  * Hook to fetch NFT data
- * @param nftIdentifier NFT identification parameters
- * @param nftIdentifier.contractAddress NFT contract address
- * @param nftIdentifier.chainId Chain ID where NFT exists
- * @param nftIdentifier.tokenId Token ID of the NFT
+ * @param params NFT identification parameters
  * @param options Query options
- * @param options.initialData Initial NFT data
  * @returns Query result for NFT data
  */
 export function useNft(
-  {
-    contractAddress,
-    chainId,
-    tokenId,
-  }: {
-    /** NFT contract address */
-    contractAddress: Address;
-    /** Chain ID where NFT exists */
-    chainId: ChainId;
-    /** Token ID of the NFT */
-    tokenId: string;
-  },
-  { initialData }: {
-    /** Initial NFT data for the query */
-    initialData: UniqueAsset;
-  },
-): unknown {
-  return useQuery({
-    queryKey: createQueryKey(
-      'nft',
-      { contractAddress, chainId, tokenId },
-      { persisterVersion: 1 },
-    ),
-    queryFn: (ctx: { queryKey: unknown[] }) => fetchNft((ctx.queryKey as unknown[])[0]),
-    initialData,
-    initialDataUpdatedAt: initialData != null ? Date.now() : 0,
-    enabled: contractAddress != null && chainId != null && tokenId != null,
-    // TODO: restore this when we find a SimpleHash replacement
-    // retry: 3,
-    staleTime: Infinity, // Keep data in cache indefinitely
-    gcTime: Infinity, // Keep data in cache indefinitely
-  });
+  params: UseNftParams,
+  options: UseNftOptions = {}
+): UseNftResult {
+  // TODO: Implement using NFTService and proper state management
+  // This is a placeholder implementation
+  return {
+    ...(options.initialData && { data: options.initialData }),
+    isLoading: false,
+    error: null,
+    refetch: async () => {
+      // TODO: Implement refetch logic using NFTService
+    }
+  };
 }

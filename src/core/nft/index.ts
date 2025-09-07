@@ -1,6 +1,6 @@
-export { useNftCollections } from './collections';
-export { useGalleryNfts } from './galleryNfts';
-export { useNftsForCollection } from './nftsForCollection';
+export { getNftCollections } from './collections';
+export { useGalleryNFTs } from './galleryNfts';
+// export { useNftsForCollection } from './nftsForCollection'; // Disabled - needs refactoring
 
 // New NFT system exports
 export * from './types';

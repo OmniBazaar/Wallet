@@ -264,7 +264,7 @@ export class ValidatorBalanceService {
   async getTokenBalances(address: string): Promise<TokenBalance[]> {
     try {
       // Get token list from blockchain
-      const tokenList = await this.blockchain.getTokenList();
+      const tokenList = await this.blockchain.getTokenList(address);
       
       if (!tokenList || tokenList.length === 0) {
         return [];
@@ -277,7 +277,7 @@ export class ValidatorBalanceService {
         try {
           const balance = await this.blockchain.getTokenBalance(address, token.address);
           
-          if (balance > 0) {
+          if (BigInt(balance) > 0n) {
             const balanceFormatted = ethers.formatUnits(balance, token.decimals);
             
             // Get price data
@@ -372,8 +372,8 @@ export class ValidatorBalanceService {
 
       const priceData: PriceData = {
         symbol,
-        price: priceInfo.price,
-        change24h: priceInfo.change24h || '0',
+        price: typeof priceInfo === 'string' ? priceInfo : (priceInfo as any).price,
+        change24h: typeof priceInfo === 'string' ? '0' : ((priceInfo as any).change24h || '0'),
         lastUpdated: Date.now()
       };
 

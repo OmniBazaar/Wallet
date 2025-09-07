@@ -969,7 +969,7 @@ export class ValidatorTransactionService {
       status: 'confirmed',
       blockNumber: blockchainTx.blockNumber,
       confirmations: blockchainTx.confirmations || 0,
-      timestamp: blockchainTx.timestamp || Date.now(),
+      timestamp: Date.now(), // Use current timestamp since blockchainTx doesn't include timestamp
       fee: ethers.formatEther(
         BigInt(blockchainTx.gasLimit || 0) * BigInt(blockchainTx.gasPrice || 0)
       )

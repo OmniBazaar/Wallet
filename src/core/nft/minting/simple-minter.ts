@@ -191,7 +191,7 @@ export class SimplifiedNFTMinter {
         { trait_type: 'Minted Date', value: new Date().toISOString() }
       ],
       properties: {
-        category: mintRequest.category,
+        ...(mintRequest.category ? { category: mintRequest.category } : {}),
         creators: [{
           address: listingData.seller.address,
           share: 100

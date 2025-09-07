@@ -49,7 +49,7 @@ export class AvalancheValidatorClient extends ValidatorClient {
     return Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('');
   }
 
-  async disconnect(): Promise<void> { return; }
+  override async disconnect(): Promise<void> { return; }
 
   async resolveUsername(_username: string): Promise<string | null> { return null; }
 }

@@ -64,9 +64,9 @@ export class NFTService {
 
     // Initialize providers with OmniProvider by default
     this.providers = createAllNFTProviders({
-      useOmniProvider: this.config.useOmniProvider,
-      validatorUrl: this.config.validatorUrl,
-      apiKeys: this.config.apiKeys
+      ...(this.config.useOmniProvider !== undefined && { useOmniProvider: this.config.useOmniProvider }),
+      ...(this.config.validatorUrl !== undefined && { validatorUrl: this.config.validatorUrl }),
+      ...(this.config.apiKeys !== undefined && { apiKeys: this.config.apiKeys })
     });
   }
 
@@ -206,10 +206,33 @@ export class NFTService {
     to: string;
     chainId: number;
   }): Promise<{ success: boolean; txHash?: string; error?: string }> {
-    return this.nftManager.transferNFT({
-      ...params,
-      chainType: this.getChainType(params.chainId)
-    });
+    try {
+      // First we need to get the NFT details
+      const nfts = await this.nftManager.getNFTs(params.from, {
+        chains: [this.getChainType(params.chainId)]
+      });
+      
+      const nft = nfts.find(
+        n => n.contract_address === params.contractAddress && n.token_id === params.tokenId
+      );
+      
+      if (!nft) {
+        return { success: false, error: 'NFT not found' };
+      }
+
+      const txHash = await this.nftManager.transferNFT({
+        nft,
+        from: params.from,
+        to: params.to
+      });
+      
+      return { success: true, txHash };
+    } catch (error) {
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      };
+    }
   }
 
   /**
@@ -327,8 +350,8 @@ export class NFTService {
     // Recreate providers with new configuration
     this.providers = createAllNFTProviders({
       useOmniProvider,
-      validatorUrl: this.config.validatorUrl,
-      apiKeys: this.config.apiKeys
+      ...(this.config.validatorUrl !== undefined && { validatorUrl: this.config.validatorUrl }),
+      ...(this.config.apiKeys !== undefined && { apiKeys: this.config.apiKeys })
     });
 
     // Reinitialize

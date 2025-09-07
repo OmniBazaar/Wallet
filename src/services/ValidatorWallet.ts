@@ -218,7 +218,7 @@ export class ValidatorWalletService {
         throw new Error('Wallet service not initialized');
       }
 
-      let wallet: ethers.Wallet;
+      let wallet: ethers.HDNodeWallet | ethers.Wallet;
       let derivationPath: string | undefined;
 
       switch (type) {
@@ -255,7 +255,7 @@ export class ValidatorWalletService {
         chainId,
         balance: '0',
         derivationPath,
-        publicKey: wallet.publicKey,
+        publicKey: wallet instanceof ethers.HDNodeWallet ? wallet.publicKey : ethers.SigningKey.computePublicKey(wallet.privateKey),
         metadata: {
           createdAt: Date.now(),
           lastUsed: Date.now()
@@ -736,7 +736,7 @@ export class ValidatorWalletService {
       // Update active account if necessary
       if (this.activeAccountId === accountId) {
         const remainingAccounts = Array.from(this.accounts.values());
-        this.activeAccountId = remainingAccounts.length > 0 ? remainingAccounts[0].id : null;
+        this.activeAccountId = remainingAccounts.length > 0 ? remainingAccounts[0]!.id : null;
       }
 
       // Remove from secure storage
@@ -1295,10 +1295,10 @@ export class ValidatorWalletService {
 
 // Export configured instance for easy use
 export const validatorWallet = new ValidatorWalletService({
-  validatorEndpoint: import.meta.env.VITE_VALIDATOR_ENDPOINT || 'http://localhost:4000',
-  wsEndpoint: import.meta.env.VITE_VALIDATOR_WS_ENDPOINT || 'ws://localhost:4000/graphql',
-  apiKey: import.meta.env.VITE_VALIDATOR_API_KEY,
-  networkId: import.meta.env.VITE_NETWORK_ID || 'omnibazaar-mainnet',
+  validatorEndpoint: import.meta.env['VITE_VALIDATOR_ENDPOINT'] || 'http://localhost:4000',
+  wsEndpoint: import.meta.env['VITE_VALIDATOR_WS_ENDPOINT'] || 'ws://localhost:4000/graphql',
+  apiKey: import.meta.env['VITE_VALIDATOR_API_KEY'] || undefined,
+  networkId: import.meta.env['VITE_NETWORK_ID'] || 'omnibazaar-mainnet',
   userId: '', // Will be set when user logs in
   enableSecureStorage: true,
   autoBackup: true

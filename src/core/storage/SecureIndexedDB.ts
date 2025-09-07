@@ -75,7 +75,9 @@ export class SecureIndexedDB {
 
     // Use a fixed salt for the master key (stored separately in production)
     // In production, this should be unique per user and stored securely
-    const masterSalt = await this.getMasterSalt();
+    const masterSaltArray = await this.getMasterSalt();
+    // Ensure we have a proper BufferSource by creating a new Uint8Array with clean buffer
+    const masterSalt = new Uint8Array(masterSaltArray);
 
     const baseKey = await crypto.subtle.importKey(
       'raw',

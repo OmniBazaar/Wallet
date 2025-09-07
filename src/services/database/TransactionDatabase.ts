@@ -374,7 +374,7 @@ export class TransactionDatabase {
       status: row.status,
       confirmations: row.confirmations,
       createdAt: new Date(row.created_at),
-      confirmedAt: row.confirmed_at ? new Date(row.confirmed_at) : undefined,
+      ...(row.confirmed_at && { confirmedAt: new Date(row.confirmed_at) }),
       metadata: row.metadata,
       notes: row.notes,
       tags: row.tags

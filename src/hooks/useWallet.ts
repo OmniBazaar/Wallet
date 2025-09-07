@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { BrowserProvider, Contract, parseEther } from 'ethers';
 import { WalletState } from '../types/wallet';
-import { getProvider, getAvailableProviders } from '../config/providers';
+import { getProvider, getAvailableProviders, type ProviderId } from '../config/providers';
 import { getNetworkByChainId, getRpcUrl } from '../core/chains/evm/networks';
 
 /**
@@ -23,7 +23,7 @@ export const useWallet = (): {
     /** Connection error message */
     error: string | null;
     /** Connect to a wallet provider */
-    connect: (providerId: string) => Promise<void>;
+    connect: (providerId: ProviderId) => Promise<void>;
     /** Disconnect from current wallet */
     disconnect: () => void;
     /** Switch to a different network */

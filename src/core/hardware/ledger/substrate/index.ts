@@ -1,6 +1,6 @@
 import type Transport from "@ledgerhq/hw-transport";
 import webUsbTransport from "@ledgerhq/hw-transport-webusb";
-import { HWwalletCapabilities } from "@enkryptcom/types";
+import { HWwalletCapabilities, NetworkNames } from "../../../types/enkrypt-types";
 import { ExtrinsicPayload } from "@polkadot/types/interfaces";
 import { u8aToBuffer } from "@polkadot/util";
 import { LedgerApps } from "./substrateApps";
@@ -11,10 +11,21 @@ import {
   PathType,
   SignTransactionRequest,
   SignTypedMessageRequest,
-} from "../../types";
+} from "../types";
 import { bip32ToAddressNList } from "./utils";
 import { supportedPaths } from "./configs";
 import ConnectToLedger from "../ledgerConnect";
+
+// Type definitions for Ledger Substrate responses
+interface SubstrateAddressResponse {
+  address: string;
+  pubKey: string;
+}
+
+interface SubstrateSignResponse {
+  error_message: string;
+  signature: Buffer;
+}
 
 /**
  *
@@ -41,7 +52,7 @@ class LedgerSubstrate implements HWWalletProvider {
     if (!LedgerApps[this.network])
       throw new Error("ledger-substrate: Invalid network name");
     const pathValues = bip32ToAddressNList(
-      options.pathType.path.replace(`{index}`, options.pathIndex),
+      options.pathType.path.replace(`{index}`, options.pathIndex.toString()),
     );
     if (pathValues.length < 3)
       throw new Error("ledger-substrate: Invalid path");
@@ -71,8 +82,14 @@ class LedgerSubstrate implements HWWalletProvider {
   async getAddress(options: getAddressRequest): Promise<AddressResponse> {
     this.validatePathAndNetwork(options);
     const app = LedgerApps[this.network];
+    if (!app) {
+      return Promise.reject(new Error("ledger-substrate: App not found for network"));
+    }
+    if (!this.transport) {
+      return Promise.reject(new Error("ledger-substrate: Transport not initialized"));
+    }
     const pathValues = bip32ToAddressNList(
-      options.pathType.path.replace(`{index}`, options.pathIndex),
+      options.pathType.path.replace(`{index}`, options.pathIndex.toString()),
     );
     const connection = app(this.transport);
     return connection
@@ -82,7 +99,7 @@ class LedgerSubstrate implements HWWalletProvider {
         pathValues[2],
         options.confirmAddress,
       )
-      .then((res) => ({
+      .then((res: SubstrateAddressResponse) => ({
         address: res.address,
         publicKey: `0x${res.pubKey}`,
       }));
@@ -96,18 +113,20 @@ class LedgerSubstrate implements HWWalletProvider {
   }
 
   /**
-   *
+   * Gets the supported paths
+   * @returns Array of supported path types
    */
   getSupportedPaths(): PathType[] {
-    return supportedPaths;
+    return supportedPaths || [];
   }
 
   /**
-   *
+   * Closes the transport connection
+   * @returns Promise that resolves when the transport is closed
    */
   close(): Promise<void> {
     // eslint-disable-next-line @typescript-eslint/no-empty-function
-    return this.transport.close().catch(() => {});
+    return this.transport?.close().catch(() => {}) ?? Promise.resolve();
   }
 
   /**
@@ -142,9 +161,15 @@ class LedgerSubstrate implements HWWalletProvider {
   async signTransaction(options: SignTransactionRequest): Promise<string> {
     this.validatePathAndNetwork(options);
     const pathValues = bip32ToAddressNList(
-      options.pathType.path.replace(`{index}`, options.pathIndex),
+      options.pathType.path.replace(`{index}`, options.pathIndex.toString()),
     );
     const app = LedgerApps[this.network];
+    if (!app) {
+      return Promise.reject(new Error("ledger-substrate: App not found for network"));
+    }
+    if (!this.transport) {
+      return Promise.reject(new Error("ledger-substrate: Transport not initialized"));
+    }
     const tx = options.transaction as ExtrinsicPayload;
     const connection = app(this.transport);
     return connection
@@ -154,7 +179,7 @@ class LedgerSubstrate implements HWWalletProvider {
         pathValues[2],
         u8aToBuffer(tx.toU8a(true)),
       )
-      .then((result) => {
+      .then((result: SubstrateSignResponse) => {
         if (result.error_message !== "No errors")
           throw new Error(result.error_message);
         else return `0x${result.signature.toString("hex")}`;

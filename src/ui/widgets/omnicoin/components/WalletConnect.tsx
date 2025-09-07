@@ -1,91 +1,83 @@
 /* @jsxImportSource react */
 import React, { useState } from 'react';
-import styled from 'styled-components';
-import { useWallet } from '../../../contexts/WalletContext';
 import { OmniCoinLoading } from './OmniCoinLoading';
 import { OmniCoinToast } from './OmniCoinToast';
 
-/**
- * Styled container for the wallet connection interface
- */
-const ConnectContainer = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  padding: 1rem;
-  background: ${props => props.theme.colors.background};
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-`;
+// Placeholder wallet state interface
+interface WalletState {
+  address?: string;
+  chainId?: number;
+  isConnecting: boolean;
+  error?: string;
+}
 
-/**
- * Grid layout for wallet provider buttons
- */
-const ProviderList = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1rem;
-`;
-
-/**
- * Styled button for wallet provider selection
- */
-const ProviderButton = styled.button<{ isConnected?: boolean }>`
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem;
-  background: ${props => props.isConnected ? props.theme.colors.success : props.theme.colors.primary};
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-
-  &:hover {
-    opacity: 0.9;
+// Placeholder wallet context hook
+const useWallet = () => ({
+  state: {
+    isConnecting: false
+  } as WalletState,
+  connect: async () => {
+    throw new Error('Wallet connection not implemented');
+  },
+  disconnect: () => {
+    // TODO: Implement wallet disconnection
   }
+});
 
-  &:disabled {
-    background: ${props => props.theme.colors.disabled};
-    cursor: not-allowed;
-  }
-`;
+const connectContainerStyle: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '1rem',
+  padding: '1rem',
+  background: '#ffffff',
+  borderRadius: '8px',
+  boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
+};
 
-/**
- * Styled icon for wallet providers
- */
-const ProviderIcon = styled.img`
-  width: 24px;
-  height: 24px;
-`;
+const providerListStyle: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+  gap: '1rem'
+};
 
-/**
- * Styled text for status information
- */
-const StatusText = styled.p`
-  margin: 0;
-  font-size: 0.875rem;
-  color: ${props => props.theme.colors.text.primary};
-`;
+const getProviderButtonStyle = (isConnected = false): React.CSSProperties => ({
+  display: 'flex',
+  alignItems: 'center',
+  gap: '0.5rem',
+  padding: '0.75rem 1rem',
+  background: isConnected ? '#10b981' : '#3b82f6',
+  color: 'white',
+  border: 'none',
+  borderRadius: '4px',
+  cursor: 'pointer',
+  transition: 'all 0.2s ease'
+});
 
-/**
- * Styled code block for displaying wallet addresses
- */
-const AddressText = styled.code`
-  background: ${props => props.theme.colors.backgroundAlt};
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
-  font-size: 0.875rem;
-`;
+const statusTextStyle: React.CSSProperties = {
+  margin: '0',
+  fontSize: '0.875rem',
+  color: '#1f2937'
+};
+
+const addressTextStyle: React.CSSProperties = {
+  background: '#f3f4f6',
+  padding: '0.25rem 0.5rem',
+  borderRadius: '4px',
+  fontSize: '0.875rem',
+  fontFamily: 'monospace'
+};
+
+interface WalletConnectProps {
+  // No props currently needed
+}
 
 /**
  * Wallet connection component for OmniBazaar
  * Allows users to connect/disconnect various wallet providers
- * 
+ * @param props - Component props
  * @returns JSX element for wallet connection interface
  */
-const WalletConnect: React.FC = () => {
+const WalletConnect: React.FC<WalletConnectProps> = () => {
     const { state, connect, disconnect } = useWallet();
     const { address, chainId, isConnecting, error } = state;
     const [showToast, setShowToast] = useState(false);
@@ -93,8 +85,7 @@ const WalletConnect: React.FC = () => {
     const [toastType, setToastType] = useState<'success' | 'error' | 'info' | 'pending'>('info');
 
     /**
-     * Handles wallet connection for a specific provider
-     * @param providerId - ID of the wallet provider to connect
+     * Handles wallet connection
      */
     const handleConnect = async (): Promise<void> => {
         try {
@@ -127,7 +118,7 @@ const WalletConnect: React.FC = () => {
     }
 
     return (
-        <ConnectContainer>
+        <div style={connectContainerStyle}>
             {showToast && (
                 <OmniCoinToast
                     message={toastMessage}
@@ -138,31 +129,36 @@ const WalletConnect: React.FC = () => {
 
             {address ? (
                 <>
-                    <StatusText>Connected to:</StatusText>
-                    <AddressText>{address}</AddressText>
-                    <StatusText>Network: {chainId}</StatusText>
-                    <ProviderButton onClick={handleDisconnect} aria-label="Disconnect Wallet">
+                    <p style={statusTextStyle}>Connected to:</p>
+                    <code style={addressTextStyle}>{address}</code>
+                    <p style={statusTextStyle}>Network: {chainId}</p>
+                    <button 
+                        onClick={handleDisconnect} 
+                        aria-label="Disconnect Wallet"
+                        style={getProviderButtonStyle(true)}
+                    >
                         Disconnect Wallet
-                    </ProviderButton>
+                    </button>
                 </>
             ) : (
                 <>
-                    <StatusText>Connect your wallet:</StatusText>
-                    <ProviderList>
-                        <ProviderButton
-                          onClick={() => handleConnect()}
+                    <p style={statusTextStyle}>Connect your wallet:</p>
+                    <div style={providerListStyle}>
+                        <button
+                          onClick={() => void handleConnect()}
                           aria-label="Connect Wallet"
+                          style={getProviderButtonStyle(false)}
                         >
                           Connect Wallet
-                        </ProviderButton>
-                    </ProviderList>
+                        </button>
+                    </div>
                 </>
             )}
 
             {error && (
                 <OmniCoinToast type="error" message={error} />
             )}
-        </ConnectContainer>
+        </div>
     );
 };
 

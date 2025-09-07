@@ -283,7 +283,7 @@ describe('BIP39Keyring', () => {
     const testTransaction = {
       to: '0x742d35Cc6634C0532925a3b844Bc9e7595f06789',
       value: '1000000000000000000', // 1 ETH
-      gasLimit: 21000,
+      gasLimit: '21000',
       gasPrice: '20000000000',
       nonce: 0,
       chainId: 1

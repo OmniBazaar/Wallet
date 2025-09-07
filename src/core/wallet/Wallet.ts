@@ -1,5 +1,5 @@
 import { BrowserProvider, TransactionResponse, Contract } from 'ethers';
-import type { TransactionRequest } from 'ethers';
+import type { TransactionRequest, AddressLike } from 'ethers';
 import * as ethers from 'ethers';
 import { Transaction } from './Transaction';
 // import { SupportedAssets } from './assets'; // TODO: implement asset support
@@ -41,6 +41,8 @@ export interface GovernanceAction {
   value: bigint;
   /** Encoded function call data */
   data: string;
+  /** Call data for the governance action */
+  calldata?: string;
 }
 
 /**
@@ -129,16 +131,28 @@ export class WalletError extends Error {
 }
 
 /**
+ * Simplified transaction format for internal signer use
+ */
+export interface SimpleTransaction {
+  to?: string | null;
+  value?: bigint;
+  data?: string;
+  gasLimit?: bigint;
+  gasPrice?: bigint;
+}
+
+/**
  * Main implementation of the Wallet interface
  * Provides full wallet functionality for the OmniBazaar ecosystem
  */
 export class WalletImpl implements Wallet {
   private provider: BrowserProvider;
   private signer: {
-    sendTransaction: (transaction: { to?: string; value?: bigint; data?: string; gasLimit?: bigint; gasPrice?: bigint }) => Promise<TransactionResponse>;
+    sendTransaction: (transaction: SimpleTransaction) => Promise<TransactionResponse>;
     getAddress: () => Promise<string>;
-    signTransaction: (transaction: { to?: string; value?: bigint; data?: string; gasLimit?: bigint; gasPrice?: bigint }) => Promise<string>;
+    signTransaction: (transaction: SimpleTransaction) => Promise<string>;
     signMessage: (message: string) => Promise<string>;
+    provider?: BrowserProvider;
   } | null = null;
   private state: WalletState | null = null;
   private accountChangeCallbacks: ((address: string) => void)[] = [];
@@ -151,6 +165,47 @@ export class WalletImpl implements Wallet {
    */
   constructor(provider: BrowserProvider) {
     this.provider = provider;
+  }
+
+  /**
+   * Converts a TransactionRequest to simplified transaction format
+   * @param tx - Transaction request to convert
+   * @returns Simplified transaction
+   */
+  private async convertTransactionAsync(tx: TransactionRequest): Promise<SimpleTransaction> {
+    let toAddress: string | null = null;
+    if (tx.to != null) {
+      if (typeof tx.to === 'string') {
+        toAddress = tx.to;
+      } else if (tx.to instanceof Promise) {
+        toAddress = await tx.to;
+      } else if (typeof tx.to === 'object' && 'getAddress' in tx.to) {
+        toAddress = await tx.to.getAddress();
+      }
+    }
+    
+    return {
+      to: toAddress,
+      ...(tx.value != null && { value: BigInt(tx.value.toString()) }),
+      ...(tx.data != null && { data: tx.data }),
+      ...(tx.gasLimit != null && { gasLimit: BigInt(tx.gasLimit.toString()) }),
+      ...(tx.gasPrice != null && { gasPrice: BigInt(tx.gasPrice.toString()) })
+    };
+  }
+
+  /**
+   * Converts a TransactionRequest to simplified transaction format synchronously
+   * @param tx - Transaction request to convert
+   * @returns Simplified transaction
+   */
+  private convertTransaction(tx: TransactionRequest): SimpleTransaction {
+    return {
+      to: typeof tx.to === 'string' ? tx.to : null,
+      ...(tx.value != null && { value: BigInt(tx.value.toString()) }),
+      ...(tx.data != null && { data: tx.data }),
+      ...(tx.gasLimit != null && { gasLimit: BigInt(tx.gasLimit.toString()) }),
+      ...(tx.gasPrice != null && { gasPrice: BigInt(tx.gasPrice.toString()) })
+    };
   }
 
   /**
@@ -190,7 +245,7 @@ export class WalletImpl implements Wallet {
   /**
    * Disconnects the wallet and cleans up event listeners
    */
-  disconnect(): void {
+  async disconnect(): Promise<void> {
     this.state = null;
     this.provider.removeAllListeners();
   }
@@ -200,7 +255,7 @@ export class WalletImpl implements Wallet {
    * @returns The wallet address
    * @throws {WalletError} When wallet is not connected
    */
-  getAddress(): string {
+  async getAddress(): Promise<string> {
     if (this.state == null) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
     return this.state.address;
   }
@@ -227,7 +282,7 @@ export class WalletImpl implements Wallet {
    * @returns The chain ID as a number
    * @throws {WalletError} When wallet is not connected
    */
-  getChainId(): number {
+  async getChainId(): Promise<number> {
     if (this.state == null) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
     return this.state.chainId;
   }
@@ -251,7 +306,9 @@ export class WalletImpl implements Wallet {
     if (this.signer == null) throw new WalletError('Signer not initialized', 'SIGNER_ERROR');
 
     try {
-      const tx = await this.signer.sendTransaction(transaction.toEthersTransaction());
+      const ethersTransaction = transaction.toEthersTransaction();
+      const convertedTx = await this.convertTransactionAsync(ethersTransaction);
+      const tx = await this.signer.sendTransaction(convertedTx);
       this.state.nonce++;
       return tx;
     } catch (error: unknown) {
@@ -269,8 +326,9 @@ export class WalletImpl implements Wallet {
   async signTransaction(transaction: Transaction): Promise<string> {
     if (this.state == null) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
     if (this.signer == null) throw new WalletError('Signer not initialized', 'SIGNER_ERROR');
-    const tx = transaction.toEthersTransaction();
-    return this.signer.signTransaction(tx);
+    const ethersTransaction = transaction.toEthersTransaction();
+    const convertedTx = await this.convertTransactionAsync(ethersTransaction);
+    return this.signer.signTransaction(convertedTx);
   }
 
   /**
@@ -299,7 +357,11 @@ export class WalletImpl implements Wallet {
     }
 
     const contract = new Contract(tokenAddress, ['function balanceOf(address) view returns (uint256)'], this.provider);
-    return contract.balanceOf(this.state.address);
+    const balanceOfMethod = contract['balanceOf'];
+    if (!balanceOfMethod || typeof balanceOfMethod !== 'function') {
+      throw new Error('Contract does not have balanceOf method');
+    }
+    return balanceOfMethod(this.state.address);
   }
 
   /**
@@ -314,8 +376,26 @@ export class WalletImpl implements Wallet {
     if (this.state == null) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
 
     if (this.signer == null) throw new WalletError('Signer not initialized', 'SIGNER_ERROR');
-    const contract = new Contract(tokenAddress, ['function approve(address,uint256)'], this.signer);
-    return contract.approve(spender, amount);
+    
+    // Create a proper contract runner that matches the expected interface
+    const contractRunner = {
+      provider: this.provider,
+      sendTransaction: async (tx: TransactionRequest) => {
+        const convertedTx = await this.convertTransactionAsync(tx);
+        return this.signer!.sendTransaction(convertedTx);
+      },
+      call: async (tx: TransactionRequest) => this.provider.call(tx),
+      estimateGas: async (tx: TransactionRequest) => this.provider.estimateGas(tx),
+      resolveName: async (name: string) => this.provider.resolveName(name),
+      getAddress: () => this.signer!.getAddress()
+    };
+    
+    const contract = new Contract(tokenAddress, ['function approve(address,uint256)'], contractRunner);
+    const approveMethod = contract['approve'];
+    if (!approveMethod || typeof approveMethod !== 'function') {
+      throw new Error('Contract does not have approve method');
+    }
+    return approveMethod(spender, amount);
   }
 
   /**
@@ -393,6 +473,9 @@ export class WalletImpl implements Wallet {
       this.state = null;
     } else {
       const address = accounts[0];
+      if (!address) {
+        throw new Error('No valid address found in accounts');
+      }
       const balance = await this.provider.getBalance(address);
       const nonce = await this.provider.getTransactionCount(address);
       if (this.state == null) throw new Error('Wallet state not initialized');
@@ -441,7 +524,8 @@ export class WalletImpl implements Wallet {
     if (fee.gasPrice) tx.gasPrice = fee.gasPrice;
 
     // Sign and send transaction
-    const signedTx = await this.signer?.sendTransaction(tx);
+    const convertedTx = await this.convertTransactionAsync(tx);
+    const signedTx = await this.signer?.sendTransaction(convertedTx);
     if (!signedTx) throw new WalletError('Failed to send transaction', 'TX_FAILED');
 
     return signedTx;
@@ -481,7 +565,8 @@ export class WalletImpl implements Wallet {
     if (fee2.gasPrice) tx.gasPrice = fee2.gasPrice;
 
     // Sign and send transaction
-    const signedTx = await this.signer?.sendTransaction(tx);
+    const convertedTx = await this.convertTransactionAsync(tx);
+    const signedTx = await this.signer?.sendTransaction(convertedTx);
     if (!signedTx) throw new WalletError('Failed to send transaction', 'TX_FAILED');
 
     return signedTx;
@@ -552,7 +637,8 @@ export class WalletImpl implements Wallet {
     if (fee3.gasPrice) tx.gasPrice = fee3.gasPrice;
 
     // Sign and send transaction
-    const signedTx = await this.signer?.sendTransaction(tx);
+    const convertedTx = await this.convertTransactionAsync(tx);
+    const signedTx = await this.signer?.sendTransaction(convertedTx);
     if (!signedTx) throw new WalletError('Failed to send transaction', 'TX_FAILED');
 
     // Store privacy key securely (would use SecureIndexedDB in production)
@@ -602,7 +688,8 @@ export class WalletImpl implements Wallet {
     if (fee4.gasPrice) tx.gasPrice = fee4.gasPrice;
 
     // Sign and send transaction
-    const signedTx = await this.signer?.sendTransaction(tx);
+    const convertedTx = await this.convertTransactionAsync(tx);
+    const signedTx = await this.signer?.sendTransaction(convertedTx);
     if (!signedTx) throw new WalletError('Failed to send transaction', 'TX_FAILED');
 
     // Remove privacy key from storage
@@ -666,7 +753,7 @@ export class WalletImpl implements Wallet {
     // Encode proposal data
     const targets = actions.map(a => a.target);
     const values = actions.map(a => a.value || BigInt(0));
-    const calldatas = actions.map(a => a.calldata || '0x');
+    const calldatas = actions.map(a => a.data || '0x');
     const descriptionHash = ethers.keccak256(ethers.toUtf8Bytes(description));
 
     // Encode propose function call
@@ -695,7 +782,8 @@ export class WalletImpl implements Wallet {
     if (fee5.gasPrice) tx.gasPrice = fee5.gasPrice;
 
     // Sign and send transaction
-    const signedTx = await this.signer?.sendTransaction(tx);
+    const convertedTx = await this.convertTransactionAsync(tx);
+    const signedTx = await this.signer?.sendTransaction(convertedTx);
     if (!signedTx) throw new WalletError('Failed to send transaction', 'TX_FAILED');
 
     return signedTx;
@@ -740,7 +828,8 @@ export class WalletImpl implements Wallet {
     if (fee6.gasPrice) tx.gasPrice = fee6.gasPrice;
 
     // Sign and send transaction
-    const signedTx = await this.signer?.sendTransaction(tx);
+    const convertedTx = await this.convertTransactionAsync(tx);
+    const signedTx = await this.signer?.sendTransaction(convertedTx);
     if (!signedTx) throw new WalletError('Failed to send transaction', 'TX_FAILED');
 
     return signedTx;

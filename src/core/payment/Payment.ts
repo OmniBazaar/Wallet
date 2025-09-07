@@ -114,8 +114,8 @@ export class Payment {
       return {
         transactionHash: (rc.transactionHash ?? rc.hash) as string,
         status: rc.status ? 'confirmed' : 'failed',
-        blockNumber: rc.blockNumber ?? undefined,
-        confirmations,
+        ...(rc.blockNumber != null && { blockNumber: Number(rc.blockNumber) }),
+        ...(confirmations != null && { confirmations }),
       };
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
