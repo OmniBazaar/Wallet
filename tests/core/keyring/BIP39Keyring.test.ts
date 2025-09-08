@@ -87,7 +87,7 @@ describe('BIP39Keyring', () => {
       const account = keyring.createAccount(ChainType.Bitcoin, 0);
       
       expect(account.address).toMatch(/^(bc1|[13])[a-zA-HJ-NP-Z0-9]{25,87}$/);
-      expect(account.derivationPath).toBe("m/84'/0'/0'/0/0");
+      expect(account.derivationPath).toBe("m/44'/0'/0'/0/0"); // BIP44 for Bitcoin
     });
 
     it('should create Solana accounts with correct derivation path', () => {

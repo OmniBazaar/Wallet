@@ -165,7 +165,7 @@ export class OmniCoinProvider extends CotiProvider {
    */
   constructor(
     toWindow: (message: string) => void,
-    network: EthereumNetwork = OmniCoinNetworks['testnet']!,
+    network: EthereumNetwork = OmniCoinNetworks['testnet'],
     config?: Partial<OmniCoinConfig>
   ) {
     super(toWindow, network);
@@ -576,29 +576,29 @@ export class OmniCoinProvider extends CotiProvider {
    *
    */
   override getCotiNetworkInfo(): { /**
-                           *
-                           */
+                                    *
+                                    */
     chainId: string; /**
+                      *
+                      */
+    networkName: string; /**
+                          *
+                          */
+    isTestNetwork: boolean; /**
+                             *
+                             */
+    hasPrivacyFeatures: boolean; /**
+                                  *
+                                  */
+    onboardContractAddress: string; /**
+                                     *
+                                     */
+    blockchain: string; /**
+                         *
+                         */
+    layer: string; /**
                     *
                     */
-    networkName: string; /**
-                        *
-                        */
-    isTestNetwork: boolean; /**
-                           *
-                           */
-    hasPrivacyFeatures: boolean; /**
-                                *
-                                */
-    onboardContractAddress: string; /**
-                                   *
-                                   */
-    blockchain: string; /**
-                       *
-                       */
-    layer: string; /**
-                  *
-                  */
     features: string[];
     marketplaceIntegrated?: boolean;
     escrowSupport?: boolean;
@@ -624,45 +624,45 @@ export class OmniCoinProvider extends CotiProvider {
                                *
                                */
     chainId: string; /**
-                    *
-                    */
+                      *
+                      */
     networkName: string; /**
-                        *
-                        */
-    currencySymbol: string; /**
-                           *
-                           */
-    isTestNetwork: boolean; /**
-                           *
-                           */
-    features: { /**
-               *
-               */
-      marketplace: boolean; /**
-                         *
-                         */
-      escrow: boolean; /**
-                    *
-                    */
-      privacy: boolean; /**
-                     *
-                     */
-      migration: boolean; /**
-                       *
-                       */
-      nftSupport: boolean
-    }; /**
                           *
                           */
-    contracts: { /**
-                *
-                */
-      marketplace: string; /**
+    currencySymbol: string; /**
+                             *
+                             */
+    isTestNetwork: boolean; /**
+                             *
+                             */
+    features: { /**
+                 *
+                 */
+      marketplace: boolean; /**
+                             *
+                             */
+      escrow: boolean; /**
                         *
                         */
+      privacy: boolean; /**
+                         *
+                         */
+      migration: boolean; /**
+                           *
+                           */
+      nftSupport: boolean
+    }; /**
+        *
+        */
+    contracts: { /**
+                  *
+                  */
+      marketplace: string; /**
+                            *
+                            */
       escrow: string; /**
-                   *
-                   */
+                       *
+                       */
       migration: string
     }
   } {
@@ -777,10 +777,10 @@ export class OmniCoinProvider extends CotiProvider {
   }
 
   /**
-   * Send a transaction
+   * Send a transaction (ethers-specific)
    * @param transaction
    */
-  override async sendTransaction(transaction: ethers.TransactionRequest): Promise<string> {
+  async sendEthersTransaction(transaction: ethers.TransactionRequest): Promise<string> {
     try {
       if (!this.wallet) {
         throw new Error('No wallet set for signing transaction');
@@ -901,36 +901,43 @@ export class OmniCoinProvider extends CotiProvider {
   }
 
   /**
-   * Get transaction history for an address
+   * Get transaction history for an address (override to match base class signature)
    * @param address
-   * @param fromBlock
-   * @param _toBlock
    * @param limit
    */
-  async getTransactionHistory(
+  override async getTransactionHistory(
     address: string,
-    fromBlock = 0,
-    _toBlock: string | number = 'latest',
     limit = 100
-  ): Promise<ethers.TransactionResponse[]> {
+  ): Promise<import('@/types').Transaction[]> {
     try {
       // Note: This is a simplified version. In practice, you'd need to use
       // an indexing service or scan blocks for transactions
       const currentBlock = await this.getBlockNumber();
-      const transactions: ethers.TransactionResponse[] = [];
+      const transactions: import('@/types').Transaction[] = [];
 
       // Scan recent blocks for transactions involving this address
-      const startBlock = Math.max(currentBlock - limit, fromBlock);
+      const startBlock = Math.max(currentBlock - limit, 0);
 
       for (let i = currentBlock; i >= startBlock; i--) {
         try {
           const block = await this.provider.getBlock(i, true);
           if (block && block.transactions) {
             for (const tx of block.transactions) {
-              if (typeof tx === 'object') {
+              if (typeof tx === 'object' && tx !== null) {
                 const txObj = tx as any;
                 if (txObj.from === address || txObj.to === address) {
-                  transactions.push(tx as unknown as ethers.TransactionResponse);
+                  // Convert to base Transaction interface
+                  const transaction: import('@/types').Transaction = {
+                    hash: txObj.hash || '',
+                    from: txObj.from || '',
+                    to: txObj.to || '',
+                    value: txObj.value?.toString() || '0',
+                    fee: txObj.gasPrice && txObj.gasUsed ? (BigInt(txObj.gasPrice) * BigInt(txObj.gasUsed)).toString() : '0',
+                    blockNumber: i,
+                    timestamp: block.timestamp,
+                    status: 'confirmed' as const
+                  };
+                  transactions.push(transaction);
                 }
               }
             }

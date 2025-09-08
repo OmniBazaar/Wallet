@@ -2,7 +2,14 @@
  * Unit conversion utilities (bigint-based, strict-mode friendly)
  */
 
-/** Convert base units to decimal string. */
+/**
+ * Convert base units to decimal string.
+ * @param weiInput
+ * @param decimals
+ * @param options
+ * @param options.pad
+ * @param options.commify
+ */
 export function fromBase(weiInput: string, decimals: number, options?: { pad?: boolean; commify?: boolean }): string {
   const v = BigInt(weiInput || '0');
   const base = 10n ** BigInt(decimals);
@@ -18,7 +25,11 @@ export function fromBase(weiInput: string, decimals: number, options?: { pad?: b
   return frac.length ? `${wholeStr}.${frac}` : wholeStr;
 }
 
-/** Convert decimal string to base units string. */
+/**
+ * Convert decimal string to base units string.
+ * @param etherInput
+ * @param decimals
+ */
 export function toBase(etherInput: string, decimals: number): string {
   if (!/^\s*-?\d*(?:\.\d*)?\s*$/.test(etherInput)) {
     throw new Error(`Invalid number '${etherInput}'`);
@@ -37,7 +48,11 @@ export function toBase(etherInput: string, decimals: number): string {
   return wei.toString();
 }
 
-/** Check if amount has <= decimals decimal places. */
+/**
+ * Check if amount has <= decimals decimal places.
+ * @param amount
+ * @param decimals
+ */
 export function isValidDecimals(amount: string, decimals: number): boolean {
   const numDecimals = amount.split('.')[1]?.length;
   return !numDecimals || numDecimals <= decimals;

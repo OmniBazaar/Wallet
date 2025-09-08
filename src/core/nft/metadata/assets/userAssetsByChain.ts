@@ -11,6 +11,9 @@
  */
 
 // Placeholder exports to prevent import errors
+/**
+ *
+ */
 export const useUserAssetsByChain = () => {
   // TODO: Implement using WalletService with chain filtering
   return {
@@ -20,6 +23,9 @@ export const useUserAssetsByChain = () => {
   };
 };
 
+/**
+ *
+ */
 export const getUserAssetsByChain = async (): Promise<unknown[]> => {
   // TODO: Implement using WalletService with chain filtering
   return [];

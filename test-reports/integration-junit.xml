@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="jest tests" tests="16" failures="0" errors="0" time="4.891">
+  <testsuite name="tests/integration/database.test.ts" errors="0" failures="0" skipped="0" timestamp="2025-09-07T19:13:36" time="0.4" tests="16">
+    <testcase classname="Wallet Database Integration › Wallet Account Storage" name="should save and retrieve wallet account data" time="0.013">
+    </testcase>
+    <testcase classname="Wallet Database Integration › Wallet Account Storage" name="should handle multiple wallet accounts" time="0.013">
+    </testcase>
+    <testcase classname="Wallet Database Integration › Wallet Account Storage" name="should query accounts with filters" time="0.012">
+    </testcase>
+    <testcase classname="Wallet Database Integration › Wallet Account Storage" name="should delete wallet account" time="0.011">
+    </testcase>
+    <testcase classname="Wallet Database Integration › Wallet Preferences" name="should save and retrieve preferences" time="0.01">
+    </testcase>
+    <testcase classname="Wallet Database Integration › Wallet Preferences" name="should return default preferences for new user" time="0.006">
+    </testcase>
+    <testcase classname="Wallet Database Integration › Transaction History" name="should save and retrieve transaction records" time="0.008">
+    </testcase>
+    <testcase classname="Wallet Database Integration › Transaction History" name="should filter transactions by criteria" time="0.01">
+    </testcase>
+    <testcase classname="Wallet Database Integration › Transaction History" name="should update transaction data" time="0.01">
+    </testcase>
+    <testcase classname="Wallet Database Integration › NFT Storage" name="should save and retrieve NFT data" time="0.009">
+    </testcase>
+    <testcase classname="Wallet Database Integration › NFT Storage" name="should query NFTs by owner" time="0.009">
+    </testcase>
+    <testcase classname="Wallet Database Integration › NFT Storage" name="should query NFTs by collection" time="0.012">
+    </testcase>
+    <testcase classname="Wallet Database Integration › Data Consistency and Integrity" name="should maintain data integrity across operations" time="0.013">
+    </testcase>
+    <testcase classname="Wallet Database Integration › Data Consistency and Integrity" name="should handle concurrent modifications safely" time="0.01">
+    </testcase>
+    <testcase classname="Wallet Database Integration › Data Consistency and Integrity" name="should clear all data correctly" time="0.022">
+    </testcase>
+    <testcase classname="Wallet Database Integration › Database Performance" name="should handle large datasets efficiently" time="0.047">
+    </testcase>
+  </testsuite>
+</testsuites>

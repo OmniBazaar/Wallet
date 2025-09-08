@@ -3,260 +3,164 @@
  */
 
 /**
- *
+ * Represents a cross-chain bridge route with all necessary details
  */
 export interface BridgeRoute {
-  /**
-   *
-   */
+  /** Unique identifier for this route */
   id: string;
-  /**
-   *
-   */
+  /** Source blockchain network */
   fromChain: string;
-  /**
-   *
-   */
+  /** Destination blockchain network */
   toChain: string;
-  /**
-   *
-   */
+  /** Token information on source chain */
   fromToken: TokenInfo;
-  /**
-   *
-   */
+  /** Token information on destination chain */
   toToken: TokenInfo;
-  /**
-   *
-   */
+  /** Amount to send (in smallest unit) */
   fromAmount: string;
-  /**
-   *
-   */
+  /** Estimated amount to receive (in smallest unit) */
   toAmount: string;
-  /**
-   *
-   */
+  /** Estimated time for bridge completion in seconds */
   estimatedTime: number; // in seconds
-  /**
-   *
-   */
+  /** Bridge fee information */
   fee: BridgeFee;
-  /**
-   *
-   */
+  /** Bridge provider handling this route */
   bridge: BridgeProvider;
-  /**
-   *
-   */
+  /** Steps required to complete the bridge transfer */
   steps: BridgeStep[];
 }
 
 /**
- *
+ * Token information for bridge operations
  */
 export interface TokenInfo {
-  /**
-   *
-   */
+  /** Token contract address (0x0 for native tokens) */
   address: string;
-  /**
-   *
-   */
+  /** Token symbol (e.g., 'USDC', 'ETH') */
   symbol: string;
-  /**
-   *
-   */
+  /** Full token name */
   name: string;
-  /**
-   *
-   */
+  /** Number of decimals */
   decimals: number;
-  /**
-   *
-   */
+  /** Chain ID where this token exists */
   chainId: number | string;
 }
 
 /**
- *
+ * Bridge fee structure
  */
 export interface BridgeFee {
-  /**
-   *
-   */
+  /** Fee amount in token units */
   amount: string;
-  /**
-   *
-   */
+  /** Token symbol for fee payment */
   token: string;
-  /**
-   *
-   */
+  /** Equivalent fee value in USD */
   inUSD?: string;
 }
 
 /**
- *
+ * Individual step in a bridge transfer process
  */
 export interface BridgeStep {
-  /**
-   *
-   */
+  /** Type of action required for this step */
   type: 'approve' | 'deposit' | 'wait' | 'claim';
-  /**
-   *
-   */
+  /** Human-readable description of the step */
   description: string;
-  /**
-   *
-   */
+  /** Estimated time for this step in seconds */
   estimatedTime?: number;
-  /**
-   *
-   */
+  /** Transaction details if this step requires on-chain interaction */
   transaction?: {
-    /**
-     *
-     */
+    /** Contract address to interact with */
     to: string;
-    /**
-     *
-     */
+    /** Encoded transaction data */
     data: string;
-    /**
-     *
-     */
+    /** Value to send in wei */
     value: string;
-    /**
-     *
-     */
+    /** Gas limit for transaction */
     gasLimit?: string;
   };
 }
 
 /**
- *
+ * Available bridge providers
  */
 export enum BridgeProvider {
-  HOP = 'hop',
-  STARGATE = 'stargate',
-  ACROSS = 'across',
-  SYNAPSE = 'synapse',
-  CELER = 'celer',
-  MULTICHAIN = 'multichain',
-  WORMHOLE = 'wormhole',
-  LAYER_ZERO = 'layerzero',
-  POLYGON = 'polygon',
-  ARBITRUM = 'arbitrum',
-  OPTIMISM = 'optimism',
+  Hop = 'hop',
+  Stargate = 'stargate',
+  Across = 'across',
+  Synapse = 'synapse',
+  Celer = 'celer',
+  Multichain = 'multichain',
+  Wormhole = 'wormhole',
+  LayerZero = 'layerzero',
+  Polygon = 'polygon',
+  Arbitrum = 'arbitrum',
+  Optimism = 'optimism',
 }
 
 /**
- *
+ * Request parameters for getting bridge quotes
  */
 export interface BridgeQuoteRequest {
-  /**
-   *
-   */
+  /** Source blockchain network */
   fromChain: string;
-  /**
-   *
-   */
+  /** Destination blockchain network */
   toChain: string;
-  /**
-   *
-   */
+  /** Token symbol on source chain */
   fromToken: string;
-  /**
-   *
-   */
+  /** Token symbol on destination chain (defaults to fromToken) */
   toToken?: string;
-  /**
-   *
-   */
+  /** Amount to bridge in smallest unit */
   amount: string;
-  /**
-   *
-   */
+  /** Sender address on source chain */
   fromAddress: string;
-  /**
-   *
-   */
+  /** Receiver address on destination chain (defaults to fromAddress) */
   toAddress?: string;
-  /**
-   *
-   */
+  /** Maximum acceptable slippage percentage (0-100) */
   slippage?: number;
 }
 
 /**
- *
+ * Response containing available bridge routes
  */
 export interface BridgeQuoteResponse {
-  /**
-   *
-   */
+  /** All available routes sorted by output amount */
   routes: BridgeRoute[];
-  /**
-   *
-   */
+  /** Recommended route with best output */
   bestRoute: BridgeRoute | null;
 }
 
 /**
- *
+ * Transaction parameters for bridge operations
  */
 export interface BridgeTransaction {
-  /**
-   *
-   */
+  /** Target contract address */
   to: string;
-  /**
-   *
-   */
+  /** Encoded transaction data */
   data: string;
-  /**
-   *
-   */
+  /** Transaction value in wei */
   value: string;
-  /**
-   *
-   */
+  /** Chain ID for the transaction */
   chainId: number;
-  /**
-   *
-   */
+  /** Gas limit override */
   gasLimit?: string;
 }
 
 /**
- *
+ * Status tracking for active bridge transfers
  */
 export interface BridgeStatus {
-  /**
-   *
-   */
+  /** Unique transfer identifier */
   id: string;
-  /**
-   *
-   */
+  /** Current status of the transfer */
   status: 'pending' | 'completed' | 'failed';
-  /**
-   *
-   */
+  /** Transaction hash on source chain */
   fromTxHash?: string;
-  /**
-   *
-   */
+  /** Transaction hash on destination chain */
   toTxHash?: string;
-  /**
-   *
-   */
+  /** Estimated completion timestamp */
   estimatedArrival?: number;
-  /**
-   *
-   */
+  /** Status message or error details */
   message?: string;
 }
 
@@ -290,71 +194,65 @@ export const BRIDGE_TOKENS = {
 } as const;
 
 // Bridge support matrix
-export const BRIDGE_SUPPORT: Record<BridgeProvider, {
-  /**
-   *
-   */
+export const BRIDGE_SUPPORT: Record<string, {
+  /** Supported blockchain networks */
   chains: string[];
-  /**
-   *
-   */
+  /** Supported token symbols */
   tokens: string[];
-  /**
-   *
-   */
+  /** Average bridge completion time in seconds */
   estimatedTime: number;
 }> = {
-  [BridgeProvider.HOP]: {
+  [BridgeProvider.Hop]: {
     chains: ['ethereum', 'polygon', 'arbitrum', 'optimism', 'base'],
     tokens: ['USDC', 'USDT', 'DAI', 'ETH', 'MATIC'],
     estimatedTime: 600, // 10 minutes
   },
-  [BridgeProvider.STARGATE]: {
+  [BridgeProvider.Stargate]: {
     chains: ['ethereum', 'polygon', 'arbitrum', 'optimism', 'avalanche', 'bsc', 'fantom'],
     tokens: ['USDC', 'USDT', 'STG'],
     estimatedTime: 300, // 5 minutes
   },
-  [BridgeProvider.ACROSS]: {
+  [BridgeProvider.Across]: {
     chains: ['ethereum', 'polygon', 'arbitrum', 'optimism', 'base'],
     tokens: ['USDC', 'ETH', 'WETH', 'DAI', 'WBTC'],
     estimatedTime: 180, // 3 minutes
   },
-  [BridgeProvider.SYNAPSE]: {
+  [BridgeProvider.Synapse]: {
     chains: ['ethereum', 'polygon', 'arbitrum', 'optimism', 'avalanche', 'bsc', 'fantom', 'base'],
     tokens: ['USDC', 'USDT', 'DAI', 'nUSD', 'ETH'],
     estimatedTime: 600, // 10 minutes
   },
-  [BridgeProvider.CELER]: {
+  [BridgeProvider.Celer]: {
     chains: ['ethereum', 'polygon', 'arbitrum', 'optimism', 'avalanche', 'bsc', 'fantom'],
     tokens: ['USDC', 'USDT', 'ETH', 'WBTC', 'CELR'],
     estimatedTime: 1200, // 20 minutes
   },
-  [BridgeProvider.MULTICHAIN]: {
+  [BridgeProvider.Multichain]: {
     chains: ['ethereum', 'polygon', 'arbitrum', 'optimism', 'avalanche', 'bsc', 'fantom'],
     tokens: ['USDC', 'USDT', 'MULTI', 'anyToken'],
     estimatedTime: 1800, // 30 minutes
   },
-  [BridgeProvider.WORMHOLE]: {
+  [BridgeProvider.Wormhole]: {
     chains: ['ethereum', 'polygon', 'avalanche', 'bsc', 'solana', 'terra'],
     tokens: ['USDC', 'USDT', 'ETH', 'SOL'],
     estimatedTime: 900, // 15 minutes
   },
-  [BridgeProvider.LAYER_ZERO]: {
+  [BridgeProvider.LayerZero]: {
     chains: ['ethereum', 'polygon', 'arbitrum', 'optimism', 'avalanche', 'bsc'],
     tokens: ['STG', 'USDC', 'USDT'],
     estimatedTime: 600, // 10 minutes
   },
-  [BridgeProvider.POLYGON]: {
+  [BridgeProvider.Polygon]: {
     chains: ['ethereum', 'polygon'],
     tokens: ['ETH', 'USDC', 'USDT', 'DAI', 'MATIC'],
     estimatedTime: 1800, // 30 minutes (PoS bridge)
   },
-  [BridgeProvider.ARBITRUM]: {
+  [BridgeProvider.Arbitrum]: {
     chains: ['ethereum', 'arbitrum'],
     tokens: ['ETH', 'USDC', 'USDT', 'DAI'],
     estimatedTime: 600, // 10 minutes (fast withdrawal)
   },
-  [BridgeProvider.OPTIMISM]: {
+  [BridgeProvider.Optimism]: {
     chains: ['ethereum', 'optimism'],
     tokens: ['ETH', 'USDC', 'USDT', 'DAI'],
     estimatedTime: 300, // 5 minutes (fast withdrawal)

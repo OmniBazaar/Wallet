@@ -11,6 +11,10 @@
  */
 
 // Placeholder exports to prevent import errors
+/**
+ *
+ * @param assets
+ */
 export const parseUserAssets = (assets: unknown[]): unknown[] => {
   // TODO: Implement proper asset parsing
   return assets;
@@ -18,11 +22,20 @@ export const parseUserAssets = (assets: unknown[]): unknown[] => {
 
 export const userAssetsQueryKey = 'userAssets';
 
+/**
+ *
+ * @param asset
+ */
 export const getAssetBalance = (asset: unknown): string => {
   // TODO: Implement proper balance calculation
   return '0';
 };
 
+/**
+ *
+ * @param amount
+ * @param decimals
+ */
 export const formatAssetAmount = (amount: string, decimals = 18): string => {
   // TODO: Implement proper amount formatting
   return amount;

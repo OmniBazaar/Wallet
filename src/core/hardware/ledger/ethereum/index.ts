@@ -107,7 +107,7 @@ class LedgerEthereum implements HWWalletProvider {
    * @throws Error if network is not supported
    */
   async getAddress(options: getAddressRequest): Promise<AddressResponse> {
-    if (!supportedPaths[this.network as keyof typeof supportedPaths])
+    if (!supportedPaths[this.network])
       return Promise.reject(new Error("ledger-ethereum: Invalid network name"));
     const isHardened = options.pathType.basePath.split("/").length - 1 === 2;
     const connection = new EthApp(this.transport!);
@@ -242,7 +242,7 @@ class LedgerEthereum implements HWWalletProvider {
    * @returns Array of supported path types
    */
   getSupportedPaths(): PathType[] {
-    const paths = supportedPaths[this.network as NetworkNames];
+    const paths = supportedPaths[this.network];
     if (!paths) {
       throw new Error(`Unsupported network: ${this.network}`);
     }
@@ -275,7 +275,7 @@ class LedgerEthereum implements HWWalletProvider {
    * @returns Array of supported network names
    */
   static getSupportedNetworks(): NetworkNames[] {
-    return Object.keys(supportedPaths) as NetworkNames[];
+    return Object.keys(supportedPaths);
   }
 
   /**

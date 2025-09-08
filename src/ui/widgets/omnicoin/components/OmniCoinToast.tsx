@@ -69,6 +69,10 @@ interface OmniCoinToastProps {
 /**
  * Toast notification component for OmniCoin operations
  * @param props - Component props
+ * @param props.message
+ * @param props.type
+ * @param props.duration
+ * @param props.onClose
  * @returns React component for toast notifications
  */
 export const OmniCoinToast: React.FC<OmniCoinToastProps> = ({
@@ -90,7 +94,7 @@ export const OmniCoinToast: React.FC<OmniCoinToastProps> = ({
     }, [duration, onClose]);
 
     return (
-        <div style={getToastContainerStyle(type)}>
+        <div style={getToastContainerStyle(type)} data-testid="toast-container">
             <p style={toastMessageStyle}>{message}</p>
             {onClose && (
                 <button 

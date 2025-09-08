@@ -139,7 +139,7 @@ export class LegacyMigrationService {
     // Load legacy user data from CSV
     await this.loadLegacyUsers();
     
-    console.log(`Legacy Migration Service initialized with ${this.legacyUsers.size} users`);
+    // console.log(`Legacy Migration Service initialized with ${this.legacyUsers.size} users`);
   }
   
   /**
@@ -165,13 +165,19 @@ export class LegacyMigrationService {
     }
   }
   
-  /** Return true if a username exists in the legacy list. */
+  /**
+   * Return true if a username exists in the legacy list.
+   * @param username
+   */
   async isLegacyUser(username: string): Promise<boolean> {
     const normalizedUsername = username.toLowerCase();
     return this.legacyUsers.has(normalizedUsername);
   }
   
-  /** Check if a username is available (not reserved) in OmniCore. */
+  /**
+   * Check if a username is available (not reserved) in OmniCore.
+   * @param username
+   */
   async isUsernameAvailable(username: string): Promise<boolean> {
     if (!this.omniCoreContract) {
       throw new Error('OmniCore contract not initialized');
@@ -192,7 +198,10 @@ export class LegacyMigrationService {
     }
   }
   
-  /** Get migration status for a username from OmniCore. */
+  /**
+   * Get migration status for a username from OmniCore.
+   * @param username
+   */
   async getMigrationStatus(username: string): Promise<MigrationStatus | null> {
     if (!this.omniCoreContract) {
       throw new Error('OmniCore contract not initialized');
@@ -443,8 +452,8 @@ export class LegacyMigrationService {
         throw new Error('Contract not initialized');
       }
       
-      const totalSupply = await this.omniCoreContract!['totalLegacySupply']();
-      const totalClaimed = await this.omniCoreContract!['totalLegacyClaimed']();
+      const totalSupply = await this.omniCoreContract['totalLegacySupply']();
+      const totalClaimed = await this.omniCoreContract['totalLegacyClaimed']();
       const totalUnclaimed = totalSupply - totalClaimed;
       const claimRate = totalSupply > 0 ? (Number(totalClaimed) * 100) / Number(totalSupply) : 0;
       

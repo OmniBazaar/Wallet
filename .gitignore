@@ -161,3 +161,9 @@ source-repos/
 # Claude Files
 .claude/
 CLAUDE.md
+
+# Mocks
+# __mocks__/
+
+# .jest
+.jest-cache/

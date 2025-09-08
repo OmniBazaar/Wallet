@@ -9,8 +9,17 @@
  * IPFS node information
  */
 export interface IPFSNode {
+  /**
+   *
+   */
   id: string;
+  /**
+   *
+   */
   addresses: string[];
+  /**
+   *
+   */
   protocols: string[];
 }
 
@@ -18,9 +27,21 @@ export interface IPFSNode {
  * IPFS file information
  */
 export interface IPFSFile {
+  /**
+   *
+   */
   name: string;
+  /**
+   *
+   */
   hash: string;
+  /**
+   *
+   */
   size: number;
+  /**
+   *
+   */
   type: 'file' | 'directory';
 }
 
@@ -28,8 +49,17 @@ export interface IPFSFile {
  * Options for adding content to IPFS
  */
 export interface AddOptions {
+  /**
+   *
+   */
   pin?: boolean;
+  /**
+   *
+   */
   wrapWithDirectory?: boolean;
+  /**
+   *
+   */
   timeout?: number;
 }
 
@@ -41,6 +71,10 @@ export class IPFSService {
   private connected = false;
   private nodeInfo: IPFSNode | null = null;
 
+  /**
+   *
+   * @param endpoint
+   */
   constructor(private endpoint: string = 'https://ipfs.io/api/v0') {}
 
   /**
@@ -87,6 +121,8 @@ export class IPFSService {
 
   /**
    * Add content to IPFS
+   * @param content
+   * @param options
    */
   async add(content: string | Uint8Array, options: AddOptions = {}): Promise<IPFSFile> {
     if (!this.connected) {
@@ -107,6 +143,7 @@ export class IPFSService {
 
   /**
    * Get content from IPFS
+   * @param hash
    */
   async get(hash: string): Promise<Uint8Array> {
     if (!this.connected) {
@@ -119,6 +156,7 @@ export class IPFSService {
 
   /**
    * Pin content to IPFS
+   * @param hash
    */
   async pin(hash: string): Promise<void> {
     if (!this.connected) {
@@ -131,6 +169,7 @@ export class IPFSService {
 
   /**
    * Unpin content from IPFS
+   * @param hash
    */
   async unpin(hash: string): Promise<void> {
     if (!this.connected) {
@@ -143,6 +182,7 @@ export class IPFSService {
 
   /**
    * List files in IPFS directory
+   * @param hash
    */
   async list(hash: string): Promise<IPFSFile[]> {
     if (!this.connected) {
@@ -155,6 +195,7 @@ export class IPFSService {
 
   /**
    * Upload multiple files to IPFS
+   * @param files
    */
   async addAll(files: Array<{ path: string; content: string | Uint8Array }>): Promise<IPFSFile[]> {
     if (!this.connected) {
@@ -175,6 +216,8 @@ export class IPFSService {
 
   /**
    * Upload a file to IPFS (compatibility method for minter)
+   * @param file
+   * @param name
    */
   async uploadFile(file: File | Blob, name?: string): Promise<string> {
     if (!this.connected) {
@@ -191,6 +234,8 @@ export class IPFSService {
 
   /**
    * Get IPFS gateway URL for a hash
+   * @param hash
+   * @param filename
    */
   getGatewayUrl(hash: string, filename?: string): string {
     const baseUrl = 'https://ipfs.io/ipfs';

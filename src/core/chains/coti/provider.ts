@@ -189,7 +189,7 @@ export class CotiProvider extends EthereumProvider {
    */
   constructor(
     toWindow: (message: string) => void,
-    network: EthereumNetwork = CotiNetworks['testnet']!
+    network: EthereumNetwork = CotiNetworks['testnet']
   ) {
     super(toWindow, network);
     this.namespace = ProviderName.ETHEREUM; // COTI is EVM compatible

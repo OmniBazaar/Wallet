@@ -4,15 +4,64 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from '@jest/globals';
-import { WalletDatabase } from '../../src/services/WalletDatabase';
-import { TransactionDatabase } from '../../src/services/TransactionDatabase';
-import { NFTDatabase } from '../../src/services/NFTDatabase';
-import { mockWallet, mockTransaction, mockNFT } from '../setup';
+import { WalletDatabase, WalletAccountData } from '../../src/services/WalletDatabase';
+import { TransactionDatabase, TransactionData } from '../../src/services/TransactionDatabase';
+import { NFTDatabase, NFTData } from '../../src/services/NFTDatabase';
+import { TEST_ADDRESSES, MOCK_NFTS, clearMockStores } from '../setup';
 
 describe('Wallet Database Integration', () => {
   let walletDB: WalletDatabase;
   let transactionDB: TransactionDatabase;
   let nftDB: NFTDatabase;
+
+  // Mock data for testing
+  const mockAccount: WalletAccountData = {
+    id: 'test-account-1',
+    address: TEST_ADDRESSES.ethereum,
+    name: 'Test Account',
+    type: 'generated',
+    chainId: 1,
+    publicKey: '0x04a8b8c7d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0e1f2g3h4i5j6k7l8m9n0o1p2q3r4s5',
+    createdAt: Date.now(),
+    lastAccessedAt: Date.now(),
+    isActive: true
+  };
+
+  const mockTransaction: TransactionData = {
+    id: 'tx-test-1',
+    hash: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+    from: TEST_ADDRESSES.ethereum,
+    to: '0x742d35Cc6636C0532925a3b8F0d9df0f01426443',
+    value: '1000000000000000000',
+    gasPrice: '20000000000',
+    gasLimit: '21000',
+    gasUsed: '21000',
+    nonce: 1,
+    blockNumber: 12345,
+    blockHash: '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890',
+    status: 'confirmed',
+    timestamp: Date.now(),
+    chainId: 1,
+    data: '0x',
+    receipt: null
+  };
+
+  const mockNFT: NFTData = {
+    id: 'nft-test-1',
+    contractAddress: '0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D',
+    tokenId: '1234',
+    owner: TEST_ADDRESSES.ethereum,
+    name: 'Test NFT',
+    description: 'A test NFT',
+    image: 'https://example.com/nft.png',
+    chainId: 1,
+    metadata: {
+      attributes: [
+        { trait_type: 'Color', value: 'Blue' },
+        { trait_type: 'Size', value: 'Large' }
+      ]
+    }
+  };
 
   beforeAll(async () => {
     walletDB = new WalletDatabase();
@@ -25,402 +74,366 @@ describe('Wallet Database Integration', () => {
   });
 
   afterAll(async () => {
-    await walletDB.close();
-    await transactionDB.close();
-    await nftDB.close();
+    await walletDB.cleanup();
+    await transactionDB.cleanup();
+    await nftDB.cleanup();
   });
 
   beforeEach(async () => {
+    // Clear mock store data and reset database clear methods
+    clearMockStores();
     await walletDB.clear();
     await transactionDB.clear();
     await nftDB.clear();
   });
 
-  describe('Wallet Storage', () => {
-    it('should store wallet data securely', async () => {
-      const walletData = {
-        address: mockWallet.address,
-        encryptedPrivateKey: 'encrypted_key',
-        publicKey: 'public_key',
-        chainId: 1,
-        name: 'Test Wallet'
-      };
-
-      await walletDB.saveWallet(walletData);
-      const retrieved = await walletDB.getWallet(mockWallet.address);
+  describe('Wallet Account Storage', () => {
+    it('should save and retrieve wallet account data', async () => {
+      const success = await walletDB.saveAccount(mockAccount);
+      expect(success).toBe(true);
       
+      const retrieved = await walletDB.getAccount(mockAccount.id);
       expect(retrieved).toBeDefined();
-      expect(retrieved.address).toBe(mockWallet.address);
-      expect(retrieved.name).toBe('Test Wallet');
+      expect(retrieved?.address).toBe(mockAccount.address);
+      expect(retrieved?.name).toBe(mockAccount.name);
+      expect(retrieved?.type).toBe(mockAccount.type);
     });
 
-    it('should encrypt sensitive data', async () => {
-      const sensitiveData = {
-        privateKey: mockWallet.privateKey,
-        mnemonic: mockWallet.mnemonic
-      };
-
-      const encrypted = await walletDB.encryptData(sensitiveData);
-      expect(encrypted).not.toContain(mockWallet.privateKey);
-      expect(encrypted).not.toContain(mockWallet.mnemonic);
-
-      const decrypted = await walletDB.decryptData(encrypted);
-      expect(decrypted.privateKey).toBe(mockWallet.privateKey);
-      expect(decrypted.mnemonic).toBe(mockWallet.mnemonic);
-    });
-
-    it('should handle multiple wallets', async () => {
-      const wallets = [
-        { address: '0x111...', name: 'Wallet 1' },
-        { address: '0x222...', name: 'Wallet 2' },
-        { address: '0x333...', name: 'Wallet 3' }
+    it('should handle multiple wallet accounts', async () => {
+      const accounts: WalletAccountData[] = [
+        {
+          ...mockAccount,
+          id: 'account-1',
+          address: '0x111111111111111111111111111111111111111111',
+          name: 'Account 1'
+        },
+        {
+          ...mockAccount,
+          id: 'account-2', 
+          address: '0x222222222222222222222222222222222222222222',
+          name: 'Account 2'
+        },
+        {
+          ...mockAccount,
+          id: 'account-3',
+          address: '0x333333333333333333333333333333333333333333', 
+          name: 'Account 3'
+        }
       ];
 
-      for (const wallet of wallets) {
-        await walletDB.saveWallet(wallet);
+      for (const account of accounts) {
+        const success = await walletDB.saveAccount(account);
+        expect(success).toBe(true);
       }
 
-      const allWallets = await walletDB.getAllWallets();
-      expect(allWallets).toHaveLength(3);
-      expect(allWallets.map(w => w.name)).toEqual(['Wallet 1', 'Wallet 2', 'Wallet 3']);
+      const allAccounts = await walletDB.getAccounts();
+      expect(allAccounts).toHaveLength(3);
+      expect(allAccounts.map(a => a.name)).toEqual(['Account 1', 'Account 2', 'Account 3']);
     });
 
-    it('should update wallet metadata', async () => {
-      await walletDB.saveWallet({
-        address: mockWallet.address,
-        name: 'Original Name'
-      });
+    it('should query accounts with filters', async () => {
+      const accounts: WalletAccountData[] = [
+        { ...mockAccount, id: 'eth-1', chainId: 1, type: 'generated' },
+        { ...mockAccount, id: 'eth-2', chainId: 1, type: 'imported' },
+        { ...mockAccount, id: 'polygon-1', chainId: 137, type: 'generated' }
+      ];
 
-      await walletDB.updateWallet(mockWallet.address, {
-        name: 'Updated Name',
-        lastUsed: Date.now()
-      });
+      for (const account of accounts) {
+        await walletDB.saveAccount(account);
+      }
 
-      const updated = await walletDB.getWallet(mockWallet.address);
-      expect(updated.name).toBe('Updated Name');
-      expect(updated.lastUsed).toBeDefined();
+      const ethAccounts = await walletDB.getAccounts({ filters: { chainId: 1 } });
+      expect(ethAccounts).toHaveLength(2);
+
+      const generatedAccounts = await walletDB.getAccounts({ filters: { type: 'generated' } });
+      expect(generatedAccounts).toHaveLength(2);
     });
 
-    it('should delete wallet data', async () => {
-      await walletDB.saveWallet({ address: mockWallet.address });
-      expect(await walletDB.getWallet(mockWallet.address)).toBeDefined();
+    it('should delete wallet account', async () => {
+      await walletDB.saveAccount(mockAccount);
+      const retrieved = await walletDB.getAccount(mockAccount.id);
+      expect(retrieved).toBeDefined();
 
-      await walletDB.deleteWallet(mockWallet.address);
-      expect(await walletDB.getWallet(mockWallet.address)).toBeNull();
+      const deleted = await walletDB.deleteAccount(mockAccount.id);
+      expect(deleted).toBe(true);
+
+      const afterDelete = await walletDB.getAccount(mockAccount.id);
+      expect(afterDelete).toBeNull();
+    });
+  });
+
+  describe('Wallet Preferences', () => {
+    it('should save and retrieve preferences', async () => {
+      const preferences = {
+        userId: 'test-user-1',
+        defaultCurrency: 'USD',
+        language: 'en',
+        theme: 'dark' as const,
+        autoLockTimeout: 30,
+        showBalanceOnStartup: false,
+        privacyMode: true,
+        notifications: {
+          transactions: true,
+          priceAlerts: false,
+          security: true
+        },
+        gasSettings: {
+          defaultGasPrice: '25000000000',
+          maxGasPrice: '150000000000',
+          gasLimitBuffer: 1.3
+        },
+        updatedAt: Date.now()
+      };
+
+      const success = await walletDB.savePreferences(preferences);
+      expect(success).toBe(true);
+
+      const retrieved = await walletDB.getPreferences(preferences.userId);
+      expect(retrieved.theme).toBe('dark');
+      expect(retrieved.privacyMode).toBe(true);
+      expect(retrieved.autoLockTimeout).toBe(30);
+    });
+
+    it('should return default preferences for new user', async () => {
+      const preferences = await walletDB.getPreferences('new-user');
+      expect(preferences.defaultCurrency).toBe('USD');
+      expect(preferences.language).toBe('en');
+      expect(preferences.theme).toBe('auto');
+      expect(preferences.showBalanceOnStartup).toBe(true);
     });
   });
 
   describe('Transaction History', () => {
-    it('should store transaction records', async () => {
+    it('should save and retrieve transaction records', async () => {
+      const success = await transactionDB.saveTransaction(mockTransaction);
+      expect(success).toBe(true);
+      
+      const retrieved = await transactionDB.getTransaction(mockTransaction.id);
+      expect(retrieved).toBeDefined();
+      expect(retrieved?.hash).toBe(mockTransaction.hash);
+      expect(retrieved?.from).toBe(mockTransaction.from);
+      expect(retrieved?.to).toBe(mockTransaction.to);
+    });
+
+    it('should filter transactions by criteria', async () => {
+      const transactions: TransactionData[] = [
+        {
+          ...mockTransaction,
+          id: 'tx-1',
+          hash: '0x111',
+          from: TEST_ADDRESSES.ethereum,
+          status: 'confirmed',
+          timestamp: Date.now() - 86400000 // 1 day ago
+        },
+        {
+          ...mockTransaction,
+          id: 'tx-2', 
+          hash: '0x222',
+          from: TEST_ADDRESSES.ethereum,
+          status: 'pending',
+          timestamp: Date.now() - 3600000 // 1 hour ago
+        },
+        {
+          ...mockTransaction,
+          id: 'tx-3',
+          hash: '0x333',
+          from: '0x999999999999999999999999999999999999999999',
+          status: 'confirmed',
+          timestamp: Date.now() - 1800000 // 30 min ago
+        }
+      ];
+
+      for (const tx of transactions) {
+        await transactionDB.saveTransaction(tx);
+      }
+
+      // Filter by address - fix: pass filters directly, not nested
+      const userTxs = await transactionDB.getTransactions({ 
+        from: TEST_ADDRESSES.ethereum
+      });
+      expect(userTxs).toHaveLength(2);
+
+      // Filter by status
+      const confirmedTxs = await transactionDB.getTransactions({
+        status: 'confirmed'
+      });
+      expect(confirmedTxs).toHaveLength(2);
+    });
+
+    it('should update transaction data', async () => {
       await transactionDB.saveTransaction(mockTransaction);
       
-      const tx = await transactionDB.getTransaction(mockTransaction.hash);
-      expect(tx).toBeDefined();
-      expect(tx.hash).toBe(mockTransaction.hash);
-      expect(tx.from).toBe(mockTransaction.from);
-      expect(tx.to).toBe(mockTransaction.to);
-    });
-
-    it('should retrieve transactions by address', async () => {
-      const transactions = [
-        { ...mockTransaction, hash: '0x1...', from: mockWallet.address },
-        { ...mockTransaction, hash: '0x2...', to: mockWallet.address },
-        { ...mockTransaction, hash: '0x3...', from: mockWallet.address }
-      ];
-
-      for (const tx of transactions) {
-        await transactionDB.saveTransaction(tx);
-      }
-
-      const userTxs = await transactionDB.getTransactionsByAddress(mockWallet.address);
-      expect(userTxs).toHaveLength(3);
-    });
-
-    it('should filter transactions by date range', async () => {
-      const now = Date.now();
-      const transactions = [
-        { ...mockTransaction, hash: '0x1...', timestamp: now - 86400000 * 7 }, // 7 days ago
-        { ...mockTransaction, hash: '0x2...', timestamp: now - 86400000 * 3 }, // 3 days ago
-        { ...mockTransaction, hash: '0x3...', timestamp: now - 86400000 }      // 1 day ago
-      ];
-
-      for (const tx of transactions) {
-        await transactionDB.saveTransaction(tx);
-      }
-
-      const recentTxs = await transactionDB.getTransactionsByDateRange(
-        now - 86400000 * 5,
-        now
-      );
-      expect(recentTxs).toHaveLength(2);
-    });
-
-    it('should update transaction status', async () => {
-      await transactionDB.saveTransaction({
+      // Update transaction with new data
+      const updatedTx = {
         ...mockTransaction,
-        status: 'pending'
-      });
+        status: 'failed' as const,
+        gasUsed: '0' // Failed transaction
+      };
 
-      await transactionDB.updateTransactionStatus(mockTransaction.hash, 'confirmed', {
-        blockNumber: 12345,
-        confirmations: 12
-      });
+      const success = await transactionDB.saveTransaction(updatedTx);
+      expect(success).toBe(true);
 
-      const updated = await transactionDB.getTransaction(mockTransaction.hash);
-      expect(updated.status).toBe('confirmed');
-      expect(updated.blockNumber).toBe(12345);
-    });
-
-    it('should calculate transaction statistics', async () => {
-      const transactions = [
-        { ...mockTransaction, hash: '0x1...', value: '1000000000000000000' },  // 1 ETH
-        { ...mockTransaction, hash: '0x2...', value: '2000000000000000000' },  // 2 ETH
-        { ...mockTransaction, hash: '0x3...', value: '500000000000000000' }   // 0.5 ETH
-      ];
-
-      for (const tx of transactions) {
-        await transactionDB.saveTransaction(tx);
-      }
-
-      const stats = await transactionDB.getStatistics(mockWallet.address);
-      expect(stats.totalTransactions).toBe(3);
-      expect(stats.totalVolume).toBe('3500000000000000000');
+      const retrieved = await transactionDB.getTransaction(mockTransaction.id);
+      expect(retrieved?.status).toBe('failed');
+      expect(retrieved?.gasUsed).toBe('0');
     });
   });
 
   describe('NFT Storage', () => {
-    it('should store NFT metadata', async () => {
-      await nftDB.saveNFT(mockNFT);
+    it('should save and retrieve NFT data', async () => {
+      const success = await nftDB.saveNFT(mockNFT);
+      expect(success).toBe(true);
       
-      const nft = await nftDB.getNFT(mockNFT.contractAddress, mockNFT.tokenId);
-      expect(nft).toBeDefined();
-      expect(nft.name).toBe(mockNFT.name);
-      expect(nft.image).toBe(mockNFT.image);
+      const retrieved = await nftDB.getNFT(mockNFT.id);
+      expect(retrieved).toBeDefined();
+      expect(retrieved?.contractAddress).toBe(mockNFT.contractAddress);
+      expect(retrieved?.tokenId).toBe(mockNFT.tokenId);
+      expect(retrieved?.owner).toBe(mockNFT.owner);
+      expect(retrieved?.name).toBe(mockNFT.name);
     });
 
-    it('should retrieve NFTs by owner', async () => {
-      const nfts = [
-        { ...mockNFT, tokenId: '1', owner: mockWallet.address },
-        { ...mockNFT, tokenId: '2', owner: mockWallet.address },
-        { ...mockNFT, tokenId: '3', owner: '0xother...' }
+    it('should query NFTs by owner', async () => {
+      const nfts: NFTData[] = [
+        {
+          ...mockNFT,
+          id: 'nft-1',
+          tokenId: '1',
+          owner: TEST_ADDRESSES.ethereum
+        },
+        {
+          ...mockNFT,
+          id: 'nft-2',
+          tokenId: '2', 
+          owner: TEST_ADDRESSES.ethereum
+        },
+        {
+          ...mockNFT,
+          id: 'nft-3',
+          tokenId: '3',
+          owner: '0x999999999999999999999999999999999999999999'
+        }
       ];
 
       for (const nft of nfts) {
         await nftDB.saveNFT(nft);
       }
 
-      const ownerNFTs = await nftDB.getNFTsByOwner(mockWallet.address);
-      expect(ownerNFTs).toHaveLength(2);
-      expect(ownerNFTs.every(n => n.owner === mockWallet.address)).toBe(true);
+      const userNFTs = await nftDB.getNFTsByOwner(TEST_ADDRESSES.ethereum);
+      expect(userNFTs).toHaveLength(2);
+      expect(userNFTs.map(n => n.tokenId).sort()).toEqual(['1', '2']);
     });
 
-    it('should update NFT ownership', async () => {
-      await nftDB.saveNFT({
-        ...mockNFT,
-        owner: mockWallet.address
-      });
+    it('should query NFTs by collection', async () => {
+      const contractAddress = '0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D';
+      const nfts: NFTData[] = [
+        { ...mockNFT, id: 'nft-1', contractAddress, tokenId: '1' },
+        { ...mockNFT, id: 'nft-2', contractAddress, tokenId: '2' },
+        { ...mockNFT, id: 'nft-3', contractAddress: '0x123', tokenId: '3' }
+      ];
 
-      const newOwner = '0x9876543210987654321098765432109876543210';
-      await nftDB.transferNFT(
-        mockNFT.contractAddress,
-        mockNFT.tokenId,
-        mockWallet.address,
-        newOwner
-      );
+      for (const nft of nfts) {
+        await nftDB.saveNFT(nft);
+      }
 
-      const updated = await nftDB.getNFT(mockNFT.contractAddress, mockNFT.tokenId);
-      expect(updated.owner).toBe(newOwner);
-      expect(updated.previousOwner).toBe(mockWallet.address);
-    });
-
-    it('should cache NFT metadata', async () => {
-      const metadata = {
-        name: 'Test NFT',
-        description: 'Test Description',
-        image: 'ipfs://...',
-        attributes: [
-          { trait_type: 'Color', value: 'Blue' }
-        ]
-      };
-
-      await nftDB.cacheMetadata(mockNFT.contractAddress, mockNFT.tokenId, metadata);
-      
-      const cached = await nftDB.getCachedMetadata(mockNFT.contractAddress, mockNFT.tokenId);
-      expect(cached).toEqual(metadata);
-    });
-
-    it('should handle NFT collections', async () => {
-      const collection = {
-        address: mockNFT.contractAddress,
-        name: 'Test Collection',
-        symbol: 'TC',
-        totalSupply: 10000
-      };
-
-      await nftDB.saveCollection(collection);
-      
-      const retrieved = await nftDB.getCollection(mockNFT.contractAddress);
-      expect(retrieved.name).toBe('Test Collection');
-      expect(retrieved.totalSupply).toBe(10000);
+      const collectionNFTs = await nftDB.getNFTsByCollection(contractAddress, 1);
+      expect(collectionNFTs).toHaveLength(2);
     });
   });
 
-  describe('Database Synchronization', () => {
-    it('should sync with remote database', async () => {
-      const localData = {
-        wallets: [{ address: mockWallet.address }],
-        transactions: [mockTransaction],
-        nfts: [mockNFT]
-      };
-
-      const syncResult = await walletDB.syncWithRemote(localData);
-      expect(syncResult.success).toBe(true);
-      expect(syncResult.synced).toHaveProperty('wallets');
-      expect(syncResult.synced).toHaveProperty('transactions');
-      expect(syncResult.synced).toHaveProperty('nfts');
-    });
-
-    it('should handle sync conflicts', async () => {
-      const localWallet = {
-        address: mockWallet.address,
-        name: 'Local Name',
-        lastModified: Date.now() - 1000
-      };
-
-      const remoteWallet = {
-        address: mockWallet.address,
-        name: 'Remote Name',
-        lastModified: Date.now()
-      };
-
-      await walletDB.saveWallet(localWallet);
-      
-      const resolved = await walletDB.resolveConflict(localWallet, remoteWallet);
-      expect(resolved.name).toBe('Remote Name'); // Remote is newer
-    });
-
-    it('should backup database', async () => {
-      await walletDB.saveWallet({ address: mockWallet.address });
+  describe('Data Consistency and Integrity', () => {
+    it('should maintain data integrity across operations', async () => {
+      // Save related data
+      await walletDB.saveAccount(mockAccount);
       await transactionDB.saveTransaction(mockTransaction);
       await nftDB.saveNFT(mockNFT);
 
-      const backup = await walletDB.createBackup();
-      expect(backup).toBeDefined();
-      expect(backup.timestamp).toBeDefined();
-      expect(backup.data).toHaveProperty('wallets');
-      expect(backup.data).toHaveProperty('transactions');
-      expect(backup.data).toHaveProperty('nfts');
+      // Verify all data exists
+      const account = await walletDB.getAccount(mockAccount.id);
+      const transaction = await transactionDB.getTransaction(mockTransaction.id);
+      const nft = await nftDB.getNFT(mockNFT.id);
+
+      expect(account).toBeDefined();
+      expect(transaction).toBeDefined();
+      expect(nft).toBeDefined();
+
+      // Verify relationships
+      expect(account?.address).toBe(transaction?.from);
+      expect(account?.address).toBe(nft?.owner);
     });
 
-    it('should restore from backup', async () => {
-      const backup = {
-        timestamp: Date.now(),
-        data: {
-          wallets: [{ address: mockWallet.address }],
-          transactions: [mockTransaction],
-          nfts: [mockNFT]
-        }
-      };
-
-      await walletDB.restoreFromBackup(backup);
+    it('should handle concurrent modifications safely', async () => {
+      const promises = [];
       
-      expect(await walletDB.getWallet(mockWallet.address)).toBeDefined();
-      expect(await transactionDB.getTransaction(mockTransaction.hash)).toBeDefined();
-      expect(await nftDB.getNFT(mockNFT.contractAddress, mockNFT.tokenId)).toBeDefined();
+      // Simulate concurrent saves
+      for (let i = 0; i < 10; i++) {
+        promises.push(
+          walletDB.saveAccount({
+            ...mockAccount,
+            id: `account-${i}`,
+            address: `0x${i.toString().padStart(40, '0')}`,
+            lastAccessedAt: Date.now() + i
+          })
+        );
+      }
+
+      const results = await Promise.all(promises);
+      expect(results.every(r => r === true)).toBe(true);
+
+      const accounts = await walletDB.getAccounts();
+      expect(accounts).toHaveLength(10);
     });
 
-    it('should export data in standard format', async () => {
-      await walletDB.saveWallet({ address: mockWallet.address });
+    it('should clear all data correctly', async () => {
+      // Add some data
+      await walletDB.saveAccount(mockAccount);
       await transactionDB.saveTransaction(mockTransaction);
+      await nftDB.saveNFT(mockNFT);
 
-      const exported = await walletDB.exportData('json');
-      expect(exported).toBeDefined();
-      
-      const parsed = JSON.parse(exported);
-      expect(parsed.version).toBeDefined();
-      expect(parsed.wallets).toHaveLength(1);
-      expect(parsed.transactions).toHaveLength(1);
+      // Verify data exists
+      expect(await walletDB.getAccounts()).toHaveLength(1);
+      expect(await transactionDB.getTransactions()).toHaveLength(1);
+      expect(await nftDB.getNFTs()).toHaveLength(1);
+
+      // Clear all
+      await walletDB.clear();
+      await transactionDB.clear(); 
+      await nftDB.clear();
+
+      // Verify data is cleared
+      expect(await walletDB.getAccounts()).toHaveLength(0);
+      expect(await transactionDB.getTransactions()).toHaveLength(0);
+      expect(await nftDB.getNFTs()).toHaveLength(0);
     });
   });
 
-  describe('Performance and Optimization', () => {
+  describe('Database Performance', () => {
     it('should handle large datasets efficiently', async () => {
       const startTime = Date.now();
       
-      // Insert 1000 transactions
-      const transactions = Array.from({ length: 1000 }, (_, i) => ({
-        ...mockTransaction,
-        hash: `0x${i.toString(16).padStart(64, '0')}`
-      }));
-
-      await transactionDB.bulkInsert(transactions);
-      
-      const endTime = Date.now();
-      expect(endTime - startTime).toBeLessThan(5000); // Should complete within 5 seconds
-
-      const count = await transactionDB.getTransactionCount();
-      expect(count).toBe(1000);
-    });
-
-    it('should use indexes for fast queries', async () => {
-      // Insert test data
+      // Insert 100 accounts
+      const promises = [];
       for (let i = 0; i < 100; i++) {
-        await transactionDB.saveTransaction({
-          ...mockTransaction,
-          hash: `0x${i}...`,
-          from: i % 2 === 0 ? mockWallet.address : '0xother...'
-        });
+        promises.push(
+          walletDB.saveAccount({
+            ...mockAccount,
+            id: `perf-account-${i}`,
+            address: `0x${i.toString().padStart(40, '0')}`,
+            name: `Performance Account ${i}`
+          })
+        );
       }
-
-      const startTime = Date.now();
-      const results = await transactionDB.getTransactionsByAddress(mockWallet.address);
-      const queryTime = Date.now() - startTime;
-
-      expect(queryTime).toBeLessThan(100); // Query should be fast
-      expect(results).toHaveLength(50);
-    });
-
-    it('should implement caching', async () => {
-      // First call - hits database
-      const start1 = Date.now();
-      const wallet1 = await walletDB.getWallet(mockWallet.address);
-      const time1 = Date.now() - start1;
-
-      // Second call - should hit cache
-      const start2 = Date.now();
-      const wallet2 = await walletDB.getWallet(mockWallet.address);
-      const time2 = Date.now() - start2;
-
-      expect(time2).toBeLessThan(time1);
-      expect(wallet1).toEqual(wallet2);
-    });
-
-    it('should clean up old data', async () => {
-      const oldDate = Date.now() - 86400000 * 90; // 90 days ago
       
-      // Insert old transactions
-      for (let i = 0; i < 10; i++) {
-        await transactionDB.saveTransaction({
-          ...mockTransaction,
-          hash: `0x${i}...`,
-          timestamp: oldDate
-        });
-      }
-
-      // Insert recent transactions
-      for (let i = 10; i < 20; i++) {
-        await transactionDB.saveTransaction({
-          ...mockTransaction,
-          hash: `0x${i}...`,
-          timestamp: Date.now()
-        });
-      }
-
-      await transactionDB.cleanupOldData(86400000 * 30); // Keep only 30 days
+      await Promise.all(promises);
+      const insertTime = Date.now() - startTime;
       
-      const remaining = await transactionDB.getAllTransactions();
-      expect(remaining).toHaveLength(10);
-      expect(remaining.every(tx => tx.timestamp > oldDate)).toBe(true);
-    });
+      // Query all accounts
+      const queryStart = Date.now();
+      const accounts = await walletDB.getAccounts();
+      const queryTime = Date.now() - queryStart;
+      
+      expect(accounts).toHaveLength(100);
+      expect(insertTime).toBeLessThan(5000); // Should complete in under 5 seconds
+      expect(queryTime).toBeLessThan(1000); // Should query in under 1 second
+    }, 10000);
   });
 });

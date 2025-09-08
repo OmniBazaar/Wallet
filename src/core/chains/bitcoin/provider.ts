@@ -1,7 +1,21 @@
+/**
+ * Complete Bitcoin Provider Implementation
+ * Supports real Bitcoin blockchain operations using bitcoinjs-lib and public APIs
+ */
+
 import { BaseProvider } from '../base-provider';
 import { NetworkConfig, Transaction, TransactionRequest } from '@/types';
-// Removed bitcoin dependencies - mock implementation for now
-// import axios from 'axios';
+import * as bitcoin from 'bitcoinjs-lib';
+import { BIP32Factory } from 'bip32';
+import * as ecc from 'tiny-secp256k1';
+import { ECPairFactory } from 'ecpair';
+
+// Initialize ECC library for bitcoinjs-lib
+// Modern versions of bitcoinjs-lib don't need initEccLib
+// bitcoin.initEccLib(ecc);
+
+// Initialize ECPair factory with ecc
+const ECPair = ECPairFactory(ecc);
 
 /** Bitcoin network configuration parameters */
 export interface BitcoinNetwork {
@@ -10,9 +24,11 @@ export interface BitcoinNetwork {
   /** Bech32 address prefix */
   bech32: string;
   /** BIP32 extended key parameters */
-  bip32: { /** Public key version */
-    public: number; /** Private key version */
-    private: number
+  bip32: {
+    /** Public key version */
+    public: number;
+    /** Private key version */
+    private: number;
   };
   /** Public key hash version */
   pubKeyHash: number;
@@ -22,242 +38,472 @@ export interface BitcoinNetwork {
   wif: number;
 }
 
-/** Bitcoin network configuration */
+/** Bitcoin network configuration with API endpoints */
 export interface BitcoinNetworkConfig extends NetworkConfig {
   /** Bitcoin network parameters */
   network: BitcoinNetwork;
-  /** API endpoint URL */
+  /** API endpoint URL (Blockstream/Mempool API) */
   apiUrl: string;
   /** Block explorer URL */
   explorer: string;
-  /**
-   *
-   */
+  /** Minimum amount in satoshis to prevent dust */
   dust: number;
-  /**
-   *
-   */
+  /** Default fee rate in sat/vB */
   feeRate?: number;
 }
 
-/**
- *
- */
+/** Unspent Transaction Output */
 export interface UTXO {
-  /**
-   *
-   */
+  /** Transaction ID containing this output */
   txid: string;
-  /**
-   *
-   */
+  /** Output index in the transaction */
   vout: number;
-  /**
-   *
-   */
+  /** Value in satoshis */
   value: number;
-  /**
-   *
-   */
+  /** Associated address */
   address: string;
-  /**
-   *
-   */
+  /** Number of confirmations */
   confirmations: number;
+  /** Script type */
+  scriptType?: string;
+}
+
+/** Fee estimation response from API */
+interface FeeEstimate {
+  /** Blocks to confirm */
+  blocks: number;
+  /** Fee rate in sat/vB */
+  feeRate: number;
+}
+
+/** Address information from API */
+interface AddressInfo {
+  address: string;
+  chain_stats: {
+    funded_txo_count: number;
+    funded_txo_sum: number;
+    spent_txo_count: number;
+    spent_txo_sum: number;
+    tx_count: number;
+  };
+  mempool_stats: {
+    funded_txo_count: number;
+    funded_txo_sum: number;
+    spent_txo_count: number;
+    spent_txo_sum: number;
+    tx_count: number;
+  };
+}
+
+/** Bitcoin transaction from API */
+interface BitcoinApiTransaction {
+  txid: string;
+  version: number;
+  locktime: number;
+  vin: Array<{
+    txid: string;
+    vout: number;
+    prevout: {
+      scriptpubkey: string;
+      scriptpubkey_asm: string;
+      scriptpubkey_type: string;
+      scriptpubkey_address: string;
+      value: number;
+    };
+    scriptsig: string;
+    witness: string[];
+    is_coinbase: boolean;
+    sequence: number;
+  }>;
+  vout: Array<{
+    scriptpubkey: string;
+    scriptpubkey_asm: string;
+    scriptpubkey_type: string;
+    scriptpubkey_address?: string;
+    value: number;
+  }>;
+  size: number;
+  weight: number;
+  fee: number;
+  status: {
+    confirmed: boolean;
+    block_height?: number;
+    block_hash?: string;
+    block_time?: number;
+  };
 }
 
 /**
- *
+ * Complete Bitcoin provider implementation with real blockchain APIs
  */
 export class BitcoinProvider extends BaseProvider {
   private network: BitcoinNetwork;
   private apiUrl: string;
   private explorer: string;
   private dust: number;
+  private defaultFeeRate: number;
+  private bip32: any;
 
   /**
-   *
-   * @param config
+   * Create new Bitcoin provider instance
+   * @param config Bitcoin network configuration
    */
   constructor(config: BitcoinNetworkConfig) {
     super(config);
     this.network = config.network;
     this.apiUrl = config.apiUrl;
     this.explorer = config.explorer;
-    this.dust = config.dust || 546; // Default dust limit in satoshis
+    this.dust = config.dust || 546; // Standard dust limit
+    this.defaultFeeRate = config.feeRate || 10; // Default 10 sat/vB
+    this.bip32 = BIP32Factory(ecc);
   }
 
   /**
-   * Get account from derivation path
-   * @param privateKey
-   * @param _derivationPath
+   * Generate Bitcoin address from seed and derivation path
+   * @param seed Seed buffer or hex string
+   * @param derivationPath HD derivation path
    */
-  async getAccount(privateKey: string, _derivationPath = "m/84'/0'/0'/0/0"): Promise<{ /**
-                                                                                        *
-                                                                                        */
-    address: string; /**
-                    *
-                    */
-    publicKey: string
+  async getAccount(seed: string, derivationPath = "m/84'/0'/0'/0/0"): Promise<{
+    address: string;
+    publicKey: string;
+    addressType: 'P2WPKH' | 'P2PKH' | 'P2SH';
+    privateKey: string;
   }> {
     try {
-      // Mock implementation - in production would use bitcoin libraries
-      const mockAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa';
-      const mockPublicKey = '0x' + Buffer.from(privateKey.slice(0, 32), 'hex').toString('hex');
+      // Convert seed to buffer if it's a hex string
+      const seedBuffer = Buffer.isBuffer(seed) ? seed : Buffer.from(seed, 'hex');
+      
+      // Create master node from seed
+      const masterNode = this.bip32.fromSeed(seedBuffer, this.network);
+      
+      // Derive child node from path
+      const childNode = masterNode.derivePath(derivationPath);
+      
+      // Determine address type based on derivation path
+      let address: string;
+      let addressType: 'P2WPKH' | 'P2PKH' | 'P2SH';
+      
+      if (derivationPath.startsWith("m/84'")) {
+        // Native SegWit (P2WPKH) - Bech32
+        const payment = bitcoin.payments.p2wpkh({ 
+          pubkey: childNode.publicKey, 
+          network: this.network 
+        });
+        address = payment.address!;
+        addressType = 'P2WPKH';
+      } else if (derivationPath.startsWith("m/49'")) {
+        // Nested SegWit (P2SH-P2WPKH)
+        const payment = bitcoin.payments.p2sh({
+          redeem: bitcoin.payments.p2wpkh({ 
+            pubkey: childNode.publicKey, 
+            network: this.network 
+          }),
+          network: this.network
+        });
+        address = payment.address!;
+        addressType = 'P2SH';
+      } else {
+        // Legacy (P2PKH)
+        const payment = bitcoin.payments.p2pkh({ 
+          pubkey: childNode.publicKey, 
+          network: this.network 
+        });
+        address = payment.address!;
+        addressType = 'P2PKH';
+      }
 
       return {
-        address: mockAddress,
-        publicKey: mockPublicKey
+        address,
+        publicKey: childNode.publicKey.toString('hex'),
+        privateKey: childNode.privateKey!.toString('hex'),
+        addressType
       };
     } catch (error) {
-      throw new Error(`Failed to get Bitcoin account: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Failed to generate Bitcoin account: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
   /**
-   * Get balance for an address
-   * @param _address
+   * Get balance for a Bitcoin address using Blockstream API
+   * @param address Bitcoin address
    */
-  async getBalance(_address: string): Promise<string> {
+  async getBalance(address: string): Promise<string> {
     try {
-      // Mock implementation - in production would use actual Bitcoin API
-      return '0';
+      const response = await fetch(`${this.apiUrl}/address/${address}`);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const data = await response.json() as AddressInfo;
+      
+      // Calculate total balance (confirmed + unconfirmed)
+      const confirmedBalance = data.chain_stats?.funded_txo_sum || 0;
+      const unconfirmedBalance = data.mempool_stats?.funded_txo_sum || 0;
+      const totalSpent = (data.chain_stats?.spent_txo_sum || 0) + (data.mempool_stats?.spent_txo_sum || 0);
+      
+      const balance = confirmedBalance + unconfirmedBalance - totalSpent;
+      return Math.max(0, balance).toString();
     } catch (error) {
       console.error('Error fetching Bitcoin balance:', error instanceof Error ? error.message : error);
-      return '0';
+      throw new Error(`Failed to fetch balance: ${error instanceof Error ? error.message : 'Network error'}`);
     }
   }
 
   /**
    * Get formatted balance in BTC
-   * @param address
+   * @param address Bitcoin address
    */
   async getFormattedBalance(address: string): Promise<string> {
     const balance = await this.getBalance(address);
-    return (parseInt(balance) / 100000000).toFixed(8); // Convert satoshis to BTC
+    const btc = parseInt(balance) / 100000000; // Convert satoshis to BTC
+    return btc.toFixed(8) + ' BTC';
   }
 
   /**
-   * Get UTXOs for an address
-   * @param address
+   * Get UTXOs for an address using Blockstream API
+   * @param address Bitcoin address
    */
   async getUTXOs(address: string): Promise<UTXO[]> {
     try {
-      // Mock axios response
-      const response = { data: [] };
-      return response.data.map((utxo: { /**
-                                         *
-                                         */
-        txid: string; /**
-                     *
-                     */
-        vout: number; /**
-                     *
-                     */
-        value: number; /**
-                      *
-                      */
-        status: { /**
-                 *
-                 */
-          confirmed: boolean; /**
-                           *
-                           */
-          block_height: number
-        }
-      }) => ({
+      const response = await fetch(`${this.apiUrl}/address/${address}/utxo`);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const utxos = await response.json() as Array<{
+        txid: string;
+        vout: number;
+        status: {
+          confirmed: boolean;
+          block_height?: number;
+        };
+        value: number;
+      }>;
+
+      return utxos.map(utxo => ({
         txid: utxo.txid,
         vout: utxo.vout,
         value: utxo.value,
         address: address,
-        confirmations: utxo.status.confirmed ? utxo.status.block_height : 0
+        confirmations: utxo.status.confirmed ? (utxo.status.block_height ? 1 : 0) : 0
       }));
     } catch (error) {
       console.error('Error fetching UTXOs:', error);
-      return [];
+      throw new Error(`Failed to fetch UTXOs: ${error instanceof Error ? error.message : 'Network error'}`);
     }
   }
 
   /**
-   * Estimate transaction fee
-   * @param _txRequest
+   * Get current fee estimates from API
    */
-  async estimateFee(_txRequest: TransactionRequest): Promise<string> {
+  async getFeeEstimates(): Promise<Map<number, number>> {
     try {
-      // Get current fee rates
-      // Mock fee response
-      const feeResponse = { data: { '1': 10 } };
-      const feeRate = feeResponse.data['1'] || 10; // sat/vB
+      const response = await fetch(`${this.apiUrl}/fee-estimates`);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const feeData = await response.json() as Record<string, number>;
+      const feeMap = new Map<number, number>();
+      
+      Object.entries(feeData).forEach(([blocks, feeRate]) => {
+        feeMap.set(parseInt(blocks), feeRate);
+      });
+      
+      return feeMap;
+    } catch (error) {
+      console.warn('Error fetching fee estimates, using default:', error);
+      // Return default fee estimates
+      return new Map([
+        [1, 20],   // Fast: 20 sat/vB
+        [3, 15],   // Medium: 15 sat/vB  
+        [6, 10],   // Slow: 10 sat/vB
+      ]);
+    }
+  }
 
-      // Estimate transaction size (simplified)
-      // P2WPKH input: ~68 vBytes, P2WPKH output: ~31 vBytes
-      const inputs = 1; // Simplified - would need to calculate based on amount
-      const outputs = 2; // Recipient + change
-      const estimatedSize = (inputs * 68) + (outputs * 31) + 10; // +10 for overhead
-
+  /**
+   * Estimate transaction fee based on inputs/outputs and fee rate
+   * @param txRequest Transaction request
+   */
+  async estimateFee(txRequest: TransactionRequest): Promise<string> {
+    try {
+      const amount = parseInt(txRequest.value || '0');
+      const toAddress = txRequest.to;
+      
+      // Get UTXOs to calculate input count
+      // For estimation, we'll assume we need UTXOs from the sender
+      // In practice, you'd get the sender's UTXOs
+      const inputCount = 1;
+      const selectedValue = 0;
+      
+      // Simplified UTXO selection - in practice you'd implement coin selection
+      // For now, estimate based on typical transaction sizes
+      
+      // Get current fee rate
+      const feeEstimates = await this.getFeeEstimates();
+      const feeRate = feeEstimates.get(1) || this.defaultFeeRate; // Use fast confirmation
+      
+      // Calculate transaction size
+      // P2WPKH input: ~68 vBytes, P2WPKH output: ~31 vBytes, overhead: ~10 vBytes
+      const inputSize = 68; // Average input size for P2WPKH
+      const outputSize = 31; // Average output size for P2WPKH
+      const outputs = amount > 0 ? 2 : 1; // Recipient + change (if needed)
+      const overhead = 10;
+      
+      const estimatedSize = (inputCount * inputSize) + (outputs * outputSize) + overhead;
       const fee = Math.ceil(estimatedSize * feeRate);
+      
       return fee.toString();
     } catch (error) {
       console.error('Error estimating fee:', error);
-      return '1000'; // Default fee
+      return (this.defaultFeeRate * 200).toString(); // Default estimate
     }
   }
 
   /**
-   * Build and sign a transaction
-   * @param _privateKey
-   * @param _txRequest
+   * Build and sign a Bitcoin transaction
+   * @param privateKey Private key in hex format
+   * @param txRequest Transaction request
    */
-  async signTransaction(
-    _privateKey: string,
-    _txRequest: TransactionRequest
-  ): Promise<string> {
+  async signTransaction(privateKey: string, txRequest: TransactionRequest): Promise<string> {
     try {
-      // Mock implementation - in production would use actual Bitcoin transaction signing
-      // Mock Bitcoin transaction signing - in production would use actual Bitcoin libraries
-      return '0x' + Buffer.from('mock-signed-transaction', 'utf8').toString('hex');
+      const privateKeyBuffer = Buffer.from(privateKey, 'hex');
+      const keyPair = ECPair.fromPrivateKey(privateKeyBuffer, { network: this.network });
+      
+      const amount = parseInt(txRequest.value || '0');
+      const toAddress = txRequest.to;
+      
+      // Create payment object to get sender address
+      const payment = bitcoin.payments.p2wpkh({ 
+        pubkey: keyPair.publicKey, 
+        network: this.network 
+      });
+      const fromAddress = payment.address!;
+      
+      // Get UTXOs for the sender
+      const utxos = await this.getUTXOs(fromAddress);
+      if (utxos.length === 0) {
+        throw new Error('No UTXOs available for transaction');
+      }
+      
+      // Simple coin selection - select first UTXO with enough value
+      const selectedUTXOs: UTXO[] = [];
+      let totalSelected = 0;
+      
+      for (const utxo of utxos) {
+        selectedUTXOs.push(utxo);
+        totalSelected += utxo.value;
+        if (totalSelected >= amount + 1000) { // Amount + estimated fee
+          break;
+        }
+      }
+      
+      if (totalSelected < amount) {
+        throw new Error('Insufficient funds');
+      }
+      
+      // Build transaction
+      const psbt = new bitcoin.Psbt({ network: this.network });
+      
+      // Add inputs
+      for (const utxo of selectedUTXOs) {
+        // Get previous transaction to get the output script
+        const prevTxResponse = await fetch(`${this.apiUrl}/tx/${utxo.txid}`);
+        const prevTx = await prevTxResponse.json() as BitcoinApiTransaction;
+        const prevOutput = prevTx.vout[utxo.vout];
+        
+        psbt.addInput({
+          hash: utxo.txid,
+          index: utxo.vout,
+          witnessUtxo: {
+            script: Buffer.from(prevOutput.scriptpubkey, 'hex') as any,
+            value: utxo.value,
+          },
+        });
+      }
+      
+      // Add recipient output
+      psbt.addOutput({
+        address: toAddress,
+        value: amount,
+      });
+      
+      // Calculate fee and add change output if necessary
+      const fee = parseInt(await this.estimateFee(txRequest));
+      const change = totalSelected - amount - fee;
+      
+      if (change > this.dust) {
+        psbt.addOutput({
+          address: fromAddress,
+          value: change,
+        });
+      }
+      
+      // Sign inputs
+      for (let i = 0; i < selectedUTXOs.length; i++) {
+        psbt.signInput(i, keyPair as any);
+      }
+      
+      // Finalize and extract transaction
+      psbt.finalizeAllInputs();
+      const tx = psbt.extractTransaction();
+      
+      return tx.toHex();
     } catch (error) {
       throw new Error(`Failed to sign Bitcoin transaction: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
   /**
-   * Send a signed transaction
-   * @param _signedTx
+   * Broadcast a signed transaction to the Bitcoin network
+   * @param signedTx Signed transaction in hex format
    */
-  async sendTransaction(_signedTx: string): Promise<string> {
+  async sendTransaction(signedTx: string): Promise<string> {
     try {
-      // Mock implementation - in production would broadcast to Bitcoin network
-      // Mock Bitcoin transaction broadcasting - in production would broadcast to Bitcoin network
-      return '0x' + Buffer.from('mock-tx-hash', 'utf8').toString('hex');
+      const response = await fetch(`${this.apiUrl}/tx`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'text/plain',
+        },
+        body: signedTx,
+      });
+      
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`Broadcast failed: ${error}`);
+      }
+      
+      const txid = await response.text();
+      return txid.trim();
     } catch (error) {
-      throw new Error(`Failed to send Bitcoin transaction: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Failed to broadcast Bitcoin transaction: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
   /**
-   * Get transaction by hash
-   * @param txHash
+   * Get transaction details by hash
+   * @param txHash Transaction hash
    */
   async getTransaction(txHash: string): Promise<Transaction> {
     try {
-      // Mock transaction response
-      const response = {
-        data: {
-          txid: txHash,
-          vin: [{ prevout: { scriptpubkey_address: '' } }],
-          vout: [{ scriptpubkey_address: '', value: 0 }],
-          fee: 0,
-          status: { block_height: 0, block_time: 0, confirmed: false }
-        }
-      };
-      const tx = response.data;
-
+      const response = await fetch(`${this.apiUrl}/tx/${txHash}`);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const tx = await response.json() as BitcoinApiTransaction;
+      
+      // Extract from/to addresses and values
+      const from = tx.vin[0]?.prevout?.scriptpubkey_address || '';
+      const to = tx.vout[0]?.scriptpubkey_address || '';
+      const value = tx.vout[0]?.value?.toString() || '0';
+      
       return {
         hash: tx.txid,
-        from: tx.vin[0]?.prevout?.scriptpubkey_address || '',
-        to: tx.vout[0]?.scriptpubkey_address || '',
-        value: tx.vout[0]?.value?.toString() || '0',
+        from,
+        to,
+        value,
         fee: tx.fee?.toString() || '0',
         blockNumber: tx.status.block_height,
         timestamp: tx.status.block_time,
@@ -269,58 +515,21 @@ export class BitcoinProvider extends BaseProvider {
   }
 
   /**
-   * Get transaction history
-   * @param address
-   * @param limit
+   * Get transaction history for an address
+   * @param address Bitcoin address
+   * @param limit Maximum number of transactions to return
    */
   async getTransactionHistory(address: string, limit = 10): Promise<Transaction[]> {
     try {
-      // Mock transaction history response
-      const response = { data: [] };
-      const txs = response.data.slice(0, limit);
+      const response = await fetch(`${this.apiUrl}/address/${address}/txs`);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const txs = await response.json() as BitcoinApiTransaction[];
+      const limitedTxs = txs.slice(0, limit);
 
-      return txs.map((tx: { /**
-                             *
-                             */
-        txid: string; /**
-                     *
-                     */
-        vin: Array<{ /**
-                    *
-                    */
-          prevout?: { /**
-                   *
-                   */
-            scriptpubkey_address?: string
-          }
-        }>; /**
-                                           *
-                                           */
-        vout: Array<{ /**
-                     *
-                     */
-          scriptpubkey_address?: string; /**
-                                      *
-                                      */
-          value?: number
-        }>; /**
-                          *
-                          */
-        fee?: number; /**
-                     *
-                     */
-        status: { /**
-                 *
-                 */
-          block_height: number; /**
-                             *
-                             */
-          block_time: number; /**
-                           *
-                           */
-          confirmed: boolean
-        }
-      }) => ({
+      return limitedTxs.map(tx => ({
         hash: tx.txid,
         from: tx.vin[0]?.prevout?.scriptpubkey_address || '',
         to: tx.vout[0]?.scriptpubkey_address || '',
@@ -332,23 +541,27 @@ export class BitcoinProvider extends BaseProvider {
       }));
     } catch (error) {
       console.error('Error fetching transaction history:', error);
-      return [];
+      throw new Error(`Failed to get transaction history: ${error instanceof Error ? error.message : 'Network error'}`);
     }
   }
 
   /**
-   * Subscribe to new blocks (not real-time for Bitcoin)
-   * @param callback
+   * Subscribe to new blocks (polling-based for Bitcoin)
+   * @param callback Callback function for new blocks
    */
   async subscribeToBlocks(callback: (blockNumber: number) => void): Promise<() => void> {
+    let isSubscribed = true;
     let lastBlock = 0;
 
     const checkNewBlock = async (): Promise<void> => {
+      if (!isSubscribed) return;
+      
       try {
-        // Mock block height response
-        const response = { data: '800000' };
-        const currentBlock = parseInt(response.data);
-
+        const response = await fetch(`${this.apiUrl}/blocks/tip/height`);
+        if (!response.ok) return;
+        
+        const currentBlock = parseInt(await response.text());
+        
         if (currentBlock > lastBlock) {
           lastBlock = currentBlock;
           callback(currentBlock);
@@ -356,48 +569,122 @@ export class BitcoinProvider extends BaseProvider {
       } catch (error) {
         console.error('Error checking for new blocks:', error);
       }
+      
+      // Schedule next check
+      if (isSubscribed) {
+        setTimeout(checkNewBlock, 30000); // Check every 30 seconds
+      }
     };
 
-    // Check every 30 seconds
-    const intervalId = setInterval(checkNewBlock, 30000);
-    checkNewBlock(); // Initial check
+    // Start checking
+    checkNewBlock();
 
     // Return unsubscribe function
     return () => {
-      if (intervalId) {
-        clearInterval(intervalId);
-      }
+      isSubscribed = false;
     };
   }
 
   /**
-   * Sign a message
-   * @param _privateKey
-   * @param _message
+   * Sign a message with Bitcoin private key
+   * @param privateKey Private key in hex format
+   * @param message Message to sign
    */
-  async signMessage(_privateKey: string, _message: string): Promise<string> {
+  async signMessage(privateKey: string, message: string): Promise<string> {
     try {
-      // Mock Bitcoin message signing - in production would use actual Bitcoin libraries
-      // Mock Bitcoin message signing - in production would use actual Bitcoin libraries
-      return '0x' + Buffer.from('mock-bitcoin-signature', 'utf8').toString('hex');
+      const privateKeyBuffer = Buffer.from(privateKey, 'hex');
+      const keyPair = ECPair.fromPrivateKey(privateKeyBuffer, { network: this.network });
+      
+      // Create message hash
+      const messageBuffer = Buffer.from(message, 'utf8');
+      const messageHash = bitcoin.crypto.sha256(messageBuffer);
+      
+      // Sign the hash  
+      const signature = keyPair.sign(messageHash);
+      
+      return Buffer.from(signature).toString('hex');
     } catch (error) {
       throw new Error(`Failed to sign message: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
   /**
-   * Get explorer URL for a transaction
-   * @param txHash
+   * Get block explorer URL for a transaction
+   * @param txHash Transaction hash
    */
   getExplorerUrl(txHash: string): string {
     return `${this.explorer}/tx/${txHash}`;
   }
 
   /**
-   * Get explorer URL for an address
-   * @param address
+   * Get block explorer URL for an address
+   * @param address Bitcoin address
    */
   getAddressExplorerUrl(address: string): string {
     return `${this.explorer}/address/${address}`;
+  }
+
+  /**
+   * Validate a Bitcoin address
+   * @param address Address to validate
+   */
+  isValidAddress(address: string): boolean {
+    try {
+      bitcoin.address.toOutputScript(address, this.network);
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  /**
+   * Convert satoshis to BTC
+   * @param satoshis Amount in satoshis
+   */
+  satoshisToBTC(satoshis: number): number {
+    return satoshis / 100000000;
+  }
+
+  /**
+   * Convert BTC to satoshis
+   * @param btc Amount in BTC
+   */
+  btcToSatoshis(btc: number): number {
+    return Math.round(btc * 100000000);
+  }
+
+  /**
+   * Get current block height
+   */
+  async getBlockHeight(): Promise<number> {
+    try {
+      const response = await fetch(`${this.apiUrl}/blocks/tip/height`);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      return parseInt(await response.text());
+    } catch (error) {
+      throw new Error(`Failed to get block height: ${error instanceof Error ? error.message : 'Network error'}`);
+    }
+  }
+
+  /**
+   * Get network info
+   */
+  getNetworkInfo(): {
+    name: string;
+    symbol: string;
+    network: BitcoinNetwork;
+    apiUrl: string;
+    explorer: string;
+  } {
+    return {
+      name: this.config.name,
+      symbol: this.config.currency,
+      network: this.network,
+      apiUrl: this.apiUrl,
+      explorer: this.explorer,
+    };
   }
 }

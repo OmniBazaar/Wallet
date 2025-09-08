@@ -3,7 +3,7 @@
  * Manages bridge quotes, executions, and monitoring
  */
 
-import { ethers, Interface } from 'ethers';
+import { ethers } from 'ethers';
 import { 
   BridgeRoute, 
   BridgeQuoteRequest, 
@@ -14,6 +14,7 @@ import {
   BRIDGE_TOKENS
 } from './types';
 import { providerManager } from '../providers/ProviderManager';
+import type { ProviderManager } from '../providers/ProviderManager';
 import { ChainType } from '../keyring/BIP39Keyring';
 
 /**
@@ -44,7 +45,19 @@ export interface BridgeToken {
  * ```
  */
 export class BridgeService {
+  /** Map of active bridge transfers being monitored */
   private activeTransfers: Map<string, BridgeStatus> = new Map();
+  
+  /** Provider manager instance for blockchain interactions */
+  private providerManager: typeof providerManager;
+  
+  /**
+   * Creates a new BridgeService instance
+   * @param provider - Optional provider manager instance (defaults to singleton)
+   */
+  constructor(provider?: typeof providerManager) {
+    this.providerManager = provider || providerManager;
+  }
   
   /**
    * Get quotes from multiple bridge providers for a cross-chain transfer
@@ -87,7 +100,9 @@ export class BridgeService {
   
   /**
    * Execute a bridge transfer
-   * @param route
+   * @param route - The selected bridge route to execute
+   * @returns Transfer ID for monitoring
+   * @throws Error if transfer execution fails
    */
   async executeBridge(route: BridgeRoute): Promise<string> {
     const transferId = this.generateTransferId();
@@ -100,8 +115,9 @@ export class BridgeService {
     });
     
     try {
-      // Execute each step
-      for (const step of route.steps) {
+      // Execute each step (default to empty array if steps not provided)
+      const steps = route.steps || [];
+      for (const step of steps) {
         switch (step.type) {
           case 'approve':
             await this.executeApproval(route);
@@ -139,7 +155,8 @@ export class BridgeService {
   
   /**
    * Get status of a bridge transfer
-   * @param transferId
+   * @param transferId - Unique identifier of the bridge transfer
+   * @returns Current status of the transfer or null if not found
    */
   getTransferStatus(transferId: string): BridgeStatus | null {
     return this.activeTransfers.get(transferId) || null;
@@ -276,7 +293,7 @@ export class BridgeService {
     });
     
     // Some bridges require claiming
-    if ([BridgeProvider.HOP, BridgeProvider.ACROSS].includes(bridge)) {
+    if ([BridgeProvider.Across].includes(bridge)) {
       steps.push({
         type: 'claim' as const,
         description: 'Claim tokens on destination',
@@ -294,16 +311,13 @@ export class BridgeService {
   private async executeApproval(route: BridgeRoute): Promise<void> {
     if (route.fromChain === 'solana') return; // No approvals on Solana
     
-    const provider = providerManager.getProvider(route.fromChain as ChainType);
-    if (!provider) throw new Error('Provider not available');
-    
     // Get bridge contract address based on provider
     const bridgeAddress = this.getBridgeAddress(route.bridge, route.fromChain);
     
     // Create approval transaction
-    const iface = new Interface(['function approve(address spender, uint256 amount) returns (bool)']);
+    const iface = new ethers.Interface(['function approve(address spender, uint256 amount) returns (bool)']);
     const data = iface.encodeFunctionData('approve', [bridgeAddress, ethers.MaxUint256]);
-    await providerManager.sendTransaction(
+    await this.providerManager.sendTransaction(
       route.fromToken.address,
       '0',
       route.fromChain as ChainType,
@@ -319,16 +333,13 @@ export class BridgeService {
     // In production, this would call the specific bridge contract
     // For now, simulate with a simple transfer
     
-    const provider = providerManager.getProvider(route.fromChain as ChainType);
-    if (!provider) throw new Error('Provider not available');
-    
     const bridgeAddress = this.getBridgeAddress(route.bridge, route.fromChain);
     
     // For native tokens, send directly
     if (route.fromToken.address === ethers.ZeroAddress) {
-      const txHash = await providerManager.sendTransaction(
+      const txHash = await this.providerManager.sendTransaction(
         bridgeAddress,
-        ethers.formatUnits(BigInt(route.fromAmount), route.fromToken.decimals),
+        route.fromAmount,
         route.fromChain as ChainType
       );
       return txHash as string;
@@ -336,7 +347,7 @@ export class BridgeService {
     
     // For ERC20, call bridge deposit function
     // This is simplified - actual implementation would vary by bridge
-    const txHash = await providerManager.sendTransaction(
+    const txHash = await this.providerManager.sendTransaction(
       bridgeAddress,
       '0',
       route.fromChain as ChainType,
@@ -353,7 +364,14 @@ export class BridgeService {
   private async executeClaim(route: BridgeRoute): Promise<void> {
     // Implementation would vary by bridge
     // Some bridges auto-claim, others require manual claim
-    console.warn('Claim would be executed for', route.id);
+    // For now, this is a placeholder as most modern bridges handle claiming automatically
+    // Future implementation would check bridge-specific claim requirements
+    
+    // Across bridge requires manual claim on destination
+    if (route.bridge === BridgeProvider.Across && route.toChain !== 'ethereum') {
+      // Would implement Across-specific claim logic here
+      // This would involve calling the SpokePool contract on destination chain
+    }
   }
   
   /**
@@ -396,13 +414,13 @@ export class BridgeService {
   private getBridgeAddress(bridge: BridgeProvider, chain: string): string {
     // Bridge contract addresses would be maintained in config
     const addresses: Record<string, Record<string, string>> = {
-      [BridgeProvider.HOP]: {
+      [BridgeProvider.Hop]: {
         ethereum: '0x3666f603Cc164936C1b87e207F36BEBa4AC5f18a',
         polygon: '0x553bC791D746767166fA3888432038193cEED5E2',
         arbitrum: '0x33ceb27b39d2Bb7D2e61F7564d3Df29344020417',
         optimism: '0x91f8490eC27cbB1b2FaEdd29c2eC23011d7355FB',
       },
-      [BridgeProvider.STARGATE]: {
+      [BridgeProvider.Stargate]: {
         ethereum: '0x8731d54E9D02c286767d56ac03e8037C07e01e98',
         polygon: '0x45A01E4e04F14f7A4a6702c74187c5F6222033cd',
         arbitrum: '0x53Bf833A5d6c4ddA888F69c22C88C9f356a41614',

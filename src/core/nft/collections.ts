@@ -38,6 +38,9 @@ import {
 
 // Placeholder exports to prevent import errors
 export const MOCK_NFT_COLLECTION: unknown[] = [];
+/**
+ *
+ */
 export const getNftCollections = async (): Promise<unknown[]> => {
   // TODO: Implement using NFTManager
   return [];

@@ -14,6 +14,13 @@ import { Keyring } from '@polkadot/keyring';
  */
 export class LivePolkadotProvider extends PolkadotProvider {
   private activeAddress: string | null = null;
+  
+  /**
+   *
+   */
+  get networkPrefix(): number {
+    return (this as any).prefix;
+  }
 
   /**
    *
@@ -37,7 +44,7 @@ export class LivePolkadotProvider extends PolkadotProvider {
         throw new Error('No active account');
       }
       // Encode address with proper network prefix
-      this.activeAddress = encodeAddress(activeAccount.address, this.prefix);
+      this.activeAddress = encodeAddress(activeAccount.address, this.networkPrefix);
     }
     return this.activeAddress;
   }
@@ -49,7 +56,7 @@ export class LivePolkadotProvider extends PolkadotProvider {
   async getAddresses(count = 10): Promise<string[]> {
     const accounts = await keyringService.getAccounts('substrate');
     return accounts.slice(0, count).map(account => 
-      encodeAddress(account.address, this.prefix)
+      encodeAddress(account.address, this.networkPrefix)
     );
   }
 

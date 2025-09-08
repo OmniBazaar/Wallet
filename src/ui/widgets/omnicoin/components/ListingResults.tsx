@@ -123,6 +123,13 @@ interface ListingResultsProps {
   error: string | null;
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.listings
+ * @param root0.isLoading
+ * @param root0.error
+ */
 export const ListingResults: React.FC<ListingResultsProps> = ({
   listings,
   isLoading,

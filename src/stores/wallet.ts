@@ -48,6 +48,8 @@ export interface Transaction {
   type: 'send' | 'receive' | 'mint' | 'listing';
   /** Transaction amount */
   amount: string;
+  /** Token symbol */
+  token?: string;
   /** Recipient address (optional) */
   to?: string;
   /** Sender address (optional) */
@@ -58,25 +60,67 @@ export interface Transaction {
   timestamp: number;
   /** Network identifier */
   network: string;
+  /** Transaction hash */
+  hash?: string;
+}
+
+/** Notification information */
+export interface Notification {
+  /** Notification ID */
+  id: string;
+  /** Notification type */
+  type: 'transaction' | 'info' | 'warning' | 'error' | 'success';
+  /** Notification message */
+  message: string;
+  /** Notification timestamp */
+  timestamp: number;
+  /** Read status */
+  read?: boolean;
+}
+
+/** Portfolio change information */
+export interface PortfolioChange {
+  /** Change amount in USD */
+  amount: number;
+  /** Change percentage */
+  percentage: number;
+}
+
+/** Balance information */
+export interface Balance {
+  /** Native token balance */
+  native: string;
+  /** USD value */
+  usd: string;
 }
 
 export const useWalletStore = defineStore('wallet', () => {
   // State
   const isSetup = ref(false);
   const isUnlocked = ref(false);
+  const isConnected = ref(false);
   const currentAccount = ref<WalletAccount | null>(null);
   const accounts = ref<WalletAccount[]>([]);
   const currentNetwork = ref('ethereum');
   const supportedNetworks = ref<string[]>(['ethereum']);
   const nftCollections = ref<NFTCollection[]>([]);
   const transactions = ref<Transaction[]>([]);
+  const recentTransactions = ref<Transaction[]>([]);
+  const notifications = ref<Notification[]>([]);
+  const unreadNotifications = ref(0);
+  const portfolioChange24h = ref<PortfolioChange | null>(null);
+  const balance = ref<Balance | null>(null);
   const isLoading = ref(false);
   const error = ref<string | null>(null);
 
   // Computed
   const hasAccounts = computed(() => accounts.value.length > 0);
   const currentBalance = computed(() => currentAccount.value?.balance || '0');
+  const address = computed(() => currentAccount.value?.address || '');
 
+  /**
+   *
+   */
   type BackgroundResponse = Record<string, any>;
 
   // Send message to background script
@@ -297,8 +341,8 @@ export const useWalletStore = defineStore('wallet', () => {
                           *
                           */
       trait_type: string; /**
-                         *
-                         */
+                           *
+                           */
       value: string | number
     }>;
   }): Promise<string | null> {
@@ -396,22 +440,138 @@ export const useWalletStore = defineStore('wallet', () => {
     error.value = null;
   }
 
+  // Connect wallet (for dashboard)
+  async function connect(): Promise<void> {
+    try {
+      isLoading.value = true;
+      error.value = null;
+      
+      // In real implementation, this would connect to browser wallet
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      isConnected.value = true;
+      currentAccount.value = {
+        address: '0x742d35Cc6634C0532925a3b844Bc9e7595f80752',
+        name: 'Main Account',
+        balance: '1234000000000000000', // 1.234 ETH
+        network: 'ethereum'
+      };
+      
+      balance.value = {
+        native: '1.234',
+        usd: '2468.00'
+      };
+      
+      // Load initial transactions
+      await fetchRecentTransactions();
+      
+    } catch (err) {
+      error.value = 'Failed to connect wallet';
+      console.error('Failed to connect:', err);
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  // Retry connection
+  async function retryConnection(): Promise<void> {
+    error.value = null;
+    await connect();
+  }
+
+  // Mark notifications as read
+  function markNotificationsAsRead(): void {
+    notifications.value = notifications.value.map(n => ({ ...n, read: true }));
+    unreadNotifications.value = 0;
+  }
+
+  // Refresh activity
+  async function refreshActivity(): Promise<void> {
+    try {
+      isLoading.value = true;
+      await fetchRecentTransactions();
+      await fetchBalance();
+    } catch (err) {
+      console.error('Failed to refresh activity:', err);
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  // Fetch balance
+  async function fetchBalance(): Promise<void> {
+    if (!currentAccount.value) return;
+    
+    try {
+      const balanceWei = await getBalance(currentAccount.value.address);
+      const ethBalance = parseFloat(balanceWei) / 1e18;
+      
+      balance.value = {
+        native: ethBalance.toFixed(3),
+        usd: (ethBalance * 2000).toFixed(2) // Mock ETH price
+      };
+      
+      // Update account balance
+      currentAccount.value.balance = balanceWei;
+    } catch (err) {
+      console.error('Failed to fetch balance:', err);
+    }
+  }
+
+  // Fetch recent transactions
+  async function fetchRecentTransactions(): Promise<void> {
+    try {
+      // In real implementation, fetch from blockchain or indexer
+      recentTransactions.value = [
+        {
+          id: '1',
+          hash: '0x123...',
+          type: 'send',
+          amount: '100',
+          token: 'USDC',
+          timestamp: Date.now() - 3600000,
+          status: 'confirmed',
+          network: 'ethereum'
+        },
+        {
+          id: '2',
+          hash: '0x456...',
+          type: 'receive',
+          amount: '50',
+          token: 'XOM',
+          timestamp: Date.now() - 7200000,
+          status: 'confirmed',
+          network: 'ethereum'
+        }
+      ];
+    } catch (err) {
+      console.error('Failed to fetch transactions:', err);
+    }
+  }
+
   return {
     // State
     isSetup,
     isUnlocked,
+    isConnected,
     currentAccount,
     accounts,
     currentNetwork,
     supportedNetworks,
     nftCollections,
     transactions,
+    recentTransactions,
+    notifications,
+    unreadNotifications,
+    portfolioChange24h,
+    balance,
     isLoading,
     error,
 
     // Computed
     hasAccounts,
     currentBalance,
+    address,
 
     // Actions
     initialize,
@@ -423,6 +583,12 @@ export const useWalletStore = defineStore('wallet', () => {
     mintNFT,
     createListing,
     refreshWalletState,
-    clearError
+    clearError,
+    connect,
+    retryConnection,
+    markNotificationsAsRead,
+    refreshActivity,
+    fetchBalance,
+    fetchRecentTransactions
   };
 });

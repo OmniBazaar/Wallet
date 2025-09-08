@@ -5,8 +5,7 @@ import { useNFTs } from '../../../../hooks/useNFTs';
 import { useNFTTransfer } from '../../../../hooks/useNFTTransfer';
 import { OmniCoinLoading } from './OmniCoinLoading';
 import { OmniCoinToast } from './OmniCoinToast';
-// @ts-ignore - JSX component without types
-import { OmniCoinTooltip } from './OmniCoinTooltip';
+import OmniCoinTooltip from './OmniCoinTooltip';
 import type { NFTItem } from '../../../../types/nft';
 
 // Theme interface for styled-components
@@ -136,6 +135,11 @@ interface NFTGalleryProps {
   contractAddress?: string;
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.contractAddress
+ */
 export const NFTGallery: React.FC<NFTGalleryProps> = ({ contractAddress }) => {
   const { nfts, isLoading, error, refetch } = useNFTs();
   const [selectedNFT, setSelectedNFT] = useState<NFTItem | null>(null);
@@ -184,7 +188,7 @@ export const NFTGallery: React.FC<NFTGalleryProps> = ({ contractAddress }) => {
             <NFTInfo>
               <NFTName>{nft.metadata?.name || 'Unnamed NFT'}</NFTName>
               <NFTDescription>{nft.metadata?.description || 'No description available'}</NFTDescription>
-              <OmniCoinTooltip content="Transfer this NFT">
+              <OmniCoinTooltip text="Transfer this NFT">
                 <TransferButton
                   onClick={() => setSelectedNFT(nft)}
                   disabled={isTransferring}

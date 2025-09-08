@@ -7,22 +7,29 @@ interface ThemeProps {
   theme: Theme;
 }
 
-// CSS animations injected into document head
-if (typeof document !== 'undefined' && !document.getElementById('omnicoin-loading-styles')) {
-  const style = document.createElement('style');
-  style.id = 'omnicoin-loading-styles';
-  style.textContent = `
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-    @keyframes fadeIn {
-      from { opacity: 0; }
-      to { opacity: 1; }
-    }
-  `;
-  document.head.appendChild(style);
-}
+/**
+ * Injects CSS styles into the document head if they don't exist
+ */
+const injectStyles = () => {
+  if (typeof document !== 'undefined' && !document.getElementById('omnicoin-loading-styles')) {
+    const style = document.createElement('style');
+    style.id = 'omnicoin-loading-styles';
+    style.textContent = `
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+      @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+};
+
+// Inject styles on module load
+injectStyles();
 
 const loadingContainerStyle: React.CSSProperties = {
   display: 'flex',
@@ -73,18 +80,30 @@ interface OmniCoinLoadingProps {
     showProgress?: boolean;
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.text
+ * @param root0.progress
+ * @param root0.showProgress
+ */
 export const OmniCoinLoading: React.FC<OmniCoinLoadingProps> = ({
     text = 'Loading...',
     progress = 0,
     showProgress = false
 }) => {
+    // Ensure styles are injected when component renders
+    React.useEffect(() => {
+        injectStyles();
+    }, []);
+
     return (
-        <div style={loadingContainerStyle}>
-            <div style={spinnerStyle} />
-            <p style={loadingTextStyle}>{text}</p>
+        <div style={loadingContainerStyle} data-testid="loading-container">
+            <div style={spinnerStyle} data-testid="loading-spinner" />
+            <p style={loadingTextStyle} data-testid="loading-text">{text}</p>
             {showProgress && (
-                <div style={progressBarStyle}>
-                    <div style={getProgressStyle(progress)} />
+                <div style={progressBarStyle} data-testid="progress-bar">
+                    <div style={getProgressStyle(progress)} data-testid="progress-fill" />
                 </div>
             )}
         </div>

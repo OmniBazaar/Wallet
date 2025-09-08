@@ -3,16 +3,49 @@
  */
 
 declare module "@trezor/connect-web" {
+  /**
+   *
+   */
   export interface TrezorConnect {
+    /**
+     *
+     */
     init(config: any): Promise<void>;
+    /**
+     *
+     */
     ethereumGetPublicKey(params: any): Promise<any>;
+    /**
+     *
+     */
     ethereumSignMessage(params: any): Promise<any>;
+    /**
+     *
+     */
     ethereumSignTransaction(params: any): Promise<any>;
+    /**
+     *
+     */
     ethereumSignTypedData(params: any): Promise<any>;
+    /**
+     *
+     */
     getAddress(params: any): Promise<any>;
+    /**
+     *
+     */
     signMessage(params: any): Promise<any>;
+    /**
+     *
+     */
     signTransaction(params: any): Promise<any>;
+    /**
+     *
+     */
     solanaGetAddress(params: any): Promise<any>;
+    /**
+     *
+     */
     solanaSignTransaction(params: any): Promise<any>;
   }
   
@@ -36,21 +69,54 @@ declare module "@trezor/connect-plugin-ethereum" {
 }
 
 declare module "@ethereumjs/tx" {
+  /**
+   *
+   */
   export class FeeMarketEIP1559Transaction {
+    /**
+     *
+     */
     constructor(txData: any, opts?: any);
+    /**
+     *
+     */
     serialize(): Buffer;
+    /**
+     *
+     */
     getMessageToSign(): Buffer;
+    /**
+     *
+     */
     raw(): any[];
   }
   
+  /**
+   *
+   */
   export class LegacyTransaction {
+    /**
+     *
+     */
     constructor(txData: any, opts?: any);
+    /**
+     *
+     */
     serialize(): Buffer;
+    /**
+     *
+     */
     getMessageToSign(): Buffer;
+    /**
+     *
+     */
     raw(): any[];
   }
   
   export const TransactionFactory: {
+    /**
+     *
+     */
     fromTxData(txData: any, opts?: any): LegacyTransaction | FeeMarketEIP1559Transaction;
   };
 }

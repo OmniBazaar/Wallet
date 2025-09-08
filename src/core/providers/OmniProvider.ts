@@ -275,7 +275,11 @@ export class OmniProvider extends ethers.JsonRpcProvider {
 
   // Override ethers.js methods to use our validator network
 
-  /** Get native balance for an address. */
+  /**
+   * Get native balance for an address.
+   * @param address
+   * @param blockTag
+   */
   override async getBalance(address: string, blockTag?: string | number): Promise<bigint> {
     const result = await this.sendRequest('eth_getBalance', [
       address,
@@ -285,7 +289,11 @@ export class OmniProvider extends ethers.JsonRpcProvider {
     return BigInt(result);
   }
 
-  /** Get transaction count (nonce) for an address. */
+  /**
+   * Get transaction count (nonce) for an address.
+   * @param address
+   * @param blockTag
+   */
   override async getTransactionCount(address: string, blockTag?: string | number): Promise<number> {
     return await this.sendRequest('eth_getTransactionCount', [
       address,
@@ -294,7 +302,11 @@ export class OmniProvider extends ethers.JsonRpcProvider {
     ]);
   }
 
-  /** Execute a call against the current chain. */
+  /**
+   * Execute a call against the current chain.
+   * @param transaction
+   * @param blockTag
+   */
   override async call(transaction: any, blockTag?: string | number): Promise<string> {
     return await this.sendRequest('eth_call', [
       transaction,
@@ -303,7 +315,10 @@ export class OmniProvider extends ethers.JsonRpcProvider {
     ]);
   }
 
-  /** Estimate gas for a transaction. */
+  /**
+   * Estimate gas for a transaction.
+   * @param transaction
+   */
   override async estimateGas(transaction: any): Promise<bigint> {
     const result = await this.sendRequest('eth_estimateGas', [
       transaction,
@@ -312,7 +327,10 @@ export class OmniProvider extends ethers.JsonRpcProvider {
     return BigInt(result);
   }
 
-  /** Broadcast a signed raw transaction and return an Ethers response. */
+  /**
+   * Broadcast a signed raw transaction and return an Ethers response.
+   * @param signedTransaction
+   */
   override async broadcastTransaction(signedTransaction: string): Promise<ethers.TransactionResponse> {
     // Delegate to base implementation to construct a proper TransactionResponse
     return super.broadcastTransaction(signedTransaction);

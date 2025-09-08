@@ -546,11 +546,11 @@ export class KeyringManager {
                                                *
                                                */
     to: string; /**
-               *
-               */
+                 *
+                 */
     value: string; /**
-                  *
-                  */
+                    *
+                    */
     data?: string
   }, chainType: 'ethereum' | 'omnicoin'): Promise<string> {
     const session = this.getCurrentSession();

@@ -3,7 +3,7 @@
  * Tests for the main dashboard page
  */
 
-import { describe, it, expect, beforeEach, vi } from '@jest/globals';
+import { describe, it, expect, beforeEach, beforeAll, afterEach, jest } from '@jest/globals';
 import { mount, VueWrapper } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import { createRouter, createWebHistory } from 'vue-router';
@@ -13,15 +13,56 @@ import { useTokenStore } from '../../src/stores/tokens';
 import { useNFTStore } from '../../src/stores/nfts';
 import { mockWallet } from '../setup';
 
+// Mock modal components
+const SendModal = { template: '<div data-testid="send-modal">Send Modal</div>' };
+const ReceiveModal = { 
+  template: '<div data-testid="receive-modal"><div data-testid="qr-code">QR</div><div data-testid="receive-address">{{ walletAddress }}</div></div>',
+  setup() {
+    const walletStore = useWalletStore();
+    return { walletAddress: mockWallet.address };
+  }
+};
+const NotificationPanel = { 
+  template: `
+    <div data-testid="notification-panel">
+      <button data-testid="mark-all-read" @click="$emit('mark-all-read')">Mark All Read</button>
+      <div v-for="notification in notifications" :key="notification.id">
+        {{ notification.message }}
+      </div>
+    </div>
+  `,
+  setup() {
+    const walletStore = useWalletStore();
+    return { notifications: walletStore.notifications };
+  },
+  emits: ['mark-all-read']
+};
+
 describe('Dashboard Page', () => {
   let wrapper: VueWrapper;
   let walletStore: ReturnType<typeof useWalletStore>;
   let tokenStore: ReturnType<typeof useTokenStore>;
   let nftStore: ReturnType<typeof useNFTStore>;
   let router;
+  let pinia;
+
+  beforeAll(() => {
+    // Setup CSS variables for tests
+    document.documentElement.style.setProperty('--bg-primary', '#ffffff');
+    document.documentElement.style.setProperty('--bg-secondary', '#f5f5f5');
+    document.documentElement.style.setProperty('--bg-tertiary', '#eeeeee');
+    document.documentElement.style.setProperty('--text-primary', '#000000');
+    document.documentElement.style.setProperty('--text-secondary', '#666666');
+    document.documentElement.style.setProperty('--primary-color', '#007bff');
+    document.documentElement.style.setProperty('--primary-hover', '#0056b3');
+    document.documentElement.style.setProperty('--border-color', '#dddddd');
+    document.documentElement.style.setProperty('--error-color', '#dc3545');
+    document.documentElement.style.setProperty('--error-bg', '#f8d7da');
+  });
 
   beforeEach(() => {
-    setActivePinia(createPinia());
+    pinia = createPinia();
+    setActivePinia(pinia);
     walletStore = useWalletStore();
     tokenStore = useTokenStore();
     nftStore = useNFTStore();
@@ -31,20 +72,48 @@ describe('Dashboard Page', () => {
       routes: [
         { path: '/', name: 'dashboard', component: Dashboard },
         { path: '/tokens', name: 'tokens', component: { template: '<div></div>' } },
-        { path: '/nfts', name: 'nfts', component: { template: '<div></div>' } }
+        { path: '/nfts', name: 'nfts', component: { template: '<div></div>' } },
+        { path: '/swap', name: 'swap', component: { template: '<div></div>' } },
+        { path: '/settings', name: 'settings', component: { template: '<div></div>' } },
+        { path: '/transaction/:hash', name: 'transaction', component: { template: '<div></div>' } }
       ]
     });
 
-    // Setup mock data
+    // Setup mock data properly - use state properties, not computed
     walletStore.isConnected = true;
-    walletStore.address = mockWallet.address;
+    walletStore.currentAccount = {
+      address: mockWallet.address,
+      name: 'Test Account',
+      balance: '1234000000000000000',
+      network: 'ethereum'
+    };
     walletStore.balance = {
       native: '1.234',
       usd: '2468.00'
     };
 
-    tokenStore.totalValue = 5000.00;
-    nftStore.totalCount = 10;
+    // Set tokens data to make totalValue compute correctly
+    tokenStore.tokens = [
+      { 
+        address: '0x1', 
+        symbol: 'XOM', 
+        name: 'OmniCoin', 
+        decimals: 18, 
+        balance: '1000', 
+        value: 5000,
+        priceUSD: 5
+      }
+    ];
+    
+    // Set NFTs data to make totalCount compute correctly  
+    nftStore.nfts = Array(10).fill(null).map((_, i) => ({
+      id: `nft-${i}`,
+      name: `NFT ${i}`,
+      image: 'https://example.com/nft.png',
+      collectionAddress: '0xNFT',
+      tokenId: String(i),
+      owner: mockWallet.address
+    }));
   });
 
   afterEach(() => {
@@ -55,7 +124,12 @@ describe('Dashboard Page', () => {
     it('should render dashboard header', () => {
       wrapper = mount(Dashboard, {
         global: {
-          plugins: [createPinia(), router]
+          plugins: [pinia, router],
+          stubs: {
+            SendModal,
+            ReceiveModal,
+            NotificationPanel
+          }
         }
       });
 
@@ -66,7 +140,12 @@ describe('Dashboard Page', () => {
     it('should display wallet address', () => {
       wrapper = mount(Dashboard, {
         global: {
-          plugins: [createPinia(), router]
+          plugins: [pinia, router],
+          stubs: {
+            SendModal,
+            ReceiveModal,
+            NotificationPanel
+          }
         }
       });
 
@@ -78,7 +157,12 @@ describe('Dashboard Page', () => {
     it('should show navigation menu', () => {
       wrapper = mount(Dashboard, {
         global: {
-          plugins: [createPinia(), router]
+          plugins: [pinia, router],
+          stubs: {
+            SendModal,
+            ReceiveModal,
+            NotificationPanel
+          }
         }
       });
 
@@ -94,7 +178,12 @@ describe('Dashboard Page', () => {
     it('should display total portfolio value', () => {
       wrapper = mount(Dashboard, {
         global: {
-          plugins: [createPinia(), router]
+          plugins: [pinia, router],
+          stubs: {
+            SendModal,
+            ReceiveModal,
+            NotificationPanel
+          }
         }
       });
 
@@ -106,7 +195,12 @@ describe('Dashboard Page', () => {
     it('should show portfolio breakdown', () => {
       wrapper = mount(Dashboard, {
         global: {
-          plugins: [createPinia(), router]
+          plugins: [pinia, router],
+          stubs: {
+            SendModal,
+            ReceiveModal,
+            NotificationPanel
+          }
         }
       });
 
@@ -122,7 +216,12 @@ describe('Dashboard Page', () => {
 
       wrapper = mount(Dashboard, {
         global: {
-          plugins: [createPinia(), router]
+          plugins: [pinia, router],
+          stubs: {
+            SendModal,
+            ReceiveModal,
+            NotificationPanel
+          }
         }
       });
 
@@ -135,7 +234,12 @@ describe('Dashboard Page', () => {
     it('should show portfolio history chart', () => {
       wrapper = mount(Dashboard, {
         global: {
-          plugins: [createPinia(), router]
+          plugins: [pinia, router],
+          stubs: {
+            SendModal,
+            ReceiveModal,
+            NotificationPanel
+          }
         }
       });
 
@@ -150,7 +254,12 @@ describe('Dashboard Page', () => {
     it('should display quick action buttons', () => {
       wrapper = mount(Dashboard, {
         global: {
-          plugins: [createPinia(), router]
+          plugins: [pinia, router],
+          stubs: {
+            SendModal,
+            ReceiveModal,
+            NotificationPanel
+          }
         }
       });
 
@@ -163,7 +272,12 @@ describe('Dashboard Page', () => {
     it('should open send modal', async () => {
       wrapper = mount(Dashboard, {
         global: {
-          plugins: [createPinia(), router]
+          plugins: [pinia, router],
+          stubs: {
+            SendModal,
+            ReceiveModal,
+            NotificationPanel
+          }
         }
       });
 
@@ -173,11 +287,16 @@ describe('Dashboard Page', () => {
     });
 
     it('should navigate to swap page', async () => {
-      const pushSpy = vi.spyOn(router, 'push');
+      const pushSpy = jest.spyOn(router, 'push');
 
       wrapper = mount(Dashboard, {
         global: {
-          plugins: [createPinia(), router]
+          plugins: [pinia, router],
+          stubs: {
+            SendModal,
+            ReceiveModal,
+            NotificationPanel
+          }
         }
       });
 
@@ -189,7 +308,12 @@ describe('Dashboard Page', () => {
     it('should show receive QR code', async () => {
       wrapper = mount(Dashboard, {
         global: {
-          plugins: [createPinia(), router]
+          plugins: [pinia, router],
+          stubs: {
+            SendModal,
+            ReceiveModal,
+            NotificationPanel
+          }
         }
       });
 
@@ -224,7 +348,12 @@ describe('Dashboard Page', () => {
 
       wrapper = mount(Dashboard, {
         global: {
-          plugins: [createPinia(), router]
+          plugins: [pinia, router],
+          stubs: {
+            SendModal,
+            ReceiveModal,
+            NotificationPanel
+          }
         }
       });
 
@@ -238,7 +367,12 @@ describe('Dashboard Page', () => {
 
       wrapper = mount(Dashboard, {
         global: {
-          plugins: [createPinia(), router]
+          plugins: [pinia, router],
+          stubs: {
+            SendModal,
+            ReceiveModal,
+            NotificationPanel
+          }
         }
       });
 
@@ -256,11 +390,16 @@ describe('Dashboard Page', () => {
         timestamp: Date.now()
       }];
 
-      const pushSpy = vi.spyOn(router, 'push');
+      const pushSpy = jest.spyOn(router, 'push');
 
       wrapper = mount(Dashboard, {
         global: {
-          plugins: [createPinia(), router]
+          plugins: [pinia, router],
+          stubs: {
+            SendModal,
+            ReceiveModal,
+            NotificationPanel
+          }
         }
       });
 
@@ -273,11 +412,16 @@ describe('Dashboard Page', () => {
     });
 
     it('should refresh activity', async () => {
-      const refreshSpy = vi.spyOn(walletStore, 'refreshActivity');
+      const refreshSpy = jest.spyOn(walletStore, 'refreshActivity');
 
       wrapper = mount(Dashboard, {
         global: {
-          plugins: [createPinia(), router]
+          plugins: [pinia, router],
+          stubs: {
+            SendModal,
+            ReceiveModal,
+            NotificationPanel
+          }
         }
       });
 
@@ -289,15 +433,44 @@ describe('Dashboard Page', () => {
 
   describe('Token Summary', () => {
     it('should show top tokens', () => {
-      tokenStore.topTokens = [
-        { symbol: 'XOM', balance: '100', value: 15000 },
-        { symbol: 'USDC', balance: '1000', value: 1000 },
-        { symbol: 'ETH', balance: '1', value: 2000 }
+      tokenStore.tokens = [
+        { 
+          address: '0xXOM',
+          symbol: 'XOM', 
+          name: 'OmniCoin',
+          decimals: 18,
+          balance: '100', 
+          value: 15000,
+          priceUSD: 150
+        },
+        { 
+          address: '0xUSDC',
+          symbol: 'USDC', 
+          name: 'USD Coin',
+          decimals: 6,
+          balance: '1000', 
+          value: 1000,
+          priceUSD: 1
+        },
+        { 
+          address: '0xETH',
+          symbol: 'ETH', 
+          name: 'Ethereum',
+          decimals: 18,
+          balance: '1', 
+          value: 2000,
+          priceUSD: 2000
+        }
       ];
 
       wrapper = mount(Dashboard, {
         global: {
-          plugins: [createPinia(), router]
+          plugins: [pinia, router],
+          stubs: {
+            SendModal,
+            ReceiveModal,
+            NotificationPanel
+          }
         }
       });
 
@@ -310,11 +483,16 @@ describe('Dashboard Page', () => {
     });
 
     it('should navigate to tokens page', async () => {
-      const pushSpy = vi.spyOn(router, 'push');
+      const pushSpy = jest.spyOn(router, 'push');
 
       wrapper = mount(Dashboard, {
         global: {
-          plugins: [createPinia(), router]
+          plugins: [pinia, router],
+          stubs: {
+            SendModal,
+            ReceiveModal,
+            NotificationPanel
+          }
         }
       });
 
@@ -326,15 +504,46 @@ describe('Dashboard Page', () => {
 
   describe('NFT Preview', () => {
     it('should show NFT collection preview', () => {
-      nftStore.featuredNFTs = [
-        { id: '1', name: 'NFT 1', image: 'https://example.com/1.png' },
-        { id: '2', name: 'NFT 2', image: 'https://example.com/2.png' },
-        { id: '3', name: 'NFT 3', image: 'https://example.com/3.png' }
+      nftStore.nfts = [
+        { 
+          id: '1', 
+          name: 'NFT 1', 
+          image: 'https://example.com/1.png',
+          collectionAddress: '0xNFT',
+          collectionName: 'Test Collection',
+          tokenId: '1',
+          owner: mockWallet.address
+        },
+        { 
+          id: '2', 
+          name: 'NFT 2', 
+          image: 'https://example.com/2.png',
+          collectionAddress: '0xNFT',
+          collectionName: 'Test Collection', 
+          tokenId: '2',
+          owner: mockWallet.address
+        },
+        { 
+          id: '3', 
+          name: 'NFT 3', 
+          image: 'https://example.com/3.png',
+          collectionAddress: '0xNFT',
+          collectionName: 'Test Collection',
+          tokenId: '3',
+          owner: mockWallet.address
+        }
       ];
+      // Update featured NFTs
+      nftStore.featuredNFTs = nftStore.nfts.slice(0, 3);
 
       wrapper = mount(Dashboard, {
         global: {
-          plugins: [createPinia(), router]
+          plugins: [pinia, router],
+          stubs: {
+            SendModal,
+            ReceiveModal,
+            NotificationPanel
+          }
         }
       });
 
@@ -346,11 +555,16 @@ describe('Dashboard Page', () => {
     });
 
     it('should navigate to NFT gallery', async () => {
-      const pushSpy = vi.spyOn(router, 'push');
+      const pushSpy = jest.spyOn(router, 'push');
 
       wrapper = mount(Dashboard, {
         global: {
-          plugins: [createPinia(), router]
+          plugins: [pinia, router],
+          stubs: {
+            SendModal,
+            ReceiveModal,
+            NotificationPanel
+          }
         }
       });
 
@@ -366,7 +580,12 @@ describe('Dashboard Page', () => {
 
       wrapper = mount(Dashboard, {
         global: {
-          plugins: [createPinia(), router]
+          plugins: [pinia, router],
+          stubs: {
+            SendModal,
+            ReceiveModal,
+            NotificationPanel
+          }
         }
       });
 
@@ -387,7 +606,12 @@ describe('Dashboard Page', () => {
 
       wrapper = mount(Dashboard, {
         global: {
-          plugins: [createPinia(), router]
+          plugins: [pinia, router],
+          stubs: {
+            SendModal,
+            ReceiveModal,
+            NotificationPanel
+          }
         }
       });
 
@@ -399,11 +623,16 @@ describe('Dashboard Page', () => {
     });
 
     it('should mark notifications as read', async () => {
-      const markAsReadSpy = vi.spyOn(walletStore, 'markNotificationsAsRead');
+      const markAsReadSpy = jest.spyOn(walletStore, 'markNotificationsAsRead');
 
       wrapper = mount(Dashboard, {
         global: {
-          plugins: [createPinia(), router]
+          plugins: [pinia, router],
+          stubs: {
+            SendModal,
+            ReceiveModal,
+            NotificationPanel
+          }
         }
       });
 
@@ -420,7 +649,12 @@ describe('Dashboard Page', () => {
 
       wrapper = mount(Dashboard, {
         global: {
-          plugins: [createPinia(), router]
+          plugins: [pinia, router],
+          stubs: {
+            SendModal,
+            ReceiveModal,
+            NotificationPanel
+          }
         }
       });
 
@@ -432,7 +666,12 @@ describe('Dashboard Page', () => {
 
       wrapper = mount(Dashboard, {
         global: {
-          plugins: [createPinia(), router]
+          plugins: [pinia, router],
+          stubs: {
+            SendModal,
+            ReceiveModal,
+            NotificationPanel
+          }
         }
       });
 
@@ -446,7 +685,12 @@ describe('Dashboard Page', () => {
 
       wrapper = mount(Dashboard, {
         global: {
-          plugins: [createPinia(), router]
+          plugins: [pinia, router],
+          stubs: {
+            SendModal,
+            ReceiveModal,
+            NotificationPanel
+          }
         }
       });
 
@@ -457,11 +701,16 @@ describe('Dashboard Page', () => {
 
     it('should retry on error', async () => {
       walletStore.error = 'Failed to load data';
-      const retrySpy = vi.spyOn(walletStore, 'retryConnection');
+      const retrySpy = jest.spyOn(walletStore, 'retryConnection');
 
       wrapper = mount(Dashboard, {
         global: {
-          plugins: [createPinia(), router]
+          plugins: [pinia, router],
+          stubs: {
+            SendModal,
+            ReceiveModal,
+            NotificationPanel
+          }
         }
       });
 
@@ -475,7 +724,12 @@ describe('Dashboard Page', () => {
     it('should show settings gear', () => {
       wrapper = mount(Dashboard, {
         global: {
-          plugins: [createPinia(), router]
+          plugins: [pinia, router],
+          stubs: {
+            SendModal,
+            ReceiveModal,
+            NotificationPanel
+          }
         }
       });
 
@@ -483,11 +737,16 @@ describe('Dashboard Page', () => {
     });
 
     it('should navigate to settings', async () => {
-      const pushSpy = vi.spyOn(router, 'push');
+      const pushSpy = jest.spyOn(router, 'push');
 
       wrapper = mount(Dashboard, {
         global: {
-          plugins: [createPinia(), router]
+          plugins: [pinia, router],
+          stubs: {
+            SendModal,
+            ReceiveModal,
+            NotificationPanel
+          }
         }
       });
 

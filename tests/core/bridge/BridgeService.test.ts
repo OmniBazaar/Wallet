@@ -3,16 +3,37 @@
  * Tests cross-chain bridge functionality
  */
 
-import { bridgeService } from '../../../src/core/bridge/BridgeService';
+import { BridgeService } from '../../../src/core/bridge/BridgeService';
 import { BridgeProvider, BridgeRoute, BRIDGE_SUPPORT } from '../../../src/core/bridge/types';
-import { providerManager } from '../../../src/core/providers/ProviderManager';
 import { TEST_ADDRESSES, MOCK_TOKENS } from '../../setup';
 import { ethers } from 'ethers';
+import { BigNumber } from '@ethersproject/bignumber';
 
-// Mock provider manager
-jest.mock('../../../src/core/providers/ProviderManager', () => ({
-  providerManager: {
-    getProvider: jest.fn().mockReturnValue({
+// Create a mock provider manager
+const mockProviderManager = {
+  getProvider: jest.fn().mockReturnValue({
+    populateTransaction: jest.fn().mockResolvedValue({
+      to: '0x123',
+      data: '0x456'
+    }),
+    sendTransaction: jest.fn().mockResolvedValue({ 
+      hash: '0x' + '1'.repeat(64) 
+    })
+  }),
+  sendTransaction: jest.fn().mockResolvedValue('0x' + '1'.repeat(64))
+};
+
+describe('BridgeService', () => {
+  let bridgeService: BridgeService;
+  
+  beforeEach(() => {
+    jest.clearAllMocks();
+    
+    // Create new bridge service instance with mock provider
+    bridgeService = new BridgeService(mockProviderManager as any);
+    
+    // Reset provider manager mocks
+    (mockProviderManager.getProvider as jest.Mock).mockReturnValue({
       populateTransaction: jest.fn().mockResolvedValue({
         to: '0x123',
         data: '0x456'
@@ -20,16 +41,8 @@ jest.mock('../../../src/core/providers/ProviderManager', () => ({
       sendTransaction: jest.fn().mockResolvedValue({ 
         hash: '0x' + '1'.repeat(64) 
       })
-    }),
-    sendTransaction: jest.fn().mockResolvedValue('0x' + '1'.repeat(64))
-  }
-}));
-
-describe('BridgeService', () => {
-  beforeEach(() => {
-    // Clear active transfers
-    bridgeService['activeTransfers'].clear();
-    (providerManager.getProvider as jest.Mock).mockClear();
+    });
+    (mockProviderManager.sendTransaction as jest.Mock).mockResolvedValue('0x' + '1'.repeat(64));
   });
 
   describe('Quote Discovery', () => {
@@ -58,14 +71,14 @@ describe('BridgeService', () => {
         fromChain: 'ethereum',
         toChain: 'arbitrum',
         fromToken: 'ETH',
-        amount: ethers.utils.parseEther('1').toString(),
+        amount: ethers.parseEther('1').toString(),
         fromAddress: TEST_ADDRESSES.ethereum
       };
       
       const response = await bridgeService.getQuotes(request);
       
       // Best route should have highest output
-      const outputs = response.routes.map(r => ethers.BigNumber.from(r.toAmount));
+      const outputs = response.routes.map(r => BigNumber.from(r.toAmount));
       for (let i = 1; i < outputs.length; i++) {
         expect(outputs[i-1].gte(outputs[i])).toBe(true);
       }
@@ -153,7 +166,7 @@ describe('BridgeService', () => {
       const transferId = await bridgeService.executeBridge(mockRoute);
       
       // Should have called provider for approval
-      expect(providerManager.sendTransaction).toHaveBeenCalled();
+      expect(mockProviderManager.sendTransaction).toHaveBeenCalled();
     });
 
     it('should skip approval for native tokens', async () => {
@@ -161,7 +174,7 @@ describe('BridgeService', () => {
         ...mockRoute,
         fromToken: {
           ...mockRoute.fromToken,
-          address: ethers.constants.AddressZero
+          address: ethers.ZeroAddress
         },
         steps: [
           { type: 'deposit', description: 'Deposit ETH' },
@@ -172,11 +185,11 @@ describe('BridgeService', () => {
       await bridgeService.executeBridge(nativeRoute);
       
       // Should go directly to deposit
-      expect(providerManager.sendTransaction).toHaveBeenCalled();
+      expect(mockProviderManager.sendTransaction).toHaveBeenCalled();
     });
 
     it('should update transfer status on error', async () => {
-      (providerManager.sendTransaction as jest.Mock).mockRejectedValueOnce(
+      (mockProviderManager.sendTransaction as jest.Mock).mockRejectedValueOnce(
         new Error('Transaction failed')
       );
       
@@ -251,7 +264,7 @@ describe('BridgeService', () => {
         'ethereum',
         'arbitrum',
         'ETH',
-        ethers.utils.parseEther('1').toString()
+        ethers.parseEther('1').toString()
       );
       
       // Check that all compatible bridges are included
@@ -314,7 +327,7 @@ describe('BridgeService', () => {
     it('should skip approval for native tokens', () => {
       const steps = bridgeService['getBridgeSteps'](
         BridgeProvider.Hop,
-        { address: ethers.constants.AddressZero, symbol: 'ETH' }
+        { address: ethers.ZeroAddress, symbol: 'ETH' }
       );
       
       expect(steps).toHaveLength(2);
@@ -353,7 +366,7 @@ describe('BridgeService', () => {
         'unknown' as BridgeProvider,
         'ethereum'
       );
-      expect(unknown).toBe(ethers.constants.AddressZero);
+      expect(unknown).toBe(ethers.ZeroAddress);
     });
   });
 
@@ -379,14 +392,38 @@ describe('BridgeService', () => {
     });
 
     it('should handle execution errors', async () => {
-      const mockProvider = providerManager.getProvider('ethereum' as any);
-      mockProvider.sendTransaction = jest.fn()
+      (mockProviderManager.sendTransaction as jest.Mock)
         .mockRejectedValue(new Error('Insufficient funds'));
       
       const route: BridgeRoute = {
+        id: 'test-route-error',
         fromChain: 'ethereum',
-        steps: [{ type: 'deposit', description: 'Deposit' }]
-      } as BridgeRoute;
+        toChain: 'polygon',
+        fromToken: {
+          address: ethers.ZeroAddress,
+          symbol: 'ETH',
+          name: 'Ethereum',
+          decimals: 18,
+          chainId: 1
+        },
+        toToken: {
+          address: ethers.ZeroAddress,
+          symbol: 'ETH',
+          name: 'Ethereum',
+          decimals: 18,
+          chainId: 137
+        },
+        fromAmount: '1000000000000000000',
+        toAmount: '999000000000000000',
+        estimatedTime: 600,
+        fee: {
+          amount: '1000000000000000',
+          token: 'ETH',
+          inUSD: '3.00'
+        },
+        bridge: BridgeProvider.Hop,
+        steps: [{ type: 'deposit', description: 'Deposit ETH' }]
+      };
       
       await expect(
         bridgeService.executeBridge(route)

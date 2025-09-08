@@ -2,7 +2,7 @@
  * Live Solana Provider with Keyring Integration
  */
 
-import { Keypair } from '@solana/web3.js';
+import { Keypair, Connection } from '@solana/web3.js';
 import bs58 from 'bs58';
 import { SolanaProvider, SolanaNetworkConfig, SPLToken } from './provider';
 import { keyringService } from '../../keyring/KeyringService';
@@ -114,7 +114,10 @@ export class LiveSolanaProvider extends SolanaProvider {
     });
   }
 
-  /** Sign a UTF‑8 message with the active account. @param message Message to sign */
+  /**
+   * Sign a UTF‑8 message with the active account. @param message Message to sign
+   * @param message
+   */
   async signActiveMessage(message: string): Promise<string> {
     const address = await this.getAddress();
     return keyringService.signMessage(address, message);
@@ -130,7 +133,10 @@ export class LiveSolanaProvider extends SolanaProvider {
     throw new Error('Solana signing not configured in KeyringService');
   }
 
-  /** Get transaction history for the active account. @param limit Optional max items */
+  /**
+   * Get transaction history for the active account. @param limit Optional max items
+   * @param limit
+   */
   async getActiveTransactionHistory(limit?: number): Promise<BaseTransaction[]> {
     const address = await this.getAddress();
     return this.getTransactionHistory(address, limit);
@@ -180,24 +186,22 @@ export class LiveSolanaProvider extends SolanaProvider {
   }
 
   /**
-   * Switch to a different Solana network by key.
-   * @param networkKey Key from `SOLANA_NETWORKS`
+   * Switch to a different Solana network.
+   * @param config Network configuration
    */
-  async switchNetwork(networkKey: string): Promise<void> {
-    const network = SOLANA_NETWORKS[networkKey];
-    if (!network) {
-      throw new Error(`Unknown Solana network: ${networkKey}`);
+  switchNetwork(config: SolanaNetworkConfig): void {
+    if (!config) {
+      throw new Error('Network config is required');
     }
 
     // Update configuration
-    this.config = network;
-    this.commitment = network.commitment || 'confirmed';
+    this.config = config;
+    this.commitment = config.commitment || 'confirmed';
     
     // Create new connection
-    const { Connection } = await import('@solana/web3.js');
-    this.connection = new Connection(network.rpcUrl, {
+    this.connection = new Connection(config.rpcUrl, {
       commitment: this.commitment,
-      ...(network.wsUrl && { wsEndpoint: network.wsUrl }),
+      ...(config.wsUrl && { wsEndpoint: config.wsUrl }),
     });
     
     // Clear cached address

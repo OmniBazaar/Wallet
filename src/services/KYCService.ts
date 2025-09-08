@@ -202,10 +202,10 @@ export class KYCService {
     
     // Default configuration for Sumsub testnet/sandbox
     this.config = {
-      appToken: (process?.env?.['SUMSUB_APP_TOKEN'] as string | undefined) || 'sbx:test_app_token_omnibazaar',
-      secretKey: (process?.env?.['SUMSUB_SECRET_KEY'] as string | undefined) || 'test_secret_key_omnibazaar',
+      appToken: (process?.env?.['SUMSUB_APP_TOKEN']) || 'sbx:test_app_token_omnibazaar',
+      secretKey: (process?.env?.['SUMSUB_SECRET_KEY']) || 'test_secret_key_omnibazaar',
       apiUrl: 'https://api.sumsub.com',
-      webhookSecret: (process?.env?.['SUMSUB_WEBHOOK_SECRET'] as string | undefined) || 'test_webhook_secret',
+      webhookSecret: (process?.env?.['SUMSUB_WEBHOOK_SECRET']) || 'test_webhook_secret',
       isTestnet: true, // Always use testnet for development
       validatorEndpoint: 'http://localhost:3001/api/kyc',
       ...config
@@ -217,7 +217,7 @@ export class KYCService {
     // Get access token for Sumsub API
     await this.refreshAccessToken();
     
-    console.log('KYC Service initialized (Sumsub Testnet Mode)');
+    // console.log('KYC Service initialized (Sumsub Testnet Mode)');
   }
   
   /**
@@ -541,7 +541,7 @@ export class KYCService {
         await this.handleApplicantPending(event);
         break;
       default:
-        console.log('Unhandled webhook event:', event.type);
+        // console.log('Unhandled webhook event:', event.type);
     }
   }
   

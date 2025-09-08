@@ -90,8 +90,8 @@ export const OMNICOIN_NETWORKS = {
   mainnet: {
     name: 'OmniCoin Mainnet',
     chainId: 999999, // Custom chain ID for OmniCoin
-    rpcUrl: (process?.env?.['OMNICOIN_RPC_URL'] as string | undefined) ?? 'https://api.omnibazaar.com/rpc',
-    validatorUrl: (process?.env?.['VALIDATOR_URL'] as string | undefined) ?? 'https://validator.omnibazaar.com',
+    rpcUrl: (process?.env?.['OMNICOIN_RPC_URL']) ?? 'https://api.omnibazaar.com/rpc',
+    validatorUrl: (process?.env?.['VALIDATOR_URL']) ?? 'https://validator.omnibazaar.com',
     blockExplorer: 'https://explorer.omnibazaar.com',
     nativeCurrency: {
       name: 'OmniCoin',
@@ -107,8 +107,8 @@ export const OMNICOIN_NETWORKS = {
   testnet: {
     name: 'OmniCoin Testnet',
     chainId: 999998,
-    rpcUrl: (process?.env?.['OMNICOIN_TESTNET_RPC_URL'] as string | undefined) ?? 'https://testnet-api.omnibazaar.com/rpc',
-    validatorUrl: (process?.env?.['VALIDATOR_TESTNET_URL'] as string | undefined) ?? 'https://testnet-validator.omnibazaar.com',
+    rpcUrl: (process?.env?.['OMNICOIN_TESTNET_RPC_URL']) ?? 'https://testnet-api.omnibazaar.com/rpc',
+    validatorUrl: (process?.env?.['VALIDATOR_TESTNET_URL']) ?? 'https://testnet-validator.omnibazaar.com',
     blockExplorer: 'https://testnet-explorer.omnibazaar.com',
     nativeCurrency: {
       name: 'Test OmniCoin',
@@ -420,7 +420,7 @@ export class LiveOmniCoinProvider {
       private: true
     };
     
-    return await (signer as OmniCoinKeyringSigner).sendPrivateTransaction(tx);
+    return await (signer).sendPrivateTransaction(tx);
   }
 
   /**

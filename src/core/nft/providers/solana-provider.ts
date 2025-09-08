@@ -122,6 +122,7 @@ export class SolanaNFTProvider implements ChainProvider {
 
   /**
    * Fetch NFTs from Helius API
+   * @param address
    */
   private async fetchFromHelius(address: string): Promise<NFTItem[]> {
     const response = await fetch(
@@ -152,6 +153,7 @@ export class SolanaNFTProvider implements ChainProvider {
 
   /**
    * Fetch NFTs from Magic Eden API
+   * @param address
    */
   private async fetchFromMagicEden(address: string): Promise<NFTItem[]> {
     const headers: HeadersInit = {
@@ -186,6 +188,21 @@ export class SolanaNFTProvider implements ChainProvider {
 
   /**
    * Transform Helius NFT data to our format
+   * @param nft
+   * @param nft.id
+   * @param nft.content
+   * @param nft.content.metadata
+   * @param nft.content.metadata.name
+   * @param nft.content.metadata.description
+   * @param nft.content.metadata.image
+   * @param nft.content.metadata.attributes
+   * @param nft.content.links
+   * @param nft.content.links.image
+   * @param nft.creators
+   * @param nft.royalty
+   * @param nft.royalty.percent
+   * @param nft.listings
+   * @param owner
    */
   private transformHeliusNFT(nft: {
     id: string;
@@ -225,6 +242,16 @@ export class SolanaNFTProvider implements ChainProvider {
 
   /**
    * Transform Magic Eden NFT data to our format
+   * @param token
+   * @param token.mintAddress
+   * @param token.name
+   * @param token.description
+   * @param token.image
+   * @param token.attributes
+   * @param token.collection
+   * @param token.price
+   * @param token.listingPrice
+   * @param owner
    */
   private transformMagicEdenNFT(token: {
     mintAddress: string;
@@ -260,6 +287,7 @@ export class SolanaNFTProvider implements ChainProvider {
 
   /**
    * Fetch NFTs using Solana RPC
+   * @param address
    */
   private async fetchFromRPC(address: string): Promise<NFTItem[]> {
     try {
@@ -348,6 +376,8 @@ export class SolanaNFTProvider implements ChainProvider {
 
   /**
    * Search NFTs on Solana
+   * @param query
+   * @param limit
    */
   async searchNFTs(query: string, limit = 20): Promise<NFTItem[]> {
     try {
@@ -412,6 +442,7 @@ export class SolanaNFTProvider implements ChainProvider {
 
   /**
    * Get trending NFTs on Solana
+   * @param limit
    */
   async getTrendingNFTs(limit = 20): Promise<NFTItem[]> {
     try {
@@ -477,6 +508,7 @@ export class SolanaNFTProvider implements ChainProvider {
 
   /**
    * Get floor prices for collections
+   * @param collectionSymbols
    */
   async getCollectionFloorPrices(collectionSymbols: string[]): Promise<{ [symbol: string]: number }> {
     try {
@@ -505,6 +537,7 @@ export class SolanaNFTProvider implements ChainProvider {
 
   /**
    * Update configuration
+   * @param newConfig
    */
   updateConfig(newConfig: Partial<SolanaNFTConfig>): void {
     this.config = { ...this.config, ...newConfig };

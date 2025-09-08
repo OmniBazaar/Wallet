@@ -68,6 +68,7 @@ const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
 /**
  * Provides wallet functionality to child components
+ * @param children.children
  * @param children - React child components
  * @returns JSX element with wallet context provider
  */

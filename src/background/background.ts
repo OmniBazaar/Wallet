@@ -380,7 +380,7 @@ async function getBalance(data: { address: string; network?: string }): Promise<
 }> {
   console.warn('💰 Balance requested:', data);
 
-  const networkName = (data.network as ProviderName | undefined) || ProviderName.ETHEREUM;
+  const networkName = ((data.network as ProviderName | undefined) != null) || ProviderName.ETHEREUM;
   const provider = providers.get(networkName as ProviderName);
 
   if (!provider) {

@@ -117,6 +117,12 @@ interface ListingSearchProps {
     isLoading: boolean;
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.onSearch
+ * @param root0.isLoading
+ */
 export const ListingSearch: React.FC<ListingSearchProps> = ({ onSearch, isLoading }) => {
     const [filters, setFilters] = useState<SearchFilters>({
         type: 'product',

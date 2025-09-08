@@ -1,9 +1,24 @@
 import { OmniCoinMetadata } from '../blockchain/OmniCoin';
 
+/**
+ *
+ */
 export interface AssetMetadata {
+  /**
+   *
+   */
   name: string;
+  /**
+   *
+   */
   symbol: string;
+  /**
+   *
+   */
   decimals: number;
+  /**
+   *
+   */
   contractAddress: string;
 }
 

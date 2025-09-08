@@ -84,6 +84,7 @@ interface TokenBalanceProps {
 /**
  * Component for displaying token balance and transfer functionality
  * @param props - Component props
+ * @param props.tokenAddress
  * @returns Token balance component
  */
 export const TokenBalance: React.FC<TokenBalanceProps> = ({ tokenAddress }) => {
@@ -150,7 +151,7 @@ export const TokenBalance: React.FC<TokenBalanceProps> = ({ tokenAddress }) => {
   }
 
   return (
-    <div style={balanceContainerStyle}>
+    <div style={balanceContainerStyle} data-testid="token-balance-container">
       {showToast && (
         <OmniCoinToast
           message={toastMessage}

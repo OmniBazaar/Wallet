@@ -11,21 +11,39 @@
  */
 
 // Placeholder utilities to prevent import errors
+/**
+ *
+ * @param name
+ * @param tokenId
+ */
 export const formatNFTName = (name: string, tokenId: string): string => {
   // TODO: Implement proper NFT name formatting
   return name || `Token #${tokenId}`;
 };
 
+/**
+ *
+ * @param price
+ * @param currency
+ */
 export const formatNFTPrice = (price: string, currency: string): string => {
   // TODO: Implement proper price formatting
   return `${price} ${currency}`;
 };
 
+/**
+ *
+ * @param imageUrl
+ */
 export const generateNFTThumbnail = (imageUrl: string): string => {
   // TODO: Implement thumbnail generation
   return imageUrl;
 };
 
+/**
+ *
+ * @param metadata
+ */
 export const validateNFTMetadata = (metadata: unknown): boolean => {
   // TODO: Implement metadata validation
   return typeof metadata === 'object' && metadata !== null;

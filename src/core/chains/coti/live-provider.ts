@@ -5,8 +5,8 @@
  * with the KeyringService for transaction signing and privacy features.
  */
 
-import { ethers, type InterfaceAbi } from 'ethers';
-import { keyringService } from '../../keyring/KeyringService';
+import { ethers, type InterfaceAbi, AbstractSigner } from 'ethers';
+// Import keyringService lazily to avoid circular dependency
 
 /**
  *
@@ -56,7 +56,7 @@ export const COTI_NETWORKS: Record<string, COTINetwork> = {
   mainnet: {
     name: 'COTI v2 Mainnet',
     chainId: 7777777, // To be confirmed
-    rpcUrl: (process?.env?.['COTI_RPC_URL'] as string | undefined) ?? 'https://mainnet.coti.io/rpc',
+    rpcUrl: (process?.env?.['COTI_RPC_URL']) ?? 'https://mainnet.coti.io/rpc',
     blockExplorer: 'https://explorer.coti.io',
     nativeCurrency: {
       name: 'COTI',
@@ -68,7 +68,7 @@ export const COTI_NETWORKS: Record<string, COTINetwork> = {
   testnet: {
     name: 'COTI v2 Testnet',
     chainId: 7777778, // To be confirmed
-    rpcUrl: (process?.env?.['COTI_TESTNET_RPC_URL'] as string | undefined) ?? 'https://testnet.coti.io/rpc',
+    rpcUrl: (process?.env?.['COTI_TESTNET_RPC_URL']) ?? 'https://testnet.coti.io/rpc',
     blockExplorer: 'https://testnet-explorer.coti.io',
     nativeCurrency: {
       name: 'Test COTI',
@@ -161,6 +161,9 @@ export class LiveCOTIProvider {
    * Get signer for active account
    */
   async getSigner(): Promise<COTIKeyringSigner> {
+    // Lazy import to avoid circular dependency
+    const { keyringService } = await import('../../keyring/KeyringService');
+    
     const activeAccount = keyringService.getActiveAccount();
     if (!activeAccount || activeAccount.chainType !== 'coti') {
       throw new Error('No active COTI account');
@@ -171,7 +174,7 @@ export class LiveCOTIProvider {
       this.signer = new COTIKeyringSigner(activeAccount.address, this.provider, this.privacyMode);
     }
     
-    return this.signer as COTIKeyringSigner;
+    return this.signer;
   }
 
   /**
@@ -180,7 +183,12 @@ export class LiveCOTIProvider {
    * @param includePrivate
    */
   async getBalance(address?: string, includePrivate = false): Promise<{ public: bigint; private?: bigint }> {
-    const targetAddress = address || keyringService.getActiveAccount()?.address;
+    let targetAddress = address;
+    if (!targetAddress) {
+      // Lazy import to avoid circular dependency
+      const { keyringService } = await import('../../keyring/KeyringService');
+      targetAddress = keyringService.getActiveAccount()?.address;
+    }
     if (!targetAddress) {
       throw new Error('No address provided');
     }
@@ -251,7 +259,7 @@ export class LiveCOTIProvider {
       // Additional COTI privacy parameters would go here
     };
     
-    return await (signer as COTIKeyringSigner).sendPrivateTransaction(privateTx);
+    return await (signer).sendPrivateTransaction(privateTx);
   }
 
   /**
@@ -357,14 +365,14 @@ export class LiveCOTIProvider {
       data: '0x' // Placeholder for encoded params
     };
     
-    return await (signer as COTIKeyringSigner).sendPrivateTransaction(tx);
+    return await (signer).sendPrivateTransaction(tx);
   }
 }
 
 /**
  * Custom signer that uses KeyringService for signing with COTI privacy features
  */
-class COTIKeyringSigner extends ethers.AbstractSigner {
+class COTIKeyringSigner extends AbstractSigner {
   readonly address: string;
   private privacyMode: boolean;
   
@@ -380,11 +388,16 @@ class COTIKeyringSigner extends ethers.AbstractSigner {
   }
 
   override async signMessage(message: string | Uint8Array): Promise<string> {
+    // Lazy import to avoid circular dependency
+    const { keyringService } = await import('../../keyring/KeyringService');
     const messageString = typeof message === 'string' ? message : ethers.hexlify(message);
     return await keyringService.signMessage(this.address, messageString);
   }
 
   override async signTransaction(transaction: ethers.TransactionRequest): Promise<string> {
+    // Lazy import to avoid circular dependency
+    const { keyringService } = await import('../../keyring/KeyringService');
+    
     // Populate transaction
     const tx: any = { ...(transaction as any) };
     

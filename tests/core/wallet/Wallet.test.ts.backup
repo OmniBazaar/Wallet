@@ -1,0 +1,507 @@
+/**
+ * Wallet Core Implementation Tests
+ * Tests TypeScript strict mode compliance and transaction handling
+ */
+
+import { WalletImpl, WalletError, SimpleTransaction, GovernanceAction } from '../../../src/core/wallet/Wallet';
+import { Transaction } from '../../../src/core/wallet/Transaction';
+import { BrowserProvider, TransactionResponse } from 'ethers';
+import { ethers } from 'ethers';
+
+// Mock ethers
+jest.mock('ethers', () => {
+  const actual = jest.requireActual('ethers');
+  return {
+    ...actual,
+    BrowserProvider: jest.fn().mockImplementation(() => ({
+      getBalance: jest.fn().mockResolvedValue(BigInt('1000000000000000000')), // 1 ETH
+      getNetwork: jest.fn().mockResolvedValue({ chainId: BigInt(1) }),
+      getTransactionCount: jest.fn().mockResolvedValue(1),
+      estimateGas: jest.fn().mockResolvedValue(BigInt(21000)),
+      getFeeData: jest.fn().mockResolvedValue({ 
+        gasPrice: BigInt('30000000000'),
+        maxFeePerGas: BigInt('30000000000'),
+        maxPriorityFeePerGas: BigInt('2000000000')
+      }),
+      call: jest.fn().mockResolvedValue('0x000000000000000000000000000000000000000000000000000000000000007b'), // 123 in hex
+      send: jest.fn().mockResolvedValue(true),
+      on: jest.fn(),
+      removeAllListeners: jest.fn()
+    })),
+    Contract: jest.fn().mockImplementation(() => ({
+      balanceOf: jest.fn().mockResolvedValue(BigInt('1000000')), // 1 USDC
+      approve: jest.fn().mockResolvedValue({
+        hash: '0x' + '1'.repeat(64),
+        wait: jest.fn().mockResolvedValue(true)
+      })
+    })),
+    parseEther: jest.fn().mockImplementation((value) => BigInt(parseFloat(value) * 1e18)),
+    formatEther: jest.fn().mockImplementation((value) => (Number(value) / 1e18).toString()),
+    id: jest.fn().mockImplementation((sig) => '0x' + sig.slice(0, 8).padEnd(64, '0')),
+    keccak256: jest.fn().mockImplementation(() => '0x' + '1'.repeat(64)),
+    randomBytes: jest.fn().mockImplementation(() => new Uint8Array(32)),
+    hexlify: jest.fn().mockImplementation((bytes) => '0x' + '1'.repeat(64)),
+    getBytes: jest.fn().mockImplementation(() => new Uint8Array(32)),
+    toUtf8Bytes: jest.fn().mockImplementation((str) => new TextEncoder().encode(str)),
+    AbiCoder: {
+      defaultAbiCoder: jest.fn().mockImplementation(() => ({
+        encode: jest.fn().mockReturnValue('0x' + '1'.repeat(64)),
+        decode: jest.fn().mockReturnValue([BigInt('123')])
+      }))
+    }
+  };
+});
+
+// Mock OmniCoin functions
+jest.mock('../../../src/core/blockchain/OmniCoin', () => ({
+  getOmniCoinBalance: jest.fn().mockResolvedValue(BigInt('50000000000000000000')), // 50 OMNI
+  OmniCoinMetadata: {
+    contractAddress: '0x742d35Cc6B34C4532E3F4b7c5b4E6b41c2b14BD3'
+  }
+}));
+
+describe('Wallet Core Implementation', () => {
+  let wallet: WalletImpl;
+  let mockProvider: any;
+  let mockSigner: any;
+
+  beforeEach(() => {
+    // Create mock provider with proper ethers BrowserProvider mock
+    mockProvider = {
+      getBalance: jest.fn().mockResolvedValue(BigInt('1000000000000000000')), // 1 ETH
+      getNetwork: jest.fn().mockResolvedValue({ chainId: BigInt(1) }),
+      getTransactionCount: jest.fn().mockResolvedValue(1),
+      estimateGas: jest.fn().mockResolvedValue(BigInt(21000)),
+      getFeeData: jest.fn().mockResolvedValue({ 
+        gasPrice: BigInt('30000000000'),
+        maxFeePerGas: BigInt('30000000000'),
+        maxPriorityFeePerGas: BigInt('2000000000')
+      }),
+      call: jest.fn().mockResolvedValue('0x000000000000000000000000000000000000000000000000000000000000007b'), // 123 in hex
+      send: jest.fn().mockResolvedValue(true),
+      on: jest.fn(),
+      removeAllListeners: jest.fn(),
+      resolveName: jest.fn().mockResolvedValue(null)
+    };
+    
+    // Create mock signer
+    mockSigner = {
+      sendTransaction: jest.fn().mockResolvedValue({
+        hash: '0x' + '1'.repeat(64),
+        from: '0xabc',
+        to: '0xdef',
+        value: BigInt(0),
+        gasLimit: BigInt(21000),
+        gasPrice: BigInt('30000000000'),
+        nonce: 1,
+        chainId: 1,
+        wait: jest.fn().mockResolvedValue(true)
+      } as TransactionResponse),
+      getAddress: jest.fn().mockResolvedValue('0x742d35Cc6B34C4532E3F4b7c5b4E6b41c2b14BD3'),
+      signTransaction: jest.fn().mockResolvedValue('0xsignedtx'),
+      signMessage: jest.fn().mockResolvedValue('0xsignature'),
+      provider: mockProvider
+    };
+
+    wallet = new WalletImpl(mockProvider);
+    // Inject signer using private property access
+    (wallet as any).signer = mockSigner;
+  });
+
+  describe('Initialization and Connection', () => {
+    it('should initialize with provider', () => {
+      expect(wallet.getProvider()).toBe(mockProvider);
+    });
+
+    it('should connect and initialize state', async () => {
+      await wallet.connect();
+      
+      const state = await wallet.getState();
+      expect(state).toBeDefined();
+      expect(state.address).toBe('0x742d35Cc6B34C4532E3F4b7c5b4E6b41c2b14BD3');
+      expect(state.balance).toBe(BigInt('1000000000000000000'));
+      expect(state.chainId).toBe(1);
+      expect(state.nonce).toBe(1);
+    });
+
+    it('should throw error when connecting without signer', async () => {
+      const walletWithoutSigner = new WalletImpl(mockProvider);
+      
+      await expect(walletWithoutSigner.connect()).rejects.toThrow(
+        WalletError
+      );
+    });
+
+    it('should disconnect and clean up', async () => {
+      await wallet.connect();
+      await wallet.disconnect();
+      
+      expect(mockProvider.removeAllListeners).toHaveBeenCalled();
+    });
+  });
+
+  describe('Transaction Type Compatibility', () => {
+    beforeEach(async () => {
+      await wallet.connect();
+    });
+
+    it('should handle TransactionRequest conversion with all types', async () => {
+      const transaction = new Transaction({
+        to: '0x742d35Cc6B34C4532E3F4b7c5b4E6b41c2b14BD3',
+        value: BigInt('1000000000000000000'),
+        data: '0x123456',
+        gasLimit: BigInt(21000),
+        gasPrice: BigInt('30000000000')
+      });
+
+      const result = await wallet.sendTransaction(transaction);
+      
+      expect(result.hash).toBe('0x' + '1'.repeat(64));
+      expect(mockSigner.sendTransaction).toHaveBeenCalledWith({
+        to: '0x742d35Cc6B34C4532E3F4b7c5b4E6b41c2b14BD3',
+        value: BigInt('1000000000000000000'),
+        data: '0x123456',
+        gasLimit: BigInt(21000),
+        gasPrice: BigInt('30000000000')
+      });
+    });
+
+    it('should handle Transaction conversion with Promise addresses', async () => {
+      const convertTransactionMethod = (wallet as any).convertTransactionAsync;
+      
+      const txRequest = {
+        to: Promise.resolve('0x742d35Cc6B34C4532E3F4b7c5b4E6b41c2b14BD3'),
+        value: BigInt('1000000000000000000'),
+        data: '0x123456'
+      };
+
+      const converted: SimpleTransaction = await convertTransactionMethod.call(wallet, txRequest);
+      
+      expect(converted.to).toBe('0x742d35Cc6B34C4532E3F4b7c5b4E6b41c2b14BD3');
+      expect(converted.value).toBe(BigInt('1000000000000000000'));
+      expect(converted.data).toBe('0x123456');
+    });
+
+    it('should handle Transaction conversion with AddressLike objects', async () => {
+      const convertTransactionMethod = (wallet as any).convertTransactionAsync;
+      
+      const addressLike = {
+        getAddress: jest.fn().mockResolvedValue('0x742d35Cc6B34C4532E3F4b7c5b4E6b41c2b14BD3')
+      };
+
+      const txRequest = {
+        to: addressLike,
+        value: BigInt('500000000000000000')
+      };
+
+      const converted: SimpleTransaction = await convertTransactionMethod.call(wallet, txRequest);
+      
+      expect(converted.to).toBe('0x742d35Cc6B34C4532E3F4b7c5b4E6b41c2b14BD3');
+      expect(addressLike.getAddress).toHaveBeenCalled();
+    });
+
+    it('should handle null addresses properly', async () => {
+      const convertTransactionMethod = (wallet as any).convertTransactionAsync;
+      
+      const txRequest = {
+        to: null,
+        value: BigInt('1000000000000000000')
+      };
+
+      const converted: SimpleTransaction = await convertTransactionMethod.call(wallet, txRequest);
+      
+      expect(converted.to).toBeNull();
+      expect(converted.value).toBe(BigInt('1000000000000000000'));
+    });
+  });
+
+  describe('Balance Operations', () => {
+    beforeEach(async () => {
+      await wallet.connect();
+    });
+
+    it('should get native balance', async () => {
+      const balance = await wallet.getBalance();
+      expect(balance).toBe(BigInt('1000000000000000000'));
+    });
+
+    it('should get OmniCoin balance', async () => {
+      const balance = await wallet.getBalance('OMNI');
+      expect(balance).toBe(BigInt('50000000000000000000'));
+    });
+
+    it('should get token balance using bracket notation', async () => {
+      const balance = await wallet.getTokenBalance('0x742d35Cc6B34C4532E3F4b7c5b4E6b41c2b14BD3');
+      expect(balance).toBe(BigInt('1000000'));
+    });
+
+    it('should handle OmniCoin token balance specially', async () => {
+      const balance = await wallet.getTokenBalance('0x742d35Cc6B34C4532E3F4b7c5b4E6b41c2b14BD3');
+      expect(balance).toBe(BigInt('50000000000000000000'));
+    });
+  });
+
+  describe('Token Approval with Bracket Notation', () => {
+    beforeEach(async () => {
+      await wallet.connect();
+    });
+
+    it('should approve token using bracket notation access', async () => {
+      const result = await wallet.approveToken(
+        '0x742d35Cc6B34C4532E3F4b7c5b4E6b41c2b14BD3',
+        '0xspender123',
+        BigInt('1000000')
+      );
+
+      expect(result.hash).toBe('0x' + '1'.repeat(64));
+    });
+
+    it('should throw error if contract method not found', async () => {
+      // Mock contract without approve method
+      const mockContractWithoutApprove = jest.fn().mockImplementation(() => ({}));
+      (ethers.Contract as jest.Mock).mockImplementationOnce(mockContractWithoutApprove);
+
+      await expect(
+        wallet.approveToken('0x123', '0xspender', BigInt('1000'))
+      ).rejects.toThrow('Contract does not have approve method');
+    });
+  });
+
+  describe('Advanced OmniCoin Features', () => {
+    beforeEach(async () => {
+      await wallet.connect();
+    });
+
+    it('should stake OmniCoin', async () => {
+      const result = await wallet.stakeOmniCoin(BigInt('10000000000000000000'));
+      
+      expect(result.hash).toBe('0x' + '1'.repeat(64));
+      expect(mockProvider.estimateGas).toHaveBeenCalled();
+      expect(mockProvider.getFeeData).toHaveBeenCalled();
+    });
+
+    it('should unstake OmniCoin with encoded function call', async () => {
+      const result = await wallet.unstakeOmniCoin(BigInt('5000000000000000000'));
+      
+      expect(result.hash).toBe('0x' + '1'.repeat(64));
+      expect(ethers.id).toHaveBeenCalledWith('unstake(uint256)');
+      expect(ethers.AbiCoder.defaultAbiCoder.encode).toHaveBeenCalled();
+    });
+
+    it('should get staked balance', async () => {
+      const balance = await wallet.getStakedBalance();
+      
+      expect(balance).toBe(BigInt('123'));
+      expect(mockProvider.call).toHaveBeenCalled();
+    });
+  });
+
+  describe('Privacy Features', () => {
+    beforeEach(async () => {
+      await wallet.connect();
+      // Mock localStorage
+      Object.defineProperty(window, 'localStorage', {
+        value: {
+          getItem: jest.fn(),
+          setItem: jest.fn(),
+          removeItem: jest.fn()
+        },
+        writable: true
+      });
+    });
+
+    it('should create privacy account', async () => {
+      const result = await wallet.createPrivacyAccount();
+      
+      expect(result.hash).toBe('0x' + '1'.repeat(64));
+      expect(ethers.randomBytes).toHaveBeenCalledWith(32);
+      expect(ethers.keccak256).toHaveBeenCalled();
+      expect(localStorage.setItem).toHaveBeenCalled();
+    });
+
+    it('should close privacy account with stored key', async () => {
+      (localStorage.getItem as jest.Mock).mockReturnValue('0x' + '1'.repeat(64));
+      
+      const result = await wallet.closePrivacyAccount();
+      
+      expect(result.hash).toBe('0x' + '1'.repeat(64));
+      expect(localStorage.removeItem).toHaveBeenCalled();
+    });
+
+    it('should throw error when closing non-existent privacy account', async () => {
+      (localStorage.getItem as jest.Mock).mockReturnValue(null);
+      
+      await expect(wallet.closePrivacyAccount()).rejects.toThrow(
+        'Privacy account not found'
+      );
+    });
+
+    it('should get privacy balance', async () => {
+      (localStorage.getItem as jest.Mock).mockReturnValue('0x' + '1'.repeat(64));
+      
+      const balance = await wallet.getPrivacyBalance();
+      
+      expect(balance).toBe(BigInt('123'));
+      expect(ethers.getBytes).toHaveBeenCalled();
+      expect(ethers.keccak256).toHaveBeenCalled();
+    });
+
+    it('should return zero privacy balance when no account exists', async () => {
+      (localStorage.getItem as jest.Mock).mockReturnValue(null);
+      
+      const balance = await wallet.getPrivacyBalance();
+      
+      expect(balance).toBe(BigInt('0'));
+    });
+  });
+
+  describe('Governance Features', () => {
+    beforeEach(async () => {
+      await wallet.connect();
+    });
+
+    it('should propose governance action', async () => {
+      const actions: GovernanceAction[] = [
+        {
+          target: '0x123',
+          value: BigInt('1000'),
+          data: '0xabcdef',
+          calldata: '0xabcdef'
+        }
+      ];
+
+      const result = await wallet.proposeGovernanceAction('Test proposal', actions);
+      
+      expect(result.hash).toBe('0x' + '1'.repeat(64));
+      expect(ethers.id).toHaveBeenCalledWith('propose(address[],uint256[],bytes[],string)');
+      expect(ethers.toUtf8Bytes).toHaveBeenCalledWith('Test proposal');
+    });
+
+    it('should vote on proposal', async () => {
+      const result = await wallet.voteOnProposal(1, true);
+      
+      expect(result.hash).toBe('0x' + '1'.repeat(64));
+      expect(ethers.id).toHaveBeenCalledWith('castVote(uint256,uint8)');
+    });
+
+    it('should vote against proposal', async () => {
+      const result = await wallet.voteOnProposal(1, false);
+      
+      expect(result.hash).toBe('0x' + '1'.repeat(64));
+      // Verify vote type is 0 for against
+      expect(ethers.AbiCoder.defaultAbiCoder.encode).toHaveBeenCalledWith(
+        ['uint256', 'uint8'],
+        [1, 0]
+      );
+    });
+  });
+
+  describe('Error Handling', () => {
+    it('should throw WalletError for operations without connection', async () => {
+      const unconnectedWallet = new WalletImpl(mockProvider);
+      
+      await expect(unconnectedWallet.getAddress()).rejects.toThrow(
+        new WalletError('Wallet not connected', 'NOT_CONNECTED')
+      );
+      
+      await expect(unconnectedWallet.getBalance()).rejects.toThrow(
+        new WalletError('Wallet not connected', 'NOT_CONNECTED')
+      );
+      
+      await expect(unconnectedWallet.getChainId()).rejects.toThrow(
+        new WalletError('Wallet not connected', 'NOT_CONNECTED')
+      );
+    });
+
+    it('should handle transaction failures', async () => {
+      await wallet.connect();
+      mockSigner.sendTransaction.mockRejectedValue(new Error('Gas estimation failed'));
+      
+      const transaction = new Transaction({
+        to: '0x742d35Cc6B34C4532E3F4b7c5b4E6b41c2b14BD3',
+        value: BigInt('1000000000000000000')
+      });
+
+      await expect(wallet.sendTransaction(transaction)).rejects.toThrow(
+        WalletError
+      );
+    });
+
+    it('should handle network switching errors', async () => {
+      mockProvider.send.mockRejectedValue(new Error('Network not found'));
+      
+      await expect(wallet.switchNetwork(137)).rejects.toThrow(
+        new WalletError('Failed to switch network: Network not found', 'NETWORK_ERROR')
+      );
+    });
+  });
+
+  describe('Event Handling', () => {
+    beforeEach(async () => {
+      await wallet.connect();
+    });
+
+    it('should register account change callback', () => {
+      const callback = jest.fn();
+      wallet.onAccountChange(callback);
+      
+      // Simulate account change
+      const handleAccountChange = (wallet as any).handleAccountChange;
+      handleAccountChange.call(wallet, ['0xnewaddress']);
+      
+      expect(callback).toHaveBeenCalledWith('0xnewaddress');
+    });
+
+    it('should register network change callback', () => {
+      const callback = jest.fn();
+      wallet.onNetworkChange(callback);
+      
+      // Simulate network change
+      const handleNetworkChange = (wallet as any).handleNetworkChange;
+      handleNetworkChange.call(wallet, '0x89'); // Polygon chainId
+      
+      expect(callback).toHaveBeenCalledWith(137);
+    });
+
+    it('should handle account change with no accounts', async () => {
+      const handleAccountChange = (wallet as any).handleAccountChange;
+      await handleAccountChange.call(wallet, []);
+      
+      expect((wallet as any).state).toBeNull();
+    });
+  });
+
+  describe('Utility Functions', () => {
+    it('should create WalletError with code', () => {
+      const error = new WalletError('Test error', 'TEST_CODE');
+      
+      expect(error.message).toBe('Test error');
+      expect(error.code).toBe('TEST_CODE');
+      expect(error.name).toBe('WalletError');
+      expect(error instanceof Error).toBe(true);
+    });
+  });
+
+  describe('BigInt and Native Integration', () => {
+    beforeEach(async () => {
+      await wallet.connect();
+    });
+
+    it('should handle bigint arithmetic operations', async () => {
+      const balance = await wallet.getBalance();
+      const doubled = balance * 2n;
+      
+      expect(doubled).toBe(BigInt('2000000000000000000'));
+    });
+
+    it('should handle ethers v6 parseEther compatibility', () => {
+      const parsed = ethers.parseEther('1.5');
+      expect(parsed).toBe(BigInt('1500000000000000000'));
+    });
+
+    it('should handle ethers v6 formatEther compatibility', () => {
+      const formatted = ethers.formatEther(BigInt('1500000000000000000'));
+      expect(formatted).toBe('1.5');
+    });
+  });
+});

@@ -150,8 +150,8 @@ export class StakingService {
   private tokenContract: ethers.Contract | null = null;
 
   // Contract addresses (would be loaded from config)
-  private readonly STAKING_CONTRACT_ADDRESS = (process?.env?.['STAKING_CONTRACT'] as string | undefined) || '0x0000000000000000000000000000000000000000';
-  private readonly XOM_TOKEN_ADDRESS = (process?.env?.['XOM_TOKEN'] as string | undefined) || '0x0000000000000000000000000000000000000000';
+  private readonly STAKING_CONTRACT_ADDRESS = (process?.env?.['STAKING_CONTRACT']) || '0x0000000000000000000000000000000000000000';
+  private readonly XOM_TOKEN_ADDRESS = (process?.env?.['XOM_TOKEN']) || '0x0000000000000000000000000000000000000000';
 
   // Staking tiers
   private readonly STAKING_TIERS: StakingTier[] = [
@@ -237,7 +237,7 @@ export class StakingService {
         this.omniProvider
       );
 
-      console.log('StakingService initialized with OmniProvider');
+      // console.log('StakingService initialized with OmniProvider');
     } catch (error) {
       console.warn('Failed to initialize with OmniProvider, using fallback:', error);
 

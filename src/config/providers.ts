@@ -5,6 +5,9 @@
  * and helpers to obtain the EIP-1193 provider instances.
  */
 
+/**
+ *
+ */
 export type ProviderId =
   | 'metamask'
   | 'coinbase'
@@ -14,6 +17,9 @@ export type ProviderId =
   | 'walletconnect'
   | 'window-ethereum';
 
+/**
+ *
+ */
 export interface ProviderInfo {
   /** Stable identifier */
   id: ProviderId;
@@ -27,7 +33,10 @@ export interface ProviderInfo {
   isInstalled: boolean;
 }
 
-/** Resolve a specific provider by id. */
+/**
+ * Resolve a specific provider by id.
+ * @param id
+ */
 export function getProvider(id: ProviderId): ProviderInfo | undefined {
   const providers = getAvailableProviders();
   return providers.find((p) => p.id === id);

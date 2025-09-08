@@ -195,4 +195,5 @@ class BrowserStorage implements StorageInterface {
 /**
  * Chrome extension storage implementation with namespace support
  */
-export default BrowserStorage; 
+export default BrowserStorage;
+export { BrowserStorage }; 

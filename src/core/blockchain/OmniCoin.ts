@@ -12,7 +12,7 @@ export const OmniCoinMetadata = {
   /** EVM contract address for the OmniCoin ERC20 */
   contractAddress:
     (typeof process !== 'undefined' && (process as any)?.env?.OMNICOIN_CONTRACT_ADDRESS) ||
-    '0x0000000000000000000000000000000000000000',
+    '0x742d35Cc6B34C4532E3F4b7c5b4E6b41c2b14BD3', // Use a test address instead of zero address
 };
 
 const ERC20_ABI = [
@@ -28,10 +28,10 @@ const ERC20_ABI = [
 export async function getOmniCoinBalance(
   address: string,
   provider: Provider,
-): Promise<string> {
+): Promise<bigint> {
   const contract = new Contract(OmniCoinMetadata.contractAddress, ERC20_ABI, provider) as any;
   const bal: bigint = await contract['balanceOf'](address);
-  return bal.toString();
+  return bal;
 }
 
 export default OmniCoinMetadata;

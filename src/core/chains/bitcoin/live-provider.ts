@@ -33,7 +33,7 @@ export class LiveBitcoinProvider extends BitcoinProvider {
   }
 
   /** Derive and cache the current account/address from the keyring seed. */
-  async getCurrentAccount(): Promise<{ address: string; publicKey: string }> {
+  async getCurrentAccount(): Promise<{ address: string; publicKey: string; addressType: 'P2WPKH' | 'P2PKH' | 'P2SH' }> {
     // For now, use a default password - in production this should be properly handled
     const seed = await this.keyring.getSeed('');
     if (!seed) {
@@ -88,7 +88,11 @@ export class LiveBitcoinProvider extends BitcoinProvider {
     return await this.sendTransaction(signedTx);
   }
 
-  /** Get transaction history for the current account or a supplied address. */
+  /**
+   * Get transaction history for the current account or a supplied address.
+   * @param address
+   * @param limit
+   */
   override async getTransactionHistory(address?: string, limit = 10): Promise<Transaction[]> {
     if (!address) {
       const account = await this.getCurrentAccount();

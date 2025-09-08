@@ -11,6 +11,9 @@
  */
 
 // Placeholder exports to prevent import errors
+/**
+ *
+ */
 export const useExternalToken = () => {
   // TODO: Implement using TokenService
   return {
@@ -20,6 +23,9 @@ export const useExternalToken = () => {
   };
 };
 
+/**
+ *
+ */
 export const getExternalToken = async (): Promise<unknown | null> => {
   // TODO: Implement using TokenService
   return null;

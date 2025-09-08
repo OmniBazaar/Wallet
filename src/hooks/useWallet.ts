@@ -167,13 +167,13 @@ export const useWallet = (): {
             }
 
             try {
-                await (provider as any).request({
+                await (provider).request({
                     method: 'wallet_switchEthereumChain',
                     params: [{ chainId: `0x${network.chainId.toString(16)}` }]
                 });
             } catch (switchError: unknown) {
                 if ((switchError as { code?: number }).code === 4902) {
-                    await (provider as any).request({
+                    await (provider).request({
                         method: 'wallet_addEthereumChain',
                         params: [{
                             chainId: `0x${network.chainId.toString(16)}`,

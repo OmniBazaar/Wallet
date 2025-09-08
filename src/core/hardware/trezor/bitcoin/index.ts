@@ -58,7 +58,7 @@ class TrezorBitcoin implements HWWalletProvider {
    * @returns Promise with address and public key
    */
   async getAddress(options: getAddressRequest): Promise<AddressResponse> {
-    if (!supportedPaths[this.network as keyof typeof supportedPaths])
+    if (!supportedPaths[this.network])
       return Promise.reject(new Error("trezor-bitcoin: Invalid network name"));
 
     if (!this.HDNodes[options.pathType.basePath]) {
@@ -90,7 +90,7 @@ class TrezorBitcoin implements HWWalletProvider {
    * Get supported derivation paths for the current network
    */
   getSupportedPaths(): PathType[] {
-    return supportedPaths[this.network as keyof typeof supportedPaths] || [];
+    return supportedPaths[this.network] || [];
   }
 
   /**

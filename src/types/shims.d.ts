@@ -2,7 +2,13 @@
 
 declare module 'styled-components' {
   import type * as React from 'react';
-  export const ThemeProvider: React.FC<{ theme: unknown; children?: React.ReactNode }>;
+  export const ThemeProvider: React.FC<{ /**
+                                          *
+                                          */
+  theme: unknown; /**
+                   *
+                   */
+  children?: React.ReactNode }>;
   export function css(strings: TemplateStringsArray, ...interpolations: any[]): any;
   export const keyframes: any;
   const styled: any;
@@ -10,13 +16,25 @@ declare module 'styled-components' {
 }
 
 declare module 'ledger-bitcoin' {
+  /**
+   *
+   */
   export default class LedgerBTC {
+    /**
+     *
+     */
     constructor(transport: unknown);
   }
 }
 
 declare module '@metamask/eth-sig-util' {
-  export function recoverPersonalSignature(opts: { data: string; signature: string }): string;
+  export function recoverPersonalSignature(opts: { /**
+                                                    *
+                                                    */
+  data: string; /**
+                 *
+                 */
+  signature: string }): string;
 }
 
 declare module '@rainbow-me/swaps' {

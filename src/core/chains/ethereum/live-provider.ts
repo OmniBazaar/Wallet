@@ -52,7 +52,7 @@ export const ETHEREUM_NETWORKS = {
   mainnet: {
     name: 'Ethereum Mainnet',
     chainId: 1,
-    rpcUrl: (process?.env?.['ETHEREUM_RPC_URL'] as string | undefined) ?? 'https://rpc.ankr.com/eth',
+    rpcUrl: (process?.env?.['ETHEREUM_RPC_URL']) ?? 'https://rpc.ankr.com/eth',
     blockExplorer: 'https://etherscan.io',
     nativeCurrency: {
       name: 'Ether',
@@ -63,7 +63,7 @@ export const ETHEREUM_NETWORKS = {
   sepolia: {
     name: 'Sepolia Testnet',
     chainId: 11155111,
-    rpcUrl: (process?.env?.['SEPOLIA_RPC_URL'] as string | undefined) ?? 'https://rpc.sepolia.org',
+    rpcUrl: (process?.env?.['SEPOLIA_RPC_URL']) ?? 'https://rpc.sepolia.org',
     blockExplorer: 'https://sepolia.etherscan.io',
     nativeCurrency: {
       name: 'Sepolia Ether',
@@ -74,7 +74,7 @@ export const ETHEREUM_NETWORKS = {
   polygon: {
     name: 'Polygon Mainnet',
     chainId: 137,
-    rpcUrl: (process?.env?.['POLYGON_RPC_URL'] as string | undefined) ?? 'https://polygon-rpc.com',
+    rpcUrl: (process?.env?.['POLYGON_RPC_URL']) ?? 'https://polygon-rpc.com',
     blockExplorer: 'https://polygonscan.com',
     nativeCurrency: {
       name: 'MATIC',
@@ -85,7 +85,7 @@ export const ETHEREUM_NETWORKS = {
   arbitrum: {
     name: 'Arbitrum One',
     chainId: 42161,
-    rpcUrl: (process?.env?.['ARBITRUM_RPC_URL'] as string | undefined) ?? 'https://arb1.arbitrum.io/rpc',
+    rpcUrl: (process?.env?.['ARBITRUM_RPC_URL']) ?? 'https://arb1.arbitrum.io/rpc',
     blockExplorer: 'https://arbiscan.io',
     nativeCurrency: {
       name: 'Arbitrum Ether',
@@ -96,7 +96,7 @@ export const ETHEREUM_NETWORKS = {
   optimism: {
     name: 'Optimism',
     chainId: 10,
-    rpcUrl: (process?.env?.['OPTIMISM_RPC_URL'] as string | undefined) ?? 'https://mainnet.optimism.io',
+    rpcUrl: (process?.env?.['OPTIMISM_RPC_URL']) ?? 'https://mainnet.optimism.io',
     blockExplorer: 'https://optimistic.etherscan.io',
     nativeCurrency: {
       name: 'Optimism Ether',

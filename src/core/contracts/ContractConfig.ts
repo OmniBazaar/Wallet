@@ -111,10 +111,10 @@ export class ContractManager {
 
 // Default configuration
 export const defaultConfig: ContractConfig = {
-  registryAddress: (process?.env?.['REGISTRY_CONTRACT_ADDRESS'] as string | undefined) ?? '',
-  resolverAddress: (process?.env?.['RESOLVER_CONTRACT_ADDRESS'] as string | undefined) ?? '',
-  cotiRpcUrl: (process?.env?.['COTI_RPC_URL'] as string | undefined) ?? 'https://testnet.coti.io/rpc',
-  ethereumRpcUrl: (process?.env?.['ETHEREUM_RPC_URL'] as string | undefined) ?? 'https://sepolia.infura.io/v3/your-key'
+  registryAddress: (process?.env?.['REGISTRY_CONTRACT_ADDRESS']) ?? '0x0000000000000000000000000000000000000001', // Placeholder for tests
+  resolverAddress: (process?.env?.['RESOLVER_CONTRACT_ADDRESS']) ?? '0x0000000000000000000000000000000000000002', // Placeholder for tests
+  cotiRpcUrl: (process?.env?.['COTI_RPC_URL']) ?? 'https://testnet.coti.io/rpc',
+  ethereumRpcUrl: (process?.env?.['ETHEREUM_RPC_URL']) ?? 'https://rpc.sepolia.org'
 };
 
 // ENS Configuration
@@ -122,5 +122,5 @@ export const ENS_CONFIG = {
   domain: 'omnibazaar.eth',
   subdomain: 'omnicoin.omnibazaar.eth',
   registryAddress: '0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e', // ENS Registry
-  resolverAddress: (process?.env?.['RESOLVER_CONTRACT_ADDRESS'] as string | undefined) ?? ''
+  resolverAddress: (process?.env?.['RESOLVER_CONTRACT_ADDRESS']) ?? '0x231b0Ee14048e9dCcD1d247744d114a4EB5E8E63' // Public ENS resolver
 };

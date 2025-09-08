@@ -3,6 +3,9 @@ import React from 'react';
 import { WalletProvider } from '../ui/contexts/WalletContext';
 import WalletConnect from '../ui/widgets/omnicoin/components/WalletConnect';
 
+/**
+ *
+ */
 export default function Home() {
   return (
     <WalletProvider>

@@ -11,6 +11,9 @@
  */
 
 // Placeholder exports to prevent import errors
+/**
+ *
+ */
 export const useAssets = () => {
   // TODO: Implement using NFTService
   return {
@@ -20,6 +23,9 @@ export const useAssets = () => {
   };
 };
 
+/**
+ *
+ */
 export const getAssets = async (): Promise<unknown[]> => {
   // TODO: Implement using NFTManager
   return [];

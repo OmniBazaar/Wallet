@@ -11,6 +11,11 @@
  */
 
 // Placeholder exports to prevent import errors
+/**
+ *
+ * @param address
+ * @param tokenId
+ */
 export const getAssetMetadata = async (address: string, tokenId: string): Promise<unknown> => {
   // TODO: Implement using NFTManager
   return {
@@ -20,6 +25,11 @@ export const getAssetMetadata = async (address: string, tokenId: string): Promis
   };
 };
 
+/**
+ *
+ * @param address
+ * @param tokenId
+ */
 export const useAssetMetadata = (address: string, tokenId: string) => {
   // TODO: Implement using NFTService
   return {

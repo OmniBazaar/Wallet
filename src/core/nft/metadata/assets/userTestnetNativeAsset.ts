@@ -11,6 +11,9 @@
  */
 
 // Placeholder exports to prevent import errors
+/**
+ *
+ */
 export const useUserTestnetNativeAsset = () => {
   // TODO: Implement using TestnetService
   return {
@@ -20,6 +23,9 @@ export const useUserTestnetNativeAsset = () => {
   };
 };
 
+/**
+ *
+ */
 export const getUserTestnetNativeAsset = async (): Promise<unknown | null> => {
   // TODO: Implement using TestnetService
   return null;

@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { resolve } from 'path'
-import { webExtension } from 'vite-plugin-web-extension'
+import webExtension from 'vite-plugin-web-extension'
 
 const targetBrowser = process.env.TARGET_BROWSER || 'chrome'
 

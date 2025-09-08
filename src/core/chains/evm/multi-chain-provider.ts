@@ -136,7 +136,7 @@ export class MultiChainEVMProvider extends LiveEthereumProvider {
    */
   override async getGasPrice(): Promise<bigint> {
     const feeData = await this.provider.getFeeData();
-    let gasPrice = feeData.gasPrice ?? 20n * 10n ** 9n; // fallback 20 gwei
+    const gasPrice = feeData.gasPrice ?? 20n * 10n ** 9n; // fallback 20 gwei
 
     // Apply network-specific adjustments
     switch (this.currentNetwork.shortName) {

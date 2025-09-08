@@ -561,7 +561,12 @@ export class BaseNFTProvider implements ChainProvider {
     };
   }
 
-  /** Safely call a contract method with optional presence. */
+  /**
+   * Safely call a contract method with optional presence.
+   * @param contract
+   * @param method
+   * @param {...any} args
+   */
   private async callContract<T>(contract: any, method: string, ...args: unknown[]): Promise<T> {
     try {
       const fn = contract?.[method as keyof typeof contract] as unknown;

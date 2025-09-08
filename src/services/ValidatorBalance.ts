@@ -144,7 +144,10 @@ export class ValidatorBalanceService {
     this.ipfsStorage = this.validatorClient.getStorage();
   }
 
-  /** Update the user identifier used by this service. */
+  /**
+   * Update the user identifier used by this service.
+   * @param userId
+   */
   public setUserId(userId: string): void {
     this.config.userId = userId;
   }

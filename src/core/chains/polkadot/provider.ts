@@ -190,32 +190,142 @@ export class PolkadotProvider extends BaseProvider {
   }
 
   /**
-   * Get transaction details
+   * Get transaction details using Subscan API
    * @param txHash
    */
   async getTransaction(txHash: string): Promise<Transaction> {
-    const _api = await this.ensureApi();
-    
-    // This would typically use Subscan API or similar
-    // For now, return a basic structure
-    return {
-      hash: txHash,
-      from: '',
-      to: '',
-      value: '0',
-      status: 'confirmed'
-    };
+    try {
+      // Use Subscan API for transaction details
+      const subscanUrl = this.getSubscanUrl();
+      const response = await fetch(`${subscanUrl}/api/scan/extrinsic`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': process.env.SUBSCAN_API_KEY || ''
+        },
+        body: JSON.stringify({
+          hash: txHash
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json() as {
+        data?: {
+          extrinsic_hash: string;
+          account_id: string;
+          call_module: string;
+          call_module_function: string;
+          params?: Array<{ name: string; value: any }>;
+          success: boolean;
+          block_num: number;
+          block_timestamp: number;
+        };
+      };
+
+      if (!data.data) {
+        throw new Error('Transaction not found');
+      }
+
+      const extrinsic = data.data;
+      
+      // Extract recipient from transfer parameters
+      let to = '';
+      let value = '0';
+      
+      if (extrinsic.call_module === 'balances' && extrinsic.call_module_function === 'transfer') {
+        const params = extrinsic.params || [];
+        const destParam = params.find(p => p.name === 'dest');
+        const valueParam = params.find(p => p.name === 'value');
+        
+        if (destParam && destParam.value?.Id) {
+          to = destParam.value.Id;
+        }
+        if (valueParam) {
+          value = valueParam.value?.toString() || '0';
+        }
+      }
+
+      return {
+        hash: extrinsic.extrinsic_hash,
+        from: extrinsic.account_id,
+        to,
+        value,
+        blockNumber: extrinsic.block_num,
+        timestamp: extrinsic.block_timestamp,
+        status: extrinsic.success ? 'confirmed' : 'failed'
+      };
+    } catch (error) {
+      console.error('Error fetching transaction:', error);
+      // Fallback to basic structure
+      return {
+        hash: txHash,
+        from: '',
+        to: '',
+        value: '0',
+        status: 'pending'
+      };
+    }
   }
 
   /**
-   * Get transaction history
-   * @param _address
-   * @param _limit
+   * Get transaction history using Subscan API
+   * @param address
+   * @param limit
    */
-  async getTransactionHistory(_address: string, _limit?: number): Promise<Transaction[]> {
-    // This would typically use Subscan API or similar indexing service
-    // For now, return empty array
-    return [];
+  async getTransactionHistory(address: string, limit = 10): Promise<Transaction[]> {
+    try {
+      const subscanUrl = this.getSubscanUrl();
+      const response = await fetch(`${subscanUrl}/api/scan/transfers`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': process.env.SUBSCAN_API_KEY || ''
+        },
+        body: JSON.stringify({
+          address,
+          row: limit,
+          page: 0
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json() as {
+        data?: {
+          transfers: Array<{
+            hash: string;
+            from: string;
+            to: string;
+            amount: string;
+            success: boolean;
+            block_num: number;
+            block_timestamp: number;
+          }>;
+        };
+      };
+
+      if (!data.data) {
+        return [];
+      }
+
+      return data.data.transfers.map(tx => ({
+        hash: tx.hash,
+        from: tx.from,
+        to: tx.to,
+        value: tx.amount,
+        blockNumber: tx.block_num,
+        timestamp: tx.block_timestamp,
+        status: tx.success ? 'confirmed' : 'failed'
+      }));
+    } catch (error) {
+      console.error('Error fetching transaction history:', error);
+      return [];
+    }
   }
 
   /**
@@ -258,6 +368,111 @@ export class PolkadotProvider extends BaseProvider {
    */
   getExistentialDeposit(): string {
     return this.existentialDeposit;
+  }
+
+  /**
+   * Get Subscan API URL based on network
+   */
+  private getSubscanUrl(): string {
+    // Map network names to Subscan URLs
+    const subscanUrls: Record<string, string> = {
+      'polkadot': 'https://polkadot.api.subscan.io',
+      'kusama': 'https://kusama.api.subscan.io',
+      'westend': 'https://westend.api.subscan.io',
+      'rococo': 'https://rococo.api.subscan.io'
+    };
+
+    const networkName = this.config.name.toLowerCase();
+    return subscanUrls[networkName] || 'https://polkadot.api.subscan.io';
+  }
+
+  /**
+   * Get network information
+   */
+  getNetworkInfo(): {
+    name: string;
+    currency: string;
+    prefix: number;
+    decimals: number;
+    genesisHash: string;
+    existentialDeposit: string;
+    rpcUrl: string;
+    subscanUrl: string;
+  } {
+    return {
+      name: this.config.name,
+      currency: this.config.currency,
+      prefix: this.prefix,
+      decimals: this.decimals,
+      genesisHash: this.genesisHash,
+      existentialDeposit: this.existentialDeposit,
+      rpcUrl: this.config.rpcUrl,
+      subscanUrl: this.getSubscanUrl()
+    };
+  }
+
+  /**
+   * Get account nonce
+   * @param address
+   */
+  async getNonce(address: string): Promise<number> {
+    const api = await this.ensureApi();
+    const system = (api.query as any)['system'];
+    const account = await system?.['account'](address);
+    return account?.nonce?.toNumber() || 0;
+  }
+
+  /**
+   * Estimate transaction fees
+   * @param transaction
+   */
+  async estimateFee(transaction: TransactionRequest): Promise<string> {
+    try {
+      const api = await this.ensureApi();
+      const transfer = (api.tx as any)['balances']?.['transfer'](transaction.to, transaction.value || '0');
+      
+      if (!transfer) {
+        throw new Error('Failed to create transaction');
+      }
+
+      const info = await transfer.paymentInfo('5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY'); // Dummy address for fee estimation
+      return info.partialFee.toString();
+    } catch (error) {
+      console.error('Error estimating fee:', error);
+      return '0';
+    }
+  }
+
+  /**
+   * Check if address is valid for this network
+   * @param address
+   */
+  isValidAddress(address: string): boolean {
+    try {
+      const decoded = decodeAddress(address);
+      return decoded.length === 32;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  /**
+   * Format balance with network decimals
+   * @param amount
+   */
+  formatBalance(amount: string | number): string {
+    const value = typeof amount === 'string' ? parseInt(amount) : amount;
+    const formatted = value / Math.pow(10, this.decimals);
+    return `${formatted.toFixed(4)} ${this.config.currency}`;
+  }
+
+  /**
+   * Parse amount to smallest unit
+   * @param amount
+   */
+  parseAmount(amount: string): string {
+    const value = parseFloat(amount);
+    return (value * Math.pow(10, this.decimals)).toString();
   }
 
   /**

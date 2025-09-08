@@ -48,7 +48,7 @@ class TrezorSolana implements HWWalletProvider {
    * @returns Promise with address and public key
    */
   async getAddress(options: getAddressRequest): Promise<AddressResponse> {
-    if (!supportedPaths[this.network as keyof typeof supportedPaths])
+    if (!supportedPaths[this.network])
       return Promise.reject(new Error("trezor-solana: Invalid network name"));
     const res = await this.TrezorConnect.solanaGetAddress({
       path: options.pathType.path.replace(`{index}`, options.pathIndex.toString()),
@@ -65,7 +65,7 @@ class TrezorSolana implements HWWalletProvider {
    * @returns Array of supported path types
    */
   getSupportedPaths(): PathType[] {
-    return supportedPaths[this.network as keyof typeof supportedPaths] || [];
+    return supportedPaths[this.network] || [];
   }
 
   /**

@@ -8,11 +8,10 @@ import { ChainType } from '../../../src/core/keyring/BIP39Keyring';
 import { TEST_PASSWORD, cleanupTest } from '../../setup';
 
 describe('KeyringService', () => {
-  afterEach(() => {
+  afterEach(async () => {
     cleanupTest();
-    // Reset keyring state
-    keyringService['keyring'] = null;
-    keyringService['password'] = '';
+    // Reset keyring state properly
+    await keyringService.cleanup();
   });
 
   describe('Wallet Creation', () => {

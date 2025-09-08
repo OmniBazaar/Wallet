@@ -208,7 +208,10 @@ export class ValidatorTransactionService {
     this.feeDistribution = this.validatorClient.getFeeDistribution();
   }
 
-  /** Update the user identifier used by this service. */
+  /**
+   * Update the user identifier used by this service.
+   * @param userId
+   */
   public setUserId(userId: string): void {
     this.config.userId = userId;
   }

@@ -168,57 +168,44 @@ export interface NFTFloorPrice {
  *
  */
 export interface NFT {
-  /**
-   *
-   */
+  /** Unique NFT identifier */
   id: string;
-  /**
-   *
-   */
+  /** Contract address */
   contract_address: string;
-  /**
-   *
-   */
+  /** Token ID */
   token_id: string;
-  /**
-   *
-   */
+  /** Chain the NFT is on */
   chain: ChainType | string;
-  /**
-   *
-   */
+  /** NFT type (ERC721, ERC1155, etc) */
   type: NFTType;
-  /**
-   *
-   */
+  /** NFT standard */
   standard: NFTStandard;
-  /**
-   *
-   */
+  /** Current owner address */
   owner: string;
-  /**
-   *
-   */
+  /** NFT name (convenience field from metadata) */
+  name?: string;
+  /** NFT metadata */
   metadata: NFTMetadata;
-  /**
-   *
-   */
+  /** Collection info */
   collection?: NFTCollection;
-  /**
-   *
-   */
-  balance?: string; // For ERC1155
-  /**
-   *
-   */
+  /** NFT attributes (convenience field from metadata) */
+  attributes?: NFTAttribute[];
+  /** Floor price (convenience field from collection) */
+  floor_price?: number;
+  /** Contract details */
+  contract?: {
+    /** Contract address */
+    address: string;
+    /** Contract type */
+    type: NFTType;
+  };
+  /** Balance for ERC1155 tokens */
+  balance?: string;
+  /** Creation timestamp */
   created_at?: string;
-  /**
-   *
-   */
+  /** Last update timestamp */
   last_updated?: string;
-  /**
-   *
-   */
+  /** Marketplace data */
   marketplace_data?: NFTMarketplaceData;
 }
 

@@ -1,8 +1,23 @@
 // Local minimal type to avoid external dependency/types issues
+/**
+ *
+ */
 export interface EthEncryptedData {
+  /**
+   *
+   */
   version: string;
+  /**
+   *
+   */
   nonce: string;
+  /**
+   *
+   */
   ephemPublicKey: string;
+  /**
+   *
+   */
   ciphertext: string;
 }
 import { box as naclBox, randomBytes } from "tweetnacl";

@@ -149,7 +149,10 @@ export class ValidatorWalletService {
     });
   }
 
-  /** Update the user identifier used by this service. */
+  /**
+   * Update the user identifier used by this service.
+   * @param userId
+   */
   public setUserId(userId: string): void {
     this.config.userId = userId;
   }
@@ -736,7 +739,7 @@ export class ValidatorWalletService {
       // Update active account if necessary
       if (this.activeAccountId === accountId) {
         const remainingAccounts = Array.from(this.accounts.values());
-        this.activeAccountId = remainingAccounts.length > 0 ? remainingAccounts[0]!.id : null;
+        this.activeAccountId = remainingAccounts.length > 0 ? remainingAccounts[0].id : null;
       }
 
       // Remove from secure storage

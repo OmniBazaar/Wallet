@@ -1,9 +1,27 @@
 // Local interface to avoid external dependency/type issues
+/**
+ *
+ */
 export interface BrowserStorageArea {
+  /**
+   *
+   */
   get(key: string): Promise<Record<string, unknown>>;
+  /**
+   *
+   */
   set(items: Record<string, unknown>): Promise<void>;
+  /**
+   *
+   */
   remove(key: string): Promise<void>;
+  /**
+   *
+   */
   clear(): Promise<void>;
+  /**
+   *
+   */
   getWholeStorage(): Promise<Record<string, unknown>>;
 }
 

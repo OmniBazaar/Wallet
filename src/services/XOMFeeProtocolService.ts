@@ -175,7 +175,7 @@ export class XOMFeeProtocolService {
   async initialize(): Promise<void> {
     // Start periodic reward updates
     this.startRewardUpdates();
-    console.log('XOM Fee Protocol Service initialized');
+    // console.log('XOM Fee Protocol Service initialized');
   }
   
   /**
@@ -193,7 +193,7 @@ export class XOMFeeProtocolService {
       // Check if action is eligible for reward
       const isEligible = await this.checkEligibility(address, type);
       if (!isEligible) {
-        console.log(`User ${address} not eligible for ${type} reward`);
+        // console.log(`User ${address} not eligible for ${type} reward`);
         return null;
       }
       
@@ -228,7 +228,7 @@ export class XOMFeeProtocolService {
       // Clear cache to force refresh
       this.rewardsCache.delete(address);
       
-      console.log(`Reward earned: ${config.amount} XOM for ${type}`);
+      // console.log(`Reward earned: ${config.amount} XOM for ${type}`);
       return reward;
       
     } catch (error) {
@@ -237,7 +237,11 @@ export class XOMFeeProtocolService {
     }
   }
   
-  /** Check reward eligibility with validator. */
+  /**
+   * Check reward eligibility with validator.
+   * @param address
+   * @param type
+   */
   private async checkEligibility(address: string, type: RewardType): Promise<boolean> {
     try {
       const response = await fetch(

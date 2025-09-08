@@ -3,11 +3,11 @@
  * Tests wallet integration with OmniBazaar marketplace UI
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from '@jest/globals';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, jest } from '@jest/globals';
 import { WalletService } from '../../src/services/WalletService';
 import { BazaarIntegration } from '../../src/integrations/BazaarIntegration';
 import { ListingService } from '../../src/services/ListingService';
-import { mockWallet, mockNFT } from '../setup';
+import { mockWallet, mockNFT, createMockProvider } from '../setup';
 
 describe('Bazaar/UI Integration', () => {
   let walletService: WalletService;
@@ -15,11 +15,41 @@ describe('Bazaar/UI Integration', () => {
   let listingService: ListingService;
 
   beforeAll(async () => {
-    walletService = new WalletService();
+    // Create mock provider
+    const mockProvider = createMockProvider('ethereum');
+    
+    walletService = new WalletService({
+      providers: {
+        1: {
+          chainId: 1,
+          network: 'ethereum',
+          rpcUrl: 'https://eth-mainnet.g.alchemy.com/v2/demo',
+          nativeSymbol: 'ETH',
+          nativeDecimals: 18
+        }
+      },
+      defaultChainId: 1,
+      autoConnect: false
+    });
+    
+    // Mock the wallet initialization to use our mock provider
+    jest.spyOn(walletService as any, 'initializeProvider').mockImplementation(async () => {
+      (walletService as any).currentProvider = mockProvider;
+    });
+    
     bazaarIntegration = new BazaarIntegration(walletService);
     listingService = new ListingService();
     
     await walletService.init();
+    
+    // Mock successful connection
+    jest.spyOn(walletService, 'connect').mockResolvedValue(undefined);
+    jest.spyOn(walletService, 'getAddress').mockResolvedValue(mockWallet.address);
+    
+    // Set the private isConnected property
+    (walletService as any).isConnected = true;
+    
+    await walletService.connect();
     await bazaarIntegration.connect();
   });
 
@@ -74,6 +104,11 @@ describe('Bazaar/UI Integration', () => {
   });
 
   describe('Listing Creation and Management', () => {
+    beforeEach(async () => {
+      // Ensure wallet is connected to bazaar for each test
+      await bazaarIntegration.connectWallet(mockWallet.address);
+    });
+
     it('should create listing with wallet signature', async () => {
       const listingData = {
         title: 'Test Product',
@@ -113,6 +148,9 @@ describe('Bazaar/UI Integration', () => {
         price: '100'
       }, mockWallet.address);
 
+      // Add small delay to ensure different timestamps
+      await new Promise(resolve => setTimeout(resolve, 10));
+
       const updated = await bazaarIntegration.updateListing(listing.id, {
         title: 'Updated Title',
         price: '150'
@@ -138,6 +176,11 @@ describe('Bazaar/UI Integration', () => {
   });
 
   describe('Purchase Flow Integration', () => {
+    beforeEach(async () => {
+      // Ensure wallet is connected to bazaar for each test
+      await bazaarIntegration.connectWallet(mockWallet.address);
+    });
+
     it('should initiate purchase with wallet', async () => {
       const listing = {
         id: 'listing-123',
@@ -207,6 +250,11 @@ describe('Bazaar/UI Integration', () => {
   });
 
   describe('UI Component Integration', () => {
+    beforeEach(async () => {
+      // Ensure wallet is connected to bazaar for each test
+      await bazaarIntegration.connectWallet(mockWallet.address);
+    });
+
     it('should render wallet connection button', async () => {
       const button = await bazaarIntegration.renderWalletButton({
         containerId: 'wallet-button-container',
@@ -312,8 +360,9 @@ describe('Bazaar/UI Integration', () => {
       
       expect(Array.isArray(results)).toBe(true);
       results.forEach(listing => {
-        expect(listing.price).toBeGreaterThanOrEqual(10);
-        expect(listing.price).toBeLessThanOrEqual(1000);
+        const price = parseInt(listing.price);
+        expect(price).toBeGreaterThanOrEqual(10);
+        expect(price).toBeLessThanOrEqual(1000);
       });
     });
 
@@ -388,12 +437,15 @@ describe('Bazaar/UI Integration', () => {
     it('should handle wallet connection errors', async () => {
       const invalidAddress = 'invalid-address';
       
-      await expect(
-        bazaarIntegration.connectWallet(invalidAddress)
-      ).rejects.toThrow('Invalid wallet address');
+      const result = await bazaarIntegration.connectWallet(invalidAddress);
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Invalid wallet address');
     });
 
     it('should handle insufficient balance', async () => {
+      // Need to connect wallet first
+      await bazaarIntegration.connectWallet(mockWallet.address);
+      
       const purchase = {
         listingId: 'expensive-listing',
         price: '1000000',

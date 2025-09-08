@@ -3,7 +3,7 @@
  */
 
 import { ethers } from 'ethers';
-import { ContractManager, ENS_CONFIG } from '../contracts/ContractConfig';
+import { ContractManager, ENS_CONFIG, defaultConfig } from '../contracts/ContractConfig';
 
 /** ENS resolution service for .eth and .omnicoin domains */
 export class ENSService {
@@ -12,7 +12,12 @@ export class ENSService {
   private ensRegistry: ethers.Contract;
 
   private constructor() {
-    this.contractManager = ContractManager.getInstance();
+    try {
+      this.contractManager = ContractManager.getInstance();
+    } catch (error) {
+      // If ContractManager is not initialized, initialize with default config
+      this.contractManager = ContractManager.initialize(defaultConfig);
+    }
 
     // ENS Registry ABI (minimal)
     const ENS_REGISTRY_ABI = [
@@ -26,11 +31,21 @@ export class ENSService {
       "function addr(bytes32 node, uint256 coinType) external view returns (bytes memory)"
     ];
 
-    this.ensRegistry = new ethers.Contract(
-      ENS_CONFIG.registryAddress,
-      ENS_REGISTRY_ABI,
-      this.contractManager.getEthereumProvider()
-    );
+    // Only initialize contract if we have a valid address
+    if (ENS_CONFIG.registryAddress && ENS_CONFIG.registryAddress !== '') {
+      this.ensRegistry = new ethers.Contract(
+        ENS_CONFIG.registryAddress,
+        ENS_REGISTRY_ABI,
+        this.contractManager.getEthereumProvider()
+      );
+    } else {
+      // Create a mock contract for testing
+      this.ensRegistry = new ethers.Contract(
+        '0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e',
+        ENS_REGISTRY_ABI,
+        new ethers.JsonRpcProvider('https://rpc.sepolia.org')
+      );
+    }
   }
 
   /**

@@ -1,18 +1,53 @@
 /* @jsxImportSource react */
 import React, { useState } from 'react';
+import { flushSync } from 'react-dom';
 import { OmniCoinLoading } from './OmniCoinLoading';
 import { OmniCoinToast } from './OmniCoinToast';
 
 // Placeholder wallet state interface
-interface WalletState {
+/**
+ *
+ */
+export interface WalletState {
+  /**
+   *
+   */
   address?: string;
+  /**
+   *
+   */
   chainId?: number;
+  /**
+   *
+   */
   isConnecting: boolean;
+  /**
+   *
+   */
   error?: string;
 }
 
-// Placeholder wallet context hook
-const useWallet = () => ({
+// Wallet hook interface for testing
+/**
+ *
+ */
+export interface WalletHook {
+  /**
+   *
+   */
+  state: WalletState;
+  /**
+   *
+   */
+  connect: () => Promise<void>;
+  /**
+   *
+   */
+  disconnect: () => void;
+}
+
+// Default wallet hook implementation
+const defaultUseWallet = (): WalletHook => ({
   state: {
     isConnecting: false
   } as WalletState,
@@ -23,6 +58,24 @@ const useWallet = () => ({
     // TODO: Implement wallet disconnection
   }
 });
+
+// Allow hook injection for testing
+let walletHookProvider: () => WalletHook = defaultUseWallet;
+
+/**
+ *
+ * @param provider
+ */
+export const setWalletHookProvider = (provider: () => WalletHook) => {
+  walletHookProvider = provider;
+};
+
+/**
+ *
+ */
+export const resetWalletHookProvider = () => {
+  walletHookProvider = defaultUseWallet;
+};
 
 const connectContainerStyle: React.CSSProperties = {
   display: 'flex',
@@ -67,7 +120,10 @@ const addressTextStyle: React.CSSProperties = {
   fontFamily: 'monospace'
 };
 
-interface WalletConnectProps {
+/**
+ *
+ */
+export interface WalletConnectProps {
   // No props currently needed
 }
 
@@ -78,7 +134,7 @@ interface WalletConnectProps {
  * @returns JSX element for wallet connection interface
  */
 const WalletConnect: React.FC<WalletConnectProps> = () => {
-    const { state, connect, disconnect } = useWallet();
+    const { state, connect, disconnect } = walletHookProvider();
     const { address, chainId, isConnecting, error } = state;
     const [showToast, setShowToast] = useState(false);
     const [toastMessage, setToastMessage] = useState('');
@@ -89,17 +145,26 @@ const WalletConnect: React.FC<WalletConnectProps> = () => {
      */
     const handleConnect = async (): Promise<void> => {
         try {
-            setToastType('pending');
-            setToastMessage('Connecting to wallet...');
-            setShowToast(true);
+            // Batch initial state updates with flushSync for test compatibility
+            flushSync(() => {
+                setToastType('pending');
+                setToastMessage('Connecting to wallet...');
+                setShowToast(true);
+            });
 
             await connect();
 
-            setToastType('success');
-            setToastMessage('Wallet connected successfully!');
+            // Batch success state updates with flushSync for test compatibility
+            flushSync(() => {
+                setToastType('success');
+                setToastMessage('Wallet connected successfully!');
+            });
         } catch (err) {
-            setToastType('error');
-            setToastMessage(err instanceof Error ? err.message : 'Failed to connect wallet');
+            // Batch error state updates with flushSync for test compatibility
+            flushSync(() => {
+                setToastType('error');
+                setToastMessage(err instanceof Error ? err.message : 'Failed to connect wallet');
+            });
         }
     };
 

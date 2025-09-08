@@ -11,6 +11,9 @@
  */
 
 // Placeholder exports to prevent import errors
+/**
+ *
+ */
 export const useCustomNetworkAssets = () => {
   // TODO: Implement using NFTService and custom network support
   return {
@@ -20,6 +23,9 @@ export const useCustomNetworkAssets = () => {
   };
 };
 
+/**
+ *
+ */
 export const getCustomNetworkAssets = async (): Promise<unknown[]> => {
   // TODO: Implement using NFTManager with custom network support
   return [];

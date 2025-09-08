@@ -7,22 +7,24 @@ interface ThemeProps {
   theme: Theme;
 }
 
-// CSS animations injected into document head
-if (typeof document !== 'undefined' && !document.getElementById('omnicoin-loading-styles-new')) {
-  const style = document.createElement('style');
-  style.id = 'omnicoin-loading-styles-new';
-  style.textContent = `
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-    @keyframes fadeIn {
-      from { opacity: 0; }
-      to { opacity: 1; }
-    }
-  `;
-  document.head.appendChild(style);
-}
+// Function to inject CSS animations into document head
+const injectStyles = (): void => {
+  if (typeof document !== 'undefined' && !document.getElementById('omnicoin-loading-styles-new')) {
+    const style = document.createElement('style');
+    style.id = 'omnicoin-loading-styles-new';
+    style.textContent = `
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+      @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+};
 
 const loadingContainerStyle: React.CSSProperties = {
   display: 'flex',
@@ -73,18 +75,30 @@ interface OmniCoinLoadingProps {
     showProgress?: boolean;
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.text
+ * @param root0.progress
+ * @param root0.showProgress
+ */
 export const OmniCoinLoading: React.FC<OmniCoinLoadingProps> = ({
     text = 'Loading...',
     progress = 0,
     showProgress = false
 }) => {
+    // Inject styles when component is rendered
+    React.useEffect(() => {
+        injectStyles();
+    }, []);
+
     return (
-        <div style={loadingContainerStyle}>
-            <div style={spinnerStyle} />
-            <p style={loadingTextStyle}>{text}</p>
+        <div style={loadingContainerStyle} data-testid="omnicoin-loading-container">
+            <div style={spinnerStyle} data-testid="omnicoin-loading-spinner" />
+            <p style={loadingTextStyle} data-testid="omnicoin-loading-text">{text}</p>
             {showProgress && (
-                <div style={progressBarStyle}>
-                    <div style={getProgressStyle(progress)} />
+                <div style={progressBarStyle} data-testid="omnicoin-loading-progress-bar">
+                    <div style={getProgressStyle(progress)} data-testid="omnicoin-loading-progress" />
                 </div>
             )}
         </div>

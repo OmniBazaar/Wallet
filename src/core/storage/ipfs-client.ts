@@ -345,8 +345,8 @@ export class IPFSClient {
                     *
                     */
       min: string; /**
-                  *
-                  */
+                    *
+                    */
       max: string
     };
     /**
@@ -598,13 +598,13 @@ export class IPFSClient {
 
 // Default IPFS client instance
 export const ipfsClient = new IPFSClient(
-  (process?.env?.['IPFS_GATEWAY'] as string | undefined) || 'https://ipfs.io/ipfs/',
-  (process?.env?.['IPFS_PINNING_SERVICE'] as string | undefined),
+  (process?.env?.['IPFS_GATEWAY']) || 'https://ipfs.io/ipfs/',
+  (process?.env?.['IPFS_PINNING_SERVICE']),
   {
-    host: (process?.env?.['IPFS_HOST'] as string | undefined) || 'localhost',
-    port: parseInt((process?.env?.['IPFS_PORT'] as string | undefined) || '5001'),
-    protocol: (process?.env?.['IPFS_PROTOCOL'] as string | undefined) || 'http',
-    apiPath: (process?.env?.['IPFS_API_PATH'] as string | undefined) || '/api/v0'
+    host: (process?.env?.['IPFS_HOST']) || 'localhost',
+    port: parseInt((process?.env?.['IPFS_PORT']) || '5001'),
+    protocol: (process?.env?.['IPFS_PROTOCOL']) || 'http',
+    apiPath: (process?.env?.['IPFS_API_PATH']) || '/api/v0'
   }
 );
 

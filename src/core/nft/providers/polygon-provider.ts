@@ -236,7 +236,7 @@ export class PolygonNFTProvider implements ChainProvider {
       attributes: metadata.attributes || [],
       contract: nft.contract.address,
       contractAddress: nft.contract.address,
-      tokenStandard: ((nft.id.tokenMetadata?.tokenType || 'ERC721') as string).toUpperCase() === 'ERC1155' ? 'ERC1155' : 'ERC721',
+      tokenStandard: ((nft.id.tokenMetadata?.tokenType || 'ERC721')).toUpperCase() === 'ERC1155' ? 'ERC1155' : 'ERC721',
       blockchain: 'polygon',
       owner: 'unknown',
       creator: metadata.creator || 'unknown',

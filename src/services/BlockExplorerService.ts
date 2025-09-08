@@ -230,7 +230,7 @@ export class BlockExplorerService {
         baseUrl: 'https://etherscan.io',
         apiUrl: 'https://api.etherscan.io/api',
         ...(process?.env?.['ETHERSCAN_API_KEY']
-          ? { apiKey: process.env['ETHERSCAN_API_KEY'] as string }
+          ? { apiKey: process.env['ETHERSCAN_API_KEY'] }
           : {}),
         chainId: 1,
         nativeToken: 'ETH',
@@ -249,7 +249,7 @@ export class BlockExplorerService {
         baseUrl: 'https://snowtrace.io',
         apiUrl: 'https://api.snowtrace.io/api',
         ...(process?.env?.['SNOWTRACE_API_KEY']
-          ? { apiKey: process.env['SNOWTRACE_API_KEY'] as string }
+          ? { apiKey: process.env['SNOWTRACE_API_KEY'] }
           : {}),
         chainId: 43114,
         nativeToken: 'AVAX',
@@ -260,7 +260,7 @@ export class BlockExplorerService {
         baseUrl: 'https://polygonscan.com',
         apiUrl: 'https://api.polygonscan.com/api',
         ...(process?.env?.['POLYGONSCAN_API_KEY']
-          ? { apiKey: process.env['POLYGONSCAN_API_KEY'] as string }
+          ? { apiKey: process.env['POLYGONSCAN_API_KEY'] }
           : {}),
         chainId: 137,
         nativeToken: 'MATIC',
@@ -271,7 +271,7 @@ export class BlockExplorerService {
         baseUrl: 'https://bscscan.com',
         apiUrl: 'https://api.bscscan.com/api',
         ...(process?.env?.['BSCSCAN_API_KEY']
-          ? { apiKey: process.env['BSCSCAN_API_KEY'] as string }
+          ? { apiKey: process.env['BSCSCAN_API_KEY'] }
           : {}),
         chainId: 56,
         nativeToken: 'BNB',
@@ -282,7 +282,7 @@ export class BlockExplorerService {
   
   /** Initialize internal state (placeholder for future setup). */
   async initialize(): Promise<void> {
-    console.log('Block Explorer Service initialized');
+    // console.log('Block Explorer Service initialized');
   }
   
   /**

@@ -11,6 +11,9 @@
  */
 
 // Placeholder exports to prevent import errors
+/**
+ *
+ */
 export const useUserAssets = () => {
   // TODO: Implement using WalletService
   return {
@@ -20,6 +23,9 @@ export const useUserAssets = () => {
   };
 };
 
+/**
+ *
+ */
 export const getUserAssets = async (): Promise<unknown[]> => {
   // TODO: Implement using WalletService
   return [];

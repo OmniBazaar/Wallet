@@ -149,7 +149,7 @@ export class NFTDiscoveryService {
       });
 
       if (!response.ok) {
-        console.warn('Failed to fetch Solana NFTs:', response.statusText);
+        // Failed to fetch Solana NFTs - status will be handled by caller
         return [];
       }
 
@@ -303,14 +303,19 @@ export class NFTDiscoveryService {
           to: nft.last_sale.to_address || '',
         }
       } : undefined,
+      contract: {
+        address: nft.contract_address,
+        type: this.getNFTType(nft.contract?.type),
+      },
     } as NFT));
   }
 
   /**
    * Parse Helius Solana NFT data
    * @param nfts
+   * @param items
    */
-  private parseHeliusNFTs(nfts: Array<{
+  private parseHeliusNFTs(items: Array<{
     /**
      *
      */
@@ -362,8 +367,8 @@ export class NFTDiscoveryService {
                               *
                               */
           trait_type: string; /**
-                             *
-                             */
+                               *
+                               */
           value: string | number
         }>;
         /**
@@ -375,6 +380,15 @@ export class NFTDiscoveryService {
        *
        */
       files?: Array<{ uri?: string }>;
+    };
+    /**
+     *
+     */
+    compression?: {
+      /**
+       *
+       */
+      compressed?: boolean;
     };
     /**
      *
@@ -396,11 +410,11 @@ export class NFTDiscoveryService {
                         *
                         */
       address: string; /**
-                      *
-                      */
-      verified: boolean; /**
                         *
                         */
+      verified: boolean; /**
+                          *
+                          */
       share: number
     }>;
     /**
@@ -434,26 +448,30 @@ export class NFTDiscoveryService {
       basis_points?: number;
     };
   }>): SolanaNFT[] {
-    return nfts.map(nft => ({
+    return items.map(nft => ({
       id: `solana_${nft.id}`,
       contract_address: nft.id,
       token_id: nft.id,
       chain: 'solana',
-      type: NFTType.SOLANA_TOKEN,
+      type: nft.compression?.compressed ? NFTType.SolanaBGUM : NFTType.SOLANA_TOKEN,
       standard: NFTStandard.METAPLEX,
-      owner: nft.ownership.owner,
+      owner: nft.ownership?.owner || '',
       mint: nft.id,
+      contract: {
+        address: nft.id,
+        type: nft.compression?.compressed ? NFTType.SolanaBGUM : NFTType.SOLANA_TOKEN,
+      },
       metadata: {
         name: nft.content?.metadata?.name || 'Unnamed NFT',
         ...(nft.content?.metadata?.description ? { description: nft.content.metadata.description } : {}),
         ...((nft.content?.files?.[0]?.uri || nft.content?.metadata?.image) ? { image: nft.content?.files?.[0]?.uri || nft.content?.metadata?.image } : {}),
         ...(nft.content?.metadata?.external_url ? { external_url: nft.content.metadata.external_url } : {}),
         ...(nft.content?.metadata?.attributes ? { attributes: nft.content.metadata.attributes.map((attr: { /**
-                                                                     *
-                                                                     */
+                                                                                                            *
+                                                                                                            */
           trait_type: string; /**
-                             *
-                             */
+                               *
+                               */
           value: string | number
         }) => ({
           trait_type: attr.trait_type,
@@ -472,11 +490,11 @@ export class NFTDiscoveryService {
                                                *
                                                */
         address: string; /**
-                        *
-                        */
-        verified: boolean; /**
                           *
                           */
+        verified: boolean; /**
+                            *
+                            */
         share: number
       }) => ({
         address: creator.address,
@@ -492,7 +510,8 @@ export class NFTDiscoveryService {
    * @param standard
    */
   private getNFTType(standard: string | undefined): NFTType {
-    switch (standard?.toUpperCase()) {
+    const normalized = standard?.toUpperCase().replace('-', '');
+    switch (normalized) {
       case 'ERC721':
         return NFTType.ERC721;
       case 'ERC1155':
@@ -507,7 +526,8 @@ export class NFTDiscoveryService {
    * @param type
    */
   private getNFTStandard(type: string | undefined): NFTStandard {
-    switch (type?.toUpperCase()) {
+    const normalized = type?.toUpperCase().replace('-', '');
+    switch (normalized) {
       case 'ERC721':
         return NFTStandard.ERC721;
       case 'ERC1155':

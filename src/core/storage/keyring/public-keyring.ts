@@ -25,21 +25,37 @@ export interface PublicKeyring {
  * Placeholder public keyring implementation
  */
 export class OmniBazaarPublicKeyring implements PublicKeyring {
+  /**
+   *
+   * @param signerType
+   * @param walletType
+   */
   constructor(
     private signerType: SignerType,
     private walletType: WalletType
   ) {}
 
+  /**
+   *
+   */
   async getAddresses(): Promise<string[]> {
     // TODO: Implement using OmniBazaar's account management
     return [];
   }
 
+  /**
+   *
+   * @param address
+   */
   async getPublicKey(address: string): Promise<string> {
     // TODO: Implement public key retrieval
     throw new Error(`Not implemented - use OmniBazaar account system for ${address}`);
   }
 
+  /**
+   *
+   * @param address
+   */
   async hasAddress(address: string): Promise<boolean> {
     // TODO: Implement address verification
     return false;

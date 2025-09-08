@@ -7,7 +7,7 @@ import { ethers } from 'ethers';
 // Note: VirtualWitnessNode import commented out - module path needs verification
 
 /** API URL for migration service */
-const API_URL = (process?.env?.['REACT_APP_MIGRATION_API_URL'] as string | undefined) ?? 'http://localhost:3001';
+const API_URL = (process?.env?.['REACT_APP_MIGRATION_API_URL']) ?? 'http://localhost:3001';
 
 /** Result of migration operation */
 interface MigrationResult {

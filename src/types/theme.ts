@@ -124,5 +124,8 @@ export interface Theme {
 
 /** Styled-components theme declaration */
 declare module 'styled-components' {
+  /**
+   *
+   */
   export interface DefaultTheme extends Theme {}
 }

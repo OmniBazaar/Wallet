@@ -238,7 +238,7 @@ export class FaucetService {
     // Load initial stats
     await this.loadFaucetStats();
     
-    console.log('Faucet Service initialized');
+    // console.log('Faucet Service initialized');
   }
   
   /**
@@ -362,7 +362,11 @@ export class FaucetService {
     }
   }
   
-  /** Normalize status data from the validator API. */
+  /**
+   * Normalize status data from the validator API.
+   * @param address
+   * @param data
+   */
   private processStatusData(address: string, data: any): FaucetStatus {
     const claims = new Map<TestnetType, any>();
     
@@ -399,7 +403,10 @@ export class FaucetService {
     };
   }
   
-  /** Build a default status object for new users with claimable networks. */
+  /**
+   * Build a default status object for new users with claimable networks.
+   * @param address
+   */
   private getDefaultStatus(address: string): FaucetStatus {
     const claims = new Map<TestnetType, any>();
     
@@ -431,6 +438,8 @@ export class FaucetService {
   
   /**
    * Compute missing verification methods for a user against required set.
+   * @param userVerification
+   * @param required
    */
   private checkVerification(
     userVerification: FaucetStatus['verification'],
@@ -466,6 +475,10 @@ export class FaucetService {
    * @param address User address
    * @param method Verification method to use
    * @param verificationData Method-specific data (email/phone/handles/codes)
+   * @param verificationData.email
+   * @param verificationData.phone
+   * @param verificationData.socialHandle
+   * @param verificationData.verificationCode
    */
   async verifyIdentity(
     address: string,

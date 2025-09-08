@@ -7,12 +7,20 @@ import {
 } from "web3-utils";
 // Note: bigIntToBytes and bigIntToHex may not be available in newer @ethereumjs/util versions
 // Using alternative implementation
+/**
+ *
+ * @param value
+ */
 const bigIntToBytes = (value: bigint): Uint8Array => {
   const hex = value.toString(16);
   const paddedHex = hex.length % 2 ? '0' + hex : hex;
   return new Uint8Array(paddedHex.match(/.{2}/g)?.map(byte => parseInt(byte, 16)) || []);
 };
 
+/**
+ *
+ * @param value
+ */
 const bigIntToHex = (value: bigint): string => {
   return '0x' + value.toString(16);
 };

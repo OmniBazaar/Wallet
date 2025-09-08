@@ -133,11 +133,11 @@ function createOmniBazaarProvider(): unknown {
     // Event handling
     on: (event: string, callback: EventCallback) => {
       const handler = (e: Event) => callback((e as CustomEvent).detail);
-      window.addEventListener(`omnibazaar_${event}` as string, handler as EventListener);
+      window.addEventListener(`omnibazaar_${event}`, handler as EventListener);
     },
 
     removeListener: (event: string, callback: EventCallback) => {
-      window.removeEventListener(`omnibazaar_${event}` as string, callback as unknown as EventListener);
+      window.removeEventListener(`omnibazaar_${event}`, callback as unknown as EventListener);
     },
 
     // OmniBazaar-specific methods
@@ -216,11 +216,11 @@ function createEthereumProvider(): unknown {
     // Event handling
     on: (event: string, callback: EventCallback) => {
       const handler = (e: Event) => callback((e as CustomEvent).detail);
-      window.addEventListener(`ethereum_${event}` as string, handler as EventListener);
+      window.addEventListener(`ethereum_${event}`, handler as EventListener);
     },
 
     removeListener: (event: string, callback: EventCallback) => {
-      window.removeEventListener(`ethereum_${event}` as string, callback as unknown as EventListener);
+      window.removeEventListener(`ethereum_${event}`, callback as unknown as EventListener);
     },
 
     // Standard provider properties

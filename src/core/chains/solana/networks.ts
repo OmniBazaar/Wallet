@@ -5,7 +5,7 @@
 import { SolanaNetworkConfig } from './provider';
 
 export const SOLANA_NETWORKS: Record<string, SolanaNetworkConfig> = {
-  mainnet: {
+  'mainnet-beta': {
     name: 'Solana Mainnet',
     chainId: 'solana-mainnet',
     currency: 'SOL',

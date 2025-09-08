@@ -177,7 +177,7 @@ export class OracleNodeService extends EventEmitter {
 
     // Test COTI connection
     try {
-      const cotiBlockNumber = await this.cotiProvider!.getBlockNumber();
+      const cotiBlockNumber = await this.cotiProvider.getBlockNumber();
       console.warn(`✅ COTI connection OK (block: ${cotiBlockNumber})`);
     } catch (error) {
       throw new Error(`COTI connection failed: ${(error as Error).message}`);
@@ -309,7 +309,10 @@ export class OracleNodeService extends EventEmitter {
     this.metrics.totalUpdates++;
   }
 
-  /** Update a single name entry in the oracle contract. */
+  /**
+   * Update a single name entry in the oracle contract.
+   * @param update
+   */
   private async updateSingleName(update: NameUpdate): Promise<void> {
     console.warn(`🔄 Updating single name: ${update.username} -> ${update.address}`);
 
@@ -341,7 +344,10 @@ export class OracleNodeService extends EventEmitter {
     }
   }
 
-  /** Batch update multiple name entries in the oracle contract. */
+  /**
+   * Batch update multiple name entries in the oracle contract.
+   * @param updates
+   */
   private async updateBatchNames(updates: NameUpdate[]): Promise<void> {
     console.warn(`🔄 Updating batch of ${updates.length} names...`);
 
@@ -406,7 +412,10 @@ export class OracleNodeService extends EventEmitter {
     };
   }
 
-  /** Query a name from the COTI registry contract. */
+  /**
+   * Query a name from the COTI registry contract.
+   * @param username
+   */
   public async queryCotiName(username: string): Promise<string> {
     this.ensureInitialized();
     try {
@@ -422,11 +431,14 @@ export class OracleNodeService extends EventEmitter {
     }
   }
 
-  /** Query a name from the Ethereum oracle contract. */
+  /**
+   * Query a name from the Ethereum oracle contract.
+   * @param username
+   */
   public async queryEthereumName(username: string): Promise<string> {
     this.ensureInitialized();
     try {
-      const address = await this.oracleContract!['queryName'](username);
+      const address = await this.oracleContract['queryName'](username);
       return address;
     } catch (error) {
       console.warn(`❌ Failed to query Ethereum name: ${(error as Error).message}`);
@@ -434,7 +446,10 @@ export class OracleNodeService extends EventEmitter {
     }
   }
 
-  /** Force a sync for a specific username from COTI → Ethereum. */
+  /**
+   * Force a sync for a specific username from COTI → Ethereum.
+   * @param username
+   */
   public async forceSyncName(username: string): Promise<void> {
     this.ensureInitialized();
     console.warn(`🔄 Force syncing name: ${username}`);

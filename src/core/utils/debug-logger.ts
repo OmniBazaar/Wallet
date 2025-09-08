@@ -82,6 +82,7 @@ type ParsedConfig = {
 /**
  * Parse a compact debug configuration string into a structured config.
  * Avoids undefined option values to satisfy exactOptionalPropertyTypes.
+ * @param string
  */
 function parseConfig(string: string): ParsedConfig {
   const wildcards = new Map<string, WildcardSearchConfig>();

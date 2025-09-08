@@ -62,7 +62,7 @@ class TrezorEthereum implements HWWalletProvider {
    * @returns Promise with address and public key
    */
   async getAddress(options: getAddressRequest): Promise<AddressResponse> {
-    if (!supportedPaths[this.network as keyof typeof supportedPaths])
+    if (!supportedPaths[this.network])
       return Promise.reject(new Error("trezor-ethereum: Invalid network name"));
 
     if (!this.HDNodes[options.pathType.basePath]) {
@@ -94,7 +94,7 @@ class TrezorEthereum implements HWWalletProvider {
    * @returns Array of supported path types
    */
   getSupportedPaths(): PathType[] {
-    return supportedPaths[this.network as keyof typeof supportedPaths] || [];
+    return supportedPaths[this.network] || [];
   }
 
   /**
