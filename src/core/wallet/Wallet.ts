@@ -632,7 +632,8 @@ export class WalletImpl implements Wallet {
     // Encode balanceOf function call
     const functionSignature = 'balanceOf(address)';
     const functionHash = ethers.id(functionSignature).substring(0, 10);
-    const encodedAddress = ethers.AbiCoder.defaultAbiCoder().encode(['address'], [this.state.address]);
+    const abiCoder = new ethers.AbiCoder();
+    const encodedAddress = abiCoder.encode(['address'], [this.state.address]);
     const data = functionHash + encodedAddress.substring(2);
 
     // Call contract to get balance

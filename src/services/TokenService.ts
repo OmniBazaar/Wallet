@@ -344,7 +344,12 @@ export class TokenService {
     // Save to persistent storage
     const customTokens = this.getCustomTokens();
     customTokens.push(tokenInfo);
-    localStorage.setItem('customTokens', JSON.stringify(customTokens));
+    // Convert BigInt to string for JSON serialization
+    const serializable = customTokens.map(token => ({
+      ...token,
+      totalSupply: token.totalSupply?.toString()
+    }));
+    localStorage.setItem('customTokens', JSON.stringify(serializable));
   }
 
   /**
@@ -359,9 +364,9 @@ export class TokenService {
       const token = this.supportedTokens.get(address.toLowerCase());
       if (token) {
         try {
-          const price = await priceFeedService.getPrice(token.symbol);
-          if (price) {
-            prices.set(address, price);
+          const priceData = await priceFeedService.getPrice(token.symbol);
+          if (priceData && priceData.priceUSD) {
+            prices.set(address, priceData.priceUSD);
           }
         } catch (error) {
           // Skip tokens that fail to get price
@@ -475,7 +480,14 @@ export class TokenService {
   private getCustomTokens(): TokenInfo[] {
     try {
       const stored = localStorage.getItem('customTokens');
-      return stored ? JSON.parse(stored) : [];
+      if (!stored) return [];
+      
+      // Parse and convert string totalSupply back to BigInt
+      const parsed = JSON.parse(stored);
+      return parsed.map((token: any) => ({
+        ...token,
+        totalSupply: token.totalSupply ? BigInt(token.totalSupply) : undefined
+      }));
     } catch {
       return [];
     }
@@ -524,5 +536,193 @@ export class TokenService {
     this.balanceCache.clear();
     this.isInitialized = false;
     // console.log('TokenService cleanup completed');
+  }
+
+  /**
+   * Get all tokens across all chains
+   * @param walletAddress - Wallet address
+   * @returns Array of all token balances
+   */
+  async getAllTokens(walletAddress: string): Promise<TokenBalance[]> {
+    const chains = ['ethereum', 'avalanche', 'polygon', 'bsc', 'arbitrum', 'optimism'];
+    const allTokens: TokenBalance[] = [];
+    
+    for (const chain of chains) {
+      try {
+        const tokens = await this.getTokensByChain(walletAddress, chain);
+        allTokens.push(...tokens);
+      } catch (error) {
+        // Continue with other chains if one fails
+        console.error(`Failed to get tokens for ${chain}:`, error);
+      }
+    }
+    
+    return allTokens;
+  }
+
+  /**
+   * Get price history for a token
+   * @param tokenAddress - Token contract address
+   * @param chain - Chain name
+   * @param period - Time period (e.g., '7d', '30d')
+   * @returns Array of price points
+   */
+  async getPriceHistory(tokenAddress: string, chain: string, period: string): Promise<Array<{ timestamp: number; price: number }>> {
+    // In a real implementation, this would fetch from a price API
+    // For testing, return mock data
+    const now = Date.now();
+    const points: Array<{ timestamp: number; price: number }> = [];
+    const intervals = period === '7d' ? 7 : period === '30d' ? 30 : 1;
+    
+    for (let i = 0; i < intervals; i++) {
+      points.push({
+        timestamp: now - (i * 24 * 60 * 60 * 1000),
+        price: Math.random() * 100 + 50
+      });
+    }
+    
+    return points.reverse();
+  }
+
+  /**
+   * Convert token amounts between different tokens
+   * @param params - Conversion parameters
+   * @returns Converted amount
+   */
+  async convertToken(params: {
+    fromToken: string;
+    toToken: string;
+    amount: bigint;
+    chain: string;
+  }): Promise<{ amount: bigint; rate: number }> {
+    // Get prices for both tokens
+    const prices = await this.getTokenPrices([params.fromToken, params.toToken]);
+    const fromPrice = prices.get(params.fromToken) || 1;
+    const toPrice = prices.get(params.toToken) || 1;
+    
+    // Calculate conversion rate
+    const rate = fromPrice / toPrice;
+    
+    // Convert amount (simplified - in reality would need decimal handling)
+    const convertedAmount = BigInt(Math.floor(Number(params.amount) * rate));
+    
+    return {
+      amount: convertedAmount,
+      rate
+    };
+  }
+
+  /**
+   * Search for tokens by name or symbol
+   * @param query - Search query
+   * @returns Array of matching tokens
+   */
+  async searchTokens(query: string): Promise<TokenInfo[]> {
+    const allTokens: TokenInfo[] = [];
+    const lowerQuery = query.toLowerCase();
+    
+    // Search through default tokens
+    for (const [chainTokens] of this.defaultTokens) {
+      for (const token of chainTokens) {
+        if (token.symbol.toLowerCase().includes(lowerQuery) || 
+            token.name.toLowerCase().includes(lowerQuery)) {
+          allTokens.push(token);
+        }
+      }
+    }
+    
+    return allTokens;
+  }
+
+  /**
+   * Check if a contract address is a valid token
+   * @param address - Contract address
+   * @param chain - Chain name
+   * @returns True if valid token
+   */
+  async isValidToken(address: string, chain: string): Promise<boolean> {
+    if (!ethers.isAddress(address)) return false;
+    
+    try {
+      // Try to get token info
+      const info = await this.getTokenInfo(address);
+      return info !== null;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Get detailed token metadata
+   * @param address - Token address
+   * @param chain - Chain name
+   * @returns Token metadata
+   */
+  async getTokenMetadata(address: string, chain: string): Promise<{
+    name: string;
+    symbol: string;
+    decimals: number;
+    totalSupply?: bigint;
+    logoUri?: string;
+  } | null> {
+    const info = await this.getTokenInfo(address);
+    if (!info) return null;
+    
+    return {
+      name: info.name,
+      symbol: info.symbol,
+      decimals: info.decimals,
+      logoUri: info.logoUri
+    };
+  }
+
+  /**
+   * Get transactions filtered by type
+   * @param walletAddress - Wallet address
+   * @param type - Transaction type ('sent' | 'received' | 'all')
+   * @returns Filtered transactions
+   */
+  async getTransactionsByType(walletAddress: string, type: 'sent' | 'received' | 'all'): Promise<any[]> {
+    const history = await this.getTokenTransactionHistory(walletAddress);
+    
+    if (type === 'all') return history;
+    if (type === 'sent') return history.filter(tx => tx.from?.toLowerCase() === walletAddress.toLowerCase());
+    if (type === 'received') return history.filter(tx => tx.to?.toLowerCase() === walletAddress.toLowerCase());
+    
+    return [];
+  }
+
+  /**
+   * Calculate yield for DeFi positions
+   * @param params - Yield calculation parameters
+   * @returns Yield information
+   */
+  async calculateYield(params: {
+    protocol: string;
+    token: string;
+    amount: bigint;
+    duration: number;
+  }): Promise<{
+    apy: number;
+    estimatedRewards: bigint;
+    protocol: string;
+  }> {
+    // Mock yield calculation
+    const apyRates: Record<string, number> = {
+      'aave': 5.2,
+      'compound': 4.8,
+      'yearn': 8.5,
+      'curve': 6.3
+    };
+    
+    const apy = apyRates[params.protocol] || 5.0;
+    const dailyRate = apy / 365 / 100;
+    const estimatedRewards = BigInt(Math.floor(Number(params.amount) * dailyRate * params.duration));
+    
+    return {
+      apy,
+      estimatedRewards,
+      protocol: params.protocol
+    };
   }
 }

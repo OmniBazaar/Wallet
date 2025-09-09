@@ -3,9 +3,8 @@
  * Provides aggregated price data from multiple oracle sources with caching
  */
 
-import { PriceOracleService } from '../../../../../Validator/src/services/PriceOracleService';
-import { OracleAggregator } from '../../../../../Validator/src/services/dex/oracles/OracleAggregator';
-import { OmniOracleService } from '../../../../../Coin/src/services/OmniOracleService';
+import { PriceOracleService } from '../../../../Validator/src/services/PriceOracleService';
+import { OracleAggregator } from '../../../../Validator/src/services/dex/oracles/OracleAggregator';
 
 /**
  * Price data structure
@@ -86,8 +85,6 @@ export class PriceFeedService {
   /** Oracle aggregator for multiple sources */
   private oracleAggregator?: OracleAggregator;
   
-  /** OmniOracle service for XOM/pXOM pricing */
-  private omniOracle?: OmniOracleService;
   
   /** Price cache with TTL */
   private priceCache: Map<string, { data: PriceData; expires: number }> = new Map();
@@ -111,13 +108,11 @@ export class PriceFeedService {
       // Initialize oracle services
       this.priceOracle = new PriceOracleService();
       this.oracleAggregator = new OracleAggregator();
-      this.omniOracle = new OmniOracleService();
       
       // Initialize all services
       await Promise.all([
         this.priceOracle.init(),
-        this.oracleAggregator.init(),
-        this.omniOracle.init()
+        this.oracleAggregator.init()
       ]);
       
       this.isInitialized = true;
@@ -350,41 +345,20 @@ export class PriceFeedService {
    * @private
    */
   private async getOmniPrice(symbol: string): Promise<PriceData> {
-    if (!this.omniOracle) {
-      throw new Error('OmniOracle not initialized');
-    }
-    
-    try {
-      // Get price from OmniOracle
-      const omniPrice = await this.omniOracle.getTokenPrice({
-        token: symbol,
-        includeMetadata: true
-      });
-      
+    // Use the general price oracle for XOM/pXOM
+    if (this.priceOracle) {
+      const price = await this.priceOracle.getTokenPrice(symbol);
       return {
         symbol,
-        priceUSD: omniPrice.price,
-        change24h: omniPrice.change24h || 0,
-        timestamp: omniPrice.timestamp,
-        source: 'omni-oracle',
-        confidence: 1.0
+        priceUSD: price,
+        change24h: 0,
+        timestamp: Date.now(),
+        source: 'price-oracle',
+        confidence: 0.9
       };
-    } catch (error) {
-      // Fallback to general oracle if OmniOracle fails
-      if (this.priceOracle) {
-        const price = await this.priceOracle.getTokenPrice(symbol);
-        return {
-          symbol,
-          priceUSD: price,
-          change24h: 0,
-          timestamp: Date.now(),
-          source: 'price-oracle',
-          confidence: 0.9
-        };
-      }
-      
-      throw error;
     }
+    
+    throw new Error('Price oracle not initialized');
   }
   
   /**
@@ -431,7 +405,6 @@ export class PriceFeedService {
       this.isInitialized = false;
       this.priceOracle = undefined;
       this.oracleAggregator = undefined;
-      this.omniOracle = undefined;
     } catch (error) {
       // Fail silently on cleanup
     }

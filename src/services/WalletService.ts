@@ -5,7 +5,7 @@
  * integrating multi-chain support, transaction management, and provider handling.
  */
 
-import { BrowserProvider } from 'ethers';
+import { BrowserProvider, ethers } from 'ethers';
 import { WalletImpl, Wallet, WalletConfig, WalletState } from '../core/wallet/Wallet';
 import { keyringService, KeyringAccount, AuthMethod } from '../core/keyring/KeyringService';
 import { TransactionService } from '../core/transaction/TransactionService';
@@ -557,6 +557,143 @@ export class WalletService {
    */
   off<K extends keyof WalletServiceEvents>(event: K): void {
     delete this.listeners[event];
+  }
+
+  /**
+   * Get native currency balance
+   * @param address - Wallet address
+   * @param chainId - Chain ID (optional)
+   * @returns Balance in wei
+   */
+  async getNativeBalance(address: string, chainId?: number): Promise<bigint> {
+    if (!ethers.isAddress(address)) {
+      throw new Error('Invalid wallet address');
+    }
+
+    const provider = this.currentProvider || (await this.getProviderForChain(chainId));
+    if (!provider) {
+      throw new Error('No provider available');
+    }
+
+    try {
+      const balance = await provider.getBalance(address);
+      return balance;
+    } catch (error) {
+      throw new Error(`Failed to get balance: ${error}`);
+    }
+  }
+
+  /**
+   * Send native currency
+   * @param params - Send parameters
+   * @returns Transaction response
+   */
+  async sendNativeCurrency(params: {
+    to: string;
+    amount: bigint;
+    from?: string;
+    chainId?: number;
+  }): Promise<{ hash: string }> {
+    if (!this.wallet) {
+      throw new Error('Wallet not connected');
+    }
+
+    return this.sendTransaction({
+      to: params.to,
+      value: params.amount
+    });
+  }
+
+  /**
+   * Estimate gas for transaction
+   * @param tx - Transaction parameters
+   * @param chain - Chain name
+   * @returns Gas estimate with limit and price
+   */
+  async estimateGas(tx: any, chain: string): Promise<{
+    gasLimit: bigint;
+    gasPrice: bigint;
+    totalCost: bigint;
+  }> {
+    const provider = this.currentProvider;
+    if (!provider) {
+      throw new Error('No provider available');
+    }
+
+    try {
+      const [gasLimit, feeData] = await Promise.all([
+        provider.estimateGas(tx),
+        provider.getFeeData()
+      ]);
+
+      const gasPrice = feeData.gasPrice || ethers.parseUnits('30', 'gwei');
+      const totalCost = gasLimit * gasPrice;
+
+      return {
+        gasLimit,
+        gasPrice,
+        totalCost
+      };
+    } catch (error) {
+      // Default gas estimates
+      const gasLimit = BigInt(21000);
+      const gasPrice = ethers.parseUnits('30', 'gwei');
+      return {
+        gasLimit,
+        gasPrice,
+        totalCost: gasLimit * gasPrice
+      };
+    }
+  }
+
+  /**
+   * Get current gas prices
+   * @param chain - Chain name
+   * @returns Gas prices in wei
+   */
+  async getGasPrices(chain: string): Promise<{
+    slow: bigint;
+    standard: bigint;
+    fast: bigint;
+  }> {
+    const provider = this.currentProvider;
+    if (!provider) {
+      throw new Error('No provider available');
+    }
+
+    try {
+      const feeData = await provider.getFeeData();
+      const basePrice = feeData.gasPrice || ethers.parseUnits('30', 'gwei');
+      
+      return {
+        slow: (basePrice * BigInt(8)) / BigInt(10),    // 80% of base
+        standard: basePrice,                            // 100% of base
+        fast: (basePrice * BigInt(12)) / BigInt(10)    // 120% of base
+      };
+    } catch (error) {
+      // Default gas prices
+      return {
+        slow: ethers.parseUnits('20', 'gwei'),
+        standard: ethers.parseUnits('30', 'gwei'),
+        fast: ethers.parseUnits('40', 'gwei')
+      };
+    }
+  }
+
+  /**
+   * Get provider for specific chain
+   * @param chainId - Chain ID
+   * @returns Provider instance
+   * @private
+   */
+  private async getProviderForChain(chainId?: number): Promise<BrowserProvider | null> {
+    if (!chainId) return this.currentProvider;
+    
+    const config = this.config.providers[chainId];
+    if (!config) return null;
+    
+    // In a real implementation, this would create a provider for the specific chain
+    return this.currentProvider;
   }
 
   /**

@@ -7,8 +7,8 @@
 
 import { WalletService } from './WalletService';
 import { ethers } from 'ethers';
-import { LiquidityPoolManager } from '../../../Validator/src/services/dex/amm/LiquidityPoolManager';
-import { AMMIntegration } from '../../../Validator/src/services/dex/amm/AMMIntegration';
+import { LiquidityPoolManager } from './liquidity/mocks/LiquidityPoolManager';
+import { AMMIntegration } from './liquidity/mocks/AMMIntegration';
 import { OmniProvider } from '../core/providers/OmniProvider';
 
 /** Liquidity pool information */

@@ -56,6 +56,61 @@ export class BridgeService {
   }
 
   /**
+   * Get available bridge routes
+   * @param params - Route query parameters
+   * @returns Available routes
+   */
+  async getRoutes(params: {
+    fromChain: string;
+    toChain: string;
+    token: string;
+    amount: string;
+  }): Promise<any[]> {
+    return await this.coreService.getBridgeRoutes(params.fromChain, params.toChain, params.token, params.amount);
+  }
+
+  /**
+   * Get transaction status
+   * @param txHash - Transaction hash
+   * @returns Transaction status
+   */
+  async getTransactionStatus(txHash: string): Promise<{
+    status: string;
+    confirmations?: number;
+    estimatedTime?: number;
+  }> {
+    return await this.coreService.getBridgeStatus(txHash);
+  }
+
+  /**
+   * Estimate bridge fees
+   * @param params - Fee estimation parameters
+   * @returns Fee estimates
+   */
+  async estimateFees(params: {
+    fromChain: string;
+    toChain: string;
+    token: string;
+    amount: string;
+  }): Promise<{
+    bridgeFee: string;
+    gasFee: string;
+    totalFee: string;
+  }> {
+    const routes = await this.getRoutes(params);
+    if (!routes || routes.length === 0) {
+      throw new Error('No bridge routes available');
+    }
+
+    const route = routes[0];
+    return {
+      bridgeFee: route.fee || '0',
+      gasFee: route.gasFee || '0',
+      totalFee: route.totalFee || route.fee || '0'
+    };
+  }
+
+  /**
    *
    */
   async cleanup(): Promise<void> {

@@ -3,13 +3,12 @@
  * Tests for OmniCoin (XOM) specific operations
  */
 
-import { describe, it, expect, beforeEach, vi, Mock } from 'vitest';
 import { XOMService } from '../../src/services/XOMService';
 import { WalletService } from '../../src/services/WalletService';
 import { ethers } from 'ethers';
 
 // Mock WalletService
-vi.mock('../../src/services/WalletService');
+jest.mock('../../src/services/WalletService');
 
 describe('XOMService', () => {
   let xomService: XOMService;
@@ -18,25 +17,25 @@ describe('XOMService', () => {
 
   beforeEach(() => {
     // Reset mocks
-    vi.clearAllMocks();
+    jest.clearAllMocks();
 
     // Create mock wallet
     mockWallet = {
-      getAddress: vi.fn().mockResolvedValue('0x742d35Cc6634C0532925a3b844Bc9e7595f6BED7'),
-      getBalance: vi.fn().mockResolvedValue(BigInt('1000000000000000000')), // 1 XOM
-      stakeOmniCoin: vi.fn().mockResolvedValue({ 
+      getAddress: jest.fn().mockResolvedValue('0x742d35Cc6634C0532925a3b844Bc9e7595f6BED7'),
+      getBalance: jest.fn().mockResolvedValue(BigInt('1000000000000000000')), // 1 XOM
+      stakeOmniCoin: jest.fn().mockResolvedValue({ 
         success: true, 
         txHash: '0x123',
         stakeId: 'stake-123' 
       }),
-      getStakedBalance: vi.fn().mockResolvedValue(BigInt('5000000000000000000')) // 5 XOM staked
+      getStakedBalance: jest.fn().mockResolvedValue(BigInt('5000000000000000000')) // 5 XOM staked
     };
 
     // Setup mock WalletService
     mockWalletService = new WalletService();
-    (mockWalletService.init as Mock).mockResolvedValue(undefined);
-    (mockWalletService.isServiceInitialized as Mock).mockReturnValue(true);
-    (mockWalletService.getWallet as Mock).mockReturnValue(mockWallet);
+    (mockWalletService.init as jest.Mock).mockResolvedValue(undefined);
+    (mockWalletService.isServiceInitialized as jest.Mock).mockReturnValue(true);
+    (mockWalletService.getWallet as jest.Mock).mockReturnValue(mockWallet);
 
     // Create XOMService instance
     xomService = new XOMService(mockWalletService);

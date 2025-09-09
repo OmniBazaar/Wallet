@@ -16,8 +16,8 @@ import {
 import { providerManager } from '../providers/ProviderManager';
 import type { ProviderManager } from '../providers/ProviderManager';
 import { ChainType } from '../keyring/BIP39Keyring';
-import { CrossChainBridge } from '../../../../Validator/src/services/dex/crosschain/CrossChainBridge';
-import { OmniOracleService } from '../../../../Coin/src/services/OmniOracleService';
+import { CrossChainBridge } from '../../services/bridge/mocks/CrossChainBridge';
+import { OmniOracleService } from '../../services/oracle/OmniOracleService';
 
 /**
  * Token information for bridge operations

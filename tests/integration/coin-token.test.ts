@@ -8,7 +8,7 @@ import { WalletService } from '../../src/services/WalletService';
 import { TokenService } from '../../src/services/TokenService';
 import { XOMService } from '../../src/services/XOMService';
 import { BridgeService } from '../../src/services/BridgeService';
-import { mockWallet, MOCK_TOKENS, CHAIN_TEST_DATA } from '../setup';
+import { mockWallet, MOCK_TOKENS, CHAIN_TEST_DATA, createMockProvider } from '../setup';
 import { ethers } from 'ethers';
 
 describe('Coin/Token Integration', () => {
@@ -18,12 +18,17 @@ describe('Coin/Token Integration', () => {
   let bridgeService: BridgeService;
 
   beforeAll(async () => {
-    walletService = new WalletService();
+    // Create a mock provider
+    const mockProvider = createMockProvider('ethereum');
+    // Create wallet service with mock provider
+    walletService = new WalletService(mockProvider as any);
     tokenService = new TokenService(walletService);
     xomService = new XOMService(walletService);
     bridgeService = new BridgeService();
     
     await walletService.init();
+    // Connect the wallet to enable operations
+    await walletService.connect();
     await tokenService.init();
     await xomService.init();
   });

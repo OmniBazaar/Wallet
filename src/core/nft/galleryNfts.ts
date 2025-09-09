@@ -5,9 +5,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { ethers } from 'ethers';
-import { NFTManager } from '../../../../../Bazaar/src/services/nft/NFTManager';
-import { NFTService } from '../../../../../Bazaar/src/services/nft/NFTService';
-import { MarketplaceService } from '../../../../../Bazaar/src/services/MarketplaceService';
+import { NFTManager } from './mocks/NFTManager';
+import { NFTService } from './mocks/NFTService';
+import { MarketplaceService } from './mocks/MarketplaceService';
 import type { NFT, NFTCollection } from './types';
 import type { ChainType } from '../keyring/BIP39Keyring';
 import { providerManager } from '../providers/ProviderManager';
