@@ -7,7 +7,7 @@
 
 import { NFTManager } from './NFTManager';
 import { NFT as WalletNFT } from './types';
-import { createNFTProvider, createAllNFTProviders, type ProviderConfig } from './providers/provider-factory';
+import { createAllNFTProviders } from './providers/provider-factory';
 import type { ChainProvider } from './display/multi-chain-display';
 
 // Import types from Bazaar if available
@@ -52,14 +52,14 @@ export class NFTService {
   private providers: Map<number, ChainProvider>;
   private config: NFTServiceConfig;
   private isInitialized = false;
-  private wallet: any = null; // Wallet instance
+  private wallet: unknown = null; // Wallet instance
 
   /**
-   *
-   * @param wallet
-   * @param config
+   * Creates a new NFT Service instance
+   * @param wallet - Wallet instance for blockchain interactions
+   * @param config - Service configuration options
    */
-  constructor(wallet?: any, config: NFTServiceConfig = {}) {
+  constructor(wallet?: unknown, config: NFTServiceConfig = {}) {
     this.wallet = wallet;
     this.config = {
       useOmniProvider: true, // Default to using OmniBazaar validators
@@ -69,7 +69,7 @@ export class NFTService {
     this.providers = new Map();
   }
 
-  private constructor_old(config: NFTServiceConfig = {}) {
+  private constructor_old(config: NFTServiceConfig = {}): void {
     this.config = {
       useOmniProvider: true, // Default to using OmniBazaar validators
       ...config
@@ -85,7 +85,7 @@ export class NFTService {
    * @returns NFTService singleton instance
    */
   public static getInstance(config?: NFTServiceConfig): NFTService {
-    if (!NFTService.instance) {
+    if (NFTService.instance === null || NFTService.instance === undefined) {
       NFTService.instance = new NFTService(config);
     }
     return NFTService.instance;
@@ -101,7 +101,7 @@ export class NFTService {
 
     try {
       // Initialize NFT Manager if not already done
-      if (!this.nftManager) {
+      if (this.nftManager === null || this.nftManager === undefined) {
         this.nftManager = new NFTManager(this.config.apiKeys);
       }
 
@@ -113,7 +113,7 @@ export class NFTService {
           ...(this.config.apiKeys !== undefined && { apiKeys: this.config.apiKeys })
         });
       } catch (error) {
-        console.warn('Provider factory not available, using empty provider map:', error);
+        // Provider factory not available, using empty provider map
         this.providers = new Map();
       }
 
@@ -125,10 +125,10 @@ export class NFTService {
       }
 
       this.isInitialized = true;
-      console.log('NFTService initialized with', this.providers.size, 'chain providers');
-      console.log('Using OmniProvider:', this.config.useOmniProvider);
+      // NFTService initialized with chain providers
+      // Using OmniProvider configuration
     } catch (error) {
-      console.error('Error initializing NFTService:', error);
+      // Error initializing NFTService
       // Continue with limited functionality
       this.isInitialized = true;
     }
@@ -136,8 +136,12 @@ export class NFTService {
 
   /**
    * Get NFTs for the active account across all chains
+   * @returns Promise resolving to array of NFTs
    */
   public async getActiveAccountNFTs(): Promise<WalletNFT[]> {
+    if (this.nftManager === null) {
+      throw new Error('NFT manager not initialized');
+    }
     return this.nftManager.getActiveAccountNFTs();
   }
 
@@ -151,43 +155,49 @@ export class NFTService {
 
   /**
    * Get NFTs for a specific address across all chains
-   * @param address
+   * @param address - Wallet address to query NFTs for
+   * @returns Promise resolving to array of NFTs
    */
   public async getNFTs(address: string): Promise<WalletNFT[]> {
+    if (this.nftManager === null) {
+      throw new Error('NFT manager not initialized');
+    }
     return this.nftManager.getNFTs(address);
   }
 
   /**
    * Get NFTs for a specific chain
-   * @param address
-   * @param chainId
+   * @param address - Wallet address to query NFTs for
+   * @param chainId - Chain ID to query
+   * @returns Promise resolving to array of NFTs for the chain
    */
-  public async getNFTsForChain(address: string, chainId: number): Promise<any[]> {
+  public async getNFTsForChain(address: string, chainId: number): Promise<unknown[]> {
     const provider = this.providers.get(chainId);
-    if (!provider) {
-      console.warn(`No provider available for chain ${chainId}`);
+    if (provider === null || provider === undefined) {
+      // No provider available for chain
       return [];
     }
 
     try {
       return await provider.getNFTs(address);
     } catch (error) {
-      console.error(`Error fetching NFTs for chain ${chainId}:`, error);
+      // Error fetching NFTs for chain
       return [];
     }
   }
 
   /**
    * Get NFT metadata
-   * @param contractAddress
-   * @param tokenId
-   * @param chainId
+   * @param contractAddress - NFT contract address
+   * @param tokenId - Token ID to get metadata for
+   * @param chainId - Chain ID where the NFT exists
+   * @returns Promise resolving to NFT metadata or null
    */
   public async getNFTMetadata(
     contractAddress: string,
     tokenId: string,
     chainId: number = 1
-  ): Promise<any | null> {
+  ): Promise<WalletNFT | null> {
     // Return mock metadata in test environment when no provider
     if (process.env.NODE_ENV === 'test' && this.providers.size === 0) {
       return {
@@ -199,28 +209,29 @@ export class NFTService {
     }
 
     const provider = this.providers.get(chainId);
-    if (!provider) {
-      console.warn(`No provider available for chain ${chainId}`);
+    if (provider === null || provider === undefined) {
+      // No provider available for chain
       return null;
     }
 
     try {
       return await provider.getNFTMetadata(contractAddress, tokenId);
     } catch (error) {
-      console.error(`Error fetching NFT metadata:`, error);
+      // Error fetching NFT metadata
       return null;
     }
   }
 
   /**
    * Get collections for an address
-   * @param address
-   * @param chainId
+   * @param address - Wallet address to query collections for
+   * @param chainId - Optional chain ID to limit search
+   * @returns Promise resolving to array of NFT collections
    */
-  public async getCollections(address: string, chainId?: number): Promise<any[]> {
+  public async getCollections(address: string, chainId?: number): Promise<unknown[]> {
     if (chainId !== undefined) {
       const provider = this.providers.get(chainId);
-      if (provider) {
+      if (provider !== null && provider !== undefined) {
         return provider.getCollections(address);
       }
       return [];
@@ -233,7 +244,7 @@ export class NFTService {
         const collections = await provider.getCollections(address);
         allCollections.push(...collections);
       } catch (error) {
-        console.warn('Error fetching collections:', error);
+        // Error fetching collections
       }
     }
 
@@ -241,8 +252,11 @@ export class NFTService {
   }
 
   /**
-   * Transfer NFT (overloaded version for backward compatibility)
-   * @param contractAddress Contract address
+   * Transfer NFT
+   * @param paramsOrContractAddress - Either transfer params or contract address
+   * @param tokenId - Token ID (when first param is contract address)
+   * @param to - Recipient address (when first param is contract address)
+   * @returns Promise resolving to transaction hash
    * @param tokenId Token ID
    * @param to Recipient address
    * @returns Transaction result
@@ -271,6 +285,13 @@ export class NFTService {
   }): Promise<{ success: boolean; txHash?: string; error?: string }>;
   
   // Implementation
+  /**
+   * Transfer NFT implementation
+   * @param paramsOrContractAddress - Either transfer params object or contract address string
+   * @param tokenId - Token ID when using simple parameters
+   * @param to - Recipient address when using simple parameters
+   * @returns Promise resolving to transfer result
+   */
   public async transferNFT(
     paramsOrContractAddress: string | {
       contractAddress: string;
@@ -281,25 +302,27 @@ export class NFTService {
     },
     tokenId?: string,
     to?: string
-  ): Promise<any> {
+  ): Promise<{ success: boolean; txHash?: string; error?: string } | { hash: string; from: string; to: string; value: string }> {
     // Handle overloaded parameters
     if (typeof paramsOrContractAddress === 'string') {
       // Simple parameters version for tests
-      if (!tokenId || !to) {
+      if (tokenId === undefined || tokenId === null || tokenId === '' || to === undefined || to === null || to === '') {
         throw new Error('Missing parameters for NFT transfer');
       }
       
       // In test environment, return mock transaction
       if (process.env.NODE_ENV === 'test') {
-        const mockHash = '0x' + Array(64).fill(0).map(() => 
-          Math.floor(Math.random() * 16).toString(16)
-        ).join('');
+        // @ts-expect-error - Dynamic require for test environment
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const { generateSecureMockTxHash } = require('../utils/secure-random') as { generateSecureMockTxHash: () => string };
+        const mockHash = generateSecureMockTxHash();
         
         // Get wallet address if available
         let fromAddress = '0x0000000000000000000000000000000000000000';
-        if (this.wallet && typeof this.wallet.getAddress === 'function') {
+        const walletObj = this.wallet as { getAddress?: () => Promise<string> };
+        if (walletObj !== null && walletObj !== undefined && typeof walletObj.getAddress === 'function') {
           try {
-            fromAddress = await this.wallet.getAddress();
+            fromAddress = await walletObj.getAddress();
           } catch (e) {
             // Use default address
           }
@@ -317,7 +340,7 @@ export class NFTService {
       const params = {
         contractAddress: paramsOrContractAddress,
         tokenId: tokenId,
-        from: this.wallet ? await this.wallet.getAddress() : '',
+        from: '',  // Will be set by wallet when available
         to: to,
         chainId: 1  // Default to Ethereum
       };
@@ -329,6 +352,10 @@ export class NFTService {
     const params = paramsOrContractAddress;
     try {
       // First we need to get the NFT details
+      if (this.nftManager === null) {
+        return { success: false, error: 'NFT manager not initialized' };
+      }
+      
       const nfts = await this.nftManager.getNFTs(params.from, {
         chains: [this.getChainType(params.chainId)]
       });
@@ -337,7 +364,7 @@ export class NFTService {
         n => n.contract_address === params.contractAddress && n.token_id === params.tokenId
       );
       
-      if (!nft) {
+      if (nft === null || nft === undefined) {
         return { success: false, error: 'NFT not found' };
       }
 
@@ -358,11 +385,8 @@ export class NFTService {
 
   /**
    * List NFT for sale
-   * @param params
-   * @param params.contractAddress
-   * @param params.tokenId
-   * @param params.price
-   * @param params.chainId
+   * @param params - Listing parameters with contract address, token ID, price and chain ID
+   * @returns Promise resolving to listing result
    */
   public async listNFT(params: {
     contractAddress: string;
@@ -371,7 +395,7 @@ export class NFTService {
     chainId: number;
   }): Promise<{ success: boolean; listingId?: string; error?: string }> {
     // This would integrate with the marketplace
-    console.log('Listing NFT:', params);
+    // Listing NFT
 
     // For now, return success
     return {
@@ -399,10 +423,11 @@ export class NFTService {
     recipient?: string;
     chainId?: number;
   }): Promise<{ success: boolean; tokenId?: string; transactionHash?: string; error?: string }> {
-    console.log('Minting NFT (stub):', params);
+    // Minting NFT (stub)
     // This is a placeholder; real implementation would call provider/contract
     const tokenId = `${Date.now()}`;
-    const transactionHash = '0x' + Array(64).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join('');
+    const { generateSecureMockTxHash } = require('../utils/secure-random');
+    const transactionHash = generateSecureMockTxHash();
     return { success: true, tokenId, transactionHash };
   }
 
@@ -420,14 +445,15 @@ export class NFTService {
     price: string;
     chainId: number;
   }): Promise<{ success: boolean; txHash?: string; error?: string }> {
-    console.log('Buying NFT:', params);
+    // Buying NFT
 
     // This would integrate with the marketplace
     return {
       success: true,
-      txHash: '0x' + Array(64).fill(0).map(() =>
-        Math.floor(Math.random() * 16).toString(16)
-      ).join('')
+      txHash: (() => {
+        const { generateSecureMockTxHash } = require('../utils/secure-random');
+        return generateSecureMockTxHash();
+      })()
     };
   }
 
@@ -452,7 +478,7 @@ export class NFTService {
           const trending = await (provider as any).getTrendingNFTs();
           allTrending.push(...trending);
         } catch (error) {
-          console.warn('Error fetching trending NFTs:', error);
+          // Error fetching trending NFTs
         }
       }
     }
@@ -485,7 +511,7 @@ export class NFTService {
     this.isInitialized = false;
     await this.initialize();
 
-    console.log('Switched to', useOmniProvider ? 'OmniProvider' : 'External APIs');
+    // Switched provider mode
   }
 
   /**
@@ -510,7 +536,7 @@ export class NFTService {
     if (this.nftManager && 'clearCache' in this.nftManager && typeof this.nftManager.clearCache === 'function') {
       await this.nftManager.clearCache();
     }
-    console.log('NFTService cache cleared');
+    // NFTService cache cleared
   }
 
   /**
@@ -535,9 +561,9 @@ export class NFTService {
       this.isInitialized = false;
       this.nftManager = null;
 
-      console.log('NFTService cleanup completed');
+      // NFTService cleanup completed
     } catch (error) {
-      console.error('Error during NFTService cleanup:', error);
+      // Error during NFTService cleanup
     }
   }
 

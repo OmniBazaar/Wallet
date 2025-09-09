@@ -4,7 +4,7 @@
  */
 
 import { NFTDiscoveryService } from './discovery';
-import { NFT, NFTDiscoveryOptions, NFTTransferRequest, SolanaNFT, NFTType } from './types';
+import { NFT, NFTDiscoveryOptions, SolanaNFT, NFTType } from './types';
 import { keyringService } from '../keyring/KeyringService';
 import { ChainType } from '../keyring/BIP39Keyring';
 import { ethers } from 'ethers';
@@ -27,7 +27,8 @@ export class NFTManager {
 
   /**
    * Get NFTs for the active account
-   * @param options
+   * @param options - Discovery options for filtering NFTs
+   * @returns Promise resolving to array of NFTs
    */
   async getActiveAccountNFTs(options: NFTDiscoveryOptions = {}): Promise<NFT[]> {
     const activeAccount = keyringService.getActiveAccount();
@@ -40,8 +41,9 @@ export class NFTManager {
 
   /**
    * Get NFTs for a specific address
-   * @param address
-   * @param options
+   * @param address - Wallet address to query NFTs for
+   * @param options - Discovery options for filtering NFTs
+   * @returns Promise resolving to array of NFTs
    */
   async getNFTs(address: string, options: NFTDiscoveryOptions = {}): Promise<NFT[]> {
     const cacheKey = `${address}_${JSON.stringify(options)}`;
@@ -65,7 +67,8 @@ export class NFTManager {
 
   /**
    * Get NFTs by chain
-   * @param chain
+   * @param chain - Chain to query NFTs from
+   * @returns Promise resolving to array of NFTs for the chain
    */
   async getNFTsByChain(chain: ChainType | string): Promise<NFT[]> {
     const activeAccount = keyringService.getActiveAccount();
@@ -78,9 +81,10 @@ export class NFTManager {
 
   /**
    * Get a specific NFT
-   * @param chain
-   * @param contractAddress
-   * @param tokenId
+   * @param chain - Chain where the NFT exists
+   * @param contractAddress - NFT contract address
+   * @param tokenId - Token ID
+   * @returns Promise resolving to NFT or null if not found
    */
   async getNFT(
     chain: string,
@@ -92,12 +96,15 @@ export class NFTManager {
 
   /**
    * Transfer NFT
-   * @param nft NFT to transfer  
-   * @param to Recipient address
-   * @param amount Optional amount for ERC1155
+   * @param request - Transfer request object
+   * @param request.nft - NFT to transfer
+   * @param request.from - Address to transfer from
+   * @param request.to - Address to transfer to
+   * @param request.amount - Optional amount for ERC1155
    * @returns Transaction hash
    */
-  async transferNFT(nft: NFT, to: string, amount?: string): Promise<string> {
+  async transferNFT(request: { nft: NFT; from: string; to: string; amount?: string }): Promise<string> {
+    const { nft, to, amount } = request;
     switch (nft.chain) {
       case 'ethereum':
       case 'polygon':
@@ -116,9 +123,10 @@ export class NFTManager {
 
   /**
    * Transfer EVM NFT (ERC721/ERC1155)
-   * @param nft
-   * @param to
-   * @param amount
+   * @param nft - NFT to transfer
+   * @param to - Recipient address
+   * @param amount - Optional amount for ERC1155 tokens
+   * @returns Promise resolving to transaction hash
    */
   private async transferEVMNFT(
     nft: NFT,
@@ -127,12 +135,12 @@ export class NFTManager {
   ): Promise<string> {
     // Check active account first
     const from = keyringService.getActiveAccount()?.address;
-    if (!from) {
+    if (from === null || from === undefined || from === '') {
       throw new Error('No active account');
     }
 
     const provider = providerManager.getActiveProvider();
-    if (!provider) {
+    if (provider === null || provider === undefined) {
       throw new Error('No active provider');
     }
 
@@ -143,15 +151,15 @@ export class NFTManager {
 
     let data: string;
     
-    const nftType = nft.contract?.type || (nft as any).type;
+    const nftType = nft.contract?.type ?? nft.type;
 
-    if (nftType === NFTType.ERC721 || nftType === 'ERC721') {
+    if (nftType === NFTType.ERC721) {
       // ERC721 safeTransferFrom(from, to, tokenId)
       const iface = new ethers.Interface([
         'function safeTransferFrom(address from, address to, uint256 tokenId)'
       ]);
       data = iface.encodeFunctionData('safeTransferFrom', [from, to, nft.token_id]);
-    } else if (nftType === NFTType.ERC1155 || nftType === 'ERC1155') {
+    } else if (nftType === NFTType.ERC1155) {
       // ERC1155 safeTransferFrom(from, to, id, amount, data)
       const iface = new ethers.Interface([
         'function safeTransferFrom(address from, address to, uint256 id, uint256 amount, bytes data)'
@@ -160,7 +168,7 @@ export class NFTManager {
         from,
         to,
         nft.token_id,
-        amount || '1',
+        amount ?? '1',
         '0x'
       ]);
     } else {
@@ -168,38 +176,40 @@ export class NFTManager {
     }
 
     // Get the provider for the specific chain
-    const nftProvider = providerManager.getProvider(nft.chain as any);
-    if (!nftProvider) {
+    const nftProvider = providerManager.getProvider(nft.chain as ChainType);
+    if (nftProvider === null || nftProvider === undefined) {
       throw new Error(`No provider for chain ${nft.chain}`);
     }
     
     // Send transaction via the provider
+    // @ts-expect-error - Provider type mismatch
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     const tx = await nftProvider.sendTransaction({
       to: nft.contract_address,
       data,
       value: '0x0'
-    });
+    }) as string;
 
     return tx;
   }
 
   /**
    * Transfer Solana NFT
-   * @param nft NFT to transfer
-   * @param to Recipient address
+   * @param _nft - NFT to transfer (unused - not implemented)
+   * @param _to - Recipient address (unused - not implemented)
    * @returns Transaction hash
    */
-  private async transferSolanaNFT(
-    nft: SolanaNFT,
-    to: string
+  private transferSolanaNFT(
+    _nft: SolanaNFT,
+    _to: string
   ): Promise<string> {
-    const solanaProvider = providerManager.getProvider('solana');
-    if (!solanaProvider || !('getAddress' in solanaProvider)) {
+    const solanaProvider = providerManager.getProvider(ChainType.SOLANA);
+    if (solanaProvider === null || solanaProvider === undefined || !('getAddress' in solanaProvider)) {
       throw new Error('Solana provider not initialized');
     }
 
     // For now, throw an error as Solana signing is not yet configured
-    throw new Error('Solana NFT transfers not yet implemented - requires KeyringService signing integration');
+    return Promise.reject(new Error('Solana NFT transfers not yet implemented - requires KeyringService signing integration'));
 
     // TODO: Implement when KeyringService supports Solana signing
     // This will involve:
@@ -231,10 +241,12 @@ export class NFTManager {
   
   /**
    * Refresh NFT cache
+   * @returns Promise that resolves when cache is cleared
    */
-  async refreshCache(): Promise<void> {
+  refreshCache(): Promise<void> {
     this.nftCache.clear();
     this.lastFetchTime.clear();
+    return Promise.resolve();
   }
 
   /**
@@ -272,8 +284,8 @@ export class NFTManager {
     const collections = new Map<string, NFT[]>();
 
     for (const nft of nfts) {
-      const collectionName = nft.collection?.name || 'Uncategorized';
-      const existing = collections.get(collectionName) || [];
+      const collectionName = nft.collection?.name ?? 'Uncategorized';
+      const existing = collections.get(collectionName) ?? [];
       existing.push(nft);
       collections.set(collectionName, existing);
     }
@@ -288,22 +300,23 @@ export class NFTManager {
    */
   async getNFTsForCollection(collectionName: string): Promise<NFT[]> {
     const collections = await this.getCollections();
-    return collections.get(collectionName) || [];
+    return collections.get(collectionName) ?? [];
   }
 
   /**
    * Search NFTs by name
-   * @param query Search query string
+   * @param query - Search query string
+   * @returns Promise resolving to array of matching NFTs
    */
   async searchNFTs(query: string): Promise<NFT[]> {
     const nfts = await this.getActiveAccountNFTs();
     const lowercaseQuery = query.toLowerCase();
 
     return nfts.filter(nft => {
-      const nameMatch = nft.name?.toLowerCase().includes(lowercaseQuery) ||
-                        nft.metadata?.name?.toLowerCase().includes(lowercaseQuery);
-      const collectionMatch = nft.collection?.name?.toLowerCase().includes(lowercaseQuery);
-      return nameMatch || collectionMatch;
+      const nameMatch = (nft.name?.toLowerCase().includes(lowercaseQuery) ?? false) ||
+                        (nft.metadata?.name?.toLowerCase().includes(lowercaseQuery) ?? false);
+      const collectionMatch = nft.collection?.name?.toLowerCase().includes(lowercaseQuery) ?? false;
+      return nameMatch === true || collectionMatch === true;
     });
   }
 
@@ -331,15 +344,15 @@ export class NFTManager {
 
     for (const nft of nfts) {
       // Count by chain
-      byChain[nft.chain] = (byChain[nft.chain] || 0) + 1;
+      byChain[nft.chain] = (byChain[nft.chain] ?? 0) + 1;
 
       // Count by collection
-      if (nft.collection?.name) {
-        byCollection[nft.collection.name] = (byCollection[nft.collection.name] || 0) + 1;
+      if (nft.collection?.name !== null && nft.collection?.name !== undefined && nft.collection?.name !== '') {
+        byCollection[nft.collection.name] = (byCollection[nft.collection.name] ?? 0) + 1;
       }
 
       // Sum floor values - check both direct floor_price and collection floor_price
-      const floorPrice = (nft as any).floor_price || nft.collection?.floor_price?.value || 0;
+      const floorPrice = nft.floor_price ?? nft.collection?.floor_price?.value ?? 0;
       if (typeof floorPrice === 'number') {
         totalFloorValue += floorPrice;
       }
@@ -356,10 +369,12 @@ export class NFTManager {
 
   /**
    * Clear the NFT cache
+   * @returns Promise that resolves when cache is cleared
    */
-  async clearCache(): Promise<void> {
+  clearCache(): Promise<void> {
     this.nftCache.clear();
     this.lastFetchTime.clear();
+    return Promise.resolve();
   }
 }
 

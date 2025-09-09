@@ -88,7 +88,7 @@ describe('TokenService', () => {
     (providerManager.getActiveProvider as jest.Mock).mockResolvedValue(mockProvider);
 
     // Setup price feed service
-    (priceFeedService.getPrice as jest.Mock).mockResolvedValue(1.0);
+    (priceFeedService.getPrice as jest.Mock).mockResolvedValue({ priceUSD: 1.0 });
 
     // Mock ethers Contract constructor
     jest.spyOn(ethers, 'Contract').mockImplementation(() => mockContract as any);

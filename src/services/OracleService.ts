@@ -158,6 +158,10 @@ export class OracleService {
   /**
    * Get historical prices
    * @param params Query parameters
+   * @param params.pair
+   * @param params.from
+   * @param params.to
+   * @param params.interval
    * @returns Historical price data
    */
   async getHistoricalPrices(params: {
@@ -297,6 +301,9 @@ export class OracleService {
   /**
    * Register ENS name
    * @param params Registration parameters
+   * @param params.name
+   * @param params.owner
+   * @param params.duration
    * @returns Registration result
    */
   async registerENS(params: {
@@ -324,6 +331,10 @@ export class OracleService {
   /**
    * Get weather data
    * @param params Query parameters
+   * @param params.location
+   * @param params.location.lat
+   * @param params.location.lon
+   * @param params.parameters
    * @returns Weather data
    */
   async getWeatherData(params: {
@@ -341,6 +352,9 @@ export class OracleService {
   /**
    * Get sports results
    * @param params Query parameters
+   * @param params.sport
+   * @param params.league
+   * @param params.date
    * @returns Sports results
    */
   async getSportsResults(params: {
@@ -363,6 +377,9 @@ export class OracleService {
   /**
    * Get verifiable random number
    * @param params Random parameters
+   * @param params.min
+   * @param params.max
+   * @param params.seed
    * @returns Random result
    */
   async getVerifiableRandom(params: {
@@ -388,6 +405,8 @@ export class OracleService {
    * Get consensus from multiple oracles
    * @param query Query object
    * @param options Options
+   * @param options.minResponses
+   * @param options.timeout
    * @returns Consensus result
    */
   async getConsensus(query: any, options: {
@@ -441,6 +460,8 @@ export class OracleService {
   /**
    * Get cross-chain asset price
    * @param params Query parameters
+   * @param params.asset
+   * @param params.chains
    * @returns Cross-chain prices
    */
   async getCrossChainPrice(params: {
@@ -464,6 +485,9 @@ export class OracleService {
   /**
    * Validate cross-chain state
    * @param params Validation parameters
+   * @param params.type
+   * @param params.address
+   * @param params.chains
    * @returns Validation result
    */
   async validateCrossChainState(params: {

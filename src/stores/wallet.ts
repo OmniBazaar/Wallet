@@ -115,24 +115,29 @@ export const useWalletStore = defineStore('wallet', () => {
 
   // Computed
   const hasAccounts = computed(() => accounts.value.length > 0);
-  const currentBalance = computed(() => currentAccount.value?.balance || '0');
-  const address = computed(() => currentAccount.value?.address || '');
+  const currentBalance = computed(() => currentAccount.value?.balance ?? '0');
+  const address = computed(() => currentAccount.value?.address ?? '');
 
   /**
-   *
+   * Response from background script
    */
-  type BackgroundResponse = Record<string, any>;
+  type BackgroundResponse = Record<string, unknown>;
 
-  // Send message to background script
+  /**
+   * Send message to background script
+   * @param type - Message type
+   * @param data - Message data
+   * @returns Promise that resolves to background response
+   */
   async function sendToBackground(type: string, data: unknown = {}): Promise<BackgroundResponse> {
     return new Promise((resolve, reject) => {
-      if (!chrome?.runtime) {
+      if (chrome?.runtime === undefined) {
         reject(new Error('Chrome runtime not available'));
         return;
       }
 
       chrome.runtime.sendMessage({ type, data }, (response: unknown) => {
-        if (chrome.runtime.lastError) {
+        if (chrome.runtime.lastError !== undefined) {
           reject(new Error(chrome.runtime.lastError.message));
         } else {
           resolve((response as BackgroundResponse) ?? {});
@@ -141,45 +146,47 @@ export const useWalletStore = defineStore('wallet', () => {
     });
   }
 
-  // Initialize wallet
+  /**
+   * Initialize wallet store
+   * @returns Promise that resolves when wallet is initialized
+   */
   async function initialize(): Promise<void> {
     isLoading.value = true;
     error.value = null;
 
     try {
-      console.warn('🔄 Initializing wallet store...');
+      // Initialize wallet store
 
       const state = await sendToBackground('GET_WALLET_STATE');
 
-      if (state['error']) {
+      if (typeof state['error'] === 'string' && state['error'] !== '') {
         throw new Error(state['error']);
       }
 
       // Update store state
-      isUnlocked.value = state['isUnlocked'] || false;
-      currentNetwork.value = state['currentNetwork'] || 'ethereum';
-      supportedNetworks.value = state['supportedNetworks'] || ['ethereum'];
-      nftCollections.value = state['nftCollections'] || [];
-      transactions.value = state['transactions'] || [];
+      isUnlocked.value = Boolean(state['isUnlocked']);
+      currentNetwork.value = typeof state['currentNetwork'] === 'string' ? state['currentNetwork'] : 'ethereum';
+      supportedNetworks.value = Array.isArray(state['supportedNetworks']) ? state['supportedNetworks'] as string[] : ['ethereum'];
+      nftCollections.value = Array.isArray(state['nftCollections']) ? state['nftCollections'] : [];
+      transactions.value = Array.isArray(state['transactions']) ? state['transactions'] : [];
 
       // Check if wallet is set up (has accounts)
       isSetup.value = hasAccounts.value;
 
-      console.warn('✅ Wallet store initialized:', {
-        isSetup: isSetup.value,
-        isUnlocked: isUnlocked.value,
-        network: currentNetwork.value
-      });
+      // Wallet store initialized successfully
 
     } catch (err: unknown) {
-      console.error('❌ Failed to initialize wallet:', err);
-      error.value = (err as Error).message || 'Failed to initialize wallet';
+      error.value = (err as Error).message ?? 'Failed to initialize wallet';
     } finally {
       isLoading.value = false;
     }
   }
 
-  // Connect account
+  /**
+   * Connect wallet account
+   * @param address - Optional account address to connect
+   * @returns Promise that resolves to true if successful
+   */
   async function connectAccount(address?: string): Promise<boolean> {
     isLoading.value = true;
     error.value = null;
@@ -187,26 +194,28 @@ export const useWalletStore = defineStore('wallet', () => {
     try {
       const response = await sendToBackground('CONNECT_ACCOUNT', { address });
 
-      if (response['error']) {
+      if (typeof response['error'] === 'string' && response['error'] !== '') {
         throw new Error(response['error']);
       }
 
-      if (response['success']) {
+      if (response['success'] === true) {
         await refreshWalletState();
         return true;
       }
 
       return false;
     } catch (err: unknown) {
-      console.error('❌ Failed to connect account:', err);
-      error.value = (err as Error).message || 'Failed to connect account';
+      error.value = (err as Error).message ?? 'Failed to connect account';
       return false;
     } finally {
       isLoading.value = false;
     }
   }
 
-  // Disconnect account
+  /**
+   * Disconnect wallet account
+   * @returns Promise that resolves when account is disconnected
+   */
   async function disconnectAccount(): Promise<void> {
     isLoading.value = true;
 
@@ -218,14 +227,17 @@ export const useWalletStore = defineStore('wallet', () => {
       isUnlocked.value = false;
 
     } catch (err: unknown) {
-      console.error('❌ Failed to disconnect account:', err);
-      error.value = (err as Error).message || 'Failed to disconnect account';
+      error.value = (err as Error).message ?? 'Failed to disconnect account';
     } finally {
       isLoading.value = false;
     }
   }
 
-  // Switch network
+  /**
+   * Switch to a different network
+   * @param network - Network identifier to switch to
+   * @returns Promise that resolves to true if successful
+   */
   async function switchNetwork(network: string): Promise<boolean> {
     isLoading.value = true;
     error.value = null;
@@ -233,11 +245,11 @@ export const useWalletStore = defineStore('wallet', () => {
     try {
       const response = await sendToBackground('SWITCH_NETWORK', { network });
 
-      if (response['error']) {
+      if (typeof response['error'] === 'string' && response['error'] !== '') {
         throw new Error(response['error']);
       }
 
-      if (response['success']) {
+      if (response['success'] === true) {
         currentNetwork.value = network;
         await refreshWalletState();
         return true;
@@ -245,202 +257,214 @@ export const useWalletStore = defineStore('wallet', () => {
 
       return false;
     } catch (err: unknown) {
-      console.error('❌ Failed to switch network:', err);
-      error.value = (err as Error).message || 'Failed to switch network';
+      error.value = (err as Error).message ?? 'Failed to switch network';
       return false;
     } finally {
       isLoading.value = false;
     }
   }
 
-  // Get balance for address
+  /**
+   * Get balance for an address
+   * @param address - Wallet address
+   * @param network - Optional network identifier
+   * @returns Promise that resolves to balance string
+   */
   async function getBalance(address: string, network?: string): Promise<string> {
     try {
       const response = await sendToBackground('GET_BALANCE', {
         address,
-        network: network || currentNetwork.value
+        network: network ?? currentNetwork.value
       });
 
-      if (response['error']) {
+      if (typeof response['error'] === 'string' && response['error'] !== '') {
         throw new Error(response['error']);
       }
 
-      return response['balance'] || '0';
+      return typeof response['balance'] === 'string' ? response['balance'] : '0';
     } catch (err: unknown) {
-      console.error('❌ Failed to get balance:', err);
+      error.value = (err as Error).message ?? 'Failed to get balance';
       return '0';
     }
   }
 
-  // Send transaction
-  async function sendTransaction(transaction: {
-    /**
-     *
-     */
+  /**
+   * Transaction parameters interface
+   */
+  interface TransactionParams {
+    /** Recipient address */
     to: string;
-    /**
-     *
-     */
+    /** Transaction value in wei */
     value: string;
-    /**
-     *
-     */
+    /** Optional transaction data */
     data?: string;
-    /**
-     *
-     */
+    /** Optional gas limit */
     gasLimit?: string;
-    /**
-     *
-     */
+    /** Optional gas price */
     gasPrice?: string;
-  }): Promise<string | null> {
+  }
+
+  /**
+   * Send transaction
+   * @param transaction - Transaction parameters
+   * @returns Promise that resolves to transaction hash or null
+   */
+  async function sendTransaction(transaction: TransactionParams): Promise<string | null> {
     isLoading.value = true;
     error.value = null;
 
     try {
       const response = await sendToBackground('SIGN_TRANSACTION', transaction);
 
-      if (response['error']) {
+      if (typeof response['error'] === 'string' && response['error'] !== '') {
         throw new Error(response['error']);
       }
 
-      if (response['success']) {
+      if (response['success'] === true) {
         await refreshWalletState();
-        return response['txHash'] || null;
+        return typeof response['txHash'] === 'string' ? response['txHash'] : null;
       }
 
       return null;
     } catch (err: unknown) {
-      console.error('❌ Failed to send transaction:', err);
-      error.value = (err as Error).message || 'Failed to send transaction';
+      error.value = (err as Error).message ?? 'Failed to send transaction';
       return null;
     } finally {
       isLoading.value = false;
     }
   }
 
-  // Mint NFT
-  async function mintNFT(metadata: {
-    /**
-     *
-     */
+  /**
+   * NFT attribute interface
+   */
+  interface NFTAttribute {
+    /** Attribute trait type */
+    trait_type: string;
+    /** Attribute value */
+    value: string | number;
+  }
+
+  /**
+   * NFT metadata interface
+   */
+  interface NFTMetadata {
+    /** NFT name */
     name: string;
-    /**
-     *
-     */
+    /** NFT description */
     description: string;
-    /**
-     *
-     */
+    /** NFT image URL */
     image: string;
-    /**
-     *
-     */
-    attributes?: Array<{ /**
-                          *
-                          */
-      trait_type: string; /**
-                           *
-                           */
-      value: string | number
-    }>;
-  }): Promise<string | null> {
+    /** Optional NFT attributes */
+    attributes?: NFTAttribute[];
+  }
+
+  /**
+   * Mint NFT
+   * @param metadata - NFT metadata
+   * @returns Promise that resolves to transaction hash or null
+   */
+  async function mintNFT(metadata: NFTMetadata): Promise<string | null> {
     isLoading.value = true;
     error.value = null;
 
     try {
       const response = await sendToBackground('MINT_NFT', metadata);
 
-      if (response['error']) {
+      if (typeof response['error'] === 'string' && response['error'] !== '') {
         throw new Error(response['error']);
       }
 
-      if (response['success']) {
+      if (response['success'] === true) {
         await refreshWalletState();
-        return response['txHash'] || null;
+        return typeof response['txHash'] === 'string' ? response['txHash'] : null;
       }
 
       return null;
     } catch (err: unknown) {
-      console.error('❌ Failed to mint NFT:', err);
-      error.value = (err as Error).message || 'Failed to mint NFT';
+      error.value = (err as Error).message ?? 'Failed to mint NFT';
       return null;
     } finally {
       isLoading.value = false;
     }
   }
 
-  // Create marketplace listing
-  async function createListing(listing: {
-    /**
-     *
-     */
+  /**
+   * Marketplace listing interface
+   */
+  interface ListingParams {
+    /** Listing title */
     title: string;
-    /**
-     *
-     */
+    /** Listing description */
     description: string;
-    /**
-     *
-     */
+    /** Listing price */
     price: string;
-    /**
-     *
-     */
+    /** Listing category */
     category: string;
-    /**
-     *
-     */
+    /** Listing images URLs */
     images: string[];
-  }): Promise<string | null> {
+  }
+
+  /**
+   * Create marketplace listing
+   * @param listing - Listing parameters
+   * @returns Promise that resolves to listing ID or null
+   */
+  async function createListing(listing: ListingParams): Promise<string | null> {
     isLoading.value = true;
     error.value = null;
 
     try {
       const response = await sendToBackground('CREATE_LISTING', listing);
 
-      if (response['error']) {
+      if (typeof response['error'] === 'string' && response['error'] !== '') {
         throw new Error(response['error']);
       }
 
-      if (response['success']) {
+      if (response['success'] === true) {
         await refreshWalletState();
-        return response['listingId'] || null;
+        return typeof response['listingId'] === 'string' ? response['listingId'] : null;
       }
 
       return null;
     } catch (err: unknown) {
-      console.error('❌ Failed to create listing:', err);
-      error.value = (err as Error).message || 'Failed to create listing';
+      error.value = (err as Error).message ?? 'Failed to create listing';
       return null;
     } finally {
       isLoading.value = false;
     }
   }
 
-  // Refresh wallet state
+  /**
+   * Refresh wallet state
+   * @returns Promise that resolves when wallet state is refreshed
+   */
   async function refreshWalletState(): Promise<void> {
     try {
       const state = await sendToBackground('GET_WALLET_STATE');
 
-      if (!state['error']) {
-        isUnlocked.value = state['isUnlocked'] || false;
-        currentNetwork.value = state['currentNetwork'] || 'ethereum';
-        nftCollections.value = state['nftCollections'] || [];
-        transactions.value = state['transactions'] || [];
+      if (!(typeof state['error'] === 'string' && state['error'] !== '')) {
+        isUnlocked.value = Boolean(state['isUnlocked']);
+        currentNetwork.value = typeof state['currentNetwork'] === 'string' ? state['currentNetwork'] : 'ethereum';
+        nftCollections.value = Array.isArray(state['nftCollections']) ? state['nftCollections'] : [];
+        transactions.value = Array.isArray(state['transactions']) ? state['transactions'] : [];
       }
     } catch (err) {
-      console.warn('Failed to refresh wallet state:', err);
+      error.value = (err as Error).message ?? 'Failed to refresh wallet state';
     }
   }
 
-  // Clear error
+  /**
+   * Clear error state
+   * @returns void
+   */
   function clearError(): void {
     error.value = null;
   }
 
-  // Connect wallet (for dashboard)
+  /**
+   * Connect wallet (for dashboard)
+   * @returns Promise that resolves when wallet is connected
+   */
   async function connect(): Promise<void> {
     try {
       isLoading.value = true;
@@ -467,40 +491,51 @@ export const useWalletStore = defineStore('wallet', () => {
       
     } catch (err) {
       error.value = 'Failed to connect wallet';
-      console.error('Failed to connect:', err);
     } finally {
       isLoading.value = false;
     }
   }
 
-  // Retry connection
+  /**
+   * Retry wallet connection
+   * @returns Promise that resolves when retry is complete
+   */
   async function retryConnection(): Promise<void> {
     error.value = null;
     await connect();
   }
 
-  // Mark notifications as read
+  /**
+   * Mark notifications as read
+   * @returns void
+   */
   function markNotificationsAsRead(): void {
     notifications.value = notifications.value.map(n => ({ ...n, read: true }));
     unreadNotifications.value = 0;
   }
 
-  // Refresh activity
+  /**
+   * Refresh activity data
+   * @returns Promise that resolves when activity is refreshed
+   */
   async function refreshActivity(): Promise<void> {
     try {
       isLoading.value = true;
       await fetchRecentTransactions();
       await fetchBalance();
     } catch (err) {
-      console.error('Failed to refresh activity:', err);
+      error.value = (err as Error).message ?? 'Failed to refresh activity';
     } finally {
       isLoading.value = false;
     }
   }
 
-  // Fetch balance
+  /**
+   * Fetch balance for current account
+   * @returns Promise that resolves when balance is fetched
+   */
   async function fetchBalance(): Promise<void> {
-    if (!currentAccount.value) return;
+    if (currentAccount.value === undefined || currentAccount.value === null) return;
     
     try {
       const balanceWei = await getBalance(currentAccount.value.address);
@@ -514,14 +549,18 @@ export const useWalletStore = defineStore('wallet', () => {
       // Update account balance
       currentAccount.value.balance = balanceWei;
     } catch (err) {
-      console.error('Failed to fetch balance:', err);
+      error.value = (err as Error).message ?? 'Failed to fetch balance';
     }
   }
 
-  // Fetch recent transactions
+  /**
+   * Fetch recent transactions
+   * @returns Promise that resolves when transactions are fetched
+   */
   async function fetchRecentTransactions(): Promise<void> {
     try {
       // In real implementation, fetch from blockchain or indexer
+      await new Promise(resolve => setTimeout(resolve, 100)); // Simulate API call
       recentTransactions.value = [
         {
           id: '1',
@@ -545,7 +584,7 @@ export const useWalletStore = defineStore('wallet', () => {
         }
       ];
     } catch (err) {
-      console.error('Failed to fetch transactions:', err);
+      error.value = (err as Error).message ?? 'Failed to fetch transactions';
     }
   }
 

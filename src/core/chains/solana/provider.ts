@@ -11,8 +11,7 @@ import {
   LAMPORTS_PER_SOL,
   sendAndConfirmTransaction,
   Keypair,
-  ParsedAccountData,
-  TokenAccountBalancePair,
+  Finality,
 } from '@solana/web3.js';
 import {
   TOKEN_PROGRAM_ID,
@@ -22,7 +21,7 @@ import {
   getAccount,
 } from '@solana/spl-token';
 import { BaseProvider } from '../base-provider';
-import { NetworkConfig, Transaction as BaseTransaction, TransactionRequest } from '@/types';
+import { NetworkConfig, Transaction as BaseTransaction, TransactionRequest } from '../../../types';
 import bs58 from 'bs58';
 import nacl from 'tweetnacl';
 import { POPULAR_SPL_TOKENS } from './networks';
@@ -34,7 +33,7 @@ export interface SolanaNetworkConfig extends NetworkConfig {
   /**
    * Transaction commitment level
    */
-  commitment?: 'processed' | 'confirmed' | 'finalized';
+  commitment?: Finality;
   /**
    * WebSocket URL for real-time updates
    */
@@ -42,41 +41,37 @@ export interface SolanaNetworkConfig extends NetworkConfig {
 }
 
 /**
- *
+ * Solana-specific transaction interface extending base transaction request
  */
 export interface SolanaTransaction extends TransactionRequest {
   /**
-   *
+   * Raw transaction instructions
    */
-  instructions?: { /**
-                    *
-                    */
-  programId: string; /**
-                      *
-                      */
-  keys: Array<{ /**
-                 *
-                 */
-  pubkey: string; /**
-                   *
-                   */
-  isSigner: boolean; /**
-                      *
-                      */
-  isWritable: boolean }>; /**
-                           *
-                           */
-  data: string }[];
+  instructions?: { 
+    /** Program ID for the instruction */
+    programId: string;
+    /** Account keys involved in the instruction */
+    keys: Array<{ 
+      /** Public key of the account */
+      pubkey: string;
+      /** Whether this account must sign */
+      isSigner: boolean;
+      /** Whether this account is writable */
+      isWritable: boolean; 
+    }>;
+    /** Instruction data as base58 string */
+    data: string;
+  }[];
   /**
-   *
+   * Account that pays for the transaction fee
    */
   feePayer?: string;
   /**
-   *
+   * Recent blockhash for transaction expiry
    */
   recentBlockhash?: string;
   /**
-   *
+   * Transaction signatures
    */
   signatures?: string[];
 }
@@ -124,7 +119,7 @@ export interface SPLToken {
  */
 export class SolanaProvider extends BaseProvider {
   protected connection?: Connection;
-  protected commitment: 'processed' | 'confirmed' | 'finalized';
+  protected commitment: Finality;
 
   /**
    * Initialize Solana provider with network configuration
@@ -132,7 +127,7 @@ export class SolanaProvider extends BaseProvider {
    */
   constructor(config: SolanaNetworkConfig) {
     super(config);
-    this.commitment = config?.commitment || 'confirmed';
+    this.commitment = config.commitment ?? 'confirmed';
     this.initConnection();
   }
 
@@ -145,7 +140,7 @@ export class SolanaProvider extends BaseProvider {
       if (typeof Connection === 'function') {
         this.connection = new Connection(this.config.rpcUrl, {
           commitment: this.commitment,
-          ...(this.config.wsUrl && { wsEndpoint: this.config.wsUrl }),
+          ...((this.config as SolanaNetworkConfig).wsUrl !== undefined && { wsEndpoint: (this.config as SolanaNetworkConfig).wsUrl }),
         });
       }
     } catch (error) {
@@ -156,9 +151,10 @@ export class SolanaProvider extends BaseProvider {
 
   /**
    * Get the connection, throwing error if not initialized
+   * @returns Connection instance
    */
   protected getConnection(): Connection {
-    if (!this.connection) {
+    if (this.connection === undefined) {
       throw new Error('Solana connection not initialized');
     }
     return this.connection;
@@ -166,20 +162,20 @@ export class SolanaProvider extends BaseProvider {
 
   /**
    * Get account from private key
-   * @param privateKey
+   * @param privateKey - Private key in base58 format
+   * @returns Account address and public key
    */
-  async getAccount(privateKey: string): Promise<{ /**
-                                                   *
-                                                   */
-  address: string; /**
-                    *
-                    */
-  publicKey: string }> {
+  getAccount(privateKey: string): Promise<{ 
+    /** Account address in base58 format */
+    address: string;
+    /** Public key in base58 format */
+    publicKey: string;
+  }> {
     const keypair = Keypair.fromSecretKey(bs58.decode(privateKey));
-    return {
+    return Promise.resolve({
       address: keypair.publicKey.toBase58(),
       publicKey: keypair.publicKey.toBase58()
-    };
+    });
   }
 
   /**
@@ -195,7 +191,8 @@ export class SolanaProvider extends BaseProvider {
 
   /**
    * Get formatted balance in SOL
-   * @param address
+   * @param address - Solana wallet address
+   * @returns Formatted balance string with SOL suffix
    */
   async getFormattedBalance(address: string): Promise<string> {
     const balance = await this.getBalance(address);
@@ -218,13 +215,24 @@ export class SolanaProvider extends BaseProvider {
     const tokens: SPLToken[] = [];
     
     for (const { pubkey, account } of tokenAccounts.value) {
-      const parsedData = account.data;
+      const parsedData = account.data as {
+        parsed: {
+          info: {
+            mint: string;
+            tokenAmount: {
+              amount: string;
+              decimals: number;
+              uiAmount: number;
+            };
+          };
+        };
+      };
       const tokenInfo = parsedData.parsed.info;
       
       // Find metadata for known tokens
       const popularToken = Object.values(POPULAR_SPL_TOKENS).find(
-        (pt: any) => pt.mint === tokenInfo.mint
-      ) as any;
+        (pt) => pt.mint === tokenInfo.mint
+      );
       
       tokens.push({
         mint: tokenInfo.mint,
@@ -232,7 +240,7 @@ export class SolanaProvider extends BaseProvider {
         amount: tokenInfo.tokenAmount.amount,
         decimals: tokenInfo.tokenAmount.decimals,
         uiAmount: tokenInfo.tokenAmount.uiAmount,
-        ...(popularToken && {
+        ...(popularToken !== undefined && {
           symbol: popularToken.symbol,
           name: popularToken.name,
           logoURI: popularToken.logoURI
@@ -245,9 +253,16 @@ export class SolanaProvider extends BaseProvider {
 
   /**
    * Get all token balances including SOL
-   * @param address
+   * @param address - Wallet address
+   * @returns Array of all token balances
    */
-  async getAllBalances(address: string): Promise<any[]> {
+  async getAllBalances(address: string): Promise<{
+    address: string;
+    lamports: number;
+    decimals: number;
+    mint: string;
+    uiAmount: number;
+  }[]> {
     const publicKey = new PublicKey(address);
     
     // Get SOL balance
@@ -256,7 +271,13 @@ export class SolanaProvider extends BaseProvider {
     // Get SPL token balances
     const tokenBalances = await this.getTokenBalances(address);
     
-    const balances: any[] = [
+    const balances: {
+      address: string;
+      lamports: number;
+      decimals: number;
+      mint: string;
+      uiAmount: number;
+    }[] = [
       {
         address: publicKey.toBase58(),
         lamports: solBalance,
@@ -282,18 +303,19 @@ export class SolanaProvider extends BaseProvider {
 
   /**
    * Build transaction
-   * @param transaction
+   * @param transaction - Transaction parameters
+   * @returns Built transaction object
    */
-  async buildTransaction(transaction: SolanaTransaction): Promise<any> {
-    const tx = new (Transaction as any)();
+  async buildTransaction(transaction: SolanaTransaction): Promise<Transaction> {
+    const tx = new Transaction();
     
     // Add fee payer
-    if (transaction.feePayer) {
+    if (transaction.feePayer !== undefined && transaction.feePayer !== null && transaction.feePayer !== '') {
       tx.feePayer = new PublicKey(transaction.feePayer);
     }
 
     // Add recent blockhash
-    if (!transaction.recentBlockhash) {
+    if (transaction.recentBlockhash === undefined || transaction.recentBlockhash === null || transaction.recentBlockhash === '') {
       const { blockhash } = await this.getConnection().getLatestBlockhash();
       tx.recentBlockhash = blockhash;
     } else {
@@ -301,7 +323,7 @@ export class SolanaProvider extends BaseProvider {
     }
 
     // Add instructions
-    if (transaction.instructions) {
+    if (transaction.instructions !== undefined) {
       transaction.instructions.forEach(instruction => {
         tx.add(instruction);
       });
@@ -312,8 +334,9 @@ export class SolanaProvider extends BaseProvider {
 
   /**
    * Sign transaction
-   * @param privateKey
-   * @param transaction
+   * @param privateKey - Private key in base58 format
+   * @param transaction - Transaction request to sign
+   * @returns Signed transaction as base58 string
    */
   async signTransaction(privateKey: string, transaction: TransactionRequest): Promise<string> {
     const keypair = Keypair.fromSecretKey(bs58.decode(privateKey));
@@ -329,7 +352,7 @@ export class SolanaProvider extends BaseProvider {
       SystemProgram.transfer({
         fromPubkey: keypair.publicKey,
         toPubkey: new PublicKey(transaction.to),
-        lamports: parseInt(transaction.value || '0'),
+        lamports: parseInt(transaction.value ?? '0'),
       })
     );
 
@@ -342,7 +365,8 @@ export class SolanaProvider extends BaseProvider {
 
   /**
    * Send transaction
-   * @param signedTransaction
+   * @param signedTransaction - Signed transaction as base58 string
+   * @returns Transaction signature
    */
   async sendTransaction(signedTransaction: string): Promise<string> {
     const transaction = Transaction.from(bs58.decode(signedTransaction));
@@ -464,14 +488,15 @@ export class SolanaProvider extends BaseProvider {
 
   /**
    * Get transaction details
-   * @param txHash
+   * @param txHash - Transaction hash/signature
+   * @returns Transaction details
    */
   async getTransaction(txHash: string): Promise<BaseTransaction> {
     const transaction = await this.getConnection().getParsedTransaction(txHash, {
       commitment: this.commitment,
     });
 
-    if (!transaction) {
+    if (transaction === null) {
       throw new Error('Transaction not found');
     }
 
@@ -484,38 +509,53 @@ export class SolanaProvider extends BaseProvider {
     let value = '0';
 
     for (const instruction of instructions) {
-      if ('parsed' in instruction && instruction.parsed) {
-        if (instruction.parsed.type === 'transfer') {
-          from = instruction.parsed.info.source;
-          to = instruction.parsed.info.destination;
-          value = instruction.parsed.info.lamports?.toString() || '0';
+      if ('parsed' in instruction && instruction.parsed !== null && instruction.parsed !== undefined) {
+        const parsed = instruction.parsed as {
+          type: string;
+          info: {
+            source?: string;
+            destination?: string;
+            lamports?: number;
+          };
+        };
+        if (parsed.type === 'transfer') {
+          from = parsed.info.source ?? '';
+          to = parsed.info.destination ?? '';
+          value = parsed.info.lamports?.toString() ?? '0';
           break;
         }
       }
     }
 
-    return {
+    const result: BaseTransaction = {
       hash: txHash,
       from,
       to,
       value,
-      fee: meta?.fee?.toString() || '0',
-      status: meta?.err ? 'failed' : 'confirmed',
-      blockNumber: transaction.slot,
-      timestamp: transaction.blockTime || undefined,
+      fee: meta?.fee?.toString() ?? '0',
+      status: (meta?.err !== null && meta?.err !== undefined) ? 'failed' as const : 'confirmed' as const,
+      blockNumber: transaction.slot
     };
+
+    // Add timestamp only if it exists
+    if (transaction.blockTime !== null && transaction.blockTime !== undefined) {
+      result.timestamp = transaction.blockTime;
+    }
+
+    return result;
   }
 
   /**
    * Get transaction history
-   * @param address
-   * @param limit
+   * @param address - Wallet address
+   * @param limit - Maximum number of transactions to return
+   * @returns Array of transactions
    */
   async getTransactionHistory(address: string, limit?: number): Promise<BaseTransaction[]> {
     const publicKey = new PublicKey(address);
     const signatures = await this.getConnection().getSignaturesForAddress(
       publicKey,
-      { limit: limit || 20 }
+      { limit: limit ?? 20 }
     );
 
     const transactions: BaseTransaction[] = [];
@@ -525,7 +565,7 @@ export class SolanaProvider extends BaseProvider {
         const tx = await this.getTransaction(sig.signature);
         transactions.push(tx);
       } catch (error) {
-        console.error('Error fetching transaction:', error);
+        // Skip failed transaction
       }
     }
 
@@ -534,34 +574,37 @@ export class SolanaProvider extends BaseProvider {
 
   /**
    * Subscribe to new blocks
-   * @param callback
+   * @param callback - Function called with each new block number
+   * @returns Unsubscribe function
    */
-  async subscribeToBlocks(callback: (blockNumber: number) => void): Promise<() => void> {
+  subscribeToBlocks(callback: (blockNumber: number) => void): Promise<() => void> {
     const connection = this.getConnection();
-    const subscription = connection.onSlotChange((slotInfo: any) => {
+    const subscription = connection.onSlotChange((slotInfo: { slot: number }) => {
       callback(slotInfo.slot);
     });
 
-    return () => {
-      connection.removeSlotChangeListener(subscription);
-    };
+    return Promise.resolve(() => {
+      void connection.removeSlotChangeListener(subscription);
+    });
   }
 
   /**
    * Sign message
-   * @param privateKey
-   * @param message
+   * @param privateKey - Private key in base58 format
+   * @param message - Message to sign
+   * @returns Signature as base58 string
    */
-  async signMessage(privateKey: string, message: string): Promise<string> {
+  signMessage(privateKey: string, message: string): Promise<string> {
     const keypair = Keypair.fromSecretKey(bs58.decode(privateKey));
     const messageBytes = new TextEncoder().encode(message);
     const signature = nacl.sign.detached(messageBytes, keypair.secretKey);
-    return bs58.encode(signature);
+    return Promise.resolve(bs58.encode(signature));
   }
 
   /**
    * Get rent exemption amount
-   * @param dataLength
+   * @param dataLength - Data length in bytes
+   * @returns Rent exemption amount in lamports
    */
   async getRentExemption(dataLength = 0): Promise<number> {
     return await this.getConnection().getMinimumBalanceForRentExemption(dataLength);
@@ -569,8 +612,9 @@ export class SolanaProvider extends BaseProvider {
 
   /**
    * Airdrop SOL (testnet/devnet only)
-   * @param address
-   * @param amount
+   * @param address - Wallet address to airdrop to
+   * @param amount - Amount in SOL (default 1)
+   * @returns Transaction signature
    */
   async airdrop(address: string, amount = 1): Promise<string> {
     const publicKey = new PublicKey(address);
@@ -589,7 +633,7 @@ export class SolanaProvider extends BaseProvider {
    */
   switchNetwork(config: SolanaNetworkConfig): void {
     this.config = config;
-    this.commitment = config.commitment || 'confirmed';
+    this.commitment = config.commitment ?? 'confirmed';
     this.initConnection();
   }
 
@@ -620,9 +664,9 @@ export class SolanaProvider extends BaseProvider {
     const config = this.getConfig() as SolanaNetworkConfig;
     return {
       name: config.name,
-      chainId: config.chainId,
+      chainId: config.chainId.toString(),
       rpcUrl: config.rpcUrl,
-      explorer: config.blockExplorerUrls?.[0] || 'https://explorer.solana.com',
+      explorer: config.blockExplorerUrls?.[0] ?? 'https://explorer.solana.com',
       nativeCurrency: {
         name: 'Solana',
         symbol: 'SOL',
@@ -638,7 +682,7 @@ export class SolanaProvider extends BaseProvider {
   async estimateFee(): Promise<string> {
     try {
       // Get recent blockhash and fee calculator
-      const { blockhash, lastValidBlockHeight } = await this.getConnection().getLatestBlockhash();
+      const { blockhash, _lastValidBlockHeight } = await this.getConnection().getLatestBlockhash();
       
       // Create a simple transfer transaction to estimate fees
       const transaction = new Transaction();
@@ -659,7 +703,7 @@ export class SolanaProvider extends BaseProvider {
         this.commitment
       );
       
-      if (fee && fee.value !== null) {
+      if (fee !== null && fee.value !== null) {
         return (fee.value / LAMPORTS_PER_SOL).toString();
       }
       
@@ -682,8 +726,8 @@ export class SolanaProvider extends BaseProvider {
     symbol: string;
     name: string;
   } | null {
-    const token = POPULAR_SPL_TOKENS[symbol];
-    return token ? {
+    const token = POPULAR_SPL_TOKENS[symbol as keyof typeof POPULAR_SPL_TOKENS];
+    return token !== undefined ? {
       mint: token.mint,
       decimals: token.decimals,
       symbol: token.symbol,

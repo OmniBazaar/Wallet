@@ -66,15 +66,15 @@ export const useNFTTransfer = (contractAddress?: string): NFTTransferHook => {
    * @returns Transaction hash
    */
   const transferNFT = useCallback(async (tokenId: string, recipient: string): Promise<string> => {
-    if (!contractAddress) {
+    if (contractAddress === undefined || contractAddress.trim() === '') {
       throw new Error('NFT contract address is required');
     }
 
-    if (!tokenId) {
+    if (tokenId.trim() === '') {
       throw new Error('Token ID is required');
     }
 
-    if (!recipient) {
+    if (recipient.trim() === '') {
       throw new Error('Recipient address is required');
     }
 
@@ -86,11 +86,12 @@ export const useNFTTransfer = (contractAddress?: string): NFTTransferHook => {
 
     try {
       // Get the provider from the browser wallet (MetaMask, etc.)
-      if (typeof window === 'undefined' || !window.ethereum) {
+      if (typeof window === 'undefined' || (window as { ethereum?: unknown }).ethereum === undefined) {
         throw new Error('Ethereum wallet not available. Please install MetaMask or connect a wallet.');
       }
 
-      const provider = new BrowserProvider(window.ethereum);
+      const ethereumProvider = (window as unknown as { ethereum: import('ethers').Eip1193Provider }).ethereum;
+      const provider = new BrowserProvider(ethereumProvider);
       const signer = await provider.getSigner();
       const currentAddress = await signer.getAddress();
       
@@ -103,7 +104,7 @@ export const useNFTTransfer = (contractAddress?: string): NFTTransferHook => {
       }
       
       // Verify ownership of the NFT
-      const owner = await nftContract.ownerOf(tokenId);
+      const owner = await nftContract.ownerOf(tokenId) as string;
       if (owner.toLowerCase() !== currentAddress.toLowerCase()) {
         throw new Error('You do not own this NFT');
       }
@@ -113,7 +114,7 @@ export const useNFTTransfer = (contractAddress?: string): NFTTransferHook => {
         currentAddress, 
         recipient, 
         tokenId
-      );
+      ) as { hash: string; wait: () => Promise<unknown> };
       
       // Wait for transaction confirmation
       await transaction.wait();
@@ -126,8 +127,9 @@ export const useNFTTransfer = (contractAddress?: string): NFTTransferHook => {
       
       return transaction.hash;
       
-    } catch (err: any) {
-      const errorMessage = err?.reason || err?.message || 'NFT transfer failed';
+    } catch (err: unknown) {
+      const error = err as { reason?: string; message?: string };
+      const errorMessage = error?.reason ?? error?.message ?? 'NFT transfer failed';
       
       // Batch error state updates with flushSync
       flushSync(() => {

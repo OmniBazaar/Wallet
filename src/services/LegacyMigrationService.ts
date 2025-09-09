@@ -91,17 +91,6 @@ export interface AccessResult {
 }
 
 /**
- * Legacy Migration Service
- */
-export class LegacyMigrationService {
-  private provider: ethers.Provider;
-  private legacyUsers: Map<string, LegacyUserData>;
-  private keyDerivationAlgorithm: LegacyKeyDerivationAlgorithm;
-  
-  // Decimal conversion factor (10^12 for 6->18 decimals)
-  private readonly DECIMAL_CONVERSION = BigInt(10 ** 12);
-
-/**
  * Interface for legacy key derivation algorithms
  */
 export interface LegacyKeyDerivationAlgorithm {
@@ -113,6 +102,17 @@ export interface LegacyKeyDerivationAlgorithm {
    */
   derivePrivateKey(username: string, password: string): string;
 }
+
+/**
+ * Legacy Migration Service
+ */
+export class LegacyMigrationService {
+  private provider: ethers.Provider;
+  private legacyUsers: Map<string, LegacyUserData>;
+  private keyDerivationAlgorithm: LegacyKeyDerivationAlgorithm;
+  
+  // Decimal conversion factor (10^12 for 6->18 decimals)
+  private readonly DECIMAL_CONVERSION = BigInt(10 ** 12);
   
   /**
    * Create a LegacyMigrationService for validating v1 users.

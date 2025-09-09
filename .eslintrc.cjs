@@ -42,7 +42,8 @@ module.exports = {
     '*.js',
     '**/*.test.ts',
     '**/*.spec.ts',
-    'tests/**/*.ts'
+    'tests/**/*.ts',
+    '**/*.vue'  // Exclude Vue files since project uses React/TSX primarily
   ],
   rules: {
     // Console logging - warn except for warn/error

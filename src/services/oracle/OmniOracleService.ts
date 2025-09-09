@@ -34,6 +34,34 @@ export interface TokenPriceQuery {
 }
 
 /**
+ * Bridge fee query parameters
+ */
+export interface BridgeFeeQuery {
+  /** Bridge provider name */
+  bridge: string;
+  /** Source chain */
+  sourceChain: string;
+  /** Destination chain */
+  destinationChain: string;
+  /** Amount to bridge */
+  amount: bigint;
+}
+
+/**
+ * Bridge fee response
+ */
+export interface BridgeFeeResponse {
+  /** Fee amount in wei */
+  fee: bigint;
+  /** Fee token symbol */
+  feeToken: string;
+  /** Fee percentage (basis points) */
+  feePercentage: number;
+  /** Estimated gas cost */
+  gasCost?: bigint;
+}
+
+/**
  * OmniOracle service for XOM and pXOM price data
  */
 export class OmniOracleService {
@@ -127,5 +155,53 @@ export class OmniOracleService {
    */
   isTokenSupported(token: string): boolean {
     return this.basePrices.has(token);
+  }
+
+  /**
+   * Get bridge fee for cross-chain transfer
+   * @param query - Bridge fee query parameters
+   * @returns Bridge fee information
+   */
+  async getBridgeFee(query: BridgeFeeQuery): Promise<BridgeFeeResponse> {
+    if (!this.initialized) {
+      await this.init();
+    }
+
+    // Define fee percentages per bridge provider (in basis points)
+    const bridgeFees: Record<string, number> = {
+      'hop': 30,        // 0.30%
+      'stargate': 10,   // 0.10%
+      'across': 25,     // 0.25%
+      'synapse': 20,    // 0.20%
+      'celer': 35,      // 0.35%
+      'multichain': 40, // 0.40%
+      'wormhole': 50,   // 0.50%
+      'layerzero': 15,  // 0.15%
+      'polygon': 45,    // 0.45%
+      'arbitrum': 20,   // 0.20%
+      'optimism': 20,   // 0.20%
+    };
+
+    const feePercentage = bridgeFees[query.bridge.toLowerCase()] || 30; // Default 0.30%
+    const fee = (query.amount * BigInt(feePercentage)) / BigInt(10000);
+
+    // Estimate gas cost based on chain
+    const gasCosts: Record<string, bigint> = {
+      'ethereum': BigInt(100000) * BigInt(20e9), // ~100k gas * 20 gwei
+      'polygon': BigInt(100000) * BigInt(30e9),  // ~100k gas * 30 gwei
+      'avalanche': BigInt(100000) * BigInt(25e9), // ~100k gas * 25 gwei
+      'arbitrum': BigInt(100000) * BigInt(1e9),   // ~100k gas * 1 gwei
+      'optimism': BigInt(100000) * BigInt(1e9),   // ~100k gas * 1 gwei
+      'bsc': BigInt(100000) * BigInt(5e9),        // ~100k gas * 5 gwei
+    };
+
+    const gasCost = gasCosts[query.sourceChain.toLowerCase()] || BigInt(100000) * BigInt(20e9);
+
+    return {
+      fee,
+      feeToken: 'ETH', // Most bridges use native token for fees
+      feePercentage,
+      gasCost
+    };
   }
 }

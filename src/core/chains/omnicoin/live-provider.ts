@@ -26,61 +26,36 @@ export interface ValidatorClient {
 }
 
 /**
- *
+ * OmniCoin network configuration interface
  */
 export interface OmniCoinNetwork {
-  /**
-   *
-   */
+  /** Network display name */
   name: string;
-  /**
-   *
-   */
+  /** Network chain ID */
   chainId: number;
-  /**
-   *
-   */
+  /** RPC endpoint URL */
   rpcUrl: string;
-  /**
-   *
-   */
+  /** Validator service URL */
   validatorUrl: string;
-  /**
-   *
-   */
+  /** Block explorer URL (optional) */
   blockExplorer?: string;
-  /**
-   *
-   */
+  /** Native currency configuration */
   nativeCurrency: {
-    /**
-     *
-     */
+    /** Currency name */
     name: string;
-    /**
-     *
-     */
+    /** Currency symbol */
     symbol: string;
-    /**
-     *
-     */
+    /** Currency decimals */
     decimals: number;
   };
-  /**
-   *
-   */
+  /** Network-specific features */
   features: {
-    /**
-     *
+    /** Privacy feature enabled
      */
     privacy: boolean;
-    /**
-     *
-     */
+    /** Staking feature enabled */
     staking: boolean;
-    /**
-     *
-     */
+    /** Marketplace feature enabled */
     marketplace: boolean;
   };
 }
@@ -124,7 +99,7 @@ export const OMNICOIN_NETWORKS = {
 } as const;
 
 /**
- *
+ * Live OmniCoin provider with validator integration and privacy features
  */
 export class LiveOmniCoinProvider {
   private provider: ethers.JsonRpcProvider;
@@ -134,12 +109,12 @@ export class LiveOmniCoinProvider {
   private privacyMode = false;
   
   /**
-   *
-   * @param networkName
+   * Create new LiveOmniCoinProvider instance
+   * @param networkName - OmniCoin network name (mainnet/testnet)
    */
   constructor(networkName: keyof typeof OMNICOIN_NETWORKS = 'testnet') {
     const network = OMNICOIN_NETWORKS[networkName];
-    if (!network) {
+    if (network === null || network === undefined) {
       throw new Error(`Unknown OmniCoin network: ${networkName}`);
     }
     
@@ -150,7 +125,7 @@ export class LiveOmniCoinProvider {
     });
     
     // Initialize validator client for off-chain features
-    this.initializeValidatorClient();
+    void this.initializeValidatorClient();
   }
 
   /**

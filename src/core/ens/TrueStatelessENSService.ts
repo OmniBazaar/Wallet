@@ -45,7 +45,7 @@ export class TrueStatelessENSService {
    * @returns Service instance
    */
   public static getInstance(): TrueStatelessENSService {
-    if (!TrueStatelessENSService.instance) {
+    if (TrueStatelessENSService.instance === null || TrueStatelessENSService.instance === undefined) {
       TrueStatelessENSService.instance = new TrueStatelessENSService();
     }
     return TrueStatelessENSService.instance;
@@ -54,7 +54,8 @@ export class TrueStatelessENSService {
   /**
    * Resolve any ENS name to an address
    * NO oracle updates, NO ETH gas fees - direct OmniCoin queries only
-   * @param name
+   * @param name - Domain name or address to resolve
+   * @returns Resolved address or null
    */
   public async resolveAddress(name: string): Promise<string | null> {
     try {
@@ -75,7 +76,7 @@ export class TrueStatelessENSService {
       
       return null;
     } catch (error) {
-      console.error('Error resolving address:', error);
+      // Error resolving address
       return null;
     }
   }
@@ -83,7 +84,8 @@ export class TrueStatelessENSService {
   /**
    * Resolve .omnicoin addresses by querying OmniCoin directly
    * NO oracle updates, NO ETH gas fees
-   * @param name
+   * @param name - .omnicoin domain name
+   * @returns Resolved address or null
    */
   private async resolveOmnicoinAddress(name: string): Promise<string | null> {
     try {
@@ -91,18 +93,19 @@ export class TrueStatelessENSService {
       const username = name.replace('.omnicoin', '');
       
       // Query OmniCoin registry directly - NO ETH gas fees!
-      const address = await (this.omnicoinRegistryContract as any)['resolve'](username);
+      const address = await this.omnicoinRegistryContract.resolve(username) as string;
       
       return address !== ethers.ZeroAddress ? address : null;
     } catch (error) {
-      console.error('Error resolving .omnicoin address:', error);
+      // Error resolving .omnicoin address
       return null;
     }
   }
 
   /**
    * Resolve standard .eth addresses via ENS (unchanged)
-   * @param name
+   * @param name - .eth domain name
+   * @returns Resolved address or null
    */
   private async resolveEthAddress(name: string): Promise<string | null> {
     try {
@@ -127,7 +130,7 @@ export class TrueStatelessENSService {
       const namehash = ethers.namehash(name);
       
       // Get resolver address from ENS registry
-      const resolverAddress = await (ensRegistry as any)['resolver'](namehash);
+      const resolverAddress = await ensRegistry.resolver(namehash) as string;
       
       if (resolverAddress === ethers.ZeroAddress) {
         return null;
@@ -141,11 +144,11 @@ export class TrueStatelessENSService {
       );
       
       // Get address from resolver
-      const address = await (resolver as any)['addr'](namehash);
+      const address = await resolver.addr(namehash) as string;
       
       return address !== ethers.ZeroAddress ? address : null;
     } catch (error) {
-      console.error('Error resolving .eth address:', error);
+      // Error resolving .eth address
       return null;
     }
   }
@@ -153,14 +156,15 @@ export class TrueStatelessENSService {
   /**
    * Check if a username is available on OmniCoin
    * Direct query - NO ETH gas fees
-   * @param username
+   * @param username - Username to check
+   * @returns True if available
    */
   public async isUsernameAvailable(username: string): Promise<boolean> {
     try {
-      const isAvailable = await (this.omnicoinRegistryContract as any)['isAvailable'](username);
+      const isAvailable = await this.omnicoinRegistryContract.isAvailable(username) as boolean;
       return isAvailable;
     } catch (error) {
-      console.error('Error checking username availability:', error);
+      // Error checking username availability
       return false;
     }
   }
@@ -168,15 +172,16 @@ export class TrueStatelessENSService {
   /**
    * Reverse resolve address to username
    * Direct OmniCoin query - NO ETH gas fees
-   * @param address
+   * @param address - Address to reverse resolve
+   * @returns Username with .omnicoin suffix or null
    */
   public async reverseResolve(address: string): Promise<string | null> {
     try {
       // Query OmniCoin for reverse resolution
-      const username = await (this.omnicoinRegistryContract as any)['reverseResolve'](address);
+      const username = await this.omnicoinRegistryContract.reverseResolve(address) as string;
       return username !== '' ? `${username}.omnicoin` : null;
     } catch (error) {
-      console.error('Error reverse resolving address:', error);
+      // Error reverse resolving address
       return null;
     }
   }
@@ -184,7 +189,8 @@ export class TrueStatelessENSService {
   /**
    * Batch resolve multiple usernames
    * All queries go to OmniCoin - NO ETH gas fees
-   * @param names
+   * @param names - Array of names to resolve
+   * @returns Array of resolved addresses or null values
    */
   public async batchResolveAddresses(names: string[]): Promise<(string | null)[]> {
     const promises = names.map(name => this.resolveAddress(name));
@@ -193,7 +199,8 @@ export class TrueStatelessENSService {
 
   /**
    * Check if a name is a valid ENS name
-   * @param name
+   * @param name - Name to check
+   * @returns True if valid ENS name
    */
   public isValidENSName(name: string): boolean {
     return name.endsWith('.eth') || name.endsWith('.omnicoin');
@@ -201,45 +208,36 @@ export class TrueStatelessENSService {
 
   /**
    * Get OmniCoin network information
+   * @returns Network information object
    */
   public async getOmnicoinNetworkInfo(): Promise<{
-    /**
-     *
-     */
+    /** Chain ID as string */
     chainId: string;
-    /**
-     *
-     */
+    /** Current block number */
     blockNumber: number;
-    /**
-     *
-     */
+    /** Registry contract address */
     registryAddress: string;
   }> {
-    try {
-      const network = await this.omnicoinProvider.getNetwork();
-      const blockNumber = await this.omnicoinProvider.getBlockNumber();
-      
-      return {
-        chainId: network.chainId.toString(),
-        blockNumber,
-        registryAddress: (process?.env?.['OMNICOIN_REGISTRY_ADDRESS']) ?? ''
-      };
-    } catch (error) {
-      console.error('Error getting OmniCoin network info:', error);
-      throw error;
-    }
+    const network = await this.omnicoinProvider.getNetwork();
+    const blockNumber = await this.omnicoinProvider.getBlockNumber();
+    
+    return {
+      chainId: network.chainId.toString(),
+      blockNumber,
+      registryAddress: (process?.env?.['OMNICOIN_REGISTRY_ADDRESS']) ?? ''
+    };
   }
 
   /**
    * Test OmniCoin connection
+   * @returns True if connection is successful
    */
   public async testOmnicoinConnection(): Promise<boolean> {
     try {
       await this.omnicoinProvider.getBlockNumber();
       return true;
     } catch (error) {
-      console.error('OmniCoin connection test failed:', error);
+      // OmniCoin connection test failed
       return false;
     }
   }

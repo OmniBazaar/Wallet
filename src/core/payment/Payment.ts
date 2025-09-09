@@ -41,22 +41,23 @@ export class PaymentError extends Error {
 }
 
 /**
- *
+ * Payment service for OmniCoin transactions
  */
 export class Payment {
   private wallet: Wallet;
 
   /**
-   *
-   * @param wallet
+   * Create a new Payment service
+   * @param wallet - Wallet instance for managing transactions
    */
   constructor(wallet: Wallet) {
     this.wallet = wallet;
   }
 
   /**
-   *
-   * @param request
+   * Send a payment to another address
+   * @param request - Payment request parameters
+   * @returns Promise resolving to payment response
    */
   async sendPayment(request: PaymentRequest): Promise<PaymentResponse> {
     try {
@@ -87,25 +88,26 @@ export class Payment {
   }
 
   /**
-   *
-   * @param transactionHash
+   * Get the status of a payment transaction
+   * @param transactionHash - Transaction hash to check
+   * @returns Promise resolving to payment response with status
    */
   async getPaymentStatus(transactionHash: string): Promise<PaymentResponse> {
     try {
       const provider = this.wallet.getProvider();
       const tx = await provider.getTransaction(transactionHash);
-      if (!tx) {
+      if (tx === null || tx === undefined) {
         throw new PaymentError('Transaction not found', 'TX_NOT_FOUND');
       }
       const receipt = await tx.wait();
-      if (!receipt) {
+      if (receipt === null || receipt === undefined) {
         return {
           transactionHash,
           status: 'pending',
         };
       }
       let confirmations: number | undefined;
-      const rc: any = receipt as any;
+      const rc = receipt as { confirmations?: number | (() => Promise<number>); transactionHash?: string; hash?: string; status?: number | boolean; blockNumber?: number | bigint };
       if (typeof rc.confirmations === 'function') {
         confirmations = await rc.confirmations();
       } else {
@@ -113,7 +115,7 @@ export class Payment {
       }
       return {
         transactionHash: (rc.transactionHash ?? rc.hash) as string,
-        status: rc.status ? 'confirmed' : 'failed',
+        status: (rc.status === true || rc.status === 1) ? 'confirmed' : 'failed',
         ...(rc.blockNumber != null && { blockNumber: Number(rc.blockNumber) }),
         ...(confirmations != null && { confirmations }),
       };
@@ -127,8 +129,9 @@ export class Payment {
   }
 
   /**
-   *
-   * @param request
+   * Estimate gas required for a payment
+   * @param request - Payment request parameters
+   * @returns Promise resolving to estimated gas amount
    */
   async estimateGas(request: PaymentRequest): Promise<bigint> {
     try {

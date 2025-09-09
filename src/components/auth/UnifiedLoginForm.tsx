@@ -9,38 +9,8 @@
  * @module components/auth/UnifiedLoginForm
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
-import {
-  Box,
-  TextField,
-  Button,
-  Typography,
-  Alert,
-  AlertTitle,
-  Paper,
-  Tabs,
-  Tab,
-  Divider,
-  Link,
-  CircularProgress,
-  Chip,
-  InputAdornment,
-  IconButton,
-  Tooltip,
-  Fade,
-  Stack
-} from '@mui/material';
-import {
-  Login as LoginIcon,
-  PersonAdd as PersonAddIcon,
-  Visibility as VisibilityIcon,
-  VisibilityOff as VisibilityOffIcon,
-  History as HistoryIcon,
-  CheckCircle as CheckCircleIcon,
-  Warning as WarningIcon,
-  Info as InfoIcon
-} from '@mui/icons-material';
 import { KeyringManager } from '../../core/keyring/KeyringManager';
 import { LegacyMigrationService } from '../../services/LegacyMigrationService';
 import { LegacyLoginModal } from './LegacyLoginModal';
@@ -52,42 +22,26 @@ export interface UnifiedLoginFormProps {
   /** Success callback after login/signup */
   onSuccess: (username: string, address: string) => void;
   /** Provider for blockchain connection */
-  provider?: ethers.Provider;
+  provider?: ethers.Provider | undefined;
   /** Signer for transactions */
-  signer?: ethers.Signer;
+  signer?: ethers.Signer | undefined;
   /** Migration contract address */
-  migrationContractAddress?: string;
+  migrationContractAddress?: string | undefined;
   /** Enable legacy migration (default true) */
-  enableLegacyMigration?: boolean;
+  enableLegacyMigration?: boolean | undefined;
 }
-
-/**
- * Tab panel component
- */
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
-}
-
-const TabPanel: React.FC<TabPanelProps> = ({ children, value, index, ...other }) => {
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`auth-tabpanel-${index}`}
-      aria-labelledby={`auth-tab-${index}`}
-      {...other}
-    >
-      {value === index && <Box sx={{ pt: 3 }}>{children}</Box>}
-    </div>
-  );
-};
 
 /**
  * Unified Login Form Component
  * 
  * Smart authentication that detects legacy users and provides appropriate flow
+ * @param props - The component props
+ * @param props.onSuccess - Success callback after login/signup
+ * @param props.provider - Provider for blockchain connection
+ * @param props.signer - Signer for transactions
+ * @param props.migrationContractAddress - Migration contract address
+ * @param props.enableLegacyMigration - Enable legacy migration (default true)
+ * @returns React component for unified login/signup form
  */
 export const UnifiedLoginForm: React.FC<UnifiedLoginFormProps> = ({
   onSuccess,
@@ -125,14 +79,14 @@ export const UnifiedLoginForm: React.FC<UnifiedLoginFormProps> = ({
    * Initialize migration service
    */
   useEffect(() => {
-    if (enableLegacyMigration && provider) {
+    if (enableLegacyMigration && provider !== undefined && provider !== null) {
       const service = new LegacyMigrationService(
-        provider,
-        signer,
-        migrationContractAddress
+        provider
       );
-      service.initialize().then(() => {
+      void service.initialize().then(() => {
         setMigrationService(service);
+      }).catch(() => {
+        // Handle initialization error silently
       });
     }
   }, [enableLegacyMigration, provider, signer, migrationContractAddress]);
@@ -141,8 +95,8 @@ export const UnifiedLoginForm: React.FC<UnifiedLoginFormProps> = ({
    * Check if username is legacy when it changes
    */
   useEffect(() => {
-    const checkUsername = async () => {
-      if (!username || !migrationService || !enableLegacyMigration) {
+    const checkUsername = async (): Promise<void> => {
+      if (username.length === 0 || migrationService === null || !enableLegacyMigration) {
         setIsLegacyUser(false);
         setLegacyBalance(null);
         setIsNullAccount(false);
@@ -168,33 +122,38 @@ export const UnifiedLoginForm: React.FC<UnifiedLoginFormProps> = ({
         
         if (isLegacy) {
           const status = await migrationService.getMigrationStatus(username);
-          if (status) {
+          if (status !== null) {
             const balanceInXOM = ethers.formatUnits(status.legacyBalance, 6);
             setLegacyBalance(balanceInXOM);
             
             // If already claimed, show warning
-            if (status.isClaimed) {
+            if (status.isClaimed && typeof status.claimTimestamp === 'number') {
               setError(`This legacy account was already migrated on ${
-                new Date(status.claimTimestamp! * 1000).toLocaleDateString()
+                new Date(status.claimTimestamp * 1000).toLocaleDateString()
               }`);
             }
           }
         }
-      } catch (err) {
-        console.error('Error checking username:', err);
+      } catch {
+        // Error checking username - silently handle
+        setIsLegacyUser(false);
+        setLegacyBalance(null);
+        setIsNullAccount(false);
       } finally {
         setCheckingUsername(false);
       }
     };
     
-    const debounceTimer = setTimeout(checkUsername, 500);
+    const debounceTimer = setTimeout(() => {
+      void checkUsername();
+    }, 500);
     return () => clearTimeout(debounceTimer);
   }, [username, migrationService, enableLegacyMigration]);
   
   /**
    * Handle regular login
    */
-  const handleLogin = async () => {
+  const handleLogin = async (): Promise<void> => {
     setLoading(true);
     setError(null);
     setSuccess(null);
@@ -221,8 +180,9 @@ export const UnifiedLoginForm: React.FC<UnifiedLoginFormProps> = ({
       setTimeout(() => {
         onSuccess(session.username, session.accounts.omnicoin.address);
       }, 1000);
-    } catch (err: any) {
-      setError(err.message || 'Login failed');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Login failed';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -231,7 +191,7 @@ export const UnifiedLoginForm: React.FC<UnifiedLoginFormProps> = ({
   /**
    * Handle sign up
    */
-  const handleSignUp = async () => {
+  const handleSignUp = async (): Promise<void> => {
     // Validate passwords match
     if (password !== confirmPassword) {
       setError('Passwords do not match');
@@ -261,8 +221,9 @@ export const UnifiedLoginForm: React.FC<UnifiedLoginFormProps> = ({
       setTimeout(() => {
         onSuccess(session.username, session.accounts.omnicoin.address);
       }, 1000);
-    } catch (err: any) {
-      setError(err.message || 'Sign up failed');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Sign up failed';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -270,8 +231,11 @@ export const UnifiedLoginForm: React.FC<UnifiedLoginFormProps> = ({
   
   /**
    * Handle legacy migration success
+   * @param username - The migrated username
+   * @param address - The new wallet address
+   * @param balance - The migrated balance
    */
-  const handleLegacySuccess = (username: string, address: string, balance: string) => {
+  const handleLegacySuccess = (username: string, address: string, balance: string): void => {
     setShowLegacyModal(false);
     setSuccess(`Migration successful! ${balance} XOM transferred to your new wallet.`);
     
@@ -282,6 +246,7 @@ export const UnifiedLoginForm: React.FC<UnifiedLoginFormProps> = ({
   
   /**
    * Validate form based on active tab
+   * @returns True if form is valid, false otherwise
    */
   const isFormValid = (): boolean => {
     if (isNullAccount) return false;
@@ -302,256 +267,452 @@ export const UnifiedLoginForm: React.FC<UnifiedLoginFormProps> = ({
   
   return (
     <>
-      <Paper elevation={3} sx={{ p: 4, maxWidth: 500, mx: 'auto' }}>
+      <div style={{
+        backgroundColor: 'white',
+        borderRadius: '8px',
+        padding: '32px',
+        maxWidth: '500px',
+        margin: '0 auto',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+      }}>
         {/* Header */}
-        <Box textAlign="center" mb={3}>
-          <Typography variant="h4" gutterBottom>
-            Welcome to OmniWallet
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
+        <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+          <h2 style={{ margin: '0 0 8px 0', fontSize: '28px' }}>Welcome to OmniWallet</h2>
+          <p style={{ margin: 0, color: '#666', fontSize: '14px' }}>
             Your gateway to the OmniBazaar ecosystem
-          </Typography>
-        </Box>
+          </p>
+        </div>
         
         {/* Tabs */}
-        <Tabs
-          value={activeTab}
-          onChange={(e: React.SyntheticEvent, v: number) => setActiveTab(v)}
-          variant="fullWidth"
-          sx={{ mb: 2 }}
-        >
-          <Tab
-            icon={<LoginIcon />}
-            label="Login"
-            iconPosition="start"
-          />
-          <Tab
-            icon={<PersonAddIcon />}
-            label="Sign Up"
-            iconPosition="start"
-          />
-        </Tabs>
-        
-        <Divider />
+        <div style={{ 
+          display: 'flex', 
+          borderBottom: '1px solid #ccc', 
+          marginBottom: '16px' 
+        }}>
+          <button
+            type="button"
+            onClick={() => setActiveTab(0)}
+            style={{
+              flex: 1,
+              padding: '12px',
+              border: 'none',
+              borderBottom: activeTab === 0 ? '2px solid #1976d2' : '2px solid transparent',
+              backgroundColor: 'transparent',
+              color: activeTab === 0 ? '#1976d2' : '#666',
+              cursor: 'pointer',
+              fontSize: '16px'
+            }}
+          >
+            🔑 Login
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab(1)}
+            style={{
+              flex: 1,
+              padding: '12px',
+              border: 'none',
+              borderBottom: activeTab === 1 ? '2px solid #1976d2' : '2px solid transparent',
+              backgroundColor: 'transparent',
+              color: activeTab === 1 ? '#1976d2' : '#666',
+              cursor: 'pointer',
+              fontSize: '16px'
+            }}
+          >
+            👤 Sign Up
+          </button>
+        </div>
         
         {/* Login Tab */}
-        <TabPanel value={activeTab} index={0}>
-          <Stack spacing={2}>
-            <TextField
-              fullWidth
-              label="Username"
-              value={username}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUsername(e.target.value)}
-              disabled={loading}
-              error={isNullAccount}
-              helperText={
-                isNullAccount ? "This account cannot be accessed (burned tokens)" :
-                isLegacyUser ? `Legacy user detected (Balance: ${legacyBalance} XOM)` :
-                undefined
-              }
-              InputProps={{
-                endAdornment: checkingUsername ? (
-                  <CircularProgress size={20} />
-                ) : isLegacyUser ? (
-                  <Tooltip title={isNullAccount ? "Burned tokens" : "Legacy OmniCoin v1 user"}>
-                    <Chip
-                      icon={isNullAccount ? <WarningIcon /> : <HistoryIcon />}
-                      label={isNullAccount ? "BURNED" : "Legacy"}
-                      size="small"
-                      color={isNullAccount ? "error" : "info"}
-                    />
-                  </Tooltip>
-                ) : undefined
-              }}
-            />
+        {activeTab === 0 && (
+          <div>
+            <div style={{ marginBottom: '16px' }}>
+              <div style={{ position: 'relative' }}>
+                <input
+                  type="text"
+                  placeholder="Username"
+                  value={username}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUsername(e.target.value)}
+                  disabled={loading}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    border: `1px solid ${isNullAccount ? '#f44336' : '#ccc'}`,
+                    borderRadius: '4px',
+                    fontSize: '16px'
+                  }}
+                />
+                {checkingUsername && (
+                  <div style={{
+                    position: 'absolute',
+                    right: '12px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    fontSize: '12px'
+                  }}>
+                    🔄
+                  </div>
+                )}
+                {isLegacyUser && !checkingUsername && (
+                  <div style={{
+                    position: 'absolute',
+                    right: '12px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    fontSize: '12px',
+                    padding: '2px 8px',
+                    borderRadius: '12px',
+                    backgroundColor: isNullAccount ? '#ffebee' : '#e3f2fd',
+                    color: isNullAccount ? '#c62828' : '#1976d2'
+                  }}>
+                    {isNullAccount ? '⚠️ BURNED' : '🕒 Legacy'}
+                  </div>
+                )}
+              </div>
+              {isNullAccount && (
+                <div style={{ color: '#f44336', fontSize: '12px', marginTop: '4px' }}>
+                  This account cannot be accessed (burned tokens)
+                </div>
+              )}
+              {isLegacyUser && !isNullAccount && (
+                <div style={{ color: '#1976d2', fontSize: '12px', marginTop: '4px' }}>
+                  Legacy user detected (Balance: {legacyBalance} XOM)
+                </div>
+              )}
+            </div>
             
-            <TextField
-              fullWidth
-              type={showPassword ? 'text' : 'password'}
-              label="Password"
-              value={password}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
-              disabled={loading || isNullAccount}
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton
-                      onClick={() => setShowPassword(!showPassword)}
-                      edge="end"
-                      disabled={isNullAccount}
-                    >
-                      {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                    </IconButton>
-                  </InputAdornment>
-                )
-              }}
-            />
+            <div style={{ marginBottom: '16px', position: 'relative' }}>
+              <input
+                type={showPassword ? 'text' : 'password'}
+                placeholder="Password"
+                value={password}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
+                disabled={loading || isNullAccount}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  paddingRight: '40px',
+                  border: '1px solid #ccc',
+                  borderRadius: '4px',
+                  fontSize: '16px'
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                disabled={isNullAccount}
+                style={{
+                  position: 'absolute',
+                  right: '12px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  border: 'none',
+                  background: 'none',
+                  cursor: 'pointer',
+                  fontSize: '16px'
+                }}
+              >
+                {showPassword ? '🙈' : '👁️'}
+              </button>
+            </div>
             
             {isLegacyUser && !isNullAccount && (
-              <Alert severity="info" icon={<InfoIcon />}>
-                <AlertTitle>Legacy Account Detected</AlertTitle>
-                <Typography variant="body2">
+              <div style={{
+                backgroundColor: '#e3f2fd',
+                border: '1px solid #1976d2',
+                borderRadius: '4px',
+                padding: '12px',
+                marginBottom: '16px'
+              }}>
+                <h4 style={{ margin: '0 0 8px 0', color: '#1976d2' }}>Legacy Account Detected</h4>
+                <p style={{ margin: 0, fontSize: '14px', color: '#333' }}>
                   This is a legacy OmniCoin v1 account with {legacyBalance} XOM.
                   Click login to start the migration process.
-                </Typography>
-              </Alert>
+                </p>
+              </div>
             )}
             
             {isNullAccount && (
-              <Alert severity="error" icon={<WarningIcon />}>
-                <AlertTitle>Burned Account</AlertTitle>
-                <Typography variant="body2">
+              <div style={{
+                backgroundColor: '#ffebee',
+                border: '1px solid #f44336',
+                borderRadius: '4px',
+                padding: '12px',
+                marginBottom: '16px'
+              }}>
+                <h4 style={{ margin: '0 0 8px 0', color: '#f44336' }}>Burned Account</h4>
+                <p style={{ margin: 0, fontSize: '14px', color: '#333' }}>
                   The "null" account contained burned tokens that cannot be recovered or migrated.
                   These tokens were permanently removed from circulation.
-                </Typography>
-              </Alert>
+                </p>
+              </div>
             )}
             
-            <Button
-              fullWidth
-              variant="contained"
-              size="large"
-              onClick={handleLogin}
+            <button
+              type="button"
+              onClick={() => void handleLogin()}
               disabled={loading || !isFormValid()}
-              startIcon={loading ? <CircularProgress size={20} /> : <LoginIcon />}
+              style={{
+                width: '100%',
+                padding: '12px',
+                backgroundColor: loading || !isFormValid() ? '#ccc' : '#1976d2',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                fontSize: '16px',
+                cursor: loading || !isFormValid() ? 'not-allowed' : 'pointer',
+                marginBottom: '16px'
+              }}
             >
-              {loading ? 'Logging in...' : isLegacyUser && !isNullAccount ? 'Login & Migrate' : 'Login'}
-            </Button>
+              {loading ? '🔄 Logging in...' : isLegacyUser && !isNullAccount ? '🔑 Login & Migrate' : '🔑 Login'}
+            </button>
             
-            <Box textAlign="center">
-              <Link
-                component="button"
-                variant="body2"
+            <div style={{ textAlign: 'center' }}>
+              <button
+                type="button"
                 onClick={() => setActiveTab(1)}
                 disabled={loading}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#1976d2',
+                  cursor: 'pointer',
+                  textDecoration: 'underline',
+                  fontSize: '14px'
+                }}
               >
                 Don't have an account? Sign up
-              </Link>
-            </Box>
-          </Stack>
-        </TabPanel>
+              </button>
+            </div>
+          </div>
+        )}
         
         {/* Sign Up Tab */}
-        <TabPanel value={activeTab} index={1}>
-          <Stack spacing={2}>
-            <TextField
-              fullWidth
-              label="Username"
-              value={username}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUsername(e.target.value)}
-              disabled={loading}
-              error={isLegacyUser}
-              helperText={
-                isLegacyUser 
-                  ? "This username is reserved for a legacy user"
-                  : "Choose a unique username"
-              }
-              InputProps={{
-                endAdornment: checkingUsername ? (
-                  <CircularProgress size={20} />
-                ) : isLegacyUser ? (
-                  <Tooltip title="Reserved for legacy user">
-                    <WarningIcon color="error" />
-                  </Tooltip>
-                ) : username && !isLegacyUser ? (
-                  <Tooltip title="Username available">
-                    <CheckCircleIcon color="success" />
-                  </Tooltip>
-                ) : undefined
-              }}
-            />
+        {activeTab === 1 && (
+          <div>
+            <div style={{ marginBottom: '16px' }}>
+              <div style={{ position: 'relative' }}>
+                <input
+                  type="text"
+                  placeholder="Username"
+                  value={username}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUsername(e.target.value)}
+                  disabled={loading}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    border: `1px solid ${isLegacyUser ? '#f44336' : '#ccc'}`,
+                    borderRadius: '4px',
+                    fontSize: '16px'
+                  }}
+                />
+                {checkingUsername && (
+                  <div style={{
+                    position: 'absolute',
+                    right: '12px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    fontSize: '12px'
+                  }}>
+                    🔄
+                  </div>
+                )}
+                {!checkingUsername && username.length > 0 && (
+                  <div style={{
+                    position: 'absolute',
+                    right: '12px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    fontSize: '16px'
+                  }}>
+                    {isLegacyUser ? '⚠️' : '✅'}
+                  </div>
+                )}
+              </div>
+              <div style={{ color: isLegacyUser ? '#f44336' : '#666', fontSize: '12px', marginTop: '4px' }}>
+                {isLegacyUser 
+                  ? 'This username is reserved for a legacy user'
+                  : 'Choose a unique username'
+                }
+              </div>
+            </div>
             
-            <TextField
-              fullWidth
-              type={showPassword ? 'text' : 'password'}
-              label="Password"
-              value={password}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
-              disabled={loading}
-              helperText="Minimum 12 characters"
-              error={password.length > 0 && password.length < 12}
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton
-                      onClick={() => setShowPassword(!showPassword)}
-                      edge="end"
-                    >
-                      {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                    </IconButton>
-                  </InputAdornment>
-                )
-              }}
-            />
+            <div style={{ marginBottom: '16px', position: 'relative' }}>
+              <input
+                type={showPassword ? 'text' : 'password'}
+                placeholder="Password (minimum 12 characters)"
+                value={password}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
+                disabled={loading}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  paddingRight: '40px',
+                  border: `1px solid ${password.length > 0 && password.length < 12 ? '#f44336' : '#ccc'}`,
+                  borderRadius: '4px',
+                  fontSize: '16px'
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={{
+                  position: 'absolute',
+                  right: '12px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  border: 'none',
+                  background: 'none',
+                  cursor: 'pointer',
+                  fontSize: '16px'
+                }}
+              >
+                {showPassword ? '🙈' : '👁️'}
+              </button>
+            </div>
             
-            <TextField
-              fullWidth
-              type={showPassword ? 'text' : 'password'}
-              label="Confirm Password"
-              value={confirmPassword}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setConfirmPassword(e.target.value)}
-              disabled={loading}
-              error={confirmPassword.length > 0 && confirmPassword !== password}
-              helperText={
-                confirmPassword.length > 0 && confirmPassword !== password
-                  ? "Passwords do not match"
-                  : "Re-enter your password"
-              }
-            />
+            <div style={{ marginBottom: '16px' }}>
+              <input
+                type={showPassword ? 'text' : 'password'}
+                placeholder="Confirm Password"
+                value={confirmPassword}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setConfirmPassword(e.target.value)}
+                disabled={loading}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  border: `1px solid ${confirmPassword.length > 0 && confirmPassword !== password ? '#f44336' : '#ccc'}`,
+                  borderRadius: '4px',
+                  fontSize: '16px'
+                }}
+              />
+              {confirmPassword.length > 0 && confirmPassword !== password && (
+                <div style={{ color: '#f44336', fontSize: '12px', marginTop: '4px' }}>
+                  Passwords do not match
+                </div>
+              )}
+            </div>
             
             {isLegacyUser && (
-              <Alert severity="warning">
-                This username belongs to a legacy user. If this is your account,
-                please use the login tab to migrate your balance.
-              </Alert>
+              <div style={{
+                backgroundColor: '#fff3cd',
+                border: '1px solid #856404',
+                borderRadius: '4px',
+                padding: '12px',
+                marginBottom: '16px'
+              }}>
+                <p style={{ margin: 0, fontSize: '14px', color: '#856404' }}>
+                  This username belongs to a legacy user. If this is your account,
+                  please use the login tab to migrate your balance.
+                </p>
+              </div>
             )}
             
-            <Button
-              fullWidth
-              variant="contained"
-              size="large"
-              onClick={handleSignUp}
+            <button
+              type="button"
+              onClick={() => void handleSignUp()}
               disabled={loading || !isFormValid()}
-              startIcon={loading ? <CircularProgress size={20} /> : <PersonAddIcon />}
+              style={{
+                width: '100%',
+                padding: '12px',
+                backgroundColor: loading || !isFormValid() ? '#ccc' : '#1976d2',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                fontSize: '16px',
+                cursor: loading || !isFormValid() ? 'not-allowed' : 'pointer',
+                marginBottom: '16px'
+              }}
             >
-              {loading ? 'Creating Account...' : 'Create Account'}
-            </Button>
+              {loading ? '🔄 Creating Account...' : '👤 Create Account'}
+            </button>
             
-            <Box textAlign="center">
-              <Link
-                component="button"
-                variant="body2"
+            <div style={{ textAlign: 'center' }}>
+              <button
+                type="button"
                 onClick={() => setActiveTab(0)}
                 disabled={loading}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#1976d2',
+                  cursor: 'pointer',
+                  textDecoration: 'underline',
+                  fontSize: '14px'
+                }}
               >
                 Already have an account? Login
-              </Link>
-            </Box>
-          </Stack>
-        </TabPanel>
+              </button>
+            </div>
+          </div>
+        )}
         
         {/* Error/Success Messages */}
-        <Fade in={!!error}>
-          <Alert severity="error" sx={{ mt: 2 }} onClose={() => setError(null)}>
-            {error}
-          </Alert>
-        </Fade>
+        {error !== null && (
+          <div style={{
+            backgroundColor: '#ffebee',
+            color: '#c62828',
+            padding: '12px',
+            borderRadius: '4px',
+            marginTop: '16px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+          }}>
+            <span>{error}</span>
+            <button 
+              type="button"
+              onClick={() => setError(null)} 
+              style={{ 
+                background: 'none', 
+                border: 'none', 
+                color: '#c62828',
+                cursor: 'pointer',
+                fontSize: '16px' 
+              }}
+            >
+              ×
+            </button>
+          </div>
+        )}
         
-        <Fade in={!!success}>
-          <Alert severity="success" sx={{ mt: 2 }} onClose={() => setSuccess(null)}>
-            {success}
-          </Alert>
-        </Fade>
-      </Paper>
+        {success !== null && (
+          <div style={{
+            backgroundColor: '#e8f5e8',
+            color: '#2e7d32',
+            padding: '12px',
+            borderRadius: '4px',
+            marginTop: '16px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+          }}>
+            <span>{success}</span>
+            <button 
+              type="button"
+              onClick={() => setSuccess(null)} 
+              style={{ 
+                background: 'none', 
+                border: 'none', 
+                color: '#2e7d32',
+                cursor: 'pointer',
+                fontSize: '16px' 
+              }}
+            >
+              ×
+            </button>
+          </div>
+        )}
+      </div>
       
       {/* Legacy Migration Modal */}
-      {enableLegacyMigration && (
+      {enableLegacyMigration && provider !== undefined && (
         <LegacyLoginModal
           open={showLegacyModal}
           username={username}
           onClose={() => setShowLegacyModal(false)}
           onSuccess={handleLegacySuccess}
-          provider={provider!}
+          provider={provider}
           signer={signer}
           migrationContractAddress={migrationContractAddress}
         />

@@ -5,43 +5,31 @@
  * and needs to be refactored to work with OmniBazaar's IPFS integration.
  */
 
+import { secureRandomBase36 } from '../utils/secure-random';
+
 /**
- * IPFS node information
+ * IPFS node information structure
  */
 export interface IPFSNode {
-  /**
-   *
-   */
+  /** Node identifier */
   id: string;
-  /**
-   *
-   */
+  /** List of multiaddresses for the node */
   addresses: string[];
-  /**
-   *
-   */
+  /** Supported protocols */
   protocols: string[];
 }
 
 /**
- * IPFS file information
+ * IPFS file information structure
  */
 export interface IPFSFile {
-  /**
-   *
-   */
+  /** File or directory name */
   name: string;
-  /**
-   *
-   */
+  /** IPFS content identifier (CID) */
   hash: string;
-  /**
-   *
-   */
+  /** Size in bytes */
   size: number;
-  /**
-   *
-   */
+  /** Type of IPFS object */
   type: 'file' | 'directory';
 }
 
@@ -49,17 +37,11 @@ export interface IPFSFile {
  * Options for adding content to IPFS
  */
 export interface AddOptions {
-  /**
-   *
-   */
+  /** Whether to pin content after adding */
   pin?: boolean;
-  /**
-   *
-   */
+  /** Whether to wrap content in a directory */
   wrapWithDirectory?: boolean;
-  /**
-   *
-   */
+  /** Request timeout in milliseconds */
   timeout?: number;
 }
 
@@ -70,40 +52,52 @@ export interface AddOptions {
 export class IPFSService {
   private connected = false;
   private nodeInfo: IPFSNode | null = null;
+  private endpoint: string;
 
   /**
-   *
-   * @param endpoint
+   * Create a new IPFS service instance
+   * @param endpoint - IPFS API endpoint URL
    */
-  constructor(private endpoint: string = 'https://ipfs.io/api/v0') {}
+  constructor(endpoint = 'https://ipfs.io/api/v0') {
+    this.endpoint = endpoint;
+  }
 
   /**
    * Connect to IPFS node
+   * @returns Promise that resolves when connected
    */
-  async connect(): Promise<void> {
-    try {
-      // TODO: Implement connection to OmniBazaar IPFS nodes
-      this.connected = true;
-      this.nodeInfo = {
-        id: 'placeholder-node',
-        addresses: [this.endpoint],
-        protocols: ['http']
-      };
-    } catch (error) {
-      throw new Error(`Failed to connect to IPFS: ${error}`);
-    }
+  connect(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      try {
+        // TODO: Implement connection to OmniBazaar IPFS nodes
+        this.connected = true;
+        this.nodeInfo = {
+          id: 'placeholder-node',
+          addresses: [this.endpoint],
+          protocols: ['http']
+        };
+        resolve();
+      } catch (error) {
+        reject(new Error(`Failed to connect to IPFS: ${String(error)}`));
+      }
+    });
   }
 
   /**
    * Disconnect from IPFS node
+   * @returns Promise that resolves when disconnected
    */
-  async disconnect(): Promise<void> {
-    this.connected = false;
-    this.nodeInfo = null;
+  disconnect(): Promise<void> {
+    return new Promise((resolve) => {
+      this.connected = false;
+      this.nodeInfo = null;
+      resolve();
+    });
   }
 
   /**
    * Check if connected to IPFS
+   * @returns True if connected to IPFS node
    */
   isConnected(): boolean {
     return this.connected;
@@ -111,18 +105,23 @@ export class IPFSService {
 
   /**
    * Get node information
+   * @returns Promise resolving to node information
    */
-  async getNodeInfo(): Promise<IPFSNode> {
-    if (!this.connected || !this.nodeInfo) {
-      throw new Error('Not connected to IPFS');
-    }
-    return this.nodeInfo;
+  getNodeInfo(): Promise<IPFSNode> {
+    return new Promise((resolve, reject) => {
+      if (!this.connected || this.nodeInfo === null) {
+        reject(new Error('Not connected to IPFS'));
+        return;
+      }
+      resolve(this.nodeInfo);
+    });
   }
 
   /**
    * Add content to IPFS
-   * @param content
-   * @param options
+   * @param content - Content to add as string or bytes
+   * @param options - Add options
+   * @returns Promise resolving to IPFS file info
    */
   async add(content: string | Uint8Array, options: AddOptions = {}): Promise<IPFSFile> {
     if (!this.connected) {
@@ -130,11 +129,11 @@ export class IPFSService {
     }
 
     // TODO: Implement actual IPFS add operation
-    // For now, return a mock hash
-    const mockHash = `Qm${Math.random().toString(36).substring(2, 15)}`;
+    // For now, return a secure mock hash
+    const mockHash = `Qm${secureRandomBase36(13)}`;
     
     return {
-      name: options.wrapWithDirectory ? 'content' : '',
+      name: options.wrapWithDirectory === true ? 'content' : '',
       hash: mockHash,
       size: typeof content === 'string' ? content.length : content.length,
       type: 'file'
@@ -143,7 +142,8 @@ export class IPFSService {
 
   /**
    * Get content from IPFS
-   * @param hash
+   * @param hash - IPFS content identifier
+   * @returns Promise resolving to content bytes
    */
   async get(hash: string): Promise<Uint8Array> {
     if (!this.connected) {
@@ -156,7 +156,8 @@ export class IPFSService {
 
   /**
    * Pin content to IPFS
-   * @param hash
+   * @param hash - IPFS content identifier to pin
+   * @returns Promise that resolves when pinned
    */
   async pin(hash: string): Promise<void> {
     if (!this.connected) {
@@ -164,12 +165,13 @@ export class IPFSService {
     }
 
     // TODO: Implement IPFS pinning
-    console.log(`Pinning ${hash} - not yet implemented`);
+    console.warn(`Pinning ${hash} - not yet implemented`);
   }
 
   /**
    * Unpin content from IPFS
-   * @param hash
+   * @param hash - IPFS content identifier to unpin
+   * @returns Promise that resolves when unpinned
    */
   async unpin(hash: string): Promise<void> {
     if (!this.connected) {
@@ -177,14 +179,15 @@ export class IPFSService {
     }
 
     // TODO: Implement IPFS unpinning
-    console.log(`Unpinning ${hash} - not yet implemented`);
+    console.warn(`Unpinning ${hash} - not yet implemented`);
   }
 
   /**
    * List files in IPFS directory
-   * @param hash
+   * @param _hash - Directory hash (unused in mock)
+   * @returns Promise resolving to list of files
    */
-  async list(hash: string): Promise<IPFSFile[]> {
+  async list(_hash: string): Promise<IPFSFile[]> {
     if (!this.connected) {
       await this.connect();
     }
@@ -195,7 +198,8 @@ export class IPFSService {
 
   /**
    * Upload multiple files to IPFS
-   * @param files
+   * @param files - Array of files with paths and content
+   * @returns Promise resolving to array of IPFS file info
    */
   async addAll(files: Array<{ path: string; content: string | Uint8Array }>): Promise<IPFSFile[]> {
     if (!this.connected) {
@@ -216,10 +220,11 @@ export class IPFSService {
 
   /**
    * Upload a file to IPFS (compatibility method for minter)
-   * @param file
-   * @param name
+   * @param file - File or Blob to upload
+   * @param _name - Optional filename (unused)
+   * @returns Promise resolving to IPFS hash
    */
-  async uploadFile(file: File | Blob, name?: string): Promise<string> {
+  async uploadFile(file: File | Blob, _name?: string): Promise<string> {
     if (!this.connected) {
       await this.connect();
     }
@@ -234,12 +239,13 @@ export class IPFSService {
 
   /**
    * Get IPFS gateway URL for a hash
-   * @param hash
-   * @param filename
+   * @param hash - IPFS content identifier
+   * @param filename - Optional filename to append
+   * @returns Gateway URL string
    */
   getGatewayUrl(hash: string, filename?: string): string {
     const baseUrl = 'https://ipfs.io/ipfs';
-    return filename ? `${baseUrl}/${hash}/${filename}` : `${baseUrl}/${hash}`;
+    return filename !== undefined ? `${baseUrl}/${hash}/${filename}` : `${baseUrl}/${hash}`;
   }
 }
 

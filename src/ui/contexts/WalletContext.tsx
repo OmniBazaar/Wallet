@@ -4,6 +4,16 @@ import { BrowserProvider, Contract, formatEther, formatUnits, parseEther, parseU
 import { WalletState, WalletContextType, TokenInfo, Transaction } from '../../types/wallet';
 
 /**
+ * EIP-1193 Provider interface
+ */
+interface Eip1193Provider {
+  request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+  on: (event: string, handler: (data: unknown) => void) => void;
+}
+
+// Window ethereum typing is already declared in globals.d.ts
+
+/**
  * Initial state for the wallet context
  */
 const initialState: WalletState = {
@@ -20,7 +30,7 @@ const initialState: WalletState = {
  */
 type Action =
   | { type: 'CONNECT_START' }
-  | { type: 'CONNECT_SUCCESS'; payload: { address: string; chainId: number; provider: BrowserProvider } }
+  | { type: 'CONNECT_SUCCESS'; payload: { address: string; chainId: number; provider: { request: (params: unknown) => Promise<unknown> } } }
   | { type: 'CONNECT_ERROR'; payload: string }
   | { type: 'DISCONNECT' }
   | { type: 'UPDATE_CHAIN_ID'; payload: number };
@@ -68,12 +78,15 @@ const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
 /**
  * Provides wallet functionality to child components
- * @param children.children
- * @param children - React child components
+ * @param props - Component props
+ * @param props.children - React child components
  * @returns JSX element with wallet context provider
  */
-export function WalletProvider({ children }: { children: React.ReactNode }): JSX.Element {
+export function WalletProvider({ children }: { children: React.ReactNode }): React.JSX.Element {
   const [state, dispatch] = useReducer(reducer, initialState);
+  
+  // Store the actual BrowserProvider separately for internal use
+  let ethersProvider: BrowserProvider | null = null;
 
   /**
    * Connects to user's Web3 wallet (MetaMask, etc.)
@@ -83,15 +96,20 @@ export function WalletProvider({ children }: { children: React.ReactNode }): JSX
     try {
       dispatch({ type: 'CONNECT_START' });
 
-      if ((window as any).ethereum == null) {
+      if (typeof window.ethereum === 'undefined') {
         throw new Error('Please install MetaMask or another Web3 wallet');
       }
 
-      const provider = new BrowserProvider((window as any).ethereum);
-      const accounts: string[] = await provider.send('eth_requestAccounts', []);
+      const provider = new BrowserProvider(window.ethereum as Eip1193Provider);
+      ethersProvider = provider;
+      const accountsResponse: unknown = await provider.send('eth_requestAccounts', []);
+      if (!Array.isArray(accountsResponse)) {
+        throw new Error('Invalid response from wallet provider');
+      }
+      const accounts = accountsResponse as string[];
       const network = await provider.getNetwork();
 
-      if (!accounts[0]) {
+      if (accounts.length === 0 || typeof accounts[0] !== 'string') {
         throw new Error('No accounts available');
       }
 
@@ -100,28 +118,37 @@ export function WalletProvider({ children }: { children: React.ReactNode }): JSX
         payload: {
           address: accounts[0],
           chainId: Number(network.chainId),
-          provider,
+          provider: { 
+            request: async (params: unknown): Promise<unknown> => {
+              const result: unknown = await provider.send('eth_call', [params]);
+              return result;
+            }
+          },
         },
       });
 
       // Set up event listeners
-      (window as any).ethereum.on('accountsChanged', (accounts: string[]) => {
-        if (accounts.length === 0) {
+      const ethereumProvider = window.ethereum as Eip1193Provider;
+      ethereumProvider.on('accountsChanged', (accounts: unknown) => {
+        const accountsArray = accounts as string[];
+        if (accountsArray.length === 0) {
           dispatch({ type: 'DISCONNECT' });
-        } else if (accounts[0] && state.provider) {
+          ethersProvider = null;
+        } else if (typeof accountsArray[0] === 'string' && state.provider !== null) {
           dispatch({
             type: 'CONNECT_SUCCESS',
             payload: {
-              address: accounts[0],
-              chainId: state.chainId as number,
+              address: accountsArray[0],
+              chainId: state.chainId ?? 1,
               provider: state.provider,
             },
           });
         }
       });
 
-      (window as any).ethereum.on('chainChanged', (chainId: string) => {
-        dispatch({ type: 'UPDATE_CHAIN_ID', payload: parseInt(chainId, 16) });
+      ethereumProvider.on('chainChanged', (chainId: unknown) => {
+        const chainIdStr = chainId as string;
+        dispatch({ type: 'UPDATE_CHAIN_ID', payload: parseInt(chainIdStr, 16) });
       });
     } catch (error) {
       dispatch({ type: 'CONNECT_ERROR', payload: (error as Error).message });
@@ -132,6 +159,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }): JSX
    * Disconnects from the current wallet
    */
   const disconnect = (): void => {
+    ethersProvider = null;
     dispatch({ type: 'DISCONNECT' });
   };
 
@@ -141,13 +169,21 @@ export function WalletProvider({ children }: { children: React.ReactNode }): JSX
    * @throws {Error} When network switch fails
    */
   const switchNetwork = async (chainId: number): Promise<void> => {
+    if (typeof window.ethereum === 'undefined') {
+      throw new Error('No wallet provider available');
+    }
+    
     try {
-      await (window as any).ethereum.request({
+      const ethereumProvider = window.ethereum as Eip1193Provider;
+      const switchResult: unknown = await ethereumProvider.request({
         method: 'wallet_switchEthereumChain',
         params: [{ chainId: `0x${chainId.toString(16)}` }],
       });
+      // Acknowledge the result
+      void switchResult;
     } catch (error) {
-      throw new Error('Failed to switch network');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to switch network';
+      throw new Error(`Failed to switch network: ${errorMessage}`);
     }
   };
 
@@ -160,35 +196,31 @@ export function WalletProvider({ children }: { children: React.ReactNode }): JSX
    * @throws {Error} When wallet not connected or transaction fails
    */
   const sendTransaction = async (to: string, value: string, token?: TokenInfo): Promise<string> => {
-    if (!state.provider || !state.address) {
+    if (ethersProvider === null || state.address === null) {
       throw new Error('Wallet not connected');
     }
 
     try {
-      const signer = await state.provider.getSigner();
-      let tx: any;
-
-      if (token) {
+      const signer = await ethersProvider.getSigner();
+      
+      if (typeof token !== 'undefined') {
         // ERC20 token transfer
         const contract = new Contract(
           token.address,
           ['function transfer(address to, uint256 amount) returns (bool)'],
           signer
         );
-        const transferMethod = contract['transfer'];
-        if (!transferMethod || typeof transferMethod !== 'function') {
-          throw new Error('Transfer method not available');
-        }
-        tx = await transferMethod(to, parseUnits(value, token.decimals));
+        const transferMethod = contract.getFunction('transfer');
+        const tx = await transferMethod(to, parseUnits(value, token.decimals)) as { hash: string };
+        return tx.hash;
       } else {
         // Native token transfer
-        tx = await signer.sendTransaction({
+        const tx = await signer.sendTransaction({
           to,
           value: parseEther(value),
         });
+        return tx.hash;
       }
-
-      return tx.hash;
     } catch (error) {
       throw new Error('Transaction failed');
     }
@@ -201,25 +233,22 @@ export function WalletProvider({ children }: { children: React.ReactNode }): JSX
    * @throws {Error} When wallet not connected or balance query fails
    */
   const getBalance = async (token?: TokenInfo): Promise<string> => {
-    if (!state.provider || !state.address) {
+    if (ethersProvider === null || state.address === null) {
       throw new Error('Wallet not connected');
     }
 
     try {
-      if (token) {
+      if (typeof token !== 'undefined') {
         const contract = new Contract(
           token.address,
           ['function balanceOf(address owner) view returns (uint256)'],
-          state.provider
+          ethersProvider
         );
-        const balanceOfMethod = contract['balanceOf'];
-        if (!balanceOfMethod || typeof balanceOfMethod !== 'function') {
-          throw new Error('balanceOf method not available');
-        }
-        const balance = await balanceOfMethod(state.address);
+        const balanceOfMethod = contract.getFunction('balanceOf');
+        const balance = await balanceOfMethod(state.address) as bigint;
         return formatUnits(balance, token.decimals);
       } else {
-        const balance = await state.provider.getBalance(state.address);
+        const balance = await ethersProvider.getBalance(state.address);
         return formatEther(balance);
       }
     } catch (error) {
@@ -232,11 +261,11 @@ export function WalletProvider({ children }: { children: React.ReactNode }): JSX
    * @returns Array of transaction records
    * @todo Implement blockchain explorer integration
    */
-  const getTransactions = async (): Promise<Transaction[]> => {
+  const getTransactions = (): Promise<Transaction[]> => {
     // This is a placeholder. In a real implementation, you would:
     // 1. Query a blockchain explorer API
     // 2. Or maintain your own transaction history
-    return [];
+    return Promise.resolve([]);
   };
 
   return (

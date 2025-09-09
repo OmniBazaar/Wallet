@@ -84,7 +84,7 @@ interface TokenBalanceProps {
 /**
  * Component for displaying token balance and transfer functionality
  * @param props - Component props
- * @param props.tokenAddress
+ * @param props.tokenAddress - The address of the token contract
  * @returns Token balance component
  */
 export const TokenBalance: React.FC<TokenBalanceProps> = ({ tokenAddress }) => {
@@ -103,7 +103,7 @@ export const TokenBalance: React.FC<TokenBalanceProps> = ({ tokenAddress }) => {
   const handleTransfer = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
 
-    if (!tokenInfo) return;
+    if (tokenInfo === null) return;
 
     try {
       setToastType('pending');
@@ -142,11 +142,11 @@ export const TokenBalance: React.FC<TokenBalanceProps> = ({ tokenAddress }) => {
     return <OmniCoinLoading text="Loading token balance..." />;
   }
 
-  if (balanceError) {
+  if (typeof balanceError === 'string' && balanceError.length > 0) {
     return <OmniCoinToast type="error" message={balanceError} />;
   }
 
-  if (!tokenInfo) {
+  if (tokenInfo === null) {
     return <OmniCoinToast type="error" message="Token not found" />;
   }
 
@@ -161,7 +161,7 @@ export const TokenBalance: React.FC<TokenBalanceProps> = ({ tokenAddress }) => {
       )}
 
       <div style={tokenInfoStyle}>
-        {tokenInfo.logoURI && (
+        {typeof tokenInfo.logoURI === 'string' && tokenInfo.logoURI.length > 0 && (
           <img 
             src={tokenInfo.logoURI} 
             alt={tokenInfo.symbol}
@@ -177,7 +177,7 @@ export const TokenBalance: React.FC<TokenBalanceProps> = ({ tokenAddress }) => {
         </div>
       </div>
 
-      <form style={transferFormStyle} onSubmit={handleTransfer} aria-label="Token Transfer Form">
+      <form style={transferFormStyle} onSubmit={(e) => { void handleTransfer(e); }} aria-label="Token Transfer Form">
         <input
           type="text"
           placeholder="Recipient Address"
@@ -208,7 +208,7 @@ export const TokenBalance: React.FC<TokenBalanceProps> = ({ tokenAddress }) => {
         </button>
       </form>
 
-      {transferError && (
+      {typeof transferError === 'string' && transferError.length > 0 && (
         <OmniCoinToast type="error" message={transferError} />
       )}
     </div>

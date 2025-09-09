@@ -34,13 +34,23 @@ export class NFTService {
         return;
       }
 
-      await this.coreService.initialize();
+      if (typeof this.coreService.initialize === 'function') {
+        await this.coreService.initialize();
+      }
       this.isInitialized = true;
       // console.log('NFTService wrapper initialized');
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       throw new Error(`Failed to initialize NFT service: ${errorMessage}`);
     }
+  }
+
+  /**
+   * Initialize the NFT service (alias for init)
+   * @throws {Error} When initialization fails
+   */
+  async initialize(): Promise<void> {
+    return this.init();
   }
 
   /**
@@ -226,14 +236,18 @@ export class NFTService {
    * Discover NFTs for the active account
    */
   async discoverNFTs(): Promise<void> {
-    return await this.coreService.discoverNFTs();
+    if (typeof this.coreService.discoverNFTs === 'function') {
+      return await this.coreService.discoverNFTs();
+    }
   }
 
   /**
    * Clear cache and reset data
    */
   async clearCache(): Promise<void> {
-    await this.coreService.clearCache();
+    if (typeof this.coreService.clearCache === 'function') {
+      await this.coreService.clearCache();
+    }
     // console.log('NFTService wrapper cache cleared');
   }
 
@@ -242,7 +256,9 @@ export class NFTService {
    */
   async cleanup(): Promise<void> {
     try {
-      await this.coreService.cleanup();
+      if (typeof this.coreService.cleanup === 'function') {
+        await this.coreService.cleanup();
+      }
       this.isInitialized = false;
       // console.log('NFTService wrapper cleanup completed');
     } catch (error) {

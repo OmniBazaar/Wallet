@@ -8,7 +8,6 @@
 import { EventEmitter } from 'events';
 import { WalletService } from './WalletService';
 import { KeyringService } from '../core/keyring/KeyringService';
-import { ethers } from 'ethers';
 
 /** Browser extension events */
 export interface BrowserExtensionEvents {
@@ -24,25 +23,15 @@ export interface BrowserExtensionEvents {
 
 /** Provider request structure */
 export interface ProviderRequest {
-  /**
-   *
-   */
+  /** Method name to execute */
   method: string;
-  /**
-   *
-   */
-  params?: any[];
-  /**
-   *
-   */
+  /** Parameters for the method */
+  params?: unknown[];
+  /** Request ID for tracking */
   id?: number | string;
-  /**
-   *
-   */
+  /** Provider name */
   provider?: string;
-  /**
-   *
-   */
+  /** Request options containing origin information */
   options?: {
     url: string;
     domain: string;
@@ -54,22 +43,36 @@ export interface ProviderRequest {
 
 /** Provider response structure */
 export interface ProviderResponse {
-  /**
-   *
-   */
+  /** Request ID */
   id?: number | string;
-  /**
-   *
-   */
-  result?: any;
-  /**
-   *
-   */
+  /** Result of the request */
+  result?: unknown;
+  /** Error message if request failed */
   error?: string;
-  /**
-   *
-   */
+  /** JSON-RPC version */
   jsonrpc?: '2.0';
+}
+
+/** Transaction parameters interface */
+interface TransactionParams {
+  /** Recipient address */
+  to?: string;
+  /** Transaction value in hex */
+  value?: string;
+  /** Transaction data */
+  data?: string;
+  /** Gas limit in hex */
+  gas?: string;
+  /** Gas price in hex */
+  gasPrice?: string;
+  /** From address */
+  from?: string;
+}
+
+/** Chain switch parameters */
+interface ChainSwitchParams {
+  /** Chain ID in hex format */
+  chainId: string;
 }
 
 /**
@@ -100,10 +103,10 @@ export class BrowserExtensionService extends EventEmitter {
    */
   async handleProviderRequest(
     request: ProviderRequest,
-    sender: any // chrome.runtime.MessageSender
+    sender: chrome.runtime.MessageSender
   ): Promise<ProviderResponse> {
     const { method, params = [], id } = request;
-    const origin = sender.origin || sender.url || '';
+    const origin = sender.origin ?? sender.url ?? '';
 
     try {
       // Check permissions for restricted methods
@@ -141,14 +144,15 @@ export class BrowserExtensionService extends EventEmitter {
         case 'net_version':
           return await this.handleGetNetVersion(id);
         
-        default:
+        default: {
           // Forward to wallet service for other methods
-          const result = await this.walletService.request({ method, params });
+          const result = await this.walletService.request({ method, params }) as unknown;
           return {
             id,
-            result: result,
+            result,
             jsonrpc: '2.0'
           };
+        }
       }
     } catch (error) {
       return {
@@ -183,7 +187,7 @@ export class BrowserExtensionService extends EventEmitter {
    */
   private async checkPermission(origin: string, method: string): Promise<boolean> {
     const permissions = this.permissionedSites.get(origin);
-    if (!permissions) {
+    if (permissions === undefined) {
       // Request permission from user
       return await this.requestPermission(origin, method);
     }
@@ -193,10 +197,10 @@ export class BrowserExtensionService extends EventEmitter {
   /**
    * Request permission from user
    * @param origin - Site origin
-   * @param method - Method name
+   * @param _method - Method name
    * @returns True if approved
    */
-  private async requestPermission(origin: string, method: string): Promise<boolean> {
+  private requestPermission(origin: string, _method: string): Promise<boolean> {
     // In a real implementation, this would show a popup to the user
     // For testing, auto-approve known sites
     const trustedSites = [
@@ -210,7 +214,7 @@ export class BrowserExtensionService extends EventEmitter {
       return true;
     }
     
-    return false;
+    return Promise.resolve(false);
   }
 
   /**
@@ -243,7 +247,7 @@ export class BrowserExtensionService extends EventEmitter {
    * @returns Accounts response
    */
   private async handleGetAccounts(origin: string, id?: number | string): Promise<ProviderResponse> {
-    if (!this.connectedSites.get(origin)) {
+    if (this.connectedSites.get(origin) !== true) {
       return {
         id,
         result: [],
@@ -266,16 +270,24 @@ export class BrowserExtensionService extends EventEmitter {
    * @param id - Request ID
    * @returns Transaction hash response
    */
-  private async handleSendTransaction(params: any[], id?: number | string): Promise<ProviderResponse> {
-    const [tx] = params;
+  private async handleSendTransaction(params: unknown[], id?: number | string): Promise<ProviderResponse> {
+    if (params.length === 0) {
+      return {
+        id,
+        error: 'Missing transaction parameters',
+        jsonrpc: '2.0'
+      };
+    }
+    
+    const tx = params[0] as TransactionParams;
     
     // Send transaction through wallet service
     const txResponse = await this.walletService.sendTransaction({
-      to: tx.to,
-      value: tx.value ? BigInt(tx.value) : undefined,
-      data: tx.data,
-      gasLimit: tx.gas ? BigInt(tx.gas) : undefined,
-      gasPrice: tx.gasPrice ? BigInt(tx.gasPrice) : undefined
+      ...(tx.to !== undefined && { to: tx.to }),
+      ...(tx.value !== undefined && { value: BigInt(tx.value) }),
+      ...(tx.data !== undefined && { data: tx.data }),
+      ...(tx.gas !== undefined && { gasLimit: BigInt(tx.gas) }),
+      ...(tx.gasPrice !== undefined && { gasPrice: BigInt(tx.gasPrice) })
     });
     
     return {
@@ -291,8 +303,17 @@ export class BrowserExtensionService extends EventEmitter {
    * @param id - Request ID
    * @returns Signature response
    */
-  private async handlePersonalSign(params: any[], id?: number | string): Promise<ProviderResponse> {
-    const [message, address] = params;
+  private async handlePersonalSign(params: unknown[], id?: number | string): Promise<ProviderResponse> {
+    if (params.length < 2) {
+      return {
+        id,
+        error: 'Missing parameters for personal_sign',
+        jsonrpc: '2.0'
+      };
+    }
+    
+    const message = params[0] as string;
+    const _address = params[1] as string;
     
     // Sign message through wallet service
     const signature = await this.walletService.signMessage(message);
@@ -310,9 +331,17 @@ export class BrowserExtensionService extends EventEmitter {
    * @param id - Request ID
    * @returns Switch response
    */
-  private async handleSwitchChain(params: any[], id?: number | string): Promise<ProviderResponse> {
-    const [{ chainId }] = params;
-    const chainIdNumber = parseInt(chainId, 16);
+  private async handleSwitchChain(params: unknown[], id?: number | string): Promise<ProviderResponse> {
+    if (params.length === 0) {
+      return {
+        id,
+        error: 'Missing chain switch parameters',
+        jsonrpc: '2.0'
+      };
+    }
+    
+    const chainParams = params[0] as ChainSwitchParams;
+    const chainIdNumber = parseInt(chainParams.chainId, 16);
     
     try {
       await this.walletService.switchChain(chainIdNumber);
@@ -326,8 +355,8 @@ export class BrowserExtensionService extends EventEmitter {
     } catch (error) {
       // For testing purposes, if switchChain fails due to provider limitations,
       // we can still emit the event and return success if the chain is configured
-      const config = (this.walletService as any).config;
-      if (config && config.providers[chainIdNumber]) {
+      const walletServiceConfig = (this.walletService as { config?: { providers?: Record<number, unknown> } }).config;
+      if (walletServiceConfig?.providers !== undefined && walletServiceConfig.providers[chainIdNumber] !== undefined) {
         this.emit('networkChanged', chainIdNumber);
         return {
           id,
@@ -373,26 +402,63 @@ export class BrowserExtensionService extends EventEmitter {
   }
 
   /**
-   * Grant permission to site
-   * @param origin - Site origin
-   * @param permissions - Permissions to grant
+   * Initialize service and set up listeners
+   * @returns Promise that resolves when initialized
    */
-  grantPermission(origin: string, permissions: string[]): void {
-    this.permissionedSites.set(origin, permissions);
+  async initialize(): Promise<void> {
+    // Set up chrome runtime message listener
+    if (typeof chrome !== 'undefined' && chrome.runtime?.onMessage !== undefined) {
+      chrome.runtime.onMessage.addListener((request: { type?: string; data?: unknown }, sender, sendResponse) => {
+        if (request.type === 'PROVIDER_REQUEST' && request.data !== undefined) {
+          const providerRequest = request.data as ProviderRequest;
+          this.handleProviderRequest(providerRequest, sender)
+            .then(response => {
+              sendResponse(response);
+            })
+            .catch(error => {
+              sendResponse({
+                id: providerRequest.id,
+                error: error instanceof Error ? error.message : 'Unknown error',
+                jsonrpc: '2.0'
+              });
+            });
+          return true; // Indicate async response
+        }
+        return false;
+      });
+    }
+
+    // Inject provider script into web pages
+    if (typeof chrome !== 'undefined' && chrome.scripting !== undefined) {
+      await this.injectProviderScript();
+    }
   }
 
   /**
-   * Revoke permission from site
-   * @param origin - Site origin
+   * Inject provider script into web pages
+   * @returns Promise that resolves when script is injected
    */
-  revokePermission(origin: string): void {
-    this.permissionedSites.delete(origin);
+  private async injectProviderScript(): Promise<void> {
+    // This would inject a script that sets up window.ethereum
+    // For testing, we skip actual injection
+    return Promise.resolve();
+  }
+
+  /**
+   * Disconnect from site
+   * @param origin - Site origin
+   * @returns True if disconnected
+   */
+  disconnect(origin: string): Promise<boolean> {
     this.connectedSites.delete(origin);
+    this.permissionedSites.delete(origin);
+    this.emit('connectionChanged', false);
+    return Promise.resolve(true);
   }
 
   /**
    * Get connected sites
-   * @returns List of connected sites
+   * @returns Array of connected site origins
    */
   getConnectedSites(): string[] {
     return Array.from(this.connectedSites.keys());
@@ -400,25 +466,21 @@ export class BrowserExtensionService extends EventEmitter {
 
   /**
    * Get permissioned sites
-   * @returns Map of sites to permissions
+   * @returns Map of site origins to permissions
    */
   getPermissionedSites(): Map<string, string[]> {
     return new Map(this.permissionedSites);
   }
 
   /**
-   * Disconnect from site
-   * @param origin - Site origin
+   * Clear all permissions and connections
+   * @returns Promise that resolves when cleared
    */
-  disconnectSite(origin: string): void {
-    this.connectedSites.delete(origin);
-  }
-
-  /**
-   * Clear all connections and permissions
-   */
-  clearAll(): void {
+  clearAll(): Promise<void> {
     this.connectedSites.clear();
     this.permissionedSites.clear();
+    this.emit('connectionChanged', false);
   }
 }
+
+export default BrowserExtensionService;

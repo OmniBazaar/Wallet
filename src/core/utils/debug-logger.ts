@@ -82,7 +82,8 @@ type ParsedConfig = {
 /**
  * Parse a compact debug configuration string into a structured config.
  * Avoids undefined option values to satisfy exactOptionalPropertyTypes.
- * @param string
+ * @param string - Configuration string to parse
+ * @returns Parsed configuration object
  */
 function parseConfig(string: string): ParsedConfig {
   const wildcards = new Map<string, WildcardSearchConfig>();
@@ -104,18 +105,20 @@ function parseConfig(string: string): ParsedConfig {
     if (line === "*") {
       defaultAllow = true;
     } else if (/^\([a-zA-Z]\)$/i.test(line)) {
-      defaultLevel = line.slice(1, -1).trim().toLowerCase() || defaultLevel;
+      const parsedLevel = line.slice(1, -1).trim().toLowerCase();
+      defaultLevel = parsedLevel !== '' ? parsedLevel : defaultLevel;
     } else {
       let lineWithoutLevel: string;
       const levelmatch = line.match(/\([a-zA-Z]+\)/i);
       let level: string | undefined;
-      if (levelmatch) {
+      if (levelmatch !== null) {
         const levelRaw = levelmatch[0];
         const leveli = line.indexOf(levelRaw);
         lineWithoutLevel = (
           line.slice(0, leveli) + line.slice(leveli + levelRaw.length)
         ).trim();
-        level = levelRaw.slice(1, -1).trim().toLowerCase() || undefined;
+        const trimmedLevel = levelRaw.slice(1, -1).trim().toLowerCase();
+        level = trimmedLevel !== '' ? trimmedLevel : undefined;
       } else {
         lineWithoutLevel = line;
       }
@@ -176,10 +179,17 @@ const defaultParsedConfig: ParsedConfig = {
   exacts: new Map(),
 };
 
+/**
+ * Get debug configuration string from global context
+ * @returns Debug configuration string or undefined
+ */
 function getDebugConfigString(): undefined | string {
   // Load from global
   if (typeof globalThis !== "undefined") {
-    const confString = (globalThis as any)?.__ENKRYPT_DEBUG_LOG_CONF__;
+    interface GlobalWithDebugConfig {
+      __ENKRYPT_DEBUG_LOG_CONF__?: unknown;
+    }
+    const confString = (globalThis as unknown as GlobalWithDebugConfig).__ENKRYPT_DEBUG_LOG_CONF__;
     if (typeof confString === "string") return confString;
   }
   return undefined;
@@ -209,7 +219,7 @@ class DebugLogEnabler {
     const cached = this._cache.get(name);
     if (cached !== undefined) return cached;
     const exact = this._config.exacts.get(name);
-    if (exact) {
+    if (exact !== undefined) {
       let level: number;
       if (exact.forceAllow) level = exact.level ?? this._config.defaultLevel;
       else if (exact.forceDisallow) level = LogLevel.DISABLED;
@@ -236,25 +246,44 @@ class DebugLogEnabler {
   }
 }
 
+// Define global interface for debug configuration
+interface GlobalDebugConfig {
+  __ENKRYPT_DEBUG_LOG_CONF__?: unknown;
+  __ENKRYPT_DEBUG_LOG_ENABLER__?: DebugLogEnabler;
+}
+
 // Initialise this before creating a DebugLogEnabler instance
-let currentConfString = (globalThis as any).__ENKRYPT_DEBUG_LOG_CONF__;
-Object.defineProperty(globalThis as any, "__ENKRYPT_DEBUG_LOG_CONF__", {
+const globalDebug = globalThis as unknown as GlobalDebugConfig;
+let currentConfString = globalDebug.__ENKRYPT_DEBUG_LOG_CONF__;
+
+Object.defineProperty(globalDebug, "__ENKRYPT_DEBUG_LOG_CONF__", {
   get() {
     return currentConfString;
   },
-  set(value) {
+  set(value: unknown) {
     currentConfString = value;
-    ((globalThis as any).__ENKRYPT_DEBUG_LOG_ENABLER__ as DebugLogEnabler)?.refresh?.();
+    const enabler = globalDebug.__ENKRYPT_DEBUG_LOG_ENABLER__;
+    if (enabler !== undefined) {
+      enabler.refresh();
+    }
   },
 });
 
 // Parses the debug logger configuration string, provides
 // log levels and caches results
-;(globalThis as any).__ENKRYPT_DEBUG_LOG_ENABLER__ = new DebugLogEnabler();
-;(globalThis as any).__ENKRYPT_DEBUG_LOG_ENABLER__.refresh();
+globalDebug.__ENKRYPT_DEBUG_LOG_ENABLER__ = new DebugLogEnabler();
+globalDebug.__ENKRYPT_DEBUG_LOG_ENABLER__.refresh();
 
+/**
+ * Get the global debug log enabler instance
+ * @returns DebugLogEnabler instance
+ */
 function getEnabler(): DebugLogEnabler {
-  return (globalThis as any).__ENKRYPT_DEBUG_LOG_ENABLER__;
+  const enabler = globalDebug.__ENKRYPT_DEBUG_LOG_ENABLER__;
+  if (enabler === undefined) {
+    throw new Error('Debug log enabler not initialized');
+  }
+  return enabler;
 }
 
 /**
@@ -308,27 +337,29 @@ export class DebugLogger {
   _level?: number;
 
   /**
-   *
-   * @param name
-   * @param opts
-   * @param opts.level
+   * Create a new DebugLogger instance
+   * @param name - Logger name/namespace
+   * @param opts - Options object
+   * @param opts.level - Minimum log level as string or number
    */
   constructor(name: string, opts?: { level?: string | number }) {
     this._name = name;
     this._color = true;
     this._level =
-      typeof opts?.level === "string" ? levelToNumber(opts.level) : (opts?.level || 0);
+      typeof opts?.level === "string" ? levelToNumber(opts.level) : (opts?.level ?? 0);
   }
 
   /**
-   *
+   * Check if logging is enabled for this logger
+   * @returns True if logging is enabled
    */
   enabled(): boolean {
     return this.level() > LogLevel.DISABLED;
   }
 
   /**
-   *
+   * Get the current log level for this logger
+   * @returns Numeric log level
    */
   level(): number {
     if (this._level !== undefined) return this._level;
@@ -336,8 +367,9 @@ export class DebugLogger {
   }
 
   /**
-   *
-   * @param levelNumber
+   * Format the log message header with timestamp and level
+   * @param levelNumber - Numeric log level
+   * @returns Formatted header string
    */
   _formatHeader(levelNumber: number): string {
     const timestamp = new Date();
@@ -382,12 +414,12 @@ export class DebugLogger {
     let msgHeader = `${timestampStr}`;
 
     let contextStr = "";
-    if (this._name) {
+    if (this._name !== '') {
       let nameStr = this._name;
-      if (this._color && nameStr) nameStr = `\x1b[90m${nameStr}\x1b[0m`;
+      if (this._color && nameStr !== '') nameStr = `\x1b[90m${nameStr}\x1b[0m`;
       contextStr += nameStr;
     }
-    if (contextStr) {
+    if (contextStr !== '') {
       msgHeader += ` [${contextStr}]`;
     }
 
@@ -397,16 +429,16 @@ export class DebugLogger {
   }
 
   /**
-   *
-   * @param {...any} _args
+   * Silent log level - drops all messages
+   * @param _args - Arguments to log (ignored)
    */
   silent(..._args: unknown[]): void {
     // Drop
   }
 
   /**
-   *
-   * @param {...any} args
+   * Log at trace level
+   * @param args - Arguments to log
    */
   trace(...args: unknown[]): void {
     const level = this.level();
@@ -415,8 +447,8 @@ export class DebugLogger {
   }
 
   /**
-   *
-   * @param {...any} args
+   * Log at debug level
+   * @param args - Arguments to log
    */
   debug(...args: unknown[]): void {
     const level = this.level();
@@ -425,8 +457,8 @@ export class DebugLogger {
   }
 
   /**
-   *
-   * @param {...any} args
+   * Log at info level
+   * @param args - Arguments to log
    */
   info(...args: unknown[]): void {
     const level = this.level();
@@ -435,8 +467,8 @@ export class DebugLogger {
   }
 
   /**
-   *
-   * @param {...any} args
+   * Log at warn level
+   * @param args - Arguments to log
    */
   warn(...args: unknown[]): void {
     const level = this.level();
@@ -445,8 +477,8 @@ export class DebugLogger {
   }
 
   /**
-   *
-   * @param {...any} args
+   * Log at error level
+   * @param args - Arguments to log
    */
   error(...args: unknown[]): void {
     const level = this.level();

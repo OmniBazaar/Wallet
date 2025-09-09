@@ -95,14 +95,16 @@ export class ContractManager {
   }
 
   /**
-   *
+   * Get the Ethereum network provider
+   * @returns Ethereum JsonRpcProvider instance
    */
   public getEthereumProvider(): ethers.JsonRpcProvider {
     return this.ethereumProvider;
   }
 
   /**
-   *
+   * Get the contract configuration
+   * @returns Contract configuration object
    */
   public getConfig(): ContractConfig {
     return this.config;

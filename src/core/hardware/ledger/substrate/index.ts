@@ -28,7 +28,8 @@ interface SubstrateSignResponse {
 }
 
 /**
- *
+ * Ledger hardware wallet provider for Substrate-based blockchains
+ * Handles operations for Polkadot, Kusama, and other Substrate chains
  */
 class LedgerSubstrate implements HWWalletProvider {
   transport: Transport | null;
@@ -36,8 +37,8 @@ class LedgerSubstrate implements HWWalletProvider {
   network: string;
 
   /**
-   *
-   * @param network
+   * Creates a new LedgerSubstrate instance
+   * @param network - The Substrate network to connect to
    */
   constructor(network: string) {
     this.transport = null;
@@ -45,11 +46,12 @@ class LedgerSubstrate implements HWWalletProvider {
   }
 
   /**
-   *
-   * @param options
+   * Validates the derivation path and network configuration
+   * @param options - Request options containing path and network info
    */
   validatePathAndNetwork(options: getAddressRequest | SignTransactionRequest): void {
-    if (!LedgerApps[this.network])
+    const app = LedgerApps[this.network];
+    if (app === undefined)
       throw new Error("ledger-substrate: Invalid network name");
     const pathValues = bip32ToAddressNList(
       options.pathType.path.replace(`{index}`, options.pathIndex.toString()),
@@ -59,10 +61,11 @@ class LedgerSubstrate implements HWWalletProvider {
   }
 
   /**
-   *
+   * Initializes the Ledger transport connection
+   * @returns Promise resolving to true if initialization succeeds
    */
   async init(): Promise<boolean> {
-    if (!this.transport) {
+    if (this.transport === null) {
       const support = await webUsbTransport.isSupported();
       if (support) {
         this.transport = await webUsbTransport.create();
@@ -76,22 +79,25 @@ class LedgerSubstrate implements HWWalletProvider {
   }
 
   /**
-   *
-   * @param options
+   * Gets a Substrate address from the Ledger device
+   * @param options - Address request options including path and index
+   * @returns Promise resolving to address response
    */
   async getAddress(options: getAddressRequest): Promise<AddressResponse> {
     this.validatePathAndNetwork(options);
     const app = LedgerApps[this.network];
-    if (!app) {
+    if (app === undefined) {
       return Promise.reject(new Error("ledger-substrate: App not found for network"));
     }
-    if (!this.transport) {
+    if (this.transport === null) {
       return Promise.reject(new Error("ledger-substrate: Transport not initialized"));
     }
     const pathValues = bip32ToAddressNList(
       options.pathType.path.replace(`{index}`, options.pathIndex.toString()),
     );
-    const connection = app(this.transport);
+    const connection = app(this.transport) as {
+      getAddress(account: number, addressIndex: number, accountIndex: number, confirmAddress?: boolean): Promise<SubstrateAddressResponse>;
+    };
     return connection
       .getAddress(
         pathValues[0],
@@ -106,7 +112,8 @@ class LedgerSubstrate implements HWWalletProvider {
   }
 
   /**
-   *
+   * Signs a message (not implemented for Substrate)
+   * @throws Always throws an error as this is not supported
    */
   signMessage(): never {
     throw new Error("Not Supported");
@@ -117,7 +124,7 @@ class LedgerSubstrate implements HWWalletProvider {
    * @returns Array of supported path types
    */
   getSupportedPaths(): PathType[] {
-    return supportedPaths || [];
+    return supportedPaths ?? [];
   }
 
   /**
@@ -130,23 +137,26 @@ class LedgerSubstrate implements HWWalletProvider {
   }
 
   /**
-   *
-   * @param networkName
+   * Checks if the Ledger is connected for a specific network
+   * @param networkName - The network name to check
+   * @returns Promise resolving to connection status
    */
   isConnected(networkName: string): Promise<boolean> {
     return ConnectToLedger.bind(this)(networkName);
   }
 
   /**
-   *
+   * Signs a personal message (not supported for Substrate)
+   * @returns Never resolves as it always throws
    */
   signPersonalMessage(): Promise<string> {
     throw new Error("hw-wallet:substrate: sign Personal message not supported");
   }
 
   /**
-   *
-   * @param _request
+   * Signs a typed message (not supported for Substrate)
+   * @param _request - Typed message request (unused)
+   * @returns Promise that always rejects
    */
   signTypedMessage(_request: SignTypedMessageRequest): Promise<string> {
     return Promise.reject(
@@ -155,8 +165,9 @@ class LedgerSubstrate implements HWWalletProvider {
   }
 
   /**
-   *
-   * @param options
+   * Signs a Substrate transaction
+   * @param options - Transaction signing options
+   * @returns Promise resolving to hex signature
    */
   async signTransaction(options: SignTransactionRequest): Promise<string> {
     this.validatePathAndNetwork(options);
@@ -164,14 +175,16 @@ class LedgerSubstrate implements HWWalletProvider {
       options.pathType.path.replace(`{index}`, options.pathIndex.toString()),
     );
     const app = LedgerApps[this.network];
-    if (!app) {
+    if (app === undefined) {
       return Promise.reject(new Error("ledger-substrate: App not found for network"));
     }
-    if (!this.transport) {
+    if (this.transport === null) {
       return Promise.reject(new Error("ledger-substrate: Transport not initialized"));
     }
     const tx = options.transaction as ExtrinsicPayload;
-    const connection = app(this.transport);
+    const connection = app(this.transport) as {
+      sign(account: number, addressIndex: number, accountIndex: number, message: Buffer): Promise<SubstrateSignResponse>;
+    };
     return connection
       .sign(
         pathValues[0],
@@ -187,14 +200,16 @@ class LedgerSubstrate implements HWWalletProvider {
   }
 
   /**
-   *
+   * Gets the list of supported Substrate networks
+   * @returns Array of network names
    */
   static getSupportedNetworks(): NetworkNames[] {
     return Object.keys(LedgerApps) as NetworkNames[];
   }
 
   /**
-   *
+   * Gets the capabilities of the Ledger Substrate wallet
+   * @returns Array of capability identifiers
    */
   static getCapabilities(): string[] {
     return [HWwalletCapabilities.signTx];

@@ -593,7 +593,10 @@ describe('KeyringService Security Tests', () => {
       const account = await keyringService.createAccount('ethereum', 'Test');
       expect(account).toBeDefined();
       
-      // Balance check might fail but shouldn't throw
+      // Simulate provider failure by clearing the ethereum provider
+      (keyringService as any).providers.delete('ethereum');
+      
+      // Balance check should gracefully fall back to 0 instead of throwing
       const balance = await keyringService.getBalance(account.address);
       expect(balance).toBe('0'); // Falls back to 0 on error
     });

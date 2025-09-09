@@ -6,9 +6,27 @@
 
 import { ProviderName, ProviderRPCRequest } from '@/types/provider';
 
-// Use casts to interact with injected providers without imposing global types
+/**
+ * Logger instance for consistent logging across content script
+ */
+interface Logger {
+  warn: (message: string, ...args: unknown[]) => void;
+  error: (message: string, ...args: unknown[]) => void;
+}
 
-console.warn('🌐 OmniBazaar Wallet content script loaded');
+const logger: Logger = {
+  warn: (message: string, ...args: unknown[]) => {
+    // eslint-disable-next-line no-console
+    console.warn(message, ...args);
+  },
+  error: (message: string, ...args: unknown[]) => {
+    // eslint-disable-next-line no-console
+    console.error(message, ...args);
+  }
+};
+
+// Use casts to interact with injected providers without imposing global types
+logger.warn('🌐 OmniBazaar Wallet content script loaded');
 
 /** Track which providers have been injected to avoid duplicates */
 const injectedProviders = new Set<string>();
@@ -19,7 +37,7 @@ const injectedProviders = new Set<string>();
  */
 chrome.runtime.onMessage.addListener((message: unknown, _sender: unknown, sendResponse: (response?: unknown) => void) => {
   const msg = (typeof message === 'object' && message !== null ? message : { type: 'UNKNOWN' }) as { type: string; data?: unknown };
-  console.warn('📨 Content script received message:', msg.type);
+  logger.warn('📨 Content script received message:', msg.type);
 
   switch (msg.type) {
     case 'PROVIDER_NOTIFICATION':
@@ -35,7 +53,7 @@ chrome.runtime.onMessage.addListener((message: unknown, _sender: unknown, sendRe
       break;
 
     default:
-      console.warn('Unknown message type in content script:', msg.type);
+      logger.warn('Unknown message type in content script:', msg.type);
       }
 
   return true;
@@ -46,8 +64,8 @@ chrome.runtime.onMessage.addListener((message: unknown, _sender: unknown, sendRe
  * @returns The favicon URL or empty string if not found
  */
 function getFaviconUrl(): string {
-  const favicon = document.querySelector('link[rel*="icon"]') as HTMLLinkElement;
-  return favicon != null ? favicon.href : '';
+  const favicon = document.querySelector('link[rel*="icon"]');
+  return favicon !== null ? (favicon as HTMLLinkElement).href : '';
 }
 
 /**
@@ -57,7 +75,7 @@ function getFaviconUrl(): string {
  */
 function handleProviderNotification(data: string): void {
   try {
-    const notification = JSON.parse(data);
+    const notification = JSON.parse(data) as unknown;
 
     // Forward to injected provider
     window.postMessage({
@@ -65,7 +83,7 @@ function handleProviderNotification(data: string): void {
       data: notification
     }, '*');
   } catch (error) {
-    console.error('Failed to handle provider notification:', error);
+    logger.error('Failed to handle provider notification:', error);
   }
 }
 
@@ -76,15 +94,15 @@ function handleProviderNotification(data: string): void {
  * @returns Promise resolving to the background script response
  * @throws {Error} When the Chrome runtime encounters an error
  */
-async function sendToBackground(type: string, data: unknown): Promise<any> {
+async function sendToBackground(type: string, data: unknown): Promise<unknown> {
   return await new Promise((resolve) => {
     try {
       const maybePromise = chrome.runtime.sendMessage({ type, data }, (response: unknown) => {
         resolve(response);
       });
       // Some environments return a Promise; handle that too
-      if (maybePromise && typeof (maybePromise as Promise<unknown>).then === 'function') {
-        (maybePromise as Promise<unknown>).then(resolve).catch((err) => resolve({ error: String(err) }));
+      if (maybePromise !== undefined && typeof (maybePromise as { then?: unknown }).then === 'function') {
+        void (maybePromise as Promise<unknown>).then(resolve).catch((err) => resolve({ error: String(err) }));
       }
     } catch (err) {
       resolve({ error: err instanceof Error ? err.message : String(err) });
@@ -101,7 +119,7 @@ type EventCallback = (detail: unknown) => void;
  * @returns The OmniBazaar provider object
  */
 function createOmniBazaarProvider(): unknown {
-  console.warn('🔗 Creating OmniBazaar provider');
+  logger.warn('🔗 Creating OmniBazaar provider');
 
   const provider = {
     isOmniBazaar: true,
@@ -109,7 +127,7 @@ function createOmniBazaarProvider(): unknown {
 
     // Standard Web3 provider methods
     request: async (args: ProviderRPCRequest) => {
-      console.warn('🔗 OmniBazaar provider request:', args.method);
+      logger.warn('🔗 OmniBazaar provider request:', args.method);
 
       const response = await sendToBackground('PROVIDER_REQUEST', {
         ...args,
@@ -123,16 +141,17 @@ function createOmniBazaarProvider(): unknown {
         }
       });
 
-      if (response.error) {
-        throw new Error(response.error);
+      const resp = response as { error?: string; result?: string };
+      if (resp.error !== undefined && resp.error.length > 0) {
+        throw new Error(resp.error);
       }
 
-      return JSON.parse(response.result || 'null');
+      return JSON.parse(resp.result ?? 'null') as unknown;
     },
 
     // Event handling
-    on: (event: string, callback: EventCallback) => {
-      const handler = (e: Event) => callback((e as CustomEvent).detail);
+    on: (event: string, callback: EventCallback): void => {
+      const handler = (e: Event): void => callback((e as CustomEvent).detail);
       window.addEventListener(`omnibazaar_${event}`, handler as EventListener);
     },
 
@@ -171,7 +190,7 @@ type LegacyCallback = (error: Error | null, result?: unknown) => void;
  * @returns The Ethereum provider object
  */
 function createEthereumProvider(): unknown {
-  console.warn('🔗 Creating Ethereum provider');
+  logger.warn('🔗 Creating Ethereum provider');
 
   const provider = {
     isMetaMask: false, // Don't pretend to be MetaMask
@@ -181,7 +200,7 @@ function createEthereumProvider(): unknown {
     selectedAddress: null,
 
     request: async (args: ProviderRPCRequest) => {
-      console.warn('🔗 Ethereum provider request:', args.method);
+      logger.warn('🔗 Ethereum provider request:', args.method);
 
       const response = await sendToBackground('PROVIDER_REQUEST', {
         ...args,
@@ -195,11 +214,12 @@ function createEthereumProvider(): unknown {
         }
       });
 
-      if (response.error) {
-        throw new Error(response.error);
+      const resp = response as { error?: string; result?: string };
+      if (resp.error !== undefined && resp.error.length > 0) {
+        throw new Error(resp.error);
       }
 
-      return JSON.parse(response.result || 'null');
+      return JSON.parse(resp.result ?? 'null') as unknown;
     },
 
     // Legacy methods for older dApps
@@ -209,13 +229,13 @@ function createEthereumProvider(): unknown {
 
     sendAsync: (request: ProviderRPCRequest, callback: LegacyCallback) => {
       provider.request(request)
-        .then(result => callback(null, { id: request.id, jsonrpc: '2.0', result }))
-        .catch(error => callback(error));
+        .then((result: unknown) => callback(null, { id: request.id, jsonrpc: '2.0', result }))
+        .catch((error: unknown) => callback(error instanceof Error ? error : new Error(String(error))));
     },
 
     // Event handling
-    on: (event: string, callback: EventCallback) => {
-      const handler = (e: Event) => callback((e as CustomEvent).detail);
+    on: (event: string, callback: EventCallback): void => {
+      const handler = (e: Event): void => callback((e as CustomEvent).detail);
       window.addEventListener(`ethereum_${event}`, handler as EventListener);
     },
 
@@ -234,24 +254,33 @@ function createEthereumProvider(): unknown {
 }
 
 /**
+ * Extended window interface for provider injection
+ */
+interface ExtendedWindow extends Window {
+  omnibazaar?: unknown;
+  ethereum?: unknown;
+}
+
+/**
  * Injects Web3 providers into the page's window object
  * Creates both OmniBazaar and Ethereum providers for maximum dApp compatibility
  */
 function injectProviders(): void {
-  if ((window as any).omnibazaar) {
-    console.warn('🔄 OmniBazaar provider already exists');
+  const extWindow = window as ExtendedWindow;
+  if (extWindow.omnibazaar !== undefined) {
+    logger.warn('🔄 OmniBazaar provider already exists');
     return;
   }
 
-  console.warn('💉 Injecting OmniBazaar providers');
+  logger.warn('💉 Injecting OmniBazaar providers');
 
   // Inject OmniBazaar provider
-  (window as any).omnibazaar = createOmniBazaarProvider();
+  extWindow.omnibazaar = createOmniBazaarProvider();
   injectedProviders.add('omnibazaar');
 
   // Inject Ethereum provider for dApp compatibility
-  if (!(window as any).ethereum) {
-    (window as any).ethereum = createEthereumProvider();
+  if (extWindow.ethereum === undefined) {
+    extWindow.ethereum = createEthereumProvider();
     injectedProviders.add('ethereum');
   }
 
@@ -262,7 +291,7 @@ function injectProviders(): void {
   window.dispatchEvent(new CustomEvent('omnibazaar#initialized'));
   window.dispatchEvent(new CustomEvent('ethereum#initialized'));
 
-  console.warn('✅ Providers injected successfully:', Array.from(injectedProviders));
+  logger.warn('✅ Providers injected successfully:', Array.from(injectedProviders));
 }
 
 /**
@@ -270,14 +299,15 @@ function injectProviders(): void {
  * Allows dApps to discover and connect to OmniBazaar Wallet
  */
 function announceProvider(): void {
+  const extWindow = window as ExtendedWindow;
   const detail = {
     info: {
-      uuid: 'omnibazaar-wallet-' + Date.now(),
+      uuid: 'omnibazaar-wallet-' + Date.now().toString(),
       name: 'OmniBazaar Wallet',
       icon: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTE2IDJMMjggMTZMMTYgMzBMNCAyOEw0IDRMMTYgMloiIGZpbGw9IiMwMDc2RkYiLz4KPC9zdmc+',
       rdns: 'com.omnibazaar.wallet'
     },
-    provider: (window as any).ethereum
+    provider: extWindow.ethereum
   };
 
   window.dispatchEvent(new CustomEvent('eip6963:announceProvider', { detail }));
@@ -295,23 +325,44 @@ window.addEventListener('eip6963:requestProvider', () => {
  * Listen for page messages and handle provider notifications
  * Forwards blockchain events to the appropriate provider instances
  */
-window.addEventListener('message', (event: MessageEvent) => {
-  if (event.data?.type === 'OMNIBAZAAR_PROVIDER_NOTIFICATION') {
-    // Forward provider notifications to dApp
-    const { method, params } = event.data.data;
+/**
+ * Message event data structure
+ */
+interface ProviderMessage {
+  type: string;
+  data: {
+    method?: string;
+    params?: unknown[];
+  };
+}
 
-    if (method === 'chainChanged') {
-      if ((window as any).ethereum) {
-        (window as any).ethereum.chainId = params[0];
+window.addEventListener('message', (event: MessageEvent) => {
+  const eventData = event.data as unknown;
+  if (typeof eventData === 'object' && eventData !== null && 
+      'type' in eventData && 'data' in eventData) {
+    const messageData = eventData as ProviderMessage;
+    if (messageData.type === 'OMNIBAZAAR_PROVIDER_NOTIFICATION' && 
+        typeof messageData.data === 'object' && messageData.data !== null) {
+      const extWindow = window as ExtendedWindow;
+      // Forward provider notifications to dApp
+      const { method, params } = messageData.data;
+
+    if (method === 'chainChanged' && Array.isArray(params) && params.length > 0) {
+      const ethProvider = extWindow.ethereum as { chainId?: string } | undefined;
+      if (ethProvider !== undefined) {
+        ethProvider.chainId = params[0] as string;
       }
       window.dispatchEvent(new CustomEvent('ethereum_chainChanged', { detail: params[0] }));
-    } else if (method === 'accountsChanged') {
-      if ((window as any).ethereum) {
-        (window as any).ethereum.selectedAddress = params[0]?.[0] || null;
+    } else if (method === 'accountsChanged' && Array.isArray(params)) {
+      const ethProvider = extWindow.ethereum as { selectedAddress?: string | null } | undefined;
+      if (ethProvider !== undefined) {
+        const accounts = params[0] as string[] | undefined;
+        ethProvider.selectedAddress = accounts?.[0] ?? null;
       }
       window.dispatchEvent(new CustomEvent('ethereum_accountsChanged', { detail: params }));
     }
   }
+}
 });
 
 /**
@@ -327,4 +378,4 @@ if (document.readyState === 'loading') {
 /** Additional injection timeout for SPA compatibility */
 setTimeout(injectProviders, 100);
 
-console.warn('🚀 OmniBazaar Wallet content script initialized');
+logger.warn('🚀 OmniBazaar Wallet content script initialized');

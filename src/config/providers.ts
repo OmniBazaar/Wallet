@@ -6,7 +6,7 @@
  */
 
 /**
- *
+ * Provider identification type for supported wallet providers
  */
 export type ProviderId =
   | 'metamask'
@@ -18,7 +18,7 @@ export type ProviderId =
   | 'window-ethereum';
 
 /**
- *
+ * Provider information interface for wallet discovery
  */
 export interface ProviderInfo {
   /** Stable identifier */
@@ -28,29 +28,54 @@ export interface ProviderInfo {
   /** Optional icon identifier or URL */
   icon: string;
   /** Lazy getter to return EIP-1193 provider when available */
-  getProvider: () => Promise<unknown | null>;
+  getProvider: () => Promise<unknown>;
   /** Whether provider appears installed in current environment */
   isInstalled: boolean;
 }
 
 /**
+ * EIP-1193 Ethereum provider interface
+ */
+interface EthereumProvider {
+  isMetaMask?: boolean;
+  isCoinbaseWallet?: boolean;
+  isBraveWallet?: boolean;
+  isOkxWallet?: boolean;
+  request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+}
+
+/**
+ * Global window interface with potential wallet providers
+ */
+interface GlobalWindow {
+  ethereum?: EthereumProvider;
+  phantom?: {
+    ethereum?: EthereumProvider;
+  };
+}
+
+/**
  * Resolve a specific provider by id.
- * @param id
+ * @param id - Provider identifier to look up
+ * @returns ProviderInfo if found, undefined otherwise
  */
 export function getProvider(id: ProviderId): ProviderInfo | undefined {
   const providers = getAvailableProviders();
   return providers.find((p) => p.id === id);
 }
 
-/** Enumerate available providers visible on `window`. */
+/**
+ * Enumerate available providers visible on `window`.
+ * @returns Array of installed provider information
+ */
 export function getAvailableProviders(): ProviderInfo[] {
-  const w = (globalThis as unknown as { [k: string]: any }) || {};
-  const ethereum = w['ethereum'] ?? w['window']?.['ethereum'] ?? null;
+  const w = globalThis as unknown as GlobalWindow;
+  const ethereum = w.ethereum ?? null;
 
-  const hasMetaMask = Boolean(ethereum?.isMetaMask);
-  const hasCoinbase = Boolean(ethereum?.isCoinbaseWallet);
-  const hasBrave = Boolean(ethereum?.isBraveWallet);
-  const hasOkx = Boolean(ethereum?.isOkxWallet);
+  const hasMetaMask = ethereum?.isMetaMask === true;
+  const hasCoinbase = ethereum?.isCoinbaseWallet === true;
+  const hasBrave = ethereum?.isBraveWallet === true;
+  const hasOkx = ethereum?.isOkxWallet === true;
 
   const entries: ProviderInfo[] = [
     {
@@ -58,35 +83,35 @@ export function getAvailableProviders(): ProviderInfo[] {
       name: 'MetaMask',
       icon: 'metamask',
       isInstalled: hasMetaMask,
-      getProvider: async () => (hasMetaMask ? ethereum : null),
+      getProvider: (): Promise<unknown> => Promise.resolve(hasMetaMask ? ethereum : null),
     },
     {
       id: 'coinbase',
       name: 'Coinbase Wallet',
       icon: 'coinbase',
       isInstalled: hasCoinbase,
-      getProvider: async () => (hasCoinbase ? ethereum : null),
+      getProvider: (): Promise<unknown> => Promise.resolve(hasCoinbase ? ethereum : null),
     },
     {
       id: 'brave',
       name: 'Brave Wallet',
       icon: 'brave',
       isInstalled: hasBrave,
-      getProvider: async () => (hasBrave ? ethereum : null),
+      getProvider: (): Promise<unknown> => Promise.resolve(hasBrave ? ethereum : null),
     },
     {
       id: 'okx',
       name: 'OKX Wallet',
       icon: 'okx',
       isInstalled: hasOkx,
-      getProvider: async () => (hasOkx ? ethereum : null),
+      getProvider: (): Promise<unknown> => Promise.resolve(hasOkx ? ethereum : null),
     },
     {
       id: 'phantom-evm',
       name: 'Phantom (EVM)',
       icon: 'phantom',
-      isInstalled: Boolean(w['phantom']?.['ethereum']),
-      getProvider: async () => w['phantom']?.['ethereum'] ?? null,
+      isInstalled: typeof w.phantom?.ethereum !== 'undefined',
+      getProvider: (): Promise<unknown> => Promise.resolve(w.phantom?.ethereum ?? null),
     },
     {
       id: 'walletconnect',
@@ -94,14 +119,14 @@ export function getAvailableProviders(): ProviderInfo[] {
       icon: 'walletconnect',
       // WalletConnect requires SDK initialization; discovery returns not installed
       isInstalled: false,
-      getProvider: async () => null,
+      getProvider: (): Promise<unknown> => Promise.resolve(null),
     },
     {
       id: 'window-ethereum',
       name: 'Window Ethereum',
       icon: 'ethereum',
-      isInstalled: Boolean(ethereum),
-      getProvider: async () => ethereum ?? null,
+      isInstalled: ethereum !== null && ethereum !== undefined,
+      getProvider: (): Promise<unknown> => Promise.resolve(ethereum ?? null),
     },
   ];
 

@@ -12,8 +12,8 @@ import {
   ProviderName,
   ProviderRPCRequest,
   OnMessageResponse
-} from '@/types/provider';
-import { EthereumNetwork, BaseNetwork } from '@/types/base-network';
+} from '../../../types/provider';
+import { EthereumNetwork, BaseNetwork } from '../../../types/base-network';
 import { EthereumProvider } from '../ethereum/provider';
 
 // COTI SDK imports (when available)
@@ -70,65 +70,37 @@ export interface CtString { /** Array of encrypted bigint values */
 }
 
 // Privacy token types
-/**
- *
- */
+/** Privacy token balance information for COTI network */
 export interface PrivacyTokenBalance {
-  /**
-   *
-   */
-  xom: string;      // Public XOM balance
-  /**
-   *
-   */
-  pxom: string;     // Private pXOM balance (encrypted)
-  /**
-   *
-   */
-  pxomDecrypted?: string; // Decrypted pXOM balance (only for owner)
-  /**
-   *
-   */
+  /** Public XOM balance */
+  xom: string;
+  /** Private pXOM balance (encrypted) */
+  pxom: string;
+  /** Decrypted pXOM balance (only for owner) */
+  pxomDecrypted?: string;
+  /** Total USD value of tokens */
   totalUsd?: string;
 }
 
-/**
- *
- */
+/** Onboarding information for COTI privacy features */
 export interface OnboardInfo {
-  /**
-   *
-   */
+  /** AES encryption key for privacy operations */
   aesKey?: string;
-  /**
-   *
-   */
+  /** Transaction hash for onboarding */
   txHash?: string;
-  /**
-   *
-   */
+  /** RSA key pair for encryption */
   rsaKey?: RsaKeyPair;
-  /**
-   *
-   */
-  mpcNodeUrl?: string; // MPC node for Garbled Circuits
-  /**
-   *
-   */
+  /** MPC node URL for Garbled Circuits */
+  mpcNodeUrl?: string;
+  /** Whether user has completed onboarding process */
   isOnboarded: boolean;
 }
 
-/**
- *
- */
+/** RSA key pair for encryption operations */
 export interface RsaKeyPair {
-  /**
-   *
-   */
+  /** RSA public key */
   publicKey: Uint8Array;
-  /**
-   *
-   */
+  /** RSA private key */
   privateKey: Uint8Array;
 }
 
@@ -179,26 +151,31 @@ export const CotiNetworks: { [key: string]: EthereumNetwork } = {
 export class CotiProvider extends EthereumProvider {
   private userOnboardInfo: OnboardInfo | undefined;
   private autoOnboard = true;
-  private mpcClient?: any; // MPC client for Garbled Circuits
+  private mpcClient?: unknown; // MPC client for Garbled Circuits
   private privacyEnabled = false;
 
   /**
-   *
-   * @param toWindow
-   * @param network
+   * Create a new COTI provider instance
+   * @param toWindow - Function to send messages to window
+   * @param network - COTI network configuration
    */
   constructor(
     toWindow: (message: string) => void,
-    network: EthereumNetwork = CotiNetworks['testnet']
+    network?: EthereumNetwork
   ) {
-    super(toWindow, network);
+    const defaultNetwork = network ?? CotiNetworks['testnet'];
+    if (defaultNetwork === undefined) {
+      throw new Error('COTI testnet network configuration not found');
+    }
+    super(toWindow, defaultNetwork);
     this.namespace = ProviderName.ETHEREUM; // COTI is EVM compatible
   }
 
   // Override the request method to add COTI-specific methods
   /**
-   *
-   * @param request
+   * Handle RPC requests with COTI-specific methods
+   * @param request - RPC request to process
+   * @returns Promise resolving to response
    */
   override async request(request: ProviderRPCRequest): Promise<OnMessageResponse> {
     const { method, params = [] } = request;
@@ -429,7 +406,10 @@ export class CotiProvider extends EthereumProvider {
     // Placeholder onboard transaction creation
     // In production, interact with COTI onboard contract
     return {
-      hash: '0x' + Array.from(new Uint8Array(32), () => Math.floor(Math.random() * 256).toString(16).padStart(2, '0')).join(''),
+      hash: (() => {
+        const { generateSecureMockTxHash } = require('../../utils/secure-random');
+        return generateSecureMockTxHash();
+      })(),
       to: contractAddress || '0x0000000000000000000000000000000000000001',
       data: '0x' + Array.from(publicKey, b => b.toString(16).padStart(2, '0')).join('')
     };

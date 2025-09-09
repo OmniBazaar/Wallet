@@ -4,7 +4,35 @@
  */
 
 import { ethers } from 'ethers';
-import type { NFTMetadata } from '../../../../Bazaar/src/types/nft';
+
+// Local NFT type definition removed as it was unused
+
+/**
+ * NFT metadata structure according to OpenSea and ERC-721 standards
+ */
+export interface NFTMetadata {
+  /** NFT name */
+  name?: string;
+  /** Alternative name field */
+  title?: string;
+  /** NFT description */
+  description?: string;
+  /** Image URL or IPFS hash */
+  image?: string;
+  /** External URL for more info */
+  external_url?: string;
+  /** Animation URL for video/audio NFTs */
+  animation_url?: string;
+  /** NFT attributes/traits */
+  attributes?: Array<{
+    /** Trait category name */
+    trait_type: string;
+    /** Trait value */
+    value: string | number;
+    /** Optional display type */
+    display_type?: string;
+  }>;
+}
 
 /**
  * IPFS gateway configurations for redundancy
@@ -23,7 +51,7 @@ const IPFS_GATEWAYS = [
  * @returns Formatted NFT name
  */
 export const formatNFTName = (name: string | undefined, tokenId: string): string => {
-  if (name && name.trim()) {
+  if (name !== undefined && name.trim() !== '') {
     // Truncate long names
     return name.length > 50 ? `${name.substring(0, 47)}...` : name;
   }
@@ -70,8 +98,8 @@ export const formatNFTPrice = (
     
     return `${displayPrice} ${currency}`;
   } catch (error) {
-    console.error('Error formatting NFT price:', error);
-    return `${price} ${currency}`;
+    // Return unformatted price if formatting fails
+    return `${price.toString()} ${currency}`;
   }
 };
 
@@ -82,7 +110,7 @@ export const formatNFTPrice = (
  * @returns Thumbnail URL with proper gateway
  */
 export const generateNFTThumbnail = (imageUrl: string, size?: number): string => {
-  if (!imageUrl) {
+  if (imageUrl === '') {
     return '/images/nft-placeholder.png';
   }
   
@@ -102,7 +130,7 @@ export const generateNFTThumbnail = (imageUrl: string, size?: number): string =>
   // For HTTP URLs, check if we can use a thumbnail service
   if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
     // Some NFT platforms provide thumbnail endpoints
-    if (size && imageUrl.includes('opensea.io')) {
+    if (size !== undefined && imageUrl.includes('opensea.io')) {
       return imageUrl.replace(/w=\d+/, `w=${size}`);
     }
     return imageUrl;
@@ -123,7 +151,7 @@ export const getFallbackIPFSUrl = (
   currentGatewayIndex: number
 ): string | null => {
   const ipfsHash = ipfsUrl.split('/ipfs/').pop();
-  if (!ipfsHash || currentGatewayIndex >= IPFS_GATEWAYS.length - 1) {
+  if (ipfsHash === undefined || ipfsHash === '' || currentGatewayIndex >= IPFS_GATEWAYS.length - 1) {
     return null;
   }
   
@@ -136,35 +164,35 @@ export const getFallbackIPFSUrl = (
  * @returns True if metadata is valid
  */
 export const validateNFTMetadata = (metadata: unknown): metadata is NFTMetadata => {
-  if (!metadata || typeof metadata !== 'object') {
+  if (metadata === null || metadata === undefined || typeof metadata !== 'object') {
     return false;
   }
   
   const meta = metadata as Record<string, unknown>;
   
   // Check required fields
-  if (typeof meta.name !== 'string' && typeof meta.title !== 'string') {
+  if (typeof meta['name'] !== 'string' && typeof meta['title'] !== 'string') {
     return false;
   }
   
   // Validate image URL if present
-  if (meta.image && typeof meta.image !== 'string') {
+  if (meta['image'] !== undefined && typeof meta['image'] !== 'string') {
     return false;
   }
   
   // Validate attributes if present
-  if (meta.attributes) {
-    if (!Array.isArray(meta.attributes)) {
+  if (meta['attributes'] !== undefined) {
+    if (!Array.isArray(meta['attributes'])) {
       return false;
     }
     
     // Each attribute should have trait_type and value
-    for (const attr of meta.attributes) {
+    for (const attr of meta['attributes'] as unknown[]) {
       if (
         typeof attr !== 'object' ||
-        !attr ||
-        !('trait_type' in attr) ||
-        !('value' in attr)
+        attr === null ||
+        !('trait_type' in (attr)) ||
+        !('value' in (attr))
       ) {
         return false;
       }
@@ -180,7 +208,7 @@ export const validateNFTMetadata = (metadata: unknown): metadata is NFTMetadata 
  * @returns Parsed URI ready for fetching
  */
 export const parseTokenURI = (tokenUri: string): string => {
-  if (!tokenUri) {
+  if (tokenUri === '') {
     throw new Error('Token URI is empty');
   }
   
@@ -213,14 +241,20 @@ export const parseTokenURI = (tokenUri: string): string => {
 export const extractNFTAttributes = (
   metadata: NFTMetadata
 ): Array<{ trait_type: string; value: string | number }> => {
-  if (!metadata.attributes || !Array.isArray(metadata.attributes)) {
+  if (metadata.attributes === undefined || metadata.attributes === null || !Array.isArray(metadata.attributes)) {
     return [];
   }
   
   return metadata.attributes
-    .filter(attr => attr && typeof attr === 'object' && 'trait_type' in attr && 'value' in attr)
-    .map(attr => ({
-      trait_type: String(attr.trait_type),
+    .filter((attr: unknown): attr is { trait_type: string; value: string | number } => 
+      attr !== null && 
+      typeof attr === 'object' && 
+      'trait_type' in attr && 
+      'value' in attr &&
+      typeof (attr as { trait_type: unknown }).trait_type === 'string' &&
+      (typeof (attr as { value: unknown }).value === 'string' || typeof (attr as { value: unknown }).value === 'number'))
+    .map((attr: { trait_type: string; value: string | number }) => ({
+      trait_type: attr.trait_type,
       value: attr.value
     }));
 };
@@ -235,7 +269,7 @@ export const calculateRarityScore = (
   attributes: Array<{ trait_type: string; value: string | number }>,
   collectionAttributes: Map<string, Map<string | number, number>>
 ): number => {
-  if (!attributes.length || !collectionAttributes.size) {
+  if ((attributes.length === 0) || (collectionAttributes.size === 0)) {
     return 50; // Default middle rarity
   }
   
@@ -244,9 +278,9 @@ export const calculateRarityScore = (
   
   for (const attr of attributes) {
     const traitMap = collectionAttributes.get(attr.trait_type);
-    if (!traitMap) continue;
+    if (traitMap === undefined) continue;
     
-    const occurrences = traitMap.get(attr.value) || 0;
+    const occurrences = traitMap.get(attr.value) ?? 0;
     const totalInTrait = Array.from(traitMap.values()).reduce((a, b) => a + b, 0);
     
     if (totalInTrait > 0) {

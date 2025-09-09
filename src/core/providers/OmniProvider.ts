@@ -12,7 +12,7 @@ import * as crypto from 'crypto';
 interface OmniRequest {
   id: string;
   method: string;
-  params: any;
+  params: unknown;
   auth: {
     walletId: string;
     signature: string;
@@ -24,7 +24,7 @@ interface OmniRequest {
 /** Response structure from OmniBazaar validators */
 interface OmniResponse {
   id: string;
-  result?: any;
+  result?: unknown;
   error?: {
     code: number;
     message: string;
@@ -68,7 +68,7 @@ export class OmniProvider extends ethers.JsonRpcProvider {
     this.loadValidatorEndpoints();
 
     // Connect to validator network
-    this.connect();
+    void this.connect();
   }
 
   /**
@@ -108,43 +108,42 @@ export class OmniProvider extends ethers.JsonRpcProvider {
   /**
    * Connect to validator network
    */
-  private async connect(): Promise<void> {
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+  private connect(): void {
+    if (this.ws !== null && this.ws.readyState === WebSocket.OPEN) {
       return;
     }
 
     const endpoint = this.selectValidator();
-    console.log(`Connecting to OmniBazaar validator: ${endpoint}`);
-
+    
     try {
       this.ws = new WebSocket(endpoint);
 
       this.ws.onopen = () => {
-        console.log('Connected to OmniBazaar validator network');
         this.reconnectAttempts = 0;
       };
 
-      this.ws.onmessage = (event) => {
-        this.handleMessage(event.data);
+      this.ws.onmessage = (event: MessageEvent) => {
+        if (typeof event.data === 'string') {
+          this.handleMessage(event.data);
+        }
       };
 
-      this.ws.onerror = (error) => {
-        console.error('Validator connection error:', error);
+      this.ws.onerror = () => {
+        // WebSocket error occurred
       };
 
       this.ws.onclose = () => {
-        console.log('Disconnected from validator');
         this.handleDisconnect();
       };
 
     } catch (error) {
-      console.error('Failed to connect to validator:', error);
       this.handleDisconnect();
     }
   }
 
   /**
    * Select best validator endpoint
+   * @returns Selected validator endpoint URL
    */
   private selectValidator(): string {
     // Round-robin selection for load balancing
@@ -162,15 +161,13 @@ export class OmniProvider extends ethers.JsonRpcProvider {
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectAttempts++;
       const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
-      console.log(`Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
 
       setTimeout(() => {
-        this.connect();
+        void this.connect();
       }, delay);
     } else {
-      console.error('Max reconnection attempts reached');
       // Reject all pending requests
-      for (const [id, pending] of this.pendingRequests) {
+      for (const [_id, pending] of this.pendingRequests) {
         pending.reject(new Error('Connection lost'));
       }
       this.pendingRequests.clear();
@@ -183,28 +180,23 @@ export class OmniProvider extends ethers.JsonRpcProvider {
    */
   private handleMessage(data: string): void {
     try {
-      const response: OmniResponse = JSON.parse(data);
+      const response = JSON.parse(data) as OmniResponse;
 
       const pending = this.pendingRequests.get(response.id);
-      if (!pending) {
-        console.warn('Received response for unknown request:', response.id);
+      if (pending === undefined) {
         return;
       }
 
       this.pendingRequests.delete(response.id);
 
-      if (response.error) {
+      if (response.error !== undefined) {
         pending.reject(new Error(response.error.message));
       } else {
-        // Log if data was cached
-        if (response.cached) {
-          console.debug(`Response served from cache by ${response.servedBy}`);
-        }
         pending.resolve(response.result);
       }
 
     } catch (error) {
-      console.error('Failed to parse validator response:', error);
+      // Failed to parse response - ignore invalid messages
     }
   }
 
@@ -212,8 +204,9 @@ export class OmniProvider extends ethers.JsonRpcProvider {
    * Create an authenticated request payload for the validator.
    * @param method RPC method name
    * @param params Method parameters
+   * @returns Authenticated request object
    */
-  private createRequest(method: string, params: any): OmniRequest {
+  private createRequest(method: string, params: unknown): OmniRequest {
     const id = crypto.randomBytes(16).toString('hex');
     const timestamp = Date.now();
 
@@ -242,15 +235,16 @@ export class OmniProvider extends ethers.JsonRpcProvider {
    * Handles connection bootstrapping and a 30s timeout for safety.
    * @param method RPC method name
    * @param params Parameters to include in the request
+   * @returns Promise resolving to the response result
    */
-  private async sendRequest(method: string, params: any): Promise<any> {
+  private async sendRequest(method: string, params: unknown): Promise<unknown> {
     // Ensure connected
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      await this.connect();
+    if (this.ws === null || this.ws.readyState !== WebSocket.OPEN) {
+      this.connect();
       // Wait for connection
       await new Promise(resolve => setTimeout(resolve, 1000));
 
-      if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      if (this.ws === null || this.ws.readyState !== WebSocket.OPEN) {
         throw new Error('Not connected to validator network');
       }
     }
@@ -260,8 +254,13 @@ export class OmniProvider extends ethers.JsonRpcProvider {
     return new Promise((resolve, reject) => {
       this.pendingRequests.set(request.id, { resolve, reject });
 
-      // Send request
-      this.ws!.send(JSON.stringify(request));
+      // Send request - we know ws is not null at this point
+      if (this.ws !== null) {
+        this.ws.send(JSON.stringify(request));
+      } else {
+        reject(new Error('WebSocket connection lost'));
+        return;
+      }
 
       // Timeout after 30 seconds
       setTimeout(() => {
@@ -277,8 +276,9 @@ export class OmniProvider extends ethers.JsonRpcProvider {
 
   /**
    * Get native balance for an address.
-   * @param address
-   * @param blockTag
+   * @param address Wallet address to check balance for
+   * @param blockTag Block tag to query (defaults to 'latest')
+   * @returns Promise resolving to balance in wei as bigint
    */
   override async getBalance(address: string, blockTag?: string | number): Promise<bigint> {
     const result = await this.sendRequest('eth_getBalance', [
@@ -291,8 +291,9 @@ export class OmniProvider extends ethers.JsonRpcProvider {
 
   /**
    * Get transaction count (nonce) for an address.
-   * @param address
-   * @param blockTag
+   * @param address Wallet address to get nonce for
+   * @param blockTag Block tag to query (defaults to 'latest')
+   * @returns Promise resolving to transaction count
    */
   override async getTransactionCount(address: string, blockTag?: string | number): Promise<number> {
     return await this.sendRequest('eth_getTransactionCount', [
@@ -304,10 +305,11 @@ export class OmniProvider extends ethers.JsonRpcProvider {
 
   /**
    * Execute a call against the current chain.
-   * @param transaction
-   * @param blockTag
+   * @param transaction Transaction object to execute
+   * @param blockTag Block tag to query (defaults to 'latest')
+   * @returns Promise resolving to call result
    */
-  override async call(transaction: any, blockTag?: string | number): Promise<string> {
+  override async call(transaction: unknown, blockTag?: string | number): Promise<string> {
     return await this.sendRequest('eth_call', [
       transaction,
       blockTag || 'latest',
@@ -317,9 +319,10 @@ export class OmniProvider extends ethers.JsonRpcProvider {
 
   /**
    * Estimate gas for a transaction.
-   * @param transaction
+   * @param transaction Transaction object to estimate gas for
+   * @returns Promise resolving to estimated gas amount
    */
-  override async estimateGas(transaction: any): Promise<bigint> {
+  override async estimateGas(transaction: unknown): Promise<bigint> {
     const result = await this.sendRequest('eth_estimateGas', [
       transaction,
       this.chainId
@@ -329,7 +332,8 @@ export class OmniProvider extends ethers.JsonRpcProvider {
 
   /**
    * Broadcast a signed raw transaction and return an Ethers response.
-   * @param signedTransaction
+   * @param signedTransaction Signed transaction hex string
+   * @returns Promise resolving to transaction response
    */
   override async broadcastTransaction(signedTransaction: string): Promise<ethers.TransactionResponse> {
     // Delegate to base implementation to construct a proper TransactionResponse
@@ -340,62 +344,71 @@ export class OmniProvider extends ethers.JsonRpcProvider {
 
   /**
    * Get NFTs for address (uses validator cache)
-   * @param address
-   * @param chainId
+   * @param address Wallet address to get NFTs for
+   * @param chainId Chain ID to query (optional)
+   * @returns Promise resolving to array of NFT data
    */
-  async getNFTs(address: string, chainId?: number): Promise<any[]> {
-    return await this.sendRequest('omni_getNFTs', {
+  async getNFTs(address: string, chainId?: number): Promise<unknown[]> {
+    const result = await this.sendRequest('omni_getNFTs', {
       address,
-      chainId: chainId || this.chainId
+      chainId: chainId ?? this.chainId
     });
+    return Array.isArray(result) ? result : [];
   }
 
   /**
    * Get NFT metadata (uses validator cache)
-   * @param contract
-   * @param tokenId
-   * @param chainId
+   * @param contract NFT contract address
+   * @param tokenId Token ID to get metadata for
+   * @param chainId Chain ID to query (optional)
+   * @returns Promise resolving to NFT metadata
    */
-  async getNFTMetadata(contract: string, tokenId: string, chainId?: number): Promise<any> {
+  async getNFTMetadata(contract: string, tokenId: string, chainId?: number): Promise<unknown> {
     return await this.sendRequest('omni_getNFTMetadata', {
       contract,
       tokenId,
-      chainId: chainId || this.chainId
+      chainId: chainId ?? this.chainId
     });
   }
 
   /**
    * Get NFT collections (uses validator cache)
-   * @param address
-   * @param chainId
+   * @param address Wallet address to get collections for
+   * @param chainId Chain ID to query (optional)
+   * @returns Promise resolving to array of collection data
    */
-  async getCollections(address: string, chainId?: number): Promise<any[]> {
-    return await this.sendRequest('omni_getCollections', {
+  async getCollections(address: string, chainId?: number): Promise<unknown[]> {
+    const result = await this.sendRequest('omni_getCollections', {
       address,
-      chainId: chainId || this.chainId
+      chainId: chainId ?? this.chainId
     });
+    return Array.isArray(result) ? result : [];
   }
 
   /**
    * Get marketplace listings (from validator network)
-   * @param params
+   * @param params Query parameters for filtering listings
+   * @returns Promise resolving to array of marketplace listings
    */
-  async getMarketplaceListings(params: any): Promise<any[]> {
-    return await this.sendRequest('omni_getMarketplaceListings', params);
+  async getMarketplaceListings(params: unknown): Promise<unknown[]> {
+    const result = await this.sendRequest('omni_getMarketplaceListings', params);
+    return Array.isArray(result) ? result : [];
   }
 
   /**
    * Get price oracle data (from validator network)
-   * @param tokens
+   * @param tokens Array of token addresses to get prices for
+   * @returns Promise resolving to price oracle data
    */
-  async getPriceOracle(tokens: string[]): Promise<any> {
+  async getPriceOracle(tokens: string[]): Promise<unknown> {
     return await this.sendRequest('omni_getPriceOracle', { tokens });
   }
 
   /**
    * Get validator status
+   * @returns Promise resolving to validator status information
    */
-  async getValidatorStatus(): Promise<any> {
+  async getValidatorStatus(): Promise<unknown> {
     return await this.sendRequest('omni_getValidatorStatus', {});
   }
 
@@ -403,13 +416,13 @@ export class OmniProvider extends ethers.JsonRpcProvider {
    * Disconnect from validator network
    */
   disconnect(): void {
-    if (this.ws) {
+    if (this.ws !== null) {
       this.ws.close();
       this.ws = null;
     }
 
     // Clear pending requests
-    for (const [id, pending] of this.pendingRequests) {
+    for (const [_id, pending] of this.pendingRequests) {
       pending.reject(new Error('Provider disconnected'));
     }
     this.pendingRequests.clear();

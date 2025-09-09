@@ -127,7 +127,7 @@ export class BiometricService {
         await this.detectCapabilities();
         
         // Load existing credentials
-        await this.loadCredentials();
+        this.loadCredentials();
       }
 
       this.isInitialized = true;
@@ -147,10 +147,10 @@ export class BiometricService {
       return false; // Not in browser environment
     }
 
-    return !!(
-      window.navigator?.credentials?.create &&
-      window.navigator?.credentials?.get &&
-      window.PublicKeyCredential
+    return Boolean(
+      window.navigator?.credentials?.create !== undefined &&
+      window.navigator?.credentials?.get !== undefined &&
+      window.PublicKeyCredential !== undefined
     );
   }
 
@@ -224,17 +224,17 @@ export class BiometricService {
     }
 
     try {
-      const challenge = options.challenge || this.generateChallenge();
+      const challenge = options.challenge ?? this.generateChallenge();
       const userId = new TextEncoder().encode(options.userId);
 
       const publicKeyCredentialCreationOptions: PublicKeyCredentialCreationOptions = {
-        challenge,
+        challenge: challenge as BufferSource,
         rp: {
           name: 'OmniWallet',
           id: window.location.hostname
         },
         user: {
-          id: userId,
+          id: userId as BufferSource,
           name: options.userId,
           displayName: options.displayName
         },
@@ -244,10 +244,10 @@ export class BiometricService {
         ],
         authenticatorSelection: {
           authenticatorAttachment: 'platform',
-          userVerification: options.requireUserVerification ? 'required' : 'preferred',
+          userVerification: options.requireUserVerification === true ? 'required' : 'preferred',
           residentKey: 'preferred'
         },
-        timeout: options.timeout || 60000,
+        timeout: options.timeout ?? 60000,
         attestation: 'direct'
       };
 
@@ -255,7 +255,7 @@ export class BiometricService {
         publicKey: publicKeyCredentialCreationOptions
       }) as PublicKeyCredential;
 
-      if (!credential) {
+      if (credential === null || credential === undefined) {
         return {
           success: false,
           error: 'Failed to create credential'
@@ -266,7 +266,7 @@ export class BiometricService {
       const biometricCredential: BiometricCredential = {
         id: credential.id,
         rawId: new Uint8Array(credential.rawId),
-        publicKey: new Uint8Array((credential.response as AuthenticatorAttestationResponse).getPublicKey()!),
+        publicKey: new Uint8Array((credential.response as AuthenticatorAttestationResponse).getPublicKey() ?? new Uint8Array()),
         userId: options.userId,
         displayName: options.displayName,
         createdAt: Date.now(),
@@ -275,7 +275,7 @@ export class BiometricService {
       };
 
       this.credentials.set(credential.id, biometricCredential);
-      await this.saveCredentials();
+      this.saveCredentials();
 
       // console.log('Biometric credential enrolled successfully');
       return {
@@ -318,29 +318,34 @@ export class BiometricService {
     }
 
     try {
-      const challenge = options.challenge || this.generateChallenge();
+      const challenge = options.challenge ?? this.generateChallenge();
       
       // Get allowed credential IDs
-      const allowCredentials = options.allowedCredentialIds?.map(id => ({
-        type: 'public-key' as const,
-        id
-      })) || Array.from(this.credentials.values()).map(cred => ({
-        type: 'public-key' as const,
-        id: cred.rawId
-      }));
+      const allowCredentials = (options.allowedCredentialIds !== null && options.allowedCredentialIds !== undefined) 
+        ? options.allowedCredentialIds.map(id => ({
+            type: 'public-key' as const,
+            id
+          }))
+        : Array.from(this.credentials.values()).map(cred => ({
+            type: 'public-key' as const,
+            id: cred.rawId
+          }));
 
       const publicKeyCredentialRequestOptions: PublicKeyCredentialRequestOptions = {
-        challenge,
-        allowCredentials,
-        userVerification: options.requireUserVerification ? 'required' : 'preferred',
-        timeout: options.timeout || 60000
+        challenge: challenge as BufferSource,
+        allowCredentials: allowCredentials.map(cred => ({
+          ...cred,
+          id: cred.id as BufferSource
+        })),
+        userVerification: options.requireUserVerification === true ? 'required' : 'preferred',
+        timeout: options.timeout ?? 60000
       };
 
       const assertion = await navigator.credentials.get({
         publicKey: publicKeyCredentialRequestOptions
       }) as PublicKeyCredential;
 
-      if (!assertion) {
+      if (assertion === null || assertion === undefined) {
         return {
           success: false,
           error: 'Authentication failed'
@@ -349,7 +354,7 @@ export class BiometricService {
 
       // Find matching credential
       const credential = this.credentials.get(assertion.id);
-      if (!credential) {
+      if (credential === null || credential === undefined) {
         return {
           success: false,
           error: 'Unknown credential'
@@ -359,7 +364,7 @@ export class BiometricService {
       // Update last used timestamp
       credential.lastUsedAt = Date.now();
       this.credentials.set(credential.id, credential);
-      await this.saveCredentials();
+      this.saveCredentials();
 
       const response = assertion.response as AuthenticatorAssertionResponse;
       
@@ -394,10 +399,10 @@ export class BiometricService {
    * @param credentialId - Credential ID to remove
    * @returns Success status
    */
-  async removeCredential(credentialId: string): Promise<boolean> {
+  removeCredential(credentialId: string): boolean {
     if (this.credentials.has(credentialId)) {
       this.credentials.delete(credentialId);
-      await this.saveCredentials();
+      this.saveCredentials();
       // console.log(`Credential ${credentialId} removed`);
       return true;
     }
@@ -416,10 +421,10 @@ export class BiometricService {
    * Clear all biometric credentials
    * @returns Success status
    */
-  async clearCredentials(): Promise<boolean> {
+  clearCredentials(): boolean {
     try {
       this.credentials.clear();
-      await this.saveCredentials();
+      this.saveCredentials();
       // console.log('All biometric credentials cleared');
       return true;
     } catch (error) {
@@ -430,13 +435,14 @@ export class BiometricService {
 
   /**
    * Generate random challenge
+   * @returns Random challenge bytes
    * @private
    */
   private generateChallenge(): Uint8Array {
     const challenge = new Uint8Array(32);
-    if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    if (typeof crypto !== 'undefined' && crypto.getRandomValues !== undefined) {
       crypto.getRandomValues(challenge);
-    } else if (typeof window !== 'undefined' && window.crypto?.getRandomValues) {
+    } else if (typeof window !== 'undefined' && window.crypto?.getRandomValues !== undefined) {
       window.crypto.getRandomValues(challenge);
     } else {
       // Fallback
@@ -472,18 +478,22 @@ export class BiometricService {
    * Load credentials from storage
    * @private
    */
-  private async loadCredentials(): Promise<void> {
+  private loadCredentials(): void {
     try {
       const stored = localStorage.getItem('biometric_credentials');
-      if (stored) {
-        const credentialData = JSON.parse(stored);
+      if (stored !== null && stored !== '') {
+        const credentialData = JSON.parse(stored) as Record<string, unknown>;
         for (const [id, data] of Object.entries(credentialData)) {
-          const credential = data as any;
+          const credential = data as BiometricCredential & { rawIdBase64?: string; publicKeyBase64?: string; };
           // Convert base64 back to Uint8Array
-          credential.rawId = new Uint8Array(atob(credential.rawIdBase64).split('').map(c => c.charCodeAt(0)));
-          credential.publicKey = new Uint8Array(atob(credential.publicKeyBase64).split('').map(c => c.charCodeAt(0)));
-          delete credential.rawIdBase64;
-          delete credential.publicKeyBase64;
+          if (credential.rawIdBase64 !== undefined) {
+            credential.rawId = new Uint8Array(atob(credential.rawIdBase64).split('').map(c => c.charCodeAt(0)));
+            delete credential.rawIdBase64;
+          }
+          if (credential.publicKeyBase64 !== undefined) {
+            credential.publicKey = new Uint8Array(atob(credential.publicKeyBase64).split('').map(c => c.charCodeAt(0)));
+            delete credential.publicKeyBase64;
+          }
           
           this.credentials.set(id, credential);
         }
@@ -497,20 +507,24 @@ export class BiometricService {
    * Save credentials to storage
    * @private
    */
-  private async saveCredentials(): Promise<void> {
+  private saveCredentials(): void {
     try {
-      const credentialData: Record<string, any> = {};
-      for (const [id, credential] of this.credentials.entries()) {
+      const credentialData: Record<string, Omit<BiometricCredential, 'rawId' | 'publicKey'> & { rawIdBase64: string; publicKeyBase64: string; }> = {};
+      for (const [id, credential] of Array.from(this.credentials.entries())) {
         // Convert Uint8Array to base64 for storage
+        const rawIdArray = Array.from(credential.rawId);
+        const publicKeyArray = Array.from(credential.publicKey);
+        
         const storableCredential = {
           ...credential,
-          rawIdBase64: btoa(String.fromCharCode(...credential.rawId)),
-          publicKeyBase64: btoa(String.fromCharCode(...credential.publicKey))
+          rawIdBase64: btoa(String.fromCharCode(...rawIdArray)),
+          publicKeyBase64: btoa(String.fromCharCode(...publicKeyArray))
         };
-        delete (storableCredential as any).rawId;
-        delete (storableCredential as any).publicKey;
         
-        credentialData[id] = storableCredential;
+        // Remove the original Uint8Array properties
+        const { rawId: _rawId, publicKey: _publicKey, ...credentialWithoutArrays } = storableCredential;
+        
+        credentialData[id] = credentialWithoutArrays;
       }
       localStorage.setItem('biometric_credentials', JSON.stringify(credentialData));
     } catch (error) {
@@ -529,7 +543,7 @@ export class BiometricService {
   /**
    * Cleanup service and release resources
    */
-  async cleanup(): Promise<void> {
+  cleanup(): void {
     try {
       this.credentials.clear();
       this.supportedTypes = [];

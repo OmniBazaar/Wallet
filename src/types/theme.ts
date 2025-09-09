@@ -122,10 +122,11 @@ export interface Theme {
   };
 }
 
-/** Styled-components theme declaration */
+/**
+ * Styled-components theme declaration module
+ * Extends styled-components with our theme interface
+ */
 declare module 'styled-components' {
-  /**
-   *
-   */
+  /** Default theme interface for styled-components */
   export interface DefaultTheme extends Theme {}
 }

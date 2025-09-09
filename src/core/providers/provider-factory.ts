@@ -9,7 +9,8 @@ import { OmniProvider } from './OmniProvider';
 // No direct ethers types needed here; avoid mutating provider internals
 
 /**
- *
+ * Factory for creating and managing OmniProvider instances
+ * Provides centralized provider management with chain-specific configurations
  */
 export class ProviderFactory {
   private static providers = new Map<number, OmniProvider>();
@@ -17,7 +18,7 @@ export class ProviderFactory {
   
   /**
    * Initialize factory with wallet ID
-   * @param walletId
+   * @param walletId Optional wallet identifier for provider authentication
    */
   static initialize(walletId?: string): void {
     this.walletId = walletId;
@@ -25,7 +26,8 @@ export class ProviderFactory {
   
   /**
    * Get provider for specific chain
-   * @param chainId
+   * @param chainId EVM chain ID to get provider for
+   * @returns OmniProvider instance for the specified chain
    */
   static getProvider(chainId: number): OmniProvider {
     if (!this.providers.has(chainId)) {
@@ -35,7 +37,11 @@ export class ProviderFactory {
       this.providers.set(chainId, provider);
     }
     
-    return this.providers.get(chainId)!;
+    const provider = this.providers.get(chainId);
+    if (!provider) {
+      throw new Error(`Provider not found for chainId: ${chainId}`);
+    }
+    return provider;
   }
   
   /**
@@ -46,13 +52,14 @@ export class ProviderFactory {
   
   /**
    * Get all active providers
+   * @returns Array of all active provider instances
    */
   static getAllProviders(): OmniProvider[] {
     return Array.from(this.providers.values());
   }
   
   /**
-   * Disconnect all providers
+   * Disconnect all providers and clear the cache
    */
   static disconnectAll(): void {
     for (const provider of this.providers.values()) {
@@ -64,7 +71,8 @@ export class ProviderFactory {
   /**
    * Replace external RPC URL with OmniProvider
    * (For backwards compatibility with existing code)
-   * @param rpcUrl
+   * @param rpcUrl RPC URL to analyze for chain detection
+   * @returns OmniProvider instance for the detected chain
    */
   static createProvider(rpcUrl: string): OmniProvider {
     // Ignore the RPC URL and return OmniProvider

@@ -86,7 +86,7 @@ class BrowserStorage implements StorageInterface {
       try {
         const namespacedKey = this.getNamespacedKey(key);
         chrome.storage.local.get([namespacedKey], (result: Record<string, unknown>) => {
-          if (chrome.runtime.lastError) {
+          if (chrome.runtime.lastError !== undefined) {
             console.error('BrowserStorage.get error:', chrome.runtime.lastError);
             resolve(null);
           } else {
@@ -113,7 +113,7 @@ class BrowserStorage implements StorageInterface {
       try {
         const namespacedKey = this.getNamespacedKey(key);
         chrome.storage.local.set({ [namespacedKey]: value }, () => {
-          if (chrome.runtime.lastError) {
+          if (chrome.runtime.lastError !== undefined) {
             console.error('BrowserStorage.set error:', chrome.runtime.lastError);
             reject(chrome.runtime.lastError);
           } else {
@@ -138,7 +138,7 @@ class BrowserStorage implements StorageInterface {
       try {
         const namespacedKey = this.getNamespacedKey(key);
         chrome.storage.local.remove([namespacedKey], () => {
-          if (chrome.runtime.lastError) {
+          if (chrome.runtime.lastError !== undefined) {
             console.error('BrowserStorage.remove error:', chrome.runtime.lastError);
             reject(chrome.runtime.lastError);
           } else {
@@ -163,7 +163,7 @@ class BrowserStorage implements StorageInterface {
       try {
         // Get all keys in this namespace
         chrome.storage.local.get(null, (allData: Record<string, unknown>) => {
-          if (chrome.runtime.lastError) {
+          if (chrome.runtime.lastError !== undefined) {
             reject(chrome.runtime.lastError);
             return;
           }
@@ -174,7 +174,7 @@ class BrowserStorage implements StorageInterface {
           
           if (keysToRemove.length > 0) {
             chrome.storage.local.remove(keysToRemove, () => {
-              if (chrome.runtime.lastError) {
+              if (chrome.runtime.lastError !== undefined) {
                 reject(chrome.runtime.lastError);
               } else {
                 resolve();

@@ -594,9 +594,10 @@ const sumAscii = (str: string): number => {
 };
 
 /**
- *
- * @param sep
- * @param seedStr
+ * Generate a random name using a seed string for deterministic results
+ * @param sep - Separator character between name parts
+ * @param seedStr - Seed string for random generation
+ * @returns Generated random name
  */
 export const generateRandomNameWithSeed = (sep = "_", seedStr: string): string => {
   let seed = sumAscii(seedStr);

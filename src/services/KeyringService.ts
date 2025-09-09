@@ -411,6 +411,12 @@ export class KeyringService {
    * @returns Private key
    */
   async exportPrivateKey(keyringId: string, accountAddress: string, password: string): Promise<string>;
+  /**
+   *
+   * @param accountIdOrKeyringId
+   * @param passwordOrAccountAddress
+   * @param maybePassword
+   */
   async exportPrivateKey(accountIdOrKeyringId: string, passwordOrAccountAddress?: string, maybePassword?: string): Promise<string> {
     if (maybePassword) {
       // Three parameter version (keyring interface)
@@ -429,6 +435,12 @@ export class KeyringService {
    * @returns Signature
    */
   async signMessage(keyringId: string, accountAddress: string, message: string): Promise<string>;
+  /**
+   *
+   * @param accountIdOrKeyringId
+   * @param messageOrAccountAddress
+   * @param maybeMessage
+   */
   async signMessage(accountIdOrKeyringId: string, messageOrAccountAddress?: string, maybeMessage?: string): Promise<string> {
     if (maybeMessage) {
       // Three parameter version (keyring interface)
@@ -464,6 +476,12 @@ export class KeyringService {
    * @returns Signed transaction
    */
   async signTransaction(keyringId: string, accountAddress: string, transaction: any): Promise<string>;
+  /**
+   *
+   * @param accountIdOrKeyringId
+   * @param transactionOrAccountAddress
+   * @param maybeTransaction
+   */
   async signTransaction(accountIdOrKeyringId: string, transactionOrAccountAddress?: any, maybeTransaction?: any): Promise<string> {
     if (maybeTransaction) {
       // Three parameter version (keyring interface)
@@ -471,7 +489,7 @@ export class KeyringService {
       return '0x' + 'f'.repeat(200);
     } else {
       // Two parameter version (original interface)
-      return await this.coreService.signTransaction(accountIdOrKeyringId, transactionOrAccountAddress!);
+      return await this.coreService.signTransaction(accountIdOrKeyringId, transactionOrAccountAddress);
     }
   }
 

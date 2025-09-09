@@ -25,39 +25,49 @@ export interface PublicKeyring {
  * Placeholder public keyring implementation
  */
 export class OmniBazaarPublicKeyring implements PublicKeyring {
+  private signerType: SignerType;
+  private walletType: WalletType;
+
   /**
-   *
-   * @param signerType
-   * @param walletType
+   * Create a new public keyring instance
+   * @param signerType - Type of signer (mnemonic, private key, hardware)
+   * @param walletType - Type of wallet (ethereum, bitcoin, etc)
    */
   constructor(
-    private signerType: SignerType,
-    private walletType: WalletType
-  ) {}
+    signerType: SignerType,
+    walletType: WalletType
+  ) {
+    this.signerType = signerType;
+    this.walletType = walletType;
+  }
 
   /**
-   *
+   * Get all public addresses from the keyring
+   * @returns Promise resolving to array of addresses
    */
-  async getAddresses(): Promise<string[]> {
+  getAddresses(): Promise<string[]> {
     // TODO: Implement using OmniBazaar's account management
-    return [];
+    console.warn(`Getting addresses for ${this.signerType} ${this.walletType} - not implemented`);
+    return Promise.resolve([]);
   }
 
   /**
-   *
-   * @param address
+   * Get public key for a specific address
+   * @param address - Address to get public key for
+   * @returns Promise resolving to public key string
    */
-  async getPublicKey(address: string): Promise<string> {
+  getPublicKey(address: string): Promise<string> {
     // TODO: Implement public key retrieval
-    throw new Error(`Not implemented - use OmniBazaar account system for ${address}`);
+    return Promise.reject(new Error(`Not implemented - use OmniBazaar account system for ${address}`));
   }
 
   /**
-   *
-   * @param address
+   * Check if an address belongs to this keyring
+   * @param _address - Address to check
+   * @returns Promise resolving to true if address exists
    */
-  async hasAddress(address: string): Promise<boolean> {
+  hasAddress(_address: string): Promise<boolean> {
     // TODO: Implement address verification
-    return false;
+    return Promise.resolve(false);
   }
 }

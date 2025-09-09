@@ -85,17 +85,17 @@ export interface BridgeStep {
  * Available bridge providers
  */
 export enum BridgeProvider {
-  Hop = 'hop',
-  Stargate = 'stargate',
-  Across = 'across',
-  Synapse = 'synapse',
-  Celer = 'celer',
-  Multichain = 'multichain',
-  Wormhole = 'wormhole',
-  LayerZero = 'layerzero',
-  Polygon = 'polygon',
-  Arbitrum = 'arbitrum',
-  Optimism = 'optimism',
+  HOP = 'hop',
+  STARGATE = 'stargate',
+  ACROSS = 'across',
+  SYNAPSE = 'synapse',
+  CELER = 'celer',
+  MULTICHAIN = 'multichain',
+  WORMHOLE = 'wormhole',
+  LAYER_ZERO = 'layerzero',
+  POLYGON = 'polygon',
+  ARBITRUM = 'arbitrum',
+  OPTIMISM = 'optimism',
 }
 
 /**
@@ -202,57 +202,57 @@ export const BRIDGE_SUPPORT: Record<string, {
   /** Average bridge completion time in seconds */
   estimatedTime: number;
 }> = {
-  [BridgeProvider.Hop]: {
+  [BridgeProvider.HOP]: {
     chains: ['ethereum', 'polygon', 'arbitrum', 'optimism', 'base'],
     tokens: ['USDC', 'USDT', 'DAI', 'ETH', 'MATIC'],
     estimatedTime: 600, // 10 minutes
   },
-  [BridgeProvider.Stargate]: {
+  [BridgeProvider.STARGATE]: {
     chains: ['ethereum', 'polygon', 'arbitrum', 'optimism', 'avalanche', 'bsc', 'fantom'],
     tokens: ['USDC', 'USDT', 'STG'],
     estimatedTime: 300, // 5 minutes
   },
-  [BridgeProvider.Across]: {
+  [BridgeProvider.ACROSS]: {
     chains: ['ethereum', 'polygon', 'arbitrum', 'optimism', 'base'],
     tokens: ['USDC', 'ETH', 'WETH', 'DAI', 'WBTC'],
     estimatedTime: 180, // 3 minutes
   },
-  [BridgeProvider.Synapse]: {
+  [BridgeProvider.SYNAPSE]: {
     chains: ['ethereum', 'polygon', 'arbitrum', 'optimism', 'avalanche', 'bsc', 'fantom', 'base'],
     tokens: ['USDC', 'USDT', 'DAI', 'nUSD', 'ETH'],
     estimatedTime: 600, // 10 minutes
   },
-  [BridgeProvider.Celer]: {
+  [BridgeProvider.CELER]: {
     chains: ['ethereum', 'polygon', 'arbitrum', 'optimism', 'avalanche', 'bsc', 'fantom'],
     tokens: ['USDC', 'USDT', 'ETH', 'WBTC', 'CELR'],
     estimatedTime: 1200, // 20 minutes
   },
-  [BridgeProvider.Multichain]: {
+  [BridgeProvider.MULTICHAIN]: {
     chains: ['ethereum', 'polygon', 'arbitrum', 'optimism', 'avalanche', 'bsc', 'fantom'],
     tokens: ['USDC', 'USDT', 'MULTI', 'anyToken'],
     estimatedTime: 1800, // 30 minutes
   },
-  [BridgeProvider.Wormhole]: {
+  [BridgeProvider.WORMHOLE]: {
     chains: ['ethereum', 'polygon', 'avalanche', 'bsc', 'solana', 'terra'],
     tokens: ['USDC', 'USDT', 'ETH', 'SOL'],
     estimatedTime: 900, // 15 minutes
   },
-  [BridgeProvider.LayerZero]: {
+  [BridgeProvider.LAYER_ZERO]: {
     chains: ['ethereum', 'polygon', 'arbitrum', 'optimism', 'avalanche', 'bsc'],
     tokens: ['STG', 'USDC', 'USDT'],
     estimatedTime: 600, // 10 minutes
   },
-  [BridgeProvider.Polygon]: {
+  [BridgeProvider.POLYGON]: {
     chains: ['ethereum', 'polygon'],
     tokens: ['ETH', 'USDC', 'USDT', 'DAI', 'MATIC'],
     estimatedTime: 1800, // 30 minutes (PoS bridge)
   },
-  [BridgeProvider.Arbitrum]: {
+  [BridgeProvider.ARBITRUM]: {
     chains: ['ethereum', 'arbitrum'],
     tokens: ['ETH', 'USDC', 'USDT', 'DAI'],
     estimatedTime: 600, // 10 minutes (fast withdrawal)
   },
-  [BridgeProvider.Optimism]: {
+  [BridgeProvider.OPTIMISM]: {
     chains: ['ethereum', 'optimism'],
     tokens: ['ETH', 'USDC', 'USDT', 'DAI'],
     estimatedTime: 300, // 5 minutes (fast withdrawal)

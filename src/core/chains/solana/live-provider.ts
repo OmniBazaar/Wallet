@@ -2,8 +2,7 @@
  * Live Solana Provider with Keyring Integration
  */
 
-import { Keypair, Connection } from '@solana/web3.js';
-import bs58 from 'bs58';
+import { Connection } from '@solana/web3.js';
 import { SolanaProvider, SolanaNetworkConfig, SPLToken } from './provider';
 import { keyringService } from '../../keyring/KeyringService';
 import { SOLANA_NETWORKS, POPULAR_SPL_TOKENS } from './networks';
@@ -22,7 +21,7 @@ export class LiveSolanaProvider extends SolanaProvider {
    */
   constructor(networkKey = 'mainnet') {
     const network = SOLANA_NETWORKS[networkKey];
-    if (!network) {
+    if (network === null || network === undefined) {
       throw new Error(`Unknown Solana network: ${networkKey}`);
     }
     super(network);
@@ -30,67 +29,80 @@ export class LiveSolanaProvider extends SolanaProvider {
 
   /**
    * Get current active address
+   * @returns Promise resolving to the active address
    */
-  async getAddress(): Promise<string> {
-    if (!this.activeAddress) {
+  getAddress(): Promise<string> {
+    if (this.activeAddress === null || this.activeAddress === undefined || this.activeAddress === '') {
       const activeAccount = keyringService.getActiveAccount();
-      if (!activeAccount) {
+      if (activeAccount === null || activeAccount === undefined) {
         throw new Error('No active account');
       }
       this.activeAddress = activeAccount.address;
     }
-    return this.activeAddress;
+    return Promise.resolve(this.activeAddress);
   }
 
   /**
-   * Get addresses from the keyring, limited by `count`.
-   * @param count Max number of addresses to return (default 10)
+   * Get addresses from the keyring, limited by count
+   * @param count - Max number of addresses to return (default 10)
+   * @returns Promise resolving to array of addresses
    */
-  async getAddresses(count = 10): Promise<string[]> {
-    const accounts = await keyringService.getAccounts('solana');
-    return accounts.slice(0, count).map(account => account.address);
+  getAddresses(count = 10): Promise<string[]> {
+    const accounts = keyringService.getAccounts('solana');
+    return Promise.resolve(accounts.slice(0, count).map(account => account.address));
   }
 
   /**
-   * Send native SOL using the active keyring account.
-   * @param to Recipient base58 address
-   * @param lamports Amount in lamports as string
+   * Send native SOL using the active keyring account
+   * @param _to - Recipient base58 address
+   * @param _lamports - Amount in lamports as string
+   * @returns Promise resolving to transaction signature
    */
-  async sendNativeToken(to: string, lamports: string): Promise<string> {
+  sendNativeToken(_to: string, _lamports: string): Promise<string> {
     // TODO: Integrate Solana signing with KeyringService secret management.
-    throw new Error('Solana signing not configured in KeyringService');
+    return Promise.reject(new Error('Solana signing not configured in KeyringService'));
   }
 
   /**
-   * Send an SPL token using the active keyring account.
-   * @param to Recipient base58 address
-   * @param mint Token mint address
-   * @param amount Human-readable amount as string
-   * @param decimals Token decimals used for conversion
+   * Send an SPL token using the active keyring account
+   * @param _to - Recipient base58 address
+   * @param _mint - Token mint address
+   * @param _amount - Human-readable amount as string
+   * @param _decimals - Token decimals used for conversion
+   * @returns Promise resolving to transaction signature
    */
-  async sendSPLToken(
-    to: string,
-    mint: string,
-    amount: string,
-    decimals: number
+  sendSPLToken(
+    _to: string,
+    _mint: string,
+    _amount: string,
+    _decimals: number
   ): Promise<string> {
     // TODO: Integrate Solana signing with KeyringService secret management.
-    throw new Error('Solana signing not configured in KeyringService');
+    return Promise.reject(new Error('Solana signing not configured in KeyringService'));
   }
 
-  /** Get native balance for the active account. */
+  /**
+   * Get native balance for the active account
+   * @returns Promise resolving to balance in lamports as string
+   */
   async getActiveBalance(): Promise<string> {
     const address = await this.getAddress();
     return this.getBalance(address);
   }
 
-  /** Get formatted native balance for the active account. */
+  /**
+   * Get formatted native balance for the active account
+   * @returns Promise resolving to formatted balance with SOL suffix
+   */
   async getActiveFormattedBalance(): Promise<string> {
     const address = await this.getAddress();
     return this.getFormattedBalance(address);
   }
 
-  /** Get SPL token balances for the active account, enriched with metadata. */
+  /**
+   * Get SPL token balances for the active account, enriched with metadata
+   * @returns Promise resolving to array of SPL token information
+   */
   async getActiveTokenBalances(): Promise<SPLToken[]> {
     const address = await this.getAddress();
     const tokens = await this.getTokenBalances(address);
@@ -101,7 +113,7 @@ export class LiveSolanaProvider extends SolanaProvider {
         t => t.mint === token.mint
       );
       
-      if (knownToken) {
+      if (knownToken !== null && knownToken !== undefined) {
         return {
           ...token,
           symbol: knownToken.symbol,
@@ -115,8 +127,9 @@ export class LiveSolanaProvider extends SolanaProvider {
   }
 
   /**
-   * Sign a UTF‑8 message with the active account. @param message Message to sign
-   * @param message
+   * Sign a UTF‑8 message with the active account
+   * @param message - Message to sign
+   * @returns Promise resolving to the signature
    */
   async signActiveMessage(message: string): Promise<string> {
     const address = await this.getAddress();
@@ -125,17 +138,18 @@ export class LiveSolanaProvider extends SolanaProvider {
 
   /**
    * Create an associated token account for the given mint.
-   * @param mint Token mint address
+   * @param _mint - Token mint address
    * @returns Associated token account address (base58)
    */
-  async createTokenAccount(mint: string): Promise<string> {
+  createTokenAccount(_mint: string): Promise<string> {
     // TODO: Integrate Solana signing with KeyringService secret management.
-    throw new Error('Solana signing not configured in KeyringService');
+    return Promise.reject(new Error('Solana signing not configured in KeyringService'));
   }
 
   /**
-   * Get transaction history for the active account. @param limit Optional max items
-   * @param limit
+   * Get transaction history for the active account
+   * @param limit - Optional max items to return
+   * @returns Promise resolving to array of transactions
    */
   async getActiveTransactionHistory(limit?: number): Promise<BaseTransaction[]> {
     const address = await this.getAddress();
@@ -143,12 +157,22 @@ export class LiveSolanaProvider extends SolanaProvider {
   }
 
   /**
-   * Estimate the fee for a transfer.
-   * @param to Recipient address
-   * @param amount Amount in lamports (native) or human amount (token)
-   * @param isToken Whether estimating for an SPL token transfer
+   * Estimate the fee for a transfer
+   * @returns Promise resolving to fee estimate in lamports as string
    */
-  async estimateFee(
+  estimateFee(): Promise<string> {
+    // Return typical Solana transaction fee
+    return Promise.resolve('5000'); // 0.000005 SOL
+  }
+
+  /**
+   * Estimate the fee for a specific transfer.
+   * @param to - Recipient address
+   * @param amount - Amount in lamports (native) or human amount (token)
+   * @param isToken - Whether estimating for an SPL token transfer
+   * @returns Fee estimate in lamports as string
+   */
+  async estimateTransferFee(
     to: string,
     amount: string,
     isToken = false
@@ -172,15 +196,22 @@ export class LiveSolanaProvider extends SolanaProvider {
       );
     }
 
-    const { blockhash } = await this.connection.getLatestBlockhash();
+    const connection = this.connection;
+    if (connection === undefined) {
+      throw new Error('No connection available');
+    }
+    const { blockhash } = await connection.getLatestBlockhash();
     transaction.recentBlockhash = blockhash;
     transaction.feePayer = new PublicKey(await this.getAddress());
 
-    const fee = await transaction.getEstimatedFee(this.connection);
-    return fee?.toString() || '5000';
+    const fee = await transaction.getEstimatedFee(connection);
+    return fee?.toString() ?? '5000';
   }
 
-  /** Get the current Solana network configuration. */
+  /**
+   * Get the current Solana network configuration.
+   * @returns Current network configuration
+   */
   getCurrentNetwork(): SolanaNetworkConfig {
     return this.config as SolanaNetworkConfig;
   }
@@ -190,30 +221,36 @@ export class LiveSolanaProvider extends SolanaProvider {
    * @param config Network configuration
    */
   switchNetwork(config: SolanaNetworkConfig): void {
-    if (!config) {
+    if (config === null || config === undefined) {
       throw new Error('Network config is required');
     }
 
     // Update configuration
     this.config = config;
-    this.commitment = config.commitment || 'confirmed';
+    this.commitment = config.commitment ?? 'confirmed';
     
     // Create new connection
     this.connection = new Connection(config.rpcUrl, {
       commitment: this.commitment,
-      ...(config.wsUrl && { wsEndpoint: config.wsUrl }),
+      ...(config.wsUrl !== undefined && config.wsUrl !== null && config.wsUrl !== '' && { wsEndpoint: config.wsUrl }),
     });
     
     // Clear cached address
     this.activeAddress = null;
   }
 
-  /** Return the list of supported Solana networks. */
+  /**
+   * Return the list of supported Solana networks.
+   * @returns Array of supported network configurations
+   */
   static getSupportedNetworks(): SolanaNetworkConfig[] {
     return Object.values(SOLANA_NETWORKS);
   }
 
-  /** Check if the current network is a devnet/testnet. */
+  /**
+   * Check if the current network is a devnet/testnet.
+   * @returns True if on testnet/devnet
+   */
   isTestnet(): boolean {
     const network = this.getCurrentNetwork();
     const id = String(network.chainId);
@@ -222,7 +259,8 @@ export class LiveSolanaProvider extends SolanaProvider {
 
   /**
    * Request a SOL airdrop for the active address (testnet/devnet only).
-   * @param amount Amount in SOL to request (default 1)
+   * @param amount - Amount in SOL to request (default 1)
+   * @returns Transaction signature
    */
   async requestAirdrop(amount = 1): Promise<string> {
     if (!this.isTestnet()) {
@@ -235,4 +273,4 @@ export class LiveSolanaProvider extends SolanaProvider {
 }
 
 // Import Transaction type
-import { Transaction as BaseTransaction, TransactionRequest } from '@/types';
+import { Transaction as BaseTransaction } from '../../../types';

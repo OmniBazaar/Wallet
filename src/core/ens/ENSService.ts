@@ -32,7 +32,7 @@ export class ENSService {
     ];
 
     // Only initialize contract if we have a valid address
-    if (ENS_CONFIG.registryAddress && ENS_CONFIG.registryAddress !== '') {
+    if (ENS_CONFIG.registryAddress !== null && ENS_CONFIG.registryAddress !== undefined && ENS_CONFIG.registryAddress !== '') {
       this.ensRegistry = new ethers.Contract(
         ENS_CONFIG.registryAddress,
         ENS_REGISTRY_ABI,
@@ -84,7 +84,7 @@ export class ENSService {
 
       return null;
     } catch (error) {
-      console.error('Error resolving address:', error);
+      // Error resolving address
       return null;
     }
   }
@@ -101,18 +101,19 @@ export class ENSService {
 
       // Use our stateless resolver
       const resolverContract = this.contractManager.getResolverContract();
-      const address = await (resolverContract as any)['resolve'](username);
+      const address = await resolverContract.resolve(username) as string;
 
       return address !== ethers.ZeroAddress ? address : null;
     } catch (error) {
-      console.error('Error resolving .omnicoin address:', error);
+      // Error resolving .omnicoin address
       return null;
     }
   }
 
   /**
    * Resolve standard .eth addresses via ENS
-   * @param name
+   * @param name - ENS name to resolve
+   * @returns Promise resolving to address or null
    */
   private async resolveEthAddress(name: string): Promise<string | null> {
     try {
@@ -120,7 +121,7 @@ export class ENSService {
       const namehash = ethers.namehash(name);
 
       // Get resolver address from ENS registry
-      const resolverAddress = await (this.ensRegistry as any)['resolver'](namehash);
+      const resolverAddress = await this.ensRegistry.resolver(namehash) as string;
 
       if (resolverAddress === ethers.ZeroAddress) {
         return null;
@@ -138,11 +139,11 @@ export class ENSService {
       );
 
       // Get address from resolver
-      const address = await (resolver as any)['addr'](namehash);
+      const address = await resolver.addr(namehash) as string;
 
       return address !== ethers.ZeroAddress ? address : null;
     } catch (error) {
-      console.error('Error resolving .eth address:', error);
+      // Error resolving .eth address
       return null;
     }
   }
@@ -150,8 +151,9 @@ export class ENSService {
   /**
    * Resolve address for specific cryptocurrency
    * Used for multi-chain transactions
-   * @param name
-   * @param coinType
+   * @param name - Domain name to resolve
+   * @param coinType - Coin type identifier (e.g., 60 for ETH)
+   * @returns Promise resolving to address or null
    */
   public async resolveAddressForCoin(name: string, coinType: number): Promise<string | null> {
     try {
@@ -163,7 +165,7 @@ export class ENSService {
       // For .eth addresses, use ENS multicoin support
       if (name.endsWith('.eth')) {
         const namehash = ethers.namehash(name);
-        const resolverAddress = await (this.ensRegistry as any)['resolver'](namehash);
+        const resolverAddress = await this.ensRegistry.resolver(namehash) as string;
 
         if (resolverAddress === ethers.ZeroAddress) {
           return null;
@@ -179,7 +181,7 @@ export class ENSService {
           this.contractManager.getEthereumProvider()
         );
 
-        const addressBytes = await (resolver as any)['addr'](namehash, coinType);
+        const addressBytes = await resolver.addr(namehash, coinType) as string;
 
         if (addressBytes === '0x' || addressBytes.length === 0) {
           return null;
@@ -191,15 +193,16 @@ export class ENSService {
 
       return null;
     } catch (error) {
-      console.error('Error resolving address for coin type:', error);
+      // Error resolving address for coin type
       return null;
     }
   }
 
   /**
    * Format address bytes for specific coin type
-   * @param addressBytes
-   * @param coinType
+   * @param addressBytes - Raw address bytes from resolver
+   * @param coinType - Coin type identifier
+   * @returns Formatted address string
    */
   private formatAddressForCoinType(addressBytes: string, coinType: number): string {
     // Coin type constants
@@ -241,7 +244,8 @@ export class ENSService {
 
   /**
    * Check if a name is a valid ENS name
-   * @param name
+   * @param name - Name to check
+   * @returns True if valid ENS name
    */
   public isValidENSName(name: string): boolean {
     return name.endsWith('.eth') || name.endsWith('.omnicoin');
@@ -249,7 +253,8 @@ export class ENSService {
 
   /**
    * Reverse resolve address to ENS name
-   * @param address
+   * @param address - Address to reverse resolve
+   * @returns Promise resolving to ENS name or null
    */
   public async reverseResolve(address: string): Promise<string | null> {
     try {
@@ -257,14 +262,14 @@ export class ENSService {
       const keyringManager = await import('../keyring/KeyringManager');
       const username = await keyringManager.KeyringManager.getInstance().reverseResolve(address);
 
-      if (username) {
+      if (username !== null && username !== undefined && username !== '') {
         return `${username}.omnicoin`;
       }
 
       // Try ENS reverse resolution
       const reverseName = `${address.slice(2).toLowerCase()}.addr.reverse`;
       const namehash = ethers.namehash(reverseName);
-      const resolverAddress = await (this.ensRegistry as any)['resolver'](namehash);
+      const resolverAddress = await this.ensRegistry.resolver(namehash) as string;
 
       if (resolverAddress === ethers.ZeroAddress) {
         return null;
@@ -280,10 +285,10 @@ export class ENSService {
         this.contractManager.getEthereumProvider()
       );
 
-      const name = await (resolver as any)['name'](namehash);
-      return name || null;
+      const name = await resolver.name(namehash) as string;
+      return (name !== null && name !== undefined && name !== '') ? name : null;
     } catch (error) {
-      console.error('Error reverse resolving address:', error);
+      // Error reverse resolving address
       return null;
     }
   }

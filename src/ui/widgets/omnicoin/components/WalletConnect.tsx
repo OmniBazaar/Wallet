@@ -4,58 +4,45 @@ import { flushSync } from 'react-dom';
 import { OmniCoinLoading } from './OmniCoinLoading';
 import { OmniCoinToast } from './OmniCoinToast';
 
-// Placeholder wallet state interface
 /**
- *
+ * State interface for wallet connection status
  */
 export interface WalletState {
-  /**
-   *
-   */
+  /** Currently connected wallet address */
   address?: string;
-  /**
-   *
-   */
+  /** Current blockchain chain ID */
   chainId?: number;
-  /**
-   *
-   */
+  /** Whether wallet connection is in progress */
   isConnecting: boolean;
-  /**
-   *
-   */
+  /** Error message if connection failed */
   error?: string;
 }
 
-// Wallet hook interface for testing
 /**
- *
+ * Wallet hook interface for dependency injection during testing
  */
 export interface WalletHook {
-  /**
-   *
-   */
+  /** Current wallet state */
   state: WalletState;
-  /**
-   *
-   */
+  /** Function to connect to wallet */
   connect: () => Promise<void>;
-  /**
-   *
-   */
+  /** Function to disconnect wallet */
   disconnect: () => void;
 }
 
-// Default wallet hook implementation
+/**
+ * Default wallet hook implementation for fallback scenarios
+ * @returns Default wallet hook with unimplemented methods
+ */
 const defaultUseWallet = (): WalletHook => ({
   state: {
     isConnecting: false
   } as WalletState,
-  connect: async () => {
+  connect: () => {
     throw new Error('Wallet connection not implemented');
   },
-  disconnect: () => {
-    // TODO: Implement wallet disconnection
+  disconnect: (): void => {
+    // Default implementation - no operation
   }
 });
 
@@ -63,17 +50,19 @@ const defaultUseWallet = (): WalletHook => ({
 let walletHookProvider: () => WalletHook = defaultUseWallet;
 
 /**
- *
- * @param provider
+ * Sets the wallet hook provider for dependency injection
+ * @param provider - Function that returns a wallet hook implementation
+ * @returns void
  */
-export const setWalletHookProvider = (provider: () => WalletHook) => {
+export const setWalletHookProvider = (provider: () => WalletHook): void => {
   walletHookProvider = provider;
 };
 
 /**
- *
+ * Resets the wallet hook provider to the default implementation
+ * @returns void
  */
-export const resetWalletHookProvider = () => {
+export const resetWalletHookProvider = (): void => {
   walletHookProvider = defaultUseWallet;
 };
 
@@ -121,16 +110,15 @@ const addressTextStyle: React.CSSProperties = {
 };
 
 /**
- *
+ * Props interface for WalletConnect component
  */
 export interface WalletConnectProps {
-  // No props currently needed
+  /** No props currently needed */
 }
 
 /**
  * Wallet connection component for OmniBazaar
  * Allows users to connect/disconnect various wallet providers
- * @param props - Component props
  * @returns JSX element for wallet connection interface
  */
 const WalletConnect: React.FC<WalletConnectProps> = () => {
@@ -192,7 +180,7 @@ const WalletConnect: React.FC<WalletConnectProps> = () => {
                 />
             )}
 
-            {address ? (
+            {typeof address === 'string' && address.length > 0 ? (
                 <>
                     <p style={statusTextStyle}>Connected to:</p>
                     <code style={addressTextStyle}>{address}</code>
@@ -220,7 +208,7 @@ const WalletConnect: React.FC<WalletConnectProps> = () => {
                 </>
             )}
 
-            {error && (
+            {typeof error === 'string' && error.length > 0 && (
                 <OmniCoinToast type="error" message={error} />
             )}
         </div>

@@ -87,7 +87,7 @@ export class Transaction {
     return {
       to: (this.data.to as unknown as AddressLike) ?? null,
       ...(this.data.value != null && { value: this.data.value }),
-      ...(this.data.data && { data: this.data.data }),
+      ...(this.data.data != null && this.data.data !== '' && { data: this.data.data }),
       ...((this.options.gasLimit ?? this.data.gasLimit) != null && { gasLimit: this.options.gasLimit ?? this.data.gasLimit }),
       ...(this.options.maxFeePerGas != null && { maxFeePerGas: this.options.maxFeePerGas }),
       ...(this.options.maxPriorityFeePerGas != null && { maxPriorityFeePerGas: this.options.maxPriorityFeePerGas }),

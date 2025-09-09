@@ -165,10 +165,14 @@ export class OmniCoinProvider extends CotiProvider {
    */
   constructor(
     toWindow: (message: string) => void,
-    network: EthereumNetwork = OmniCoinNetworks['testnet'],
+    network?: EthereumNetwork,
     config?: Partial<OmniCoinConfig>
   ) {
-    super(toWindow, network);
+    const defaultNetwork = network ?? OmniCoinNetworks['testnet'];
+    if (defaultNetwork === undefined) {
+      throw new Error('OmniCoin testnet network configuration not found');
+    }
+    super(toWindow, defaultNetwork);
     this.namespace = ProviderName.ETHEREUM; // OmniCoin is EVM compatible via COTI
 
     // Default OmniCoin configuration
@@ -402,11 +406,9 @@ export class OmniCoinProvider extends CotiProvider {
       listingId: listing.id
     });
 
-    // Simulate transaction hash
-    const transactionHash = '0x' + Array.from(
-      new Uint8Array(32),
-      () => Math.floor(Math.random() * 256).toString(16).padStart(2, '0')
-    ).join('');
+    // Generate secure transaction hash
+    const { generateSecureMockTxHash } = require('../../utils/secure-random');
+    const transactionHash = generateSecureMockTxHash();
 
     this.emit('omnicoin_itemPurchased', { listing, buyer: buyerAddress, escrowId: escrowInfo.id });
 
@@ -565,10 +567,8 @@ export class OmniCoinProvider extends CotiProvider {
   // Helper Methods
 
   private generateId(): string {
-    return Array.from(
-      new Uint8Array(16),
-      () => Math.floor(Math.random() * 256).toString(16).padStart(2, '0')
-    ).join('');
+    const { secureRandomHex } = require('../../utils/secure-random');
+    return secureRandomHex(16);
   }
 
   // Override COTI methods to include OmniCoin branding

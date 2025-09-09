@@ -216,6 +216,11 @@ export class NFTDatabase {
    * @param tokenId - Token ID
    */
   async getNFT(contractAddress: string, tokenId: string): Promise<NFTData | null>;
+  /**
+   *
+   * @param idOrContract
+   * @param tokenId
+   */
   async getNFT(idOrContract: string, tokenId?: string): Promise<NFTData | null> {
     if (!this.db) throw new Error('Database not initialized');
 
@@ -340,6 +345,10 @@ export class NFTDatabase {
    * @param contractAddress - Contract address
    */
   async getCollection(contractAddress: string): Promise<NFTCollection | null>;
+  /**
+   *
+   * @param idOrAddress
+   */
   async getCollection(idOrAddress: string): Promise<NFTCollection | null> {
     if (!this.db) throw new Error('Database not initialized');
 

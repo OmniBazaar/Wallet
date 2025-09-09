@@ -269,7 +269,7 @@ export class OrderBookService {
         amountOutMin: params.amountOutMin,
         side: params.side,
         price: params.price,
-        timeInForce: params.timeInForce || TimeInForce.GTC,
+        timeInForce: (params.timeInForce != null) || TimeInForce.GTC,
         expiration: params.expiration,
         postOnly: params.postOnly,
         reduceOnly: params.reduceOnly
@@ -301,7 +301,7 @@ export class OrderBookService {
           side: params.side,
           price: params.price,
           status: OrderStatus.OPEN,
-          timeInForce: params.timeInForce || TimeInForce.GTC,
+          timeInForce: (params.timeInForce != null) || TimeInForce.GTC,
           createdAt: Date.now(),
           updatedAt: Date.now(),
           expiration: params.expiration,
@@ -390,6 +390,8 @@ export class OrderBookService {
   /**
    * Get user's open orders
    * @param tokenPair - Optional token pair filter
+   * @param tokenPair.tokenIn
+   * @param tokenPair.tokenOut
    * @returns Array of user's open orders
    * @throws {Error} When query fails
    */

@@ -1,10 +1,53 @@
 /**
  * Mock NFT Manager
+ * Provides mock NFT data for testing and development
  */
 
+/** Mock NFT data structure */
+export interface MockNFT {
+  /** NFT identifier */
+  id: string;
+  /** Token ID */
+  tokenId: string;
+  /** Contract address */
+  contractAddress: string;
+  /** NFT name */
+  name: string;
+  /** Image URL */
+  image: string;
+  /** Owner address */
+  owner: string;
+}
+
+/** Transfer result */
+export interface TransferResult {
+  /** Transaction hash */
+  hash: string;
+}
+
+/** NFT transfer parameters */
+export interface TransferParams {
+  /** Contract address */
+  contractAddress: string;
+  /** Token ID */
+  tokenId: string;
+  /** From address */
+  from: string;
+  /** To address */
+  to: string;
+}
+
+/**
+ * Mock NFT Manager implementation
+ */
 export class NFTManager {
-  async getNFTs(address: string): Promise<any[]> {
-    return [
+  /**
+   * Get NFTs for an address
+   * @param address - User wallet address
+   * @returns Promise resolving to array of mock NFTs
+   */
+  getNFTs(address: string): Promise<MockNFT[]> {
+    return Promise.resolve([
       {
         id: 'nft-1',
         tokenId: '1',
@@ -13,15 +56,18 @@ export class NFTManager {
         image: 'https://example.com/nft1.png',
         owner: address
       }
-    ];
+    ]);
   }
 
-  async transferNFT(params: {
-    contractAddress: string;
-    tokenId: string;
-    from: string;
-    to: string;
-  }): Promise<{ hash: string }> {
-    return { hash: '0x' + Math.random().toString(16).substring(2, 66) };
+  /**
+   * Transfer NFT to another address
+   * @param _params - Transfer parameters
+   * @returns Promise resolving to transaction hash
+   */
+  transferNFT(_params: TransferParams): Promise<TransferResult> {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-unsafe-assignment
+    const { generateSecureMockTxHash } = require('../../utils/secure-random');
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
+    return Promise.resolve({ hash: generateSecureMockTxHash() });
   }
 }

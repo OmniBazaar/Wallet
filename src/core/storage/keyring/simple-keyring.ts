@@ -2,72 +2,46 @@ import { randomBytes, createHash } from 'crypto';
 import BrowserStorage, { StorageInterface } from '../common/browser-storage';
 
 /**
- * Account descriptor stored in the simple keyring.
+ * Account descriptor stored in the simple keyring
  */
 export interface Account {
-  /**
-   *
-   */
+  /** Unique identifier for the account */
   id: string;
-  /**
-   *
-   */
+  /** User-friendly account name */
   name: string;
-  /**
-   *
-   */
+  /** Blockchain address */
   address: string;
-  /**
-   *
-   */
+  /** Public key for the account */
   publicKey: string;
-  /**
-   *
-   */
+  /** BIP44 derivation path */
   derivationPath: string;
-  /**
-   *
-   */
+  /** Type of blockchain */
   chainType: 'ethereum' | 'bitcoin' | 'solana' | 'coti' | 'omnicoin';
-  /**
-   *
-   */
+  /** Timestamp when account was created */
   createdAt: number;
 }
 
 /**
- * Wallet metadata and account list persisted to storage.
+ * Wallet metadata and account list persisted to storage
  */
 export interface WalletData {
-  /**
-   *
-   */
+  /** Unique wallet identifier */
   id: string;
-  /**
-   *
-   */
+  /** Wallet name */
   name: string;
-  /**
-   *
-   */
+  /** Timestamp when wallet was created */
   createdAt: number;
-  /**
-   *
-   */
+  /** List of accounts in the wallet */
   accounts: Account[];
 }
 
 /**
- * Options used when initializing or unlocking the keyring.
+ * Options used when initializing or unlocking the keyring
  */
 export interface KeyringOptions {
-  /**
-   *
-   */
+  /** Optional mnemonic phrase for wallet recovery */
   mnemonic?: string;
-  /**
-   *
-   */
+  /** Password for wallet encryption */
   password: string;
 }
 
@@ -88,17 +62,17 @@ class SimpleKeyring {
   };
 
   /**
-   * Create a keyring bound to a browser storage namespace.
-   * @param namespace Storage namespace key
+   * Create a keyring bound to a browser storage namespace
+   * @param namespace - Storage namespace key
    */
   constructor(namespace = 'omnibazaar-wallet') {
     this.storage = new BrowserStorage(namespace);
   }
 
-  // Initialize new wallet
   /**
-   * Initialize a new wallet with an encrypted seed and empty account list.
-   * @param options Initialization options (mnemonic or password)
+   * Initialize a new wallet with an encrypted seed and empty account list
+   * @param options - Initialization options (mnemonic or password)
+   * @returns Promise that resolves when initialization is complete
    */
   async initialize(options: KeyringOptions): Promise<void> {
     if (await this.isInitialized()) {
@@ -106,7 +80,7 @@ class SimpleKeyring {
     }
 
     // Generate a simple seed if no mnemonic provided
-    const seed = options.mnemonic || this.generateSeed();
+    const seed = options.mnemonic ?? this.generateSeed();
     
     // Create encrypted seed
     this.encryptedSeed = this.encrypt(seed, options.password);
@@ -127,17 +101,19 @@ class SimpleKeyring {
     await this.unlock(options.password);
   }
 
-  // Check if wallet is initialized
-  /** Check whether the keyring has been initialized. */
+  /**
+   * Check whether the keyring has been initialized
+   * @returns Promise resolving to true if initialized
+   */
   async isInitialized(): Promise<boolean> {
-    const encryptedSeed = await this.storage.get(this.STORAGE_KEYS.ENCRYPTED_SEED);
-    return !!encryptedSeed;
+    const encryptedSeed = await this.storage.get<string>(this.STORAGE_KEYS.ENCRYPTED_SEED);
+    return encryptedSeed !== null;
   }
 
-  // Unlock wallet with password
   /**
-   * Unlock the keyring with the given password.
-   * @param password Wallet password
+   * Unlock the keyring with the given password
+   * @param password - Wallet password
+   * @returns Promise that resolves when wallet is unlocked
    */
   async unlock(password: string): Promise<void> {
     if (!await this.isInitialized()) {
@@ -146,19 +122,21 @@ class SimpleKeyring {
 
     try {
       // Load encrypted seed
-      this.encryptedSeed = await this.storage.get(this.STORAGE_KEYS.ENCRYPTED_SEED);
-      if (!this.encryptedSeed) {
+      const storedSeed = await this.storage.get<string>(this.STORAGE_KEYS.ENCRYPTED_SEED);
+      if (storedSeed === null || storedSeed === '') {
         throw new Error('No encrypted seed found');
       }
+      this.encryptedSeed = storedSeed;
 
       // Verify password by trying to decrypt
       this.decrypt(this.encryptedSeed, password);
 
       // Load wallet data
-      this.walletData = await this.storage.get(this.STORAGE_KEYS.WALLET_DATA);
-      if (!this.walletData) {
+      const storedWalletData = await this.storage.get<WalletData>(this.STORAGE_KEYS.WALLET_DATA);
+      if (storedWalletData === null) {
         throw new Error('No wallet data found');
       }
+      this.walletData = storedWalletData;
 
       this.isUnlocked = true;
     } catch (error) {
@@ -167,26 +145,30 @@ class SimpleKeyring {
     }
   }
 
-  // Lock wallet
-  /** Lock the keyring, clearing in‑memory unlocked state. */
+  /**
+   * Lock the keyring, clearing in‑memory unlocked state
+   * @returns void
+   */
   lock(): void {
     this.isUnlocked = false;
   }
 
-  // Get wallet lock status
-  /** Return true if the keyring is currently locked. */
+  /**
+   * Return true if the keyring is currently locked
+   * @returns True if locked, false if unlocked
+   */
   locked(): boolean {
     return !this.isUnlocked;
   }
 
-  // Create new account for specified chain
   /**
-   * Create a new account for the specified chain type.
-   * @param chainType Target chain type
-   * @param name Optional display name
+   * Create a new account for the specified chain type
+   * @param chainType - Target chain type
+   * @param name - Optional display name
+   * @returns Promise resolving to the new account
    */
   async createAccount(chainType: Account['chainType'], name?: string): Promise<Account> {
-    if (!this.isUnlocked || !this.walletData) {
+    if (!this.isUnlocked || this.walletData === null) {
       throw new Error('Wallet is locked');
     }
 
@@ -198,7 +180,9 @@ class SimpleKeyring {
     
     const account: Account = {
       id: this.generateId(),
-      name: name || `${chainType.charAt(0).toUpperCase() + chainType.slice(1)} Account ${accountIndex + 1}`,
+      name: name !== undefined && name !== '' 
+        ? name 
+        : `${chainType.charAt(0).toUpperCase() + chainType.slice(1)} Account ${accountIndex + 1}`,
       address: keyPair.address,
       publicKey: keyPair.publicKey,
       derivationPath,
@@ -215,39 +199,42 @@ class SimpleKeyring {
     return account;
   }
 
-  // Get all accounts
   /**
-   *
-   * @param chainType
+   * Get all accounts or accounts for a specific chain
+   * @param chainType - Optional chain type filter
+   * @returns Promise resolving to array of accounts
    */
-  async getAccounts(chainType?: Account['chainType']): Promise<Account[]> {
-    if (!this.walletData) {
+  getAccounts(chainType?: Account['chainType']): Promise<Account[]> {
+    if (this.walletData === null) {
       return [];
     }
 
-    return chainType 
-      ? this.walletData.accounts.filter(acc => acc.chainType === chainType)
-      : this.walletData.accounts;
+    return Promise.resolve(
+      chainType !== undefined
+        ? this.walletData.accounts.filter(acc => acc.chainType === chainType)
+        : this.walletData.accounts
+    );
   }
 
-  // Get account by address
   /**
-   *
-   * @param address
+   * Get account by address
+   * @param address - Account address to find
+   * @returns Promise resolving to account or null if not found
    */
-  async getAccount(address: string): Promise<Account | null> {
-    if (!this.walletData) {
+  getAccount(address: string): Promise<Account | null> {
+    if (this.walletData === null) {
       return null;
     }
 
-    return this.walletData.accounts.find(acc => acc.address === address) || null;
+    const account = this.walletData.accounts.find(acc => acc.address === address);
+    return Promise.resolve(account ?? null);
   }
 
-  // Sign message with account (placeholder implementation)
   /**
-   *
-   * @param address
-   * @param message
+   * Sign message with account (placeholder implementation)
+   * @param address - Address to sign with
+   * @param message - Message to sign
+   * @returns Promise resolving to signature string
    */
   async signMessage(address: string, message: string): Promise<string> {
     if (!this.isUnlocked) {
@@ -255,7 +242,7 @@ class SimpleKeyring {
     }
 
     const account = await this.getAccount(address);
-    if (!account) {
+    if (account === null) {
       throw new Error('Account not found');
     }
 
@@ -264,9 +251,9 @@ class SimpleKeyring {
     return `0x${messageHash.toString('hex')}`;
   }
 
-  // Reset wallet (delete all data)
   /**
-   *
+   * Reset wallet (delete all data)
+   * @returns Promise that resolves when reset is complete
    */
   async reset(): Promise<void> {
     await this.storage.clear();
@@ -275,7 +262,12 @@ class SimpleKeyring {
     this.encryptedSeed = null;
   }
 
-  // Private helper methods
+  /**
+   * Encrypt text with password using simple XOR (not secure for production)
+   * @param text - Text to encrypt
+   * @param password - Password for encryption
+   * @returns Base64 encoded encrypted string
+   */
   private encrypt(text: string, password: string): string {
     // Simple XOR encryption for now (not secure for production)
     const key = this.hashPassword(password);
@@ -286,6 +278,12 @@ class SimpleKeyring {
     return Buffer.from(encrypted).toString('base64');
   }
 
+  /**
+   * Decrypt text with password
+   * @param encryptedText - Base64 encoded encrypted text
+   * @param password - Password for decryption
+   * @returns Decrypted string
+   */
   private decrypt(encryptedText: string, password: string): string {
     try {
       const key = this.hashPassword(password);
@@ -300,14 +298,29 @@ class SimpleKeyring {
     }
   }
 
+  /**
+   * Hash password using SHA256
+   * @param password - Password to hash
+   * @returns Hex string hash
+   */
   private hashPassword(password: string): string {
     return createHash('sha256').update(password).digest('hex');
   }
 
+  /**
+   * Generate random seed
+   * @returns Hex string seed
+   */
   private generateSeed(): string {
     return randomBytes(32).toString('hex');
   }
 
+  /**
+   * Get BIP44 derivation path for chain and account index
+   * @param chainType - Type of blockchain
+   * @param accountIndex - Account index
+   * @returns BIP44 derivation path string
+   */
   private getDerivationPath(chainType: Account['chainType'], accountIndex: number): string {
     const coinTypes = {
       ethereum: "60",
@@ -317,10 +330,16 @@ class SimpleKeyring {
       omnicoin: "60" // Using Ethereum's coin type for now
     };
 
-    const coinType = coinTypes[chainType] || "60";
+    const coinType = coinTypes[chainType];
     return `m/44'/${coinType}'/0'/0/${accountIndex}`;
   }
 
+  /**
+   * Generate key pair for specified chain
+   * @param chainType - Type of blockchain
+   * @param accountIndex - Account index
+   * @returns Object with address and publicKey
+   */
   private generateKeyPair(chainType: Account['chainType'], accountIndex: number): { address: string; publicKey: string } {
     // Simplified key generation for demonstration
     const seed = createHash('sha256').update(`${chainType}-${accountIndex}`).digest();
@@ -344,14 +363,20 @@ class SimpleKeyring {
           address: seed.slice(0, 32).toString('hex'),
           publicKey: publicKey
         };
-      default:
-        throw new Error(`Unsupported chain type: ${chainType}`);
+      default: {
+        const _exhaustiveCheck: never = chainType;
+        throw new Error(`Unsupported chain type: ${String(_exhaustiveCheck)}`);
+      }
     }
   }
 
+  /**
+   * Generate unique identifier
+   * @returns Hex string ID
+   */
   private generateId(): string {
     return randomBytes(16).toString('hex');
   }
 }
 
-export default SimpleKeyring; 
+export default SimpleKeyring;

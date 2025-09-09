@@ -10,27 +10,41 @@
  * - Integration with our provider system
  */
 
+interface AssetMetadata {
+  name: string;
+  description: string;
+  image: string;
+}
+
 // Placeholder exports to prevent import errors
 /**
- *
- * @param address
- * @param tokenId
+ * Get asset metadata for a given NFT
+ * @param _address - The NFT contract address
+ * @param _tokenId - The NFT token ID
+ * @returns Promise resolving to asset metadata
  */
-export const getAssetMetadata = async (address: string, tokenId: string): Promise<unknown> => {
+export const getAssetMetadata = (_address: string, _tokenId: string): Promise<AssetMetadata> => {
   // TODO: Implement using NFTManager
-  return {
+  return Promise.resolve({
     name: 'Unknown NFT',
     description: 'Metadata not available',
     image: ''
-  };
+  });
 };
 
+interface AssetMetadataHookResult {
+  data: AssetMetadata | null;
+  isLoading: boolean;
+  error: Error | null;
+}
+
 /**
- *
- * @param address
- * @param tokenId
+ * Hook to fetch and manage asset metadata
+ * @param _address - The NFT contract address
+ * @param _tokenId - The NFT token ID
+ * @returns Hook result with data, loading state and error
  */
-export const useAssetMetadata = (address: string, tokenId: string) => {
+export const useAssetMetadata = (_address: string, _tokenId: string): AssetMetadataHookResult => {
   // TODO: Implement using NFTService
   return {
     data: null,

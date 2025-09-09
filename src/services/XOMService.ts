@@ -17,15 +17,16 @@ export class XOMService {
   private isInitialized = false;
 
   /**
-   *
-   * @param walletService
+   * Creates a new XOMService instance
+   * @param walletService - Wallet service instance for XOM operations
    */
   constructor(walletService: WalletService) {
     this.walletService = walletService;
   }
 
   /**
-   *
+   * Initialize the XOM service
+   * @throws {Error} When initialization fails
    */
   async init(): Promise<void> {
     if (this.isInitialized) return;
@@ -49,7 +50,7 @@ export class XOMService {
     }
     
     const wallet = this.walletService.getWallet();
-    if (!wallet) throw new Error('Wallet not available');
+    if (wallet === null) throw new Error('Wallet not available');
     
     // For the current wallet address, use the wallet method
     const currentAddress = await wallet.getAddress();
@@ -70,33 +71,39 @@ export class XOMService {
    */
   async getXOMBalance(): Promise<bigint> {
     const wallet = this.walletService.getWallet();
-    if (!wallet) throw new Error('Wallet not available');
+    if (wallet === null) throw new Error('Wallet not available');
     const balance = await wallet.getBalance('OMNI');
     return typeof balance === 'bigint' ? balance : BigInt(balance);
   }
 
   /**
-   *
-   * @param amount
+   * Stake XOM tokens
+   * @param amount - Amount to stake in wei
+   * @returns Staking transaction result
    */
-  async stakeXOM(amount: bigint): Promise<any> {
+  async stakeXOM(amount: bigint): Promise<any> { // eslint-disable-line @typescript-eslint/no-explicit-any
     const wallet = this.walletService.getWallet();
-    if (!wallet) throw new Error('Wallet not available');
+    if (wallet === null) throw new Error('Wallet not available');
     return await wallet.stakeOmniCoin(amount);
   }
 
   /**
-   *
+   * Get current staked XOM balance
+   * @returns Staked balance in wei
    */
   async getStakedBalance(): Promise<bigint> {
     const wallet = this.walletService.getWallet();
-    if (!wallet) throw new Error('Wallet not available');
+    if (wallet === null) throw new Error('Wallet not available');
     return await wallet.getStakedBalance();
   }
 
   /**
    * Transfer XOM tokens
    * @param params - Transfer parameters
+   * @param params.to - Recipient address
+   * @param params.amount - Amount to transfer in wei
+   * @param params.from - Sender address (optional)
+   * @param params.gas - Gas limit (optional)
    * @returns Transaction receipt
    */
   async transfer(params: {
@@ -106,7 +113,7 @@ export class XOMService {
     gas?: bigint;
   }): Promise<ethers.TransactionReceipt> {
     const wallet = this.walletService.getWallet();
-    if (!wallet) throw new Error('Wallet not available');
+    if (wallet === null) throw new Error('Wallet not available');
     
     // Create transaction object
     const tx = Transaction.createTransfer(params.to, params.amount);
@@ -116,13 +123,17 @@ export class XOMService {
     
     // Wait for transaction receipt
     let receipt: ethers.TransactionReceipt;
-    if (response && response.wait) {
-      receipt = await response.wait();
+    if (response !== null && response !== undefined && response.wait) {
+      const txReceipt = await response.wait();
+      if (txReceipt === null) {
+        throw new Error('Transaction receipt not available');
+      }
+      receipt = txReceipt;
     } else {
       // Mock receipt for testing
       receipt = {
-        hash: response.hash || '0x' + Math.random().toString(16).substring(2, 66),
-        from: params.from || await wallet.getAddress(),
+        hash: response.hash ?? '0x' + Math.random().toString(16).substring(2, 66),
+        from: params.from ?? await wallet.getAddress(),
         to: params.to,
         value: params.amount,
         blockNumber: 1,
@@ -136,7 +147,7 @@ export class XOMService {
         effectiveGasPrice: ethers.parseUnits('30', 'gwei'),
         byzantium: true,
         confirmations: 1
-      } as any;
+      } as any; // eslint-disable-line @typescript-eslint/no-explicit-any
     }
     
     return receipt;
@@ -145,6 +156,9 @@ export class XOMService {
   /**
    * Stake XOM tokens with parameters
    * @param params - Staking parameters
+   * @param params.amount - Amount to stake in wei
+   * @param params.duration - Staking duration in days
+   * @param params.address - Staker address
    * @returns Staking result
    */
   async stake(params: {
@@ -157,7 +171,7 @@ export class XOMService {
     estimatedRewards: bigint;
   }> {
     const wallet = this.walletService.getWallet();
-    if (!wallet) throw new Error('Wallet not available');
+    if (wallet === null) throw new Error('Wallet not available');
     
     // Perform staking
     const result = await wallet.stakeOmniCoin(params.amount);
@@ -166,11 +180,10 @@ export class XOMService {
     const rewardsData = await this.calculateRewards(params.amount, params.duration);
     
     return {
-      success: true,
-      txHash: result.hash || '0x' + Math.random().toString(16).substring(2, 66),
+      txHash: result.hash ?? '0x' + Math.random().toString(16).substring(2, 66),
       stakeId: 'stake-' + Date.now(),
       estimatedRewards: rewardsData.total
-    } as any;
+    };
   }
 
   /**
@@ -179,7 +192,8 @@ export class XOMService {
    * @param duration - Duration in days
    * @returns Calculated rewards
    */
-  async calculateRewards(amount: bigint, duration: number): Promise<{
+  // eslint-disable-next-line @typescript-eslint/require-await
+  calculateRewards(amount: bigint, duration: number): Promise<{
     base: bigint;
     bonus: bigint;
     total: bigint;
@@ -197,13 +211,13 @@ export class XOMService {
     const baseRewards = (amount * BigInt(baseApr) * BigInt(duration)) / (BigInt(100) * BigInt(daysInYear));
     const bonusRewards = (amount * BigInt(bonusApr) * BigInt(duration)) / (BigInt(100) * BigInt(daysInYear));
     
-    return {
+    return Promise.resolve({
       base: baseRewards,
       bonus: bonusRewards,
       total: baseRewards + bonusRewards,
       apr: totalApr,
       apy: totalApr // For simplicity, using APR as APY (in reality, APY would account for compounding)
-    };
+    });
   }
 
   /**
@@ -240,6 +254,8 @@ export class XOMService {
   /**
    * Unstake XOM tokens
    * @param params - Unstaking parameters
+   * @param params.stakeId
+   * @param params.address
    * @returns Transaction result
    */
   async unstake(params: {
@@ -251,7 +267,7 @@ export class XOMService {
     rewards: bigint;
   }> {
     const wallet = this.walletService.getWallet();
-    if (!wallet) throw new Error('Wallet not available');
+    if (wallet === null) throw new Error('Wallet not available');
     
     // Get staked amount (mock for testing)
     const stakedBalance = await this.getStakedBalance();
@@ -265,17 +281,17 @@ export class XOMService {
   }
 
   /**
-   *
+   * Clear service cache
    */
   async clearCache(): Promise<void> {
-    // console.log('XOMService cache cleared');
+    // Clear XOM service cache if needed
   }
 
   /**
-   *
+   * Cleanup service resources
    */
   async cleanup(): Promise<void> {
     this.isInitialized = false;
-    // console.log('XOMService cleanup completed');
+    // Clean up XOM service resources
   }
 }

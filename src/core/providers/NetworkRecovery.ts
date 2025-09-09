@@ -11,12 +11,12 @@ import { ethers } from 'ethers';
  * Network error types
  */
 export enum NetworkErrorType {
-  ConnectionTimeout = 'CONNECTION_TIMEOUT',
-  RateLimited = 'RATE_LIMITED',
-  ServerError = 'SERVER_ERROR',
-  InvalidResponse = 'INVALID_RESPONSE',
-  NetworkDown = 'NETWORK_DOWN',
-  ProviderError = 'PROVIDER_ERROR'
+  CONNECTION_TIMEOUT = 'CONNECTION_TIMEOUT',
+  RATE_LIMITED = 'RATE_LIMITED',
+  SERVER_ERROR = 'SERVER_ERROR',
+  INVALID_RESPONSE = 'INVALID_RESPONSE',
+  NETWORK_DOWN = 'NETWORK_DOWN',
+  PROVIDER_ERROR = 'PROVIDER_ERROR'
 }
 
 /**
@@ -75,9 +75,10 @@ export class NetworkRecoveryService {
 
   /**
    * Get singleton instance
+   * @returns The singleton instance of NetworkRecoveryService
    */
   static getInstance(): NetworkRecoveryService {
-    if (!NetworkRecoveryService.instance) {
+    if (NetworkRecoveryService.instance === undefined) {
       NetworkRecoveryService.instance = new NetworkRecoveryService();
     }
     return NetworkRecoveryService.instance;
@@ -98,6 +99,7 @@ export class NetworkRecoveryService {
    * Execute a network operation with retry logic
    * @param operation The async operation to execute
    * @param config Retry configuration
+   * @returns Promise resolving to network operation result
    */
   async executeWithRetry<T>(
     operation: () => Promise<T>,
@@ -151,14 +153,15 @@ export class NetworkRecoveryService {
   /**
    * Get the next available provider for a network
    * @param network Network name
+   * @returns Promise resolving to the next available provider or null
    */
   async getNextProvider(network: string): Promise<ethers.Provider | null> {
     const providers = this.providers.get(network);
-    if (!providers || providers.length === 0) {
+    if (providers === undefined || providers.length === 0) {
       return null;
     }
 
-    const currentIndex = this.currentProviderIndex.get(network) || 0;
+    const currentIndex = this.currentProviderIndex.get(network) ?? 0;
     
     // Try each provider in sequence
     for (let i = 0; i < providers.length; i++) {
@@ -189,55 +192,63 @@ export class NetworkRecoveryService {
   /**
    * Check if network is available
    * @param network Network name
+   * @returns True if network is available, false otherwise
    */
   isNetworkAvailable(network: string): boolean {
-    return this.networkStatus.get(network) || false;
+    return this.networkStatus.get(network) ?? false;
   }
 
   /**
    * Classify error type
    * @param error Error to classify
+   * @returns The classified network error type
    */
-  classifyError(error: any): NetworkErrorType {
-    const message = error?.message || '';
-    const code = error?.code || '';
+  classifyError(error: unknown): NetworkErrorType {
+    if (error === null || error === undefined) {
+      return NetworkErrorType.PROVIDER_ERROR;
+    }
+
+    const errorObj = error as { message?: string; code?: string };
+    const message = errorObj.message ?? '';
+    const code = errorObj.code ?? '';
 
     if (message.includes('timeout') || code === 'NETWORK_ERROR') {
-      return NetworkErrorType.ConnectionTimeout;
+      return NetworkErrorType.CONNECTION_TIMEOUT;
     }
     
     if (message.includes('rate limit') || code === 'RATE_LIMIT') {
-      return NetworkErrorType.RateLimited;
+      return NetworkErrorType.RATE_LIMITED;
     }
     
     if (message.includes('server error') || code === 'SERVER_ERROR') {
-      return NetworkErrorType.ServerError;
+      return NetworkErrorType.SERVER_ERROR;
     }
     
     if (message.includes('invalid') && message.includes('response')) {
-      return NetworkErrorType.InvalidResponse;
+      return NetworkErrorType.INVALID_RESPONSE;
     }
     
     if (message.includes('network') || message.includes('connection')) {
-      return NetworkErrorType.NetworkDown;
+      return NetworkErrorType.NETWORK_DOWN;
     }
 
-    return NetworkErrorType.ProviderError;
+    return NetworkErrorType.PROVIDER_ERROR;
   }
 
   /**
    * Check if error is retryable
    * @param error Error to check
+   * @returns True if error is retryable, false otherwise
    */
-  private isRetryableError(error: any): boolean {
+  private isRetryableError(error: unknown): boolean {
     const errorType = this.classifyError(error);
     
     // These errors are typically transient and worth retrying
     const retryableErrors = [
-      NetworkErrorType.ConnectionTimeout,
-      NetworkErrorType.RateLimited,
-      NetworkErrorType.ServerError,
-      NetworkErrorType.NetworkDown
+      NetworkErrorType.CONNECTION_TIMEOUT,
+      NetworkErrorType.RATE_LIMITED,
+      NetworkErrorType.SERVER_ERROR,
+      NetworkErrorType.NETWORK_DOWN
     ];
 
     return retryableErrors.includes(errorType);
@@ -247,6 +258,7 @@ export class NetworkRecoveryService {
    * Execute operation with timeout
    * @param promise Promise to execute
    * @param timeout Timeout in milliseconds
+   * @returns Promise that resolves with the operation result or rejects on timeout
    */
   private async withTimeout<T>(promise: Promise<T>, timeout: number): Promise<T> {
     return Promise.race([

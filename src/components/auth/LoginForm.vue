@@ -213,8 +213,23 @@
 </template>
 
 <script setup lang="ts">
+/**
+ * Login Form Component
+ * 
+ * Handles user authentication with both sign in and registration tabs
+ */
 import { ref, computed, onMounted } from 'vue'
 import { KeyringManager } from '../../core/keyring/KeyringManager'
+
+// Define user session type
+interface UserSession {
+  username: string
+  accounts: {
+    omnicoin: {
+      address: string
+    }
+  }
+}
 
 // Form state
 const activeTab = ref<'login' | 'register'>('login')
@@ -251,10 +266,10 @@ const forgotPasswordUsername = ref('')
 // Password strength
 const passwordStrength = computed(() => {
   const password = registerForm.value.password
-  if (!password) return { level: '', percentage: 0, text: '' }
+  if (password.length === 0) return { level: '', percentage: 0, text: '' }
 
   let score = 0
-  let feedback = []
+  const feedback: string[] = []
 
   // Length check
   if (password.length >= 12) score += 25
@@ -291,18 +306,21 @@ const passwordStrength = computed(() => {
 
 // Form validation
 const isFormValid = computed(() => {
-  return registerForm.value.username &&
-         registerForm.value.password &&
-         registerForm.value.confirmPassword &&
+  return registerForm.value.username.length > 0 &&
+         registerForm.value.password.length > 0 &&
+         registerForm.value.confirmPassword.length > 0 &&
          registerForm.value.agreeToTerms &&
-         !usernameError.value &&
-         !passwordError.value &&
-         !confirmPasswordError.value &&
+         usernameError.value.length === 0 &&
+         passwordError.value.length === 0 &&
+         confirmPasswordError.value.length === 0 &&
          usernameAvailable.value
 })
 
 // Methods
-const handleLogin = async () => {
+/**
+ * Handle user login
+ */
+const handleLogin = async (): Promise<void> => {
   try {
     isLoading.value = true
     errorMessage.value = ''
@@ -325,7 +343,10 @@ const handleLogin = async () => {
   }
 }
 
-const handleRegister = async () => {
+/**
+ * Handle user registration
+ */
+const handleRegister = async (): Promise<void> => {
   try {
     isLoading.value = true
     errorMessage.value = ''
@@ -348,10 +369,13 @@ const handleRegister = async () => {
   }
 }
 
-const checkUsernameAvailability = async () => {
+/**
+ * Check username availability
+ */
+const checkUsernameAvailability = (): void => {
   const username = registerForm.value.username
   
-  if (!username) {
+  if (username.length === 0) {
     usernameError.value = ''
     usernameAvailable.value = false
     return
@@ -382,10 +406,13 @@ const checkUsernameAvailability = async () => {
   usernameAvailable.value = true
 }
 
-const validatePassword = () => {
+/**
+ * Validate password strength
+ */
+const validatePassword = (): void => {
   const password = registerForm.value.password
   
-  if (!password) {
+  if (password.length === 0) {
     passwordError.value = ''
     return
   }
@@ -398,11 +425,14 @@ const validatePassword = () => {
   passwordError.value = ''
 }
 
-const validateConfirmPassword = () => {
+/**
+ * Validate confirm password
+ */
+const validateConfirmPassword = (): void => {
   const password = registerForm.value.password
   const confirmPassword = registerForm.value.confirmPassword
   
-  if (!confirmPassword) {
+  if (confirmPassword.length === 0) {
     confirmPasswordError.value = ''
     return
   }
@@ -415,16 +445,20 @@ const validateConfirmPassword = () => {
   confirmPasswordError.value = ''
 }
 
-const handleForgotPassword = () => {
+/**
+ * Handle forgot password
+ */
+const handleForgotPassword = (): void => {
   // TODO: Implement password recovery
+  // eslint-disable-next-line no-console
   console.log('Password recovery for:', forgotPasswordUsername.value)
   showForgotPassword.value = false
 }
 
 // Events
 const emit = defineEmits<{
-  'login-success': [session: any]
-  'register-success': [session: any]
+  'login-success': [session: UserSession]
+  'register-success': [session: UserSession]
 }>()
 
 // Lifecycle
@@ -432,7 +466,7 @@ onMounted(() => {
   // Check if user is already logged in
   const keyring = KeyringManager.getInstance()
   const session = keyring.getCurrentSession()
-  if (session) {
+  if (session !== null) {
     emit('login-success', session)
   }
 })

@@ -1,10 +1,17 @@
 import type Transport from "@ledgerhq/hw-transport";
 import webUsbTransport from "@ledgerhq/hw-transport-webusb";
-import bs58 from "bs58";
+// import bs58 from "bs58"; // Currently unused, may be needed for AppClient implementation
 // import { AppClient, DefaultWalletPolicy } from "ledger-bitcoin";
 import { HWwalletCapabilities, NetworkNames } from "../../../types/enkrypt-types";
 import BtcApp from "@ledgerhq/hw-app-btc";
 import HDKey from "hdkey";
+
+// HDKey doesn't provide proper TypeScript types, so we need to define our own
+interface HDKeyInstance {
+  publicKey: Buffer;
+  chainCode: Buffer;
+  derive(path: string): HDKeyInstance;
+}
 import type { CreateTransactionArg } from "@ledgerhq/hw-app-btc/lib/createTransaction";
 import { serializeTransactionOutputs } from "@ledgerhq/hw-app-btc/lib/serializeTransaction";
 import { bufferToHex } from "../../../types/enkrypt-types";
@@ -27,20 +34,21 @@ import { supportedPaths } from "./configs";
 import ConnectToLedger from "../ledgerConnect";
 
 /**
- *
+ * Ledger Bitcoin hardware wallet provider
+ * Handles Bitcoin transactions and address generation through Ledger devices
  */
 class LedgerBitcoin implements HWWalletProvider {
   transport: Transport | null;
 
   network: NetworkNames;
 
-  HDNodes: Record<string, InstanceType<typeof HDKey>>;
+  HDNodes: Record<string, HDKeyInstance>;
 
   isSegwit: boolean;
 
   /**
-   *
-   * @param network
+   * Creates a new LedgerBitcoin instance
+   * @param network - Bitcoin network to use (mainnet, testnet, etc.)
    */
   constructor(network: NetworkNames) {
     this.transport = null;
@@ -53,14 +61,15 @@ class LedgerBitcoin implements HWWalletProvider {
   }
 
   /**
-   *
+   * Initializes the Ledger transport connection
+   * @returns Promise that resolves to true if initialization succeeds
    */
   async init(): Promise<boolean> {
-    if (!this.transport) {
+    if (this.transport === null) {
       const support = await webUsbTransport.isSupported();
       if (support) {
         this.transport = await webUsbTransport.openConnected().then((res) => {
-          if (!res) return webUsbTransport.create();
+          if (res === null) return webUsbTransport.create();
           return res;
         });
       } else {
@@ -73,17 +82,24 @@ class LedgerBitcoin implements HWWalletProvider {
   }
 
   /**
-   *
-   * @param options
+   * Gets a Bitcoin address from the Ledger device
+   * @param options - Request options including path type and index
+   * @returns Promise resolving to address response with address and public key
    */
   async getAddress(options: getAddressRequest): Promise<AddressResponse> {
-    if (!supportedPaths[this.network])
+    if (supportedPaths[this.network] === undefined)
       return Promise.reject(new Error("ledger-bitcoin: Invalid network name"));
     const isHardened = options.pathType.basePath.split("/").length - 1 === 2;
-    const connection = new BtcApp({ transport: this.transport! });
-    const hdKey = new HDKey();
+    
+    if (this.transport === null) {
+      return Promise.reject(new Error("ledger-bitcoin: Transport not initialized"));
+    }
+    
+    const connection = new BtcApp({ transport: this.transport });
+    // @ts-expect-error - HDKey module doesn't have type definitions
+    const hdKey = new HDKey() as HDKeyInstance;
     if (!isHardened) {
-      if (!this.HDNodes[options.pathType.basePath]) {
+      if (this.HDNodes[options.pathType.basePath] === undefined) {
         const rootPub = await connection.getWalletPublicKey(
           options.pathType.basePath,
           { format: this.isSegwit ? "bech32" : "legacy" },
@@ -92,9 +108,9 @@ class LedgerBitcoin implements HWWalletProvider {
         hdKey.chainCode = Buffer.from(rootPub.chainCode, "hex");
         this.HDNodes[options.pathType.basePath] = hdKey;
       }
-      const pubkey = this.HDNodes[options.pathType.basePath].derive(
-        `m/${options.pathIndex}`,
-      ).publicKey;
+      const node = this.HDNodes[options.pathType.basePath];
+      const derivedNode = node.derive(`m/${options.pathIndex}`);
+      const pubkey = derivedNode.publicKey;
       return {
         address: bufferToHex(pubkey),
         publicKey: bufferToHex(pubkey),
@@ -117,68 +133,83 @@ class LedgerBitcoin implements HWWalletProvider {
   }
 
   /**
-   *
-   * @param options
+   * Signs a personal message using the Ledger device
+   * @param options - Message signing options including path, message, and type
+   * @returns Promise resolving to the signed message as a hex string
    */
   async signPersonalMessage(options: BitcoinSignMessage): Promise<string> {
     if (options.type === "bip322-simple") {
-      if (!options.psbtTx) {
+      if (options.psbtTx === null || options.psbtTx === undefined) {
         return Promise.reject(
           new Error("ledger-bitcoin: psbt not set for message signing"),
         );
       }
       // TODO: AppClient functionality needs to be implemented
       // const client = new AppClient(this.transport as Transport);
-      const connection = new BtcApp({ transport: this.transport! });
-      const client = connection; // Use BtcApp instead
-      // TODO: getMasterFingerprint not available in BtcApp
-      const fpr = await (client as any).getMasterFingerprint?.() || 'deadbeef';
+      if (this.transport === null) {
+        return Promise.reject(new Error("ledger-bitcoin: Transport not initialized"));
+      }
+      const connection = new BtcApp({ transport: this.transport });
+      
+      // BtcApp doesn't have getMasterFingerprint method, using a placeholder
+      // This should be replaced when proper AppClient is implemented
+      const fpr = 'deadbeef';
+      
       const accountPath = options.pathType.path.replace(
         `{index}`,
         options.pathIndex.toString(),
       );
       const pathElems: number[] = pathStringToArray(accountPath);
       const rootPath = pathElems.slice(0, -2);
-      // TODO: getExtendedPubkey should use getWalletPublicKey
-      const accountRootPubkey = await (client as any).getExtendedPubkey?.(
+      
+      // Use getWalletPublicKey instead of non-existent getExtendedPubkey
+      const rootPubResult = await connection.getWalletPublicKey(
         pathArrayToString(rootPath),
-        false,
+        { format: this.isSegwit ? "bech32" : "legacy" },
       );
-      options.psbtTx.data.inputs[0].bip32Derivation[0].masterFingerprint =
-        Buffer.from(fpr, "hex");
-      options.psbtTx.data.inputs[0].bip32Derivation[0].path = accountPath;
+      
+      // Convert the public key result to extended pubkey format
+      // This is a workaround until proper AppClient is implemented
+      const accountRootPubkey = rootPubResult.publicKey;
+      
+      interface Bip32Derivation {
+        masterFingerprint: Buffer;
+        path: string;
+      }
+      
+      interface PsbtDataInput {
+        bip32Derivation?: Bip32Derivation[];
+      }
+      
+      const psbtData = options.psbtTx.data as { inputs: PsbtDataInput[] };
+      const inputs = psbtData.inputs;
+      const firstInput = inputs[0];
+      if (firstInput !== undefined && 
+          firstInput.bip32Derivation !== undefined && 
+          firstInput.bip32Derivation[0] !== undefined) {
+        firstInput.bip32Derivation[0].masterFingerprint = Buffer.from(fpr, "hex");
+        firstInput.bip32Derivation[0].path = accountPath;
+      }
       options.psbtTx.updateGlobal({
         globalXpub: [
           {
-            extendedPubkey: Buffer.from(
-              bs58.decode(accountRootPubkey),
-            ).subarray(0, -4),
+            extendedPubkey: Buffer.from(accountRootPubkey, "hex"),
             masterFingerprint: Buffer.from(fpr, "hex"),
             path: accountPath,
           },
         ],
       });
-      // TODO: DefaultWalletPolicy needs alternative implementation
-      const accountPolicy = { 
-        name: "wpkh(@0/**)",
-        keyInfo: `[${fpr}/${pathArrayToString(rootPath).replace(
-          "m/",
-          "",
-        )}]${accountRootPubkey}`
-      };
-      // TODO: signPsbt not available in BtcApp
-      const sigs = await (client as any).signPsbt?.(
-        options.psbtTx.toBase64(),
-        accountPolicy,
-        null,
+      
+      // BtcApp doesn't support signPsbt, so we need to use the standard transaction signing
+      // This is a limitation until proper AppClient is implemented
+      return Promise.reject(
+        new Error("ledger-bitcoin: BIP322 simple message signing not fully supported with current BtcApp implementation"),
       );
-      options.psbtTx.updateInput(0, {
-        partialSig: [sigs[0][1]],
-      });
-      options.psbtTx.finalizeAllInputs();
-      return options.psbtTx.extractTransaction().toHex();
     }
-    const connection = new BtcApp({ transport: this.transport! });
+    if (this.transport === null) {
+      return Promise.reject(new Error("ledger-bitcoin: Transport not initialized"));
+    }
+    const connection = new BtcApp({ transport: this.transport });
     return connection
       .signMessage(
         options.pathType.path.replace(`{index}`, options.pathIndex.toString()),
@@ -195,53 +226,89 @@ class LedgerBitcoin implements HWWalletProvider {
   }
 
   /**
-   *
-   * @param options
+   * Signs a Bitcoin transaction using the Ledger device
+   * @param options - Transaction signing options including path and transaction data
+   * @returns Promise resolving to the signed transaction as a hex string
    */
   async signTransaction(options: SignTransactionRequest): Promise<string> {
-    const connection = new BtcApp({ transport: this.transport! });
+    if (this.transport === null) {
+      return Promise.reject(new Error("ledger-bitcoin: Transport not initialized"));
+    }
+    const connection = new BtcApp({ transport: this.transport });
     const transactionOptions = options.transaction as BTCSignTransaction;
     
     // Handle undefined psbtTx and its properties
-    if (!transactionOptions.psbtTx || !transactionOptions.psbtTx.txOutputs) {
+    if (transactionOptions.psbtTx === null || 
+        transactionOptions.psbtTx === undefined || 
+        transactionOptions.psbtTx.txOutputs === null || 
+        transactionOptions.psbtTx.txOutputs === undefined) {
       return Promise.reject(new Error("ledger-bitcoin: psbtTx or txOutputs is undefined"));
     }
     
-    if (!transactionOptions.rawTxs) {
+    if (transactionOptions.rawTxs === null || transactionOptions.rawTxs === undefined) {
       return Promise.reject(new Error("ledger-bitcoin: rawTxs is undefined"));
     }
     
-    if (!transactionOptions.psbtTx.txInputs) {
+    if (transactionOptions.psbtTx.txInputs === null || 
+        transactionOptions.psbtTx.txInputs === undefined) {
       return Promise.reject(new Error("ledger-bitcoin: txInputs is undefined"));
     }
     
-    const txOutputs = transactionOptions.psbtTx.txOutputs.map((out) => {
+    interface TxOutput {
+      value: number | string | bigint;
+      script: Buffer | Uint8Array | string;
+    }
+    
+    const txOutputs = transactionOptions.psbtTx.txOutputs.map((out: TxOutput) => {
       const valLE = Buffer.alloc(8);
-      valLE.writeBigInt64LE(BigInt(out.value));
+      const value = typeof out.value === 'bigint' ? out.value : BigInt(out.value);
+      valLE.writeBigInt64LE(value);
       return {
         amount: valLE,
         script: Buffer.from(out.script),
       };
     });
+    
+    const { psbtTx } = transactionOptions;
+    const { txInputs } = psbtTx;
+    
+    interface PsbtInput {
+      witnessScript?: Buffer;
+    }
+    
+    interface PsbtData {
+      inputs: PsbtInput[];
+    }
+    
+    interface TxInput {
+      index: number;
+    }
+    
+    const data = psbtTx.data as PsbtData;
+    
     const txArg: CreateTransactionArg = {
-      inputs: transactionOptions.rawTxs.map((rTx, idx) => [
-        connection.splitTransaction(rTx.replace("0x", ""), true),
-        transactionOptions.psbtTx!.txInputs![idx].index,
-        transactionOptions.psbtTx!.data.inputs[idx].witnessScript
-          ? transactionOptions.psbtTx!.data.inputs[idx].witnessScript!.toString(
-              "hex",
-            )
-          : undefined,
-        undefined,
-      ]),
+      inputs: transactionOptions.rawTxs.map((rTx, idx) => {
+        const input = data.inputs[idx];
+        const witnessScriptHex = input?.witnessScript?.toString("hex");
+        const txInput = txInputs[idx];
+        if (txInput === undefined) {
+          throw new Error(`ledger-bitcoin: txInput at index ${idx} is undefined`);
+        }
+        return [
+          connection.splitTransaction(rTx.replace("0x", ""), true),
+          txInput.index,
+          witnessScriptHex,
+          undefined,
+        ];
+      }),
       associatedKeysets: transactionOptions.rawTxs.map(() =>
         options.pathType.path.replace(`{index}`, options.pathIndex.toString()),
       ),
       outputScriptHex: serializeTransactionOutputs({
-        version: 2,
+        version: Buffer.from([2, 0, 0, 0]),
         inputs: [],
         outputs: txOutputs,
-      } as any).toString("hex"),
+      }).toString("hex"),
       segwit: this.isSegwit,
       additionals: [],
     };
@@ -252,8 +319,9 @@ class LedgerBitcoin implements HWWalletProvider {
   }
 
   /**
-   *
-   * @param _request
+   * Signs a typed message (not supported for Bitcoin on Ledger)
+   * @param _request - Typed message signing request
+   * @returns Promise that always rejects as this is not supported
    */
   signTypedMessage(_request: SignTypedMessageRequest): Promise<string> {
     return Promise.reject(
@@ -267,14 +335,15 @@ class LedgerBitcoin implements HWWalletProvider {
    */
   getSupportedPaths(): PathType[] {
     const paths = supportedPaths[this.network];
-    if (!paths) {
+    if (paths === null || paths === undefined) {
       return [];
     }
     return paths;
   }
 
   /**
-   *
+   * Closes the Ledger transport connection
+   * @returns Promise that resolves when the connection is closed
    */
   close(): Promise<void> {
     // eslint-disable-next-line @typescript-eslint/no-empty-function
@@ -282,22 +351,25 @@ class LedgerBitcoin implements HWWalletProvider {
   }
 
   /**
-   *
-   * @param networkName
+   * Checks if the Ledger device is connected for a specific network
+   * @param networkName - The network to check connection for
+   * @returns Promise resolving to true if connected, false otherwise
    */
   isConnected(networkName: NetworkNames): Promise<boolean> {
     return ConnectToLedger.bind(this)(networkName);
   }
 
   /**
-   *
+   * Gets the list of supported Bitcoin-like networks
+   * @returns Array of supported network names
    */
   static getSupportedNetworks(): NetworkNames[] {
     return Object.keys(supportedPaths) as NetworkNames[];
   }
 
   /**
-   *
+   * Gets the capabilities of the Ledger Bitcoin wallet
+   * @returns Array of capability strings
    */
   static getCapabilities(): string[] {
     return [HWwalletCapabilities.signMessage, HWwalletCapabilities.signTx];

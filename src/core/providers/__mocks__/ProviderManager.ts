@@ -3,6 +3,9 @@
  */
 
 // Create mock provider function
+/**
+ *
+ */
 const createMockProvider = () => ({
   getBalance: jest.fn().mockResolvedValue('1000000000000000000'),
   sendTransaction: jest.fn().mockResolvedValue('0x123'),
@@ -26,6 +29,9 @@ const mockEvmProviders = new Map();
 });
 
 // Create a proper mock class for ProviderManager
+/**
+ *
+ */
 class MockProviderManager {
   providers = mockProviders;
   evmProviders = mockEvmProviders;

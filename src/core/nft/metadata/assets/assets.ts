@@ -10,11 +10,26 @@
  * - Integration with our provider system
  */
 
+interface Asset {
+  id: string;
+  name: string;
+  symbol: string;
+  balance: string;
+  [key: string]: unknown;
+}
+
+interface AssetsHookResult {
+  data: Asset[];
+  isLoading: boolean;
+  error: Error | null;
+}
+
 // Placeholder exports to prevent import errors
 /**
- *
+ * Hook to fetch and manage user assets
+ * @returns Hook result with assets data, loading state and error
  */
-export const useAssets = () => {
+export const useAssets = (): AssetsHookResult => {
   // TODO: Implement using NFTService
   return {
     data: [],
@@ -24,11 +39,15 @@ export const useAssets = () => {
 };
 
 /**
- *
+ * Get all assets for the current user
+ * @returns Promise resolving to array of assets
  */
-export const getAssets = async (): Promise<unknown[]> => {
+export const getAssets = (): Promise<Asset[]> => {
   // TODO: Implement using NFTManager
-  return [];
+  return Promise.resolve([]);
 };
 
+/**
+ * Timeout duration for asset operations in milliseconds
+ */
 export const ASSETS_TIMEOUT_DURATION = 10000;

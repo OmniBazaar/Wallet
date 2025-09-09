@@ -19,25 +19,40 @@ declare module 'styled-components' {
             background: string;
             /** Alternative background color */
             backgroundAlt: string;
+            /** Surface color for cards and overlays */
+            surface: string;
+            /** Error state color */
+            error: string;
+            /** Warning state color */
+            warning: string;
+            /** Success state color */
+            success: string;
+            /** Info state color */
+            info: string;
             /** Text color definitions */
             text: {
                 /** Primary text color */
                 primary: string;
                 /** Secondary text color */
                 secondary: string;
+                /** Disabled text color */
+                disabled: string;
+                /** Inverse text color */
+                inverse: string;
             };
-            /** Border color */
-            border: string;
+            /** Border color definitions */
+            border: {
+                /** Default border color */
+                default: string;
+                /** Light border color */
+                light: string;
+                /** Dark border color */
+                dark: string;
+            };
             /** Secondary text color (legacy) */
             textSecondary: string;
             /** Disabled state color */
             disabled: string;
-            /** Success state color */
-            success: string;
-            /** Error state color */
-            error: string;
-            /** Warning state color */
-            warning: string;
         };
         /** Font family definitions */
         fonts: {

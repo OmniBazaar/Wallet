@@ -17,7 +17,7 @@
  */
 
 import { ethers } from 'ethers';
-import crypto from 'crypto';
+import * as crypto from 'crypto';
 
 /**
  * KYC verification tiers
@@ -202,10 +202,10 @@ export class KYCService {
     
     // Default configuration for Sumsub testnet/sandbox
     this.config = {
-      appToken: (process?.env?.['SUMSUB_APP_TOKEN']) || 'sbx:test_app_token_omnibazaar',
-      secretKey: (process?.env?.['SUMSUB_SECRET_KEY']) || 'test_secret_key_omnibazaar',
+      appToken: ((process?.env?.['SUMSUB_APP_TOKEN'] !== null && process?.env?.['SUMSUB_APP_TOKEN'] !== undefined && process?.env?.['SUMSUB_APP_TOKEN'].length > 0) ? process.env['SUMSUB_APP_TOKEN'] : 'sbx:test_app_token_omnibazaar'),
+      secretKey: ((process?.env?.['SUMSUB_SECRET_KEY'] !== null && process?.env?.['SUMSUB_SECRET_KEY'] !== undefined && process?.env?.['SUMSUB_SECRET_KEY'].length > 0) ? process.env['SUMSUB_SECRET_KEY'] : 'test_secret_key_omnibazaar'),
       apiUrl: 'https://api.sumsub.com',
-      webhookSecret: (process?.env?.['SUMSUB_WEBHOOK_SECRET']) || 'test_webhook_secret',
+      webhookSecret: ((process?.env?.['SUMSUB_WEBHOOK_SECRET'] !== null && process?.env?.['SUMSUB_WEBHOOK_SECRET'] !== undefined && process?.env?.['SUMSUB_WEBHOOK_SECRET'].length > 0) ? process.env['SUMSUB_WEBHOOK_SECRET'] : 'test_webhook_secret'),
       isTestnet: true, // Always use testnet for development
       validatorEndpoint: 'http://localhost:3001/api/kyc',
       ...config

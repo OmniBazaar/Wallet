@@ -4,7 +4,7 @@
  */
 
 import { BaseProvider } from '../base-provider';
-import { NetworkConfig, Transaction, TransactionRequest } from '@/types';
+import { NetworkConfig, Transaction, TransactionRequest } from '../../../types';
 import * as bitcoin from 'bitcoinjs-lib';
 import { BIP32Factory } from 'bip32';
 import * as ecc from 'tiny-secp256k1';
@@ -66,14 +66,6 @@ export interface UTXO {
   confirmations: number;
   /** Script type */
   scriptType?: string;
-}
-
-/** Fee estimation response from API */
-interface FeeEstimate {
-  /** Blocks to confirm */
-  blocks: number;
-  /** Fee rate in sat/vB */
-  feeRate: number;
 }
 
 /** Address information from API */
@@ -142,7 +134,7 @@ export class BitcoinProvider extends BaseProvider {
   private explorer: string;
   private dust: number;
   private defaultFeeRate: number;
-  private bip32: any;
+  private bip32: ReturnType<typeof BIP32Factory>;
 
   /**
    * Create new Bitcoin provider instance
@@ -153,8 +145,8 @@ export class BitcoinProvider extends BaseProvider {
     this.network = config.network;
     this.apiUrl = config.apiUrl;
     this.explorer = config.explorer;
-    this.dust = config.dust || 546; // Standard dust limit
-    this.defaultFeeRate = config.feeRate || 10; // Default 10 sat/vB
+    this.dust = config.dust ?? 546; // Standard dust limit
+    this.defaultFeeRate = config.feeRate ?? 10; // Default 10 sat/vB
     this.bip32 = BIP32Factory(ecc);
   }
 
@@ -162,13 +154,14 @@ export class BitcoinProvider extends BaseProvider {
    * Generate Bitcoin address from seed and derivation path
    * @param seed Seed buffer or hex string
    * @param derivationPath HD derivation path
+   * @returns Bitcoin account information with address, keys, and type
    */
-  async getAccount(seed: string, derivationPath = "m/84'/0'/0'/0/0"): Promise<{
+  getAccount(seed: string, derivationPath = "m/84'/0'/0'/0/0"): {
     address: string;
     publicKey: string;
     addressType: 'P2WPKH' | 'P2PKH' | 'P2SH';
     privateKey: string;
-  }> {
+  } {
     try {
       // Convert seed to buffer if it's a hex string
       const seedBuffer = Buffer.isBuffer(seed) ? seed : Buffer.from(seed, 'hex');
@@ -186,36 +179,49 @@ export class BitcoinProvider extends BaseProvider {
       if (derivationPath.startsWith("m/84'")) {
         // Native SegWit (P2WPKH) - Bech32
         const payment = bitcoin.payments.p2wpkh({ 
-          pubkey: childNode.publicKey, 
+          pubkey: Buffer.from(childNode.publicKey), 
           network: this.network 
         });
-        address = payment.address!;
+        if (payment.address === undefined) {
+          throw new Error('Failed to generate P2WPKH address');
+        }
+        address = payment.address;
         addressType = 'P2WPKH';
       } else if (derivationPath.startsWith("m/49'")) {
         // Nested SegWit (P2SH-P2WPKH)
         const payment = bitcoin.payments.p2sh({
           redeem: bitcoin.payments.p2wpkh({ 
-            pubkey: childNode.publicKey, 
+            pubkey: Buffer.from(childNode.publicKey), 
             network: this.network 
           }),
           network: this.network
         });
-        address = payment.address!;
+        if (payment.address === undefined) {
+          throw new Error('Failed to generate P2SH address');
+        }
+        address = payment.address;
         addressType = 'P2SH';
       } else {
         // Legacy (P2PKH)
         const payment = bitcoin.payments.p2pkh({ 
-          pubkey: childNode.publicKey, 
+          pubkey: Buffer.from(childNode.publicKey), 
           network: this.network 
         });
-        address = payment.address!;
+        if (payment.address === undefined) {
+          throw new Error('Failed to generate P2PKH address');
+        }
+        address = payment.address;
         addressType = 'P2PKH';
       }
 
+      if (childNode.privateKey === undefined) {
+        throw new Error('Failed to derive private key');
+      }
+      
       return {
         address,
-        publicKey: childNode.publicKey.toString('hex'),
-        privateKey: childNode.privateKey!.toString('hex'),
+        publicKey: Buffer.from(childNode.publicKey).toString('hex'),
+        privateKey: childNode.privateKey !== undefined ? Buffer.from(childNode.privateKey).toString('hex') : '',
         addressType
       };
     } catch (error) {
@@ -226,6 +232,7 @@ export class BitcoinProvider extends BaseProvider {
   /**
    * Get balance for a Bitcoin address using Blockstream API
    * @param address Bitcoin address
+   * @returns Promise resolving to balance in satoshis as string
    */
   async getBalance(address: string): Promise<string> {
     try {
@@ -237,9 +244,9 @@ export class BitcoinProvider extends BaseProvider {
       const data = await response.json() as AddressInfo;
       
       // Calculate total balance (confirmed + unconfirmed)
-      const confirmedBalance = data.chain_stats?.funded_txo_sum || 0;
-      const unconfirmedBalance = data.mempool_stats?.funded_txo_sum || 0;
-      const totalSpent = (data.chain_stats?.spent_txo_sum || 0) + (data.mempool_stats?.spent_txo_sum || 0);
+      const confirmedBalance = data.chain_stats?.funded_txo_sum ?? 0;
+      const unconfirmedBalance = data.mempool_stats?.funded_txo_sum ?? 0;
+      const totalSpent = (data.chain_stats?.spent_txo_sum ?? 0) + (data.mempool_stats?.spent_txo_sum ?? 0);
       
       const balance = confirmedBalance + unconfirmedBalance - totalSpent;
       return Math.max(0, balance).toString();
@@ -252,6 +259,7 @@ export class BitcoinProvider extends BaseProvider {
   /**
    * Get formatted balance in BTC
    * @param address Bitcoin address
+   * @returns Promise resolving to formatted balance string with BTC suffix
    */
   async getFormattedBalance(address: string): Promise<string> {
     const balance = await this.getBalance(address);
@@ -262,6 +270,7 @@ export class BitcoinProvider extends BaseProvider {
   /**
    * Get UTXOs for an address using Blockstream API
    * @param address Bitcoin address
+   * @returns Promise resolving to array of UTXOs
    */
   async getUTXOs(address: string): Promise<UTXO[]> {
     try {
@@ -285,7 +294,7 @@ export class BitcoinProvider extends BaseProvider {
         vout: utxo.vout,
         value: utxo.value,
         address: address,
-        confirmations: utxo.status.confirmed ? (utxo.status.block_height ? 1 : 0) : 0
+        confirmations: utxo.status.confirmed ? (utxo.status.block_height !== undefined ? 1 : 0) : 0
       }));
     } catch (error) {
       console.error('Error fetching UTXOs:', error);
@@ -295,6 +304,7 @@ export class BitcoinProvider extends BaseProvider {
 
   /**
    * Get current fee estimates from API
+   * @returns Promise resolving to Map of block targets to fee rates in sat/vB
    */
   async getFeeEstimates(): Promise<Map<number, number>> {
     try {
@@ -325,24 +335,25 @@ export class BitcoinProvider extends BaseProvider {
   /**
    * Estimate transaction fee based on inputs/outputs and fee rate
    * @param txRequest Transaction request
+   * @returns Promise resolving to estimated fee in satoshis as string
    */
   async estimateFee(txRequest: TransactionRequest): Promise<string> {
     try {
-      const amount = parseInt(txRequest.value || '0');
-      const toAddress = txRequest.to;
+      const amount = parseInt(txRequest.value ?? '0');
+      const _toAddress = txRequest.to;
       
       // Get UTXOs to calculate input count
       // For estimation, we'll assume we need UTXOs from the sender
       // In practice, you'd get the sender's UTXOs
       const inputCount = 1;
-      const selectedValue = 0;
+      const _selectedValue = 0;
       
       // Simplified UTXO selection - in practice you'd implement coin selection
       // For now, estimate based on typical transaction sizes
       
       // Get current fee rate
       const feeEstimates = await this.getFeeEstimates();
-      const feeRate = feeEstimates.get(1) || this.defaultFeeRate; // Use fast confirmation
+      const feeRate = feeEstimates.get(1) ?? this.defaultFeeRate; // Use fast confirmation
       
       // Calculate transaction size
       // P2WPKH input: ~68 vBytes, P2WPKH output: ~31 vBytes, overhead: ~10 vBytes
@@ -365,21 +376,25 @@ export class BitcoinProvider extends BaseProvider {
    * Build and sign a Bitcoin transaction
    * @param privateKey Private key in hex format
    * @param txRequest Transaction request
+   * @returns Promise resolving to signed transaction hex string
    */
   async signTransaction(privateKey: string, txRequest: TransactionRequest): Promise<string> {
     try {
       const privateKeyBuffer = Buffer.from(privateKey, 'hex');
       const keyPair = ECPair.fromPrivateKey(privateKeyBuffer, { network: this.network });
       
-      const amount = parseInt(txRequest.value || '0');
+      const amount = parseInt(txRequest.value ?? '0');
       const toAddress = txRequest.to;
       
       // Create payment object to get sender address
       const payment = bitcoin.payments.p2wpkh({ 
-        pubkey: keyPair.publicKey, 
+        pubkey: Buffer.from(keyPair.publicKey), 
         network: this.network 
       });
-      const fromAddress = payment.address!;
+      if (payment.address === undefined) {
+        throw new Error('Failed to generate sender address');
+      }
+      const fromAddress = payment.address;
       
       // Get UTXOs for the sender
       const utxos = await this.getUTXOs(fromAddress);
@@ -413,11 +428,15 @@ export class BitcoinProvider extends BaseProvider {
         const prevTx = await prevTxResponse.json() as BitcoinApiTransaction;
         const prevOutput = prevTx.vout[utxo.vout];
         
+        if (prevOutput === undefined || prevOutput.scriptpubkey === undefined) {
+          throw new Error(`Invalid UTXO: output not found at index ${utxo.vout}`);
+        }
+        
         psbt.addInput({
           hash: utxo.txid,
           index: utxo.vout,
           witnessUtxo: {
-            script: Buffer.from(prevOutput.scriptpubkey, 'hex') as any,
+            script: Buffer.from(prevOutput.scriptpubkey, 'hex'),
             value: utxo.value,
           },
         });
@@ -440,9 +459,17 @@ export class BitcoinProvider extends BaseProvider {
         });
       }
       
-      // Sign inputs
+      // Sign inputs - Create a compatible signer
+      const signer = {
+        publicKey: Buffer.from(keyPair.publicKey),
+        sign: (hash: Buffer): Buffer => {
+          const signature = keyPair.sign(hash);
+          return Buffer.from(signature);
+        }
+      };
+      
       for (let i = 0; i < selectedUTXOs.length; i++) {
-        psbt.signInput(i, keyPair as any);
+        psbt.signInput(i, signer);
       }
       
       // Finalize and extract transaction
@@ -458,6 +485,7 @@ export class BitcoinProvider extends BaseProvider {
   /**
    * Broadcast a signed transaction to the Bitcoin network
    * @param signedTx Signed transaction in hex format
+   * @returns Promise resolving to transaction ID
    */
   async sendTransaction(signedTx: string): Promise<string> {
     try {
@@ -484,6 +512,7 @@ export class BitcoinProvider extends BaseProvider {
   /**
    * Get transaction details by hash
    * @param txHash Transaction hash
+   * @returns Promise resolving to transaction details
    */
   async getTransaction(txHash: string): Promise<Transaction> {
     try {
@@ -495,20 +524,28 @@ export class BitcoinProvider extends BaseProvider {
       const tx = await response.json() as BitcoinApiTransaction;
       
       // Extract from/to addresses and values
-      const from = tx.vin[0]?.prevout?.scriptpubkey_address || '';
-      const to = tx.vout[0]?.scriptpubkey_address || '';
-      const value = tx.vout[0]?.value?.toString() || '0';
+      const from = tx.vin[0]?.prevout?.scriptpubkey_address ?? '';
+      const to = tx.vout[0]?.scriptpubkey_address ?? '';
+      const value = tx.vout[0]?.value?.toString() ?? '0';
       
-      return {
+      const transaction: Transaction = {
         hash: tx.txid,
         from,
         to,
         value,
-        fee: tx.fee?.toString() || '0',
-        blockNumber: tx.status.block_height,
-        timestamp: tx.status.block_time,
-        status: tx.status.confirmed ? 'confirmed' : 'pending'
+        fee: tx.fee?.toString() ?? '0',
+        status: tx.status.confirmed ? 'confirmed' as const : 'pending' as const
       };
+
+      // Add optional properties only if they exist
+      if (tx.status.block_height !== undefined) {
+        transaction.blockNumber = tx.status.block_height;
+      }
+      if (tx.status.block_time !== undefined) {
+        transaction.timestamp = tx.status.block_time;
+      }
+
+      return transaction;
     } catch (error) {
       throw new Error(`Failed to get Bitcoin transaction: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
@@ -518,6 +555,7 @@ export class BitcoinProvider extends BaseProvider {
    * Get transaction history for an address
    * @param address Bitcoin address
    * @param limit Maximum number of transactions to return
+   * @returns Promise resolving to array of transaction details
    */
   async getTransactionHistory(address: string, limit = 10): Promise<Transaction[]> {
     try {
@@ -529,16 +567,26 @@ export class BitcoinProvider extends BaseProvider {
       const txs = await response.json() as BitcoinApiTransaction[];
       const limitedTxs = txs.slice(0, limit);
 
-      return limitedTxs.map(tx => ({
-        hash: tx.txid,
-        from: tx.vin[0]?.prevout?.scriptpubkey_address || '',
-        to: tx.vout[0]?.scriptpubkey_address || '',
-        value: tx.vout[0]?.value?.toString() || '0',
-        fee: tx.fee?.toString() || '0',
-        blockNumber: tx.status.block_height,
-        timestamp: tx.status.block_time,
-        status: tx.status.confirmed ? 'confirmed' : 'pending'
-      }));
+      return limitedTxs.map(tx => {
+        const transaction: Transaction = {
+          hash: tx.txid,
+          from: tx.vin[0]?.prevout?.scriptpubkey_address ?? '',
+          to: tx.vout[0]?.scriptpubkey_address ?? '',
+          value: tx.vout[0]?.value?.toString() ?? '0',
+          fee: tx.fee?.toString() ?? '0',
+          status: tx.status.confirmed ? 'confirmed' as const : 'pending' as const
+        };
+
+        // Add optional properties only if they exist
+        if (tx.status.block_height !== undefined) {
+          transaction.blockNumber = tx.status.block_height;
+        }
+        if (tx.status.block_time !== undefined) {
+          transaction.timestamp = tx.status.block_time;
+        }
+
+        return transaction;
+      });
     } catch (error) {
       console.error('Error fetching transaction history:', error);
       throw new Error(`Failed to get transaction history: ${error instanceof Error ? error.message : 'Network error'}`);
@@ -548,8 +596,9 @@ export class BitcoinProvider extends BaseProvider {
   /**
    * Subscribe to new blocks (polling-based for Bitcoin)
    * @param callback Callback function for new blocks
+   * @returns Promise resolving to unsubscribe function
    */
-  async subscribeToBlocks(callback: (blockNumber: number) => void): Promise<() => void> {
+  subscribeToBlocks(callback: (blockNumber: number) => void): Promise<() => void> {
     let isSubscribed = true;
     let lastBlock = 0;
 
@@ -572,25 +621,26 @@ export class BitcoinProvider extends BaseProvider {
       
       // Schedule next check
       if (isSubscribed) {
-        setTimeout(checkNewBlock, 30000); // Check every 30 seconds
+        setTimeout((): void => { void checkNewBlock(); }, 30000); // Check every 30 seconds
       }
     };
 
     // Start checking
-    checkNewBlock();
+    void checkNewBlock();
 
     // Return unsubscribe function
-    return () => {
+    return Promise.resolve(() => {
       isSubscribed = false;
-    };
+    });
   }
 
   /**
    * Sign a message with Bitcoin private key
    * @param privateKey Private key in hex format
    * @param message Message to sign
+   * @returns Promise resolving to signature as hex string
    */
-  async signMessage(privateKey: string, message: string): Promise<string> {
+  signMessage(privateKey: string, message: string): Promise<string> {
     try {
       const privateKeyBuffer = Buffer.from(privateKey, 'hex');
       const keyPair = ECPair.fromPrivateKey(privateKeyBuffer, { network: this.network });
@@ -602,7 +652,7 @@ export class BitcoinProvider extends BaseProvider {
       // Sign the hash  
       const signature = keyPair.sign(messageHash);
       
-      return Buffer.from(signature).toString('hex');
+      return Promise.resolve(Buffer.from(signature).toString('hex'));
     } catch (error) {
       throw new Error(`Failed to sign message: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
@@ -611,6 +661,7 @@ export class BitcoinProvider extends BaseProvider {
   /**
    * Get block explorer URL for a transaction
    * @param txHash Transaction hash
+   * @returns Block explorer URL for transaction
    */
   getExplorerUrl(txHash: string): string {
     return `${this.explorer}/tx/${txHash}`;
@@ -619,6 +670,7 @@ export class BitcoinProvider extends BaseProvider {
   /**
    * Get block explorer URL for an address
    * @param address Bitcoin address
+   * @returns Block explorer URL for address
    */
   getAddressExplorerUrl(address: string): string {
     return `${this.explorer}/address/${address}`;
@@ -627,6 +679,7 @@ export class BitcoinProvider extends BaseProvider {
   /**
    * Validate a Bitcoin address
    * @param address Address to validate
+   * @returns True if address is valid, false otherwise
    */
   isValidAddress(address: string): boolean {
     try {
@@ -640,6 +693,7 @@ export class BitcoinProvider extends BaseProvider {
   /**
    * Convert satoshis to BTC
    * @param satoshis Amount in satoshis
+   * @returns Amount in BTC
    */
   satoshisToBTC(satoshis: number): number {
     return satoshis / 100000000;
@@ -648,6 +702,7 @@ export class BitcoinProvider extends BaseProvider {
   /**
    * Convert BTC to satoshis
    * @param btc Amount in BTC
+   * @returns Amount in satoshis
    */
   btcToSatoshis(btc: number): number {
     return Math.round(btc * 100000000);
@@ -655,6 +710,7 @@ export class BitcoinProvider extends BaseProvider {
 
   /**
    * Get current block height
+   * @returns Promise resolving to current block height
    */
   async getBlockHeight(): Promise<number> {
     try {
@@ -671,6 +727,7 @@ export class BitcoinProvider extends BaseProvider {
 
   /**
    * Get network info
+   * @returns Network configuration information
    */
   getNetworkInfo(): {
     name: string;

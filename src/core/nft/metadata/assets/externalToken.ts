@@ -10,11 +10,28 @@
  * - Integration with our provider system
  */
 
+interface ExternalToken {
+  address: string;
+  symbol: string;
+  name: string;
+  decimals: number;
+  chainId: number;
+  logoURI?: string;
+  [key: string]: unknown;
+}
+
+interface ExternalTokenHookResult {
+  data: ExternalToken | null;
+  isLoading: boolean;
+  error: Error | null;
+}
+
 // Placeholder exports to prevent import errors
 /**
- *
+ * Hook to manage external token data
+ * @returns Hook result with external token data, loading state and error
  */
-export const useExternalToken = () => {
+export const useExternalToken = (): ExternalTokenHookResult => {
   // TODO: Implement using TokenService
   return {
     data: null,
@@ -24,9 +41,10 @@ export const useExternalToken = () => {
 };
 
 /**
- *
+ * Get external token information
+ * @returns Promise resolving to external token data or null
  */
-export const getExternalToken = async (): Promise<unknown | null> => {
+export const getExternalToken = (): Promise<ExternalToken | null> => {
   // TODO: Implement using TokenService
-  return null;
+  return Promise.resolve(null);
 };

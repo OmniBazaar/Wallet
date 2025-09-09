@@ -42,15 +42,15 @@ class OmniBazaarMarketplaceExample {
     // Initialize providers with actual API keys (replace with real keys)
     this.nftDisplay.initializeProviders({
       ethereum: {
-        ...(process?.env?.['ALCHEMY_ETHEREUM_API_KEY'] ? { alchemyApiKey: process.env['ALCHEMY_ETHEREUM_API_KEY'] } : {}),
-        ...(process?.env?.['OPENSEA_API_KEY'] ? { openseaApiKey: process.env['OPENSEA_API_KEY'] } : {})
+        ...(process?.env?.['ALCHEMY_ETHEREUM_API_KEY'] !== undefined && process.env['ALCHEMY_ETHEREUM_API_KEY'].length > 0 ? { alchemyApiKey: process.env['ALCHEMY_ETHEREUM_API_KEY'] } : {}),
+        ...(process?.env?.['OPENSEA_API_KEY'] !== undefined && process.env['OPENSEA_API_KEY'].length > 0 ? { openseaApiKey: process.env['OPENSEA_API_KEY'] } : {})
       },
       polygon: {
-        ...(process?.env?.['ALCHEMY_POLYGON_API_KEY'] ? { alchemyApiKey: process.env['ALCHEMY_POLYGON_API_KEY'] } : {})
+        ...(process?.env?.['ALCHEMY_POLYGON_API_KEY'] !== undefined && process.env['ALCHEMY_POLYGON_API_KEY'].length > 0 ? { alchemyApiKey: process.env['ALCHEMY_POLYGON_API_KEY'] } : {})
       },
       solana: {
-        ...(process?.env?.['HELIUS_API_KEY'] ? { heliusApiKey: process.env['HELIUS_API_KEY'] } : {}),
-        ...(process?.env?.['MAGICEDEN_API_KEY'] ? { magicEdenApiKey: process.env['MAGICEDEN_API_KEY'] } : {})
+        ...(process?.env?.['HELIUS_API_KEY'] !== undefined && process.env['HELIUS_API_KEY'].length > 0 ? { heliusApiKey: process.env['HELIUS_API_KEY'] } : {}),
+        ...(process?.env?.['MAGICEDEN_API_KEY'] !== undefined && process.env['MAGICEDEN_API_KEY'].length > 0 ? { magicEdenApiKey: process.env['MAGICEDEN_API_KEY'] } : {})
       }
     });
 

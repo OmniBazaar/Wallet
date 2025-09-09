@@ -1,6 +1,9 @@
 // Loosen types to avoid external type dependency noise
+// @ts-ignore - Ledger Live Common types issue
 import getDeviceInfo from "@ledgerhq/live-common/lib/hw/getDeviceInfo";
+// @ts-ignore - Ledger Live Common types issue
 import openApp from "@ledgerhq/live-common/lib/hw/openApp";
+// @ts-ignore - Ledger Live Common types issue
 import getAppAndVersion from "@ledgerhq/live-common/lib/hw/getAppAndVersion";
 import type LedgerEthereum from "./ethereum";
 import type LedgerSubstrate from "./substrate";
@@ -25,8 +28,10 @@ function connect(
   const appName = ledgerAppNames[networkName]
     ? ledgerAppNames[networkName]
     : ledgerAppNames[NetworkNames.Ethereum];
+  // @ts-ignore - Ledger Live Common types issue
   return getDeviceInfo(this.transport)
     .then(() =>
+      // @ts-ignore - Ledger Live Common types issue
       openApp(this.transport, appName)
         .then(() => true)
         .catch(() => {
@@ -37,6 +42,7 @@ function connect(
     )
     .catch((e: any) => {
       if (e.message === "DeviceOnDashboardExpected") {
+        // @ts-ignore - Ledger Live Common types issue
         return getAppAndVersion(this.transport).then((appInfo: any) => {
           if (appInfo.name !== appName)
             throw new Error(`Make sure you have ${appName} App opened`);

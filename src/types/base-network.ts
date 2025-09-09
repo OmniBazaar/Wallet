@@ -61,21 +61,13 @@ export interface EthereumNetwork extends BaseNetwork {
 export interface BitcoinNetwork extends BaseNetwork {
   /** Bitcoin network type */
   networkType: 'mainnet' | 'testnet';
-  /**
-   *
-   */
+  /** Bech32 address prefix for segwit addresses */
   bech32: string;
-  /**
-   *
-   */
+  /** Public key hash version byte for P2PKH addresses */
   pubKeyHash: number;
-  /**
-   *
-   */
+  /** Script hash version byte for P2SH addresses */
   scriptHash: number;
-  /**
-   *
-   */
+  /** Wallet Import Format version byte for private keys */
   wif: number;
 }
 
@@ -83,13 +75,9 @@ export interface BitcoinNetwork extends BaseNetwork {
  * Solana-specific network configuration
  */
 export interface SolanaNetwork extends BaseNetwork {
-  /**
-   *
-   */
+  /** Solana cluster identifier */
   cluster: 'mainnet-beta' | 'testnet' | 'devnet';
-  /**
-   *
-   */
+  /** Optional program ID for custom deployments */
   programId?: string;
 }
 
@@ -97,21 +85,13 @@ export interface SolanaNetwork extends BaseNetwork {
  * Polkadot-specific network configuration
  */
 export interface PolkadotNetwork extends BaseNetwork {
-  /**
-   *
-   */
+  /** Genesis block hash for network identification */
   genesisHash: string;
-  /**
-   *
-   */
+  /** SS58 address format prefix */
   prefix: number;
-  /**
-   *
-   */
+  /** Number of decimal places for the native token */
   decimals: number;
-  /**
-   *
-   */
+  /** Symbol for the native token unit */
   unit: string;
 }
 
@@ -119,16 +99,10 @@ export interface PolkadotNetwork extends BaseNetwork {
  * COTI-specific network configuration with privacy features
  */
 export interface COTINetwork extends BaseNetwork {
-  /**
-   *
-   */
+  /** Whether privacy features are enabled on this network */
   privacyEnabled: boolean;
-  /**
-   *
-   */
+  /** Multi-party computation protocol identifier */
   mpcProtocol: string;
-  /**
-   *
-   */
+  /** Whether garbled circuits are supported for enhanced privacy */
   garbledCircuits: boolean;
 }

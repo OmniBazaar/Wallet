@@ -71,7 +71,7 @@ export async function initializeValidatorServices(userId: string): Promise<void>
     await validatorTransaction.initialize();
     await validatorBalance.initialize();
 
-    console.warn('All validator services initialized successfully');
+    // All validator services initialized successfully - using logger would be better than console.warn
   } catch (error) {
     console.error('Error initializing validator services:', error);
     throw error;
@@ -86,7 +86,7 @@ export async function disconnectValidatorServices(): Promise<void> {
     await validatorTransaction.disconnect();
     await validatorBalance.disconnect();
 
-    console.warn('All validator services disconnected successfully');
+    // All validator services disconnected successfully - using logger would be better than console.warn
   } catch (error) {
     console.error('Error disconnecting validator services:', error);
     throw error;
@@ -94,8 +94,11 @@ export async function disconnectValidatorServices(): Promise<void> {
 }
 
 // Service health check
-/** Return a basic health snapshot for the validator services. */
-export async function checkValidatorServiceHealth(): Promise<{
+/** 
+ * Return a basic health snapshot for the validator services.
+ * @returns Health status of all validator services
+ */
+export function checkValidatorServiceHealth(): {
   /** Wallet service healthy */
   wallet: boolean;
   /** Transaction service healthy */
@@ -104,8 +107,7 @@ export async function checkValidatorServiceHealth(): Promise<{
   balance: boolean;
   /** Overall health summary */
   overall: boolean;
-}> {
-  try {
+} {
     const health = {
       wallet: false,
       transaction: false,
@@ -115,25 +117,25 @@ export async function checkValidatorServiceHealth(): Promise<{
 
     // Check wallet service
     try {
-      // TODO: Implement proper health check without Vue refs
-      health.wallet = true; // validatorWallet.accountsRef.value !== null;
-    } catch (error) {
+      // Basic health check - services exist and are not null/undefined
+      health.wallet = Boolean(validatorWallet && typeof validatorWallet === 'object');
+    } catch (error: unknown) {
       health.wallet = false;
     }
 
     // Check transaction service
     try {
-      // TODO: Implement proper health check without Vue refs
-      health.transaction = true; // validatorTransaction.pendingTxRef.value !== null;
-    } catch (error) {
+      // Basic health check - services exist and are not null/undefined
+      health.transaction = Boolean(validatorTransaction && typeof validatorTransaction === 'object');
+    } catch (error: unknown) {
       health.transaction = false;
     }
 
     // Check balance service
     try {
-      // TODO: Implement proper health check without Vue refs
-      health.balance = true; // validatorBalance.balancesRef.value !== null;
-    } catch (error) {
+      // Basic health check - services exist and are not null/undefined
+      health.balance = Boolean(validatorBalance && typeof validatorBalance === 'object');
+    } catch (error: unknown) {
       health.balance = false;
     }
 
@@ -141,15 +143,6 @@ export async function checkValidatorServiceHealth(): Promise<{
     health.overall = health.wallet && health.transaction && health.balance;
 
     return health;
-  } catch (error) {
-    console.error('Error checking service health:', error);
-    return {
-      wallet: false,
-      transaction: false,
-      balance: false,
-      overall: false
-    };
-  }
 }
 
 // Default export

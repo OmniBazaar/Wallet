@@ -10,25 +10,26 @@ import { WsProvider } from '@polkadot/api';
 import { Keyring } from '@polkadot/keyring';
 
 /**
- *
+ * Live Polkadot provider that integrates with the wallet's keyring service
  */
 export class LivePolkadotProvider extends PolkadotProvider {
   private activeAddress: string | null = null;
   
   /**
-   *
+   * Get network-specific address prefix
+   * @returns SS58 address format prefix
    */
   get networkPrefix(): number {
-    return (this as any).prefix;
+    return this.prefix;
   }
 
   /**
-   *
-   * @param networkKey
+   * Create a live Polkadot provider
+   * @param networkKey - Network identifier (e.g. 'polkadot', 'kusama')
    */
   constructor(networkKey = 'polkadot') {
     const network = POLKADOT_NETWORKS[networkKey];
-    if (!network) {
+    if (network === undefined) {
       throw new Error(`Unknown Polkadot network: ${networkKey}`);
     }
     super(network);
@@ -36,34 +37,37 @@ export class LivePolkadotProvider extends PolkadotProvider {
 
   /**
    * Get current active address
+   * @returns Active account address with network-specific encoding
    */
-  async getAddress(): Promise<string> {
-    if (!this.activeAddress) {
+  getAddress(): Promise<string> {
+    if (this.activeAddress === null || this.activeAddress === '') {
       const activeAccount = keyringService.getActiveAccount();
-      if (!activeAccount) {
+      if (activeAccount === null || activeAccount === undefined) {
         throw new Error('No active account');
       }
       // Encode address with proper network prefix
       this.activeAddress = encodeAddress(activeAccount.address, this.networkPrefix);
     }
-    return this.activeAddress;
+    return Promise.resolve(this.activeAddress);
   }
 
   /**
    * Get all addresses from keyring
-   * @param count
+   * @param count - Maximum number of addresses to return
+   * @returns Array of addresses with network-specific encoding
    */
-  async getAddresses(count = 10): Promise<string[]> {
-    const accounts = await keyringService.getAccounts('substrate');
-    return accounts.slice(0, count).map(account => 
+  getAddresses(count = 10): Promise<string[]> {
+    const accounts = keyringService.getAccounts('substrate');
+    return Promise.resolve(accounts.slice(0, count).map(account => 
       encodeAddress(account.address, this.networkPrefix)
-    );
+    ));
   }
 
   /**
    * Send native token
-   * @param to
-   * @param amount
+   * @param to - Recipient address
+   * @param amount - Amount to send in smallest unit
+   * @returns Transaction hash
    */
   async sendNativeToken(to: string, amount: string): Promise<string> {
     const from = await this.getAddress();
@@ -80,6 +84,7 @@ export class LivePolkadotProvider extends PolkadotProvider {
 
   /**
    * Get balance for active account
+   * @returns Balance in smallest unit
    */
   async getActiveBalance(): Promise<string> {
     const address = await this.getAddress();
@@ -88,6 +93,7 @@ export class LivePolkadotProvider extends PolkadotProvider {
 
   /**
    * Get formatted balance for active account
+   * @returns Formatted balance with currency symbol
    */
   async getActiveFormattedBalance(): Promise<string> {
     const address = await this.getAddress();
@@ -96,17 +102,19 @@ export class LivePolkadotProvider extends PolkadotProvider {
 
   /**
    * Sign and send transaction
-   * @param transaction
+   * @param _transaction - Transaction to sign and send
+   * @returns Transaction hash
    */
-  async signAndSendTransaction(transaction: SubstrateTransaction): Promise<string> {
+  signAndSendTransaction(_transaction: SubstrateTransaction): Promise<string> {
     // Signing with KeyringService for substrate is pending integration.
     // Prevent silent failures by failing fast here.
-    throw new Error('Substrate signing not configured in KeyringService');
+    return Promise.reject(new Error('Substrate signing not configured in KeyringService'));
   }
 
   /**
    * Sign message with active account
-   * @param message
+   * @param message - Message to sign
+   * @returns Signature as hex string
    */
   async signActiveMessage(message: string): Promise<string> {
     const address = await this.getAddress();
@@ -115,37 +123,43 @@ export class LivePolkadotProvider extends PolkadotProvider {
 
   /**
    * Get staking information
-   * @param address
+   * @param address - Address to check staking info for
+   * @returns Staking information object
    */
-  async getStakingInfo(address?: string): Promise<{ /**
-                                                     *
-                                                     */
-  bonded: string; /**
-                   *
-                   */
-  unbonding: string; /**
-                      *
-                      */
-  nominators: string[] }> {
+  async getStakingInfo(address?: string): Promise<{ 
+    /** Amount of tokens bonded for staking */
+    bonded: string;
+    /** Amount of tokens unbonding */
+    unbonding: string;
+    /** List of nominated validator addresses */
+    nominators: string[];
+  }> {
     const api = await this.ensureApi();
-    const addr = address || await this.getAddress();
+    const addr = address ?? await this.getAddress();
 
     // Get staking info
-    const staking = (api.query as any)['staking'];
-    const bonded = await staking?.['bonded'](addr);
-    const nominators = await staking?.['nominators'](addr);
+    const staking = api.query.staking as unknown as {
+      bonded: (address: string) => Promise<{ toString: () => string } | null>;
+      nominators: (address: string) => Promise<{ 
+        isSome: boolean;
+        unwrap: () => { targets: Array<{ toString: () => string }> };
+      } | null>;
+    };
+    const bonded = await staking.bonded(addr);
+    const nominators = await staking.nominators(addr);
 
     return {
       bonded: bonded?.toString() ?? '0',
       unbonding: '0',
-      nominators: nominators?.isSome ? nominators.unwrap().targets.map((t: any) => t.toString()) : []
+      nominators: nominators !== null && nominators.isSome ? nominators.unwrap().targets.map((t) => t.toString()) : []
     };
   }
 
   /**
    * Bond tokens for staking
-   * @param amount
-   * @param payee
+   * @param amount - Amount to bond in smallest unit
+   * @param payee - Reward destination
+   * @returns Transaction hash
    */
   async bondTokens(amount: string, payee: 'Staked' | 'Stash' | 'Controller' = 'Staked'): Promise<string> {
     const transaction: SubstrateTransaction = {
@@ -162,7 +176,8 @@ export class LivePolkadotProvider extends PolkadotProvider {
 
   /**
    * Nominate validators
-   * @param validators
+   * @param validators - Array of validator addresses to nominate
+   * @returns Transaction hash
    */
   async nominate(validators: string[]): Promise<string> {
     const transaction: SubstrateTransaction = {
@@ -179,6 +194,7 @@ export class LivePolkadotProvider extends PolkadotProvider {
 
   /**
    * Get current network
+   * @returns Current network configuration
    */
   getCurrentNetwork(): PolkadotNetworkConfig {
     return this.config as PolkadotNetworkConfig;
@@ -186,11 +202,12 @@ export class LivePolkadotProvider extends PolkadotProvider {
 
   /**
    * Switch to different Polkadot network
-   * @param networkKey
+   * @param networkKey - Network identifier to switch to
+   * @returns Promise that resolves when switch is complete
    */
   async switchNetwork(networkKey: string): Promise<void> {
     const network = POLKADOT_NETWORKS[networkKey];
-    if (!network) {
+    if (network === undefined) {
       throw new Error(`Unknown Polkadot network: ${networkKey}`);
     }
 
@@ -215,6 +232,7 @@ export class LivePolkadotProvider extends PolkadotProvider {
 
   /**
    * Get supported networks
+   * @returns Array of supported network configurations
    */
   static getSupportedNetworks(): PolkadotNetworkConfig[] {
     return Object.values(POLKADOT_NETWORKS);

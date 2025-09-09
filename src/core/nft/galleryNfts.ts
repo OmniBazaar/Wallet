@@ -4,14 +4,13 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { ethers } from 'ethers';
-import { NFTManager } from './mocks/NFTManager';
-import { NFTService } from './mocks/NFTService';
-import { MarketplaceService } from './mocks/MarketplaceService';
+import { NFTManager, type MockNFT } from './mocks/NFTManager';
+import { NFTService, type MockNFTCollection, type MockNFTMetadata } from './mocks/NFTService';
+import { MarketplaceService, type MockListing } from './mocks/MarketplaceService';
 import type { NFT, NFTCollection } from './types';
 import type { ChainType } from '../keyring/BIP39Keyring';
-import { providerManager } from '../providers/ProviderManager';
-import { parseTokenURI, validateNFTMetadata } from '../../utils/nft';
+import { keyringService } from '../keyring/KeyringService';
+import { validateNFTMetadata } from '../../utils/nft';
 
 /**
  * Gallery NFT data with enhanced metadata
@@ -19,12 +18,12 @@ import { parseTokenURI, validateNFTMetadata } from '../../utils/nft';
 export interface GalleryNFT extends NFT {
   /** Floor price in native currency */
   floorPrice?: bigint;
-  /** Collection details */
-  collection?: NFTCollection;
   /** Whether NFT is listed for sale */
   isListed?: boolean;
   /** Listing price if listed */
   listingPrice?: bigint;
+  /** Whether NFT is spam */
+  isSpam?: boolean;
 }
 
 /**
@@ -73,20 +72,17 @@ let marketplaceService: MarketplaceService | null = null;
 /**
  * Initialize services if not already initialized
  */
-const initializeServices = async (): Promise<void> => {
-  if (!nftManager) {
+const initializeServices = (): void => {
+  if (nftManager === null) {
     nftManager = new NFTManager();
-    await nftManager.init();
   }
   
-  if (!nftService) {
+  if (nftService === null) {
     nftService = new NFTService();
-    await nftService.init();
   }
   
-  if (!marketplaceService) {
+  if (marketplaceService === null) {
     marketplaceService = new MarketplaceService();
-    await marketplaceService.init();
   }
 };
 
@@ -112,29 +108,46 @@ export const useGalleryNFTs = (options: GalleryNFTsOptions = {}): GalleryNFTsRes
   
   /**
    * Fetch NFTs for a single chain
+   * @param chain - Blockchain to fetch from
+   * @param address - User wallet address
+   * @param _offset - Pagination offset (unused in mock)
+   * @returns Promise resolving to array of gallery NFTs
    */
   const fetchNFTsForChain = useCallback(async (
     chain: ChainType,
     address: string,
-    offset: number
+    _offset: number
   ): Promise<GalleryNFT[]> => {
-    if (!nftManager || !nftService) {
+    if (nftManager === null || nftService === null) {
       throw new Error('NFT services not initialized');
     }
     
-    // Get NFTs from blockchain
-    const nfts = await nftManager.getUserNFTs({
-      address,
-      chain,
-      limit: pageSize,
-      offset,
-      includeMetadata: true
-    });
+    // Get NFTs from mock service
+    const nfts: MockNFT[] = await nftManager.getNFTs(address);
+    
+    // Convert mock data to proper NFT format and add chain info
+    const convertedNFTs: GalleryNFT[] = nfts.map((nft: MockNFT) => ({
+      id: nft.id,
+      contract_address: nft.contractAddress,
+      token_id: nft.tokenId,
+      chain: chain,
+      type: 'ERC721' as NFT['type'],
+      standard: 'ERC-721' as NFT['standard'],
+      owner: nft.owner,
+      name: nft.name,
+      metadata: {
+        name: nft.name,
+        image: nft.image
+      },
+      isSpam: false, // Mock data is not spam
+      isListed: false, // Default to not listed
+      floorPrice: BigInt(0) // Default floor price
+    }));
     
     // Filter out spam if requested
-    let filteredNFTs = nfts;
+    let filteredNFTs = convertedNFTs;
     if (!includeSpam) {
-      filteredNFTs = nfts.filter(nft => !nft.isSpam);
+      filteredNFTs = convertedNFTs.filter(nft => nft.isSpam !== true);
     }
     
     // Enhance with collection data if requested
@@ -143,60 +156,68 @@ export const useGalleryNFTs = (options: GalleryNFTsOptions = {}): GalleryNFTsRes
       
       for (const nft of filteredNFTs) {
         try {
-          // Get collection data
-          const collection = await nftService.getCollection({
-            contractAddress: nft.contractAddress,
-            chain
-          });
+          // Get collection metadata from service
+          const collectionData: MockNFTCollection[] = await nftService.getNFTCollections(address);
+          const collection = collectionData.find((c: MockNFTCollection) => 
+            c.address === nft.contract_address
+          );
           
           // Check if listed on marketplace
-          const listing = marketplaceService ? await marketplaceService.getListingByTokenId({
-            contractAddress: nft.contractAddress,
-            tokenId: nft.tokenId,
-            chain
-          }) : null;
+          const listings: MockListing[] = marketplaceService !== null ? 
+            await marketplaceService.getListings() : [];
+          const listing = listings.find((l: MockListing) => l.nftId === nft.id);
           
           enhancedNFTs.push({
             ...nft,
-            collection,
-            floorPrice: collection?.floorPrice,
-            isListed: !!listing,
-            listingPrice: listing?.price
-          } as GalleryNFT);
+            collection: collection !== undefined ? {
+              id: collection.address,
+              name: collection.name,
+              floor_price: { value: 0, currency: 'ETH' }
+            } as NFTCollection : undefined,
+            floorPrice: BigInt(0),
+            isListed: listing !== undefined,
+            listingPrice: listing !== undefined ? BigInt(listing.price) : undefined
+          });
         } catch {
           // If enhancement fails, add basic NFT
-          enhancedNFTs.push(nft as GalleryNFT);
+          enhancedNFTs.push(nft);
         }
       }
       
       return enhancedNFTs;
     }
     
-    return filteredNFTs as GalleryNFT[];
-  }, [includeSpam, pageSize, includeCollectionData]);
+    return filteredNFTs;
+  }, [includeSpam, includeCollectionData]);
   
   /**
    * Fetch all NFTs across specified chains
+   * @param offset - Pagination offset
+   * @returns Promise that resolves when fetch completes
    */
-  const fetchAllNFTs = useCallback(async (offset: number = 0) => {
+  const fetchAllNFTs = useCallback(async (offset: number = 0): Promise<void> => {
     try {
       setIsLoading(true);
       setError(null);
       
       // Initialize services
-      await initializeServices();
+      initializeServices();
       
-      // Get user address
-      const address = await providerManager.getAddress();
-      if (!address) {
+      // Get user address from keyring
+      const activeAccount = keyringService.getActiveAccount();
+      if (activeAccount === null || activeAccount === undefined) {
         throw new Error('No wallet connected');
       }
+      const address = activeAccount.address;
       
       // Fetch NFTs from all chains in parallel
       const chainPromises = chains.map(chain => 
         fetchNFTsForChain(chain, address, offset).catch(err => {
-          console.error(`Failed to fetch NFTs from ${chain}:`, err);
-          return [];
+          // Log error but don't throw - continue with other chains
+          if (err instanceof Error) {
+            console.error(`Failed to fetch NFTs from ${chain}:`, err.message);
+          }
+          return [] as GalleryNFT[];
         })
       );
       
@@ -206,17 +227,17 @@ export const useGalleryNFTs = (options: GalleryNFTsOptions = {}): GalleryNFTsRes
       // Sort by latest activity or value
       const sortedNFTs = allNFTs.sort((a, b) => {
         // Prioritize listed NFTs
-        if (a.isListed && !b.isListed) return -1;
-        if (!a.isListed && b.isListed) return 1;
+        if (a.isListed === true && b.isListed !== true) return -1;
+        if (a.isListed !== true && b.isListed === true) return 1;
         
         // Then by floor price
-        const aPrice = a.floorPrice || BigInt(0);
-        const bPrice = b.floorPrice || BigInt(0);
+        const aPrice = a.floorPrice ?? BigInt(0);
+        const bPrice = b.floorPrice ?? BigInt(0);
         if (aPrice > bPrice) return -1;
         if (aPrice < bPrice) return 1;
         
         // Finally by token ID
-        return b.tokenId.localeCompare(a.tokenId);
+        return b.token_id.localeCompare(a.token_id);
       });
       
       if (offset === 0) {
@@ -238,8 +259,8 @@ export const useGalleryNFTs = (options: GalleryNFTsOptions = {}): GalleryNFTsRes
    * Initial fetch
    */
   useEffect(() => {
-    fetchAllNFTs(0);
-  }, []); // Only run on mount
+    void fetchAllNFTs(0);
+  }, [fetchAllNFTs]);
   
   /**
    * Refetch function
@@ -251,9 +272,10 @@ export const useGalleryNFTs = (options: GalleryNFTsOptions = {}): GalleryNFTsRes
   
   /**
    * Load more function
+   * @returns Promise that resolves when load more completes
    */
-  const loadMore = useCallback(async () => {
-    if (!hasMore || isLoading) return;
+  const loadMore = useCallback(async (): Promise<void> => {
+    if (hasMore !== true || isLoading === true) return;
     
     const nextPage = page + 1;
     setPage(nextPage);
@@ -284,14 +306,13 @@ export const getGalleryNFTs = async (
   const {
     chains = ['ethereum', 'polygon', 'avalanche', 'arbitrum', 'optimism'] as ChainType[],
     includeSpam = false,
-    pageSize = 50,
     includeCollectionData = true
   } = options;
   
   // Initialize services
-  await initializeServices();
+  initializeServices();
   
-  if (!nftManager || !nftService) {
+  if (nftManager === null || nftService === null) {
     throw new Error('NFT services not initialized');
   }
   
@@ -300,42 +321,61 @@ export const getGalleryNFTs = async (
   // Fetch NFTs from each chain
   for (const chain of chains) {
     try {
-      const nfts = await nftManager.getUserNFTs({
-        address,
-        chain,
-        limit: pageSize,
-        offset: 0,
-        includeMetadata: true
-      });
+      const nfts: MockNFT[] = await nftManager.getNFTs(address);
+      
+      // Convert mock data to proper NFT format
+      const convertedNFTs: GalleryNFT[] = nfts.map((nft: MockNFT) => ({
+        id: nft.id,
+        contract_address: nft.contractAddress,
+        token_id: nft.tokenId,
+        chain: chain,
+        type: 'ERC721' as NFT['type'],
+        standard: 'ERC-721' as NFT['standard'],
+        owner: nft.owner,
+        name: nft.name,
+        metadata: {
+          name: nft.name,
+          image: nft.image
+        },
+        isSpam: false,
+        isListed: false,
+        floorPrice: BigInt(0)
+      }));
       
       // Filter and enhance NFTs
-      let processedNFTs = nfts;
+      let processedNFTs = convertedNFTs;
       if (!includeSpam) {
-        processedNFTs = nfts.filter(nft => !nft.isSpam);
+        processedNFTs = convertedNFTs.filter(nft => nft.isSpam !== true);
       }
       
       if (includeCollectionData) {
         for (const nft of processedNFTs) {
           try {
-            const collection = await nftService.getCollection({
-              contractAddress: nft.contractAddress,
-              chain
-            });
+            const collectionData: MockNFTCollection[] = await nftService.getNFTCollections(address);
+            const collection = collectionData.find((c: MockNFTCollection) => 
+              c.address === nft.contract_address
+            );
             
             allNFTs.push({
               ...nft,
-              collection,
-              floorPrice: collection?.floorPrice
-            } as GalleryNFT);
+              collection: collection !== undefined ? {
+                id: collection.address,
+                name: collection.name,
+                floor_price: { value: 0, currency: 'ETH' }
+              } as NFTCollection : undefined,
+              floorPrice: BigInt(0)
+            });
           } catch {
-            allNFTs.push(nft as GalleryNFT);
+            allNFTs.push(nft);
           }
         }
       } else {
-        allNFTs.push(...(processedNFTs as GalleryNFT[]));
+        allNFTs.push(...processedNFTs);
       }
     } catch (error) {
-      console.error(`Failed to fetch NFTs from ${chain}:`, error);
+      if (error instanceof Error) {
+        console.error(`Failed to fetch NFTs from ${chain}:`, error.message);
+      }
     }
   }
   
@@ -347,7 +387,7 @@ export const getGalleryNFTs = async (
  * @param contractAddress - NFT contract address
  * @param tokenId - Token ID
  * @param chain - Blockchain
- * @returns NFT metadata
+ * @returns NFT metadata or null if not found
  */
 export const getNFTMetadata = async (
   contractAddress: string,
@@ -355,31 +395,46 @@ export const getNFTMetadata = async (
   chain: ChainType
 ): Promise<GalleryNFT | null> => {
   try {
-    await initializeServices();
+    initializeServices();
     
-    if (!nftManager) {
-      throw new Error('NFT manager not initialized');
+    if (nftService === null) {
+      throw new Error('NFT service not initialized');
     }
     
-    // Get NFT from blockchain
-    const nft = await nftManager.getNFT({
-      contractAddress,
-      tokenId,
-      chain
-    });
-    
-    if (!nft) {
-      return null;
-    }
+    // Get NFT metadata from service
+    const metadata: MockNFTMetadata = await nftService.getNFTMetadata(contractAddress, tokenId);
     
     // Validate metadata
-    if (!validateNFTMetadata(nft.metadata)) {
-      console.warn('Invalid NFT metadata:', nft.metadata);
+    if (!validateNFTMetadata(metadata)) {
+      console.warn('Invalid NFT metadata:', metadata);
     }
     
-    return nft as GalleryNFT;
+    // Create GalleryNFT from metadata
+    const nft: GalleryNFT = {
+      id: `${contractAddress}-${tokenId}`,
+      contract_address: contractAddress,
+      token_id: tokenId,
+      chain: chain,
+      type: 'ERC721' as NFT['type'],
+      standard: 'ERC-721' as NFT['standard'],
+      owner: '', // Unknown owner from metadata only
+      name: metadata.name,
+      metadata: {
+        name: metadata.name,
+        description: metadata.description,
+        image: metadata.image,
+        attributes: metadata.attributes as NFT['metadata']['attributes']
+      },
+      isSpam: false,
+      isListed: false,
+      floorPrice: BigInt(0)
+    };
+    
+    return nft;
   } catch (error) {
-    console.error('Failed to get NFT metadata:', error);
+    if (error instanceof Error) {
+      console.error('Failed to get NFT metadata:', error.message);
+    }
     return null;
   }
 };

@@ -34,8 +34,11 @@ defineEmits(['close']);
 const walletStore = useWalletStore();
 const walletAddress = computed(() => walletStore.address);
 
-const copyAddress = () => {
-  navigator.clipboard.writeText(walletAddress.value);
+/**
+ * Copy wallet address to clipboard
+ */
+const copyAddress = (): void => {
+  void navigator.clipboard.writeText(walletAddress.value);
 };
 </script>
 

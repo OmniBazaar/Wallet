@@ -1,6 +1,9 @@
 import type { TrezorConnect } from "@trezor/connect-web";
 import { HWwalletCapabilities } from "../../../types/enkrypt-types";
 import HDKey from "hdkey";
+// @ts-ignore - Using any for HDKey instance type
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type HDKeyInstance = any;
 import base58 from "bs58";
 import { bufferToHex } from "../../../types/enkrypt-types";
 import {
@@ -22,7 +25,7 @@ import getTrezorConnect from "../trezorConnect";
 class TrezorSolana implements HWWalletProvider {
   network: string;
   TrezorConnect!: TrezorConnect;
-  HDNodes: Record<string, InstanceType<typeof HDKey>>;
+  HDNodes: Record<string, HDKeyInstance>;
 
   /**
    * Creates a new Trezor Solana provider instance

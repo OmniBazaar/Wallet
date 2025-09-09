@@ -10,26 +10,40 @@
  */
 
 import * as bip39 from 'bip39';
-import { HDNodeWallet, Mnemonic } from 'ethers';
+import { HDNodeWallet, Mnemonic, TransactionRequest } from 'ethers';
 import * as crypto from 'crypto';
+// @ts-expect-error - elliptic module has no type definitions
 import elliptic from 'elliptic';
-const EC = elliptic.ec;
+interface EllipticEC {
+  keyFromPrivate(privateKey: Uint8Array): {
+    sign(hash: Uint8Array): {
+      r: { toArray(endian: string, length: number): number[] };
+      s: { toArray(endian: string, length: number): number[] };
+      recoveryParam: number | null;
+    };
+  };
+}
+const EC = elliptic.ec as unknown as new (curve: string) => EllipticEC;
 import { Keypair } from '@solana/web3.js';
 import * as bitcoin from 'bitcoinjs-lib';
+import { ECPairFactory } from 'ecpair';
+import * as ecc from 'tiny-secp256k1';
+const ECPair = ECPairFactory(ecc);
 import { Keyring } from '@polkadot/keyring';
 import { u8aToHex } from '@polkadot/util';
-import bs58 from 'bs58';
+import * as bs58 from 'bs58';
+import * as nacl from 'tweetnacl';
 
 /**
  * Supported blockchain types
  */
 export enum ChainType {
-  Ethereum = 'ethereum',
-  Bitcoin = 'bitcoin',
-  Solana = 'solana',
-  Substrate = 'substrate',
+  ETHEREUM = 'ethereum',
+  BITCOIN = 'bitcoin',
+  SOLANA = 'solana',
+  SUBSTRATE = 'substrate',
   COTI = 'coti',
-  OmniCoin = 'omnicoin'
+  OMNICOIN = 'omnicoin'
 }
 
 /**
@@ -37,31 +51,31 @@ export enum ChainType {
  */
 export interface Account {
   /**
-   *
+   * Unique identifier for the account
    */
   id: string;
   /**
-   *
+   * The blockchain type this account is for
    */
   chainType: ChainType | string;
   /**
-   *
+   * The blockchain address for this account
    */
   address: string;
   /**
-   *
+   * The public key for this account
    */
   publicKey: string;
   /**
-   *
+   * The BIP44 derivation path used to derive this account
    */
   derivationPath: string;
   /**
-   *
+   * The account index in the derivation path
    */
   index: number;
   /**
-   *
+   * Optional human-readable name for the account
    */
   name?: string;
 }
@@ -71,41 +85,41 @@ export interface Account {
  */
 export interface EncryptedVault {
   /**
-   *
+   * Base64 encoded encrypted vault data
    */
   data: string;
   /**
-   *
+   * Base64 encoded salt for key derivation
    */
   salt: string;
   /**
-   *
+   * Base64 encoded initialization vector for AES-GCM
    */
   iv: string;
   /**
-   *
+   * Base64 encoded authentication tag for AES-GCM
    */
   authTag: string;
 }
 
-// BIP44 coin type constants
-const COIN_TYPES: Record<ChainType, number> = {
-  [ChainType.Ethereum]: 60,
-  [ChainType.Bitcoin]: 0,
-  [ChainType.Solana]: 501,
-  [ChainType.Substrate]: 354,
+// BIP44 coin type constants - not used but kept for reference
+const _COIN_TYPES: Record<ChainType, number> = {
+  [ChainType.ETHEREUM]: 60,
+  [ChainType.BITCOIN]: 0,
+  [ChainType.SOLANA]: 501,
+  [ChainType.SUBSTRATE]: 354,
   [ChainType.COTI]: 60, // Uses Ethereum's coin type
-  [ChainType.OmniCoin]: 9999, // Custom coin type
+  [ChainType.OMNICOIN]: 9999, // Custom coin type
 };
 
 // Derivation paths for different chains (relative paths from root)
 const DERIVATION_PATHS: Record<string, (index: number) => string> = {
-  [ChainType.Ethereum]: (index: number) => `44'/60'/0'/0/${index}`,
-  [ChainType.Bitcoin]: (index: number) => `44'/0'/0'/0/${index}`, // BIP44 for standard addresses (test expects this)
-  [ChainType.Solana]: (index: number) => `44'/501'/${index}'/0'`,
-  [ChainType.Substrate]: (index: number) => `44'/354'/0'/0/${index}`,
+  [ChainType.ETHEREUM]: (index: number) => `44'/60'/0'/0/${index}`,
+  [ChainType.BITCOIN]: (index: number) => `44'/0'/0'/0/${index}`, // BIP44 for standard addresses (test expects this)
+  [ChainType.SOLANA]: (index: number) => `44'/501'/${index}'/0'`,
+  [ChainType.SUBSTRATE]: (index: number) => `44'/354'/0'/0/${index}`,
   [ChainType.COTI]: (index: number) => `44'/60'/0'/0/${index}`,
-  [ChainType.OmniCoin]: (index: number) => `44'/9999'/0'/0/${index}`,
+  [ChainType.OMNICOIN]: (index: number) => `44'/9999'/0'/0/${index}`,
   // EVM-compatible chains use same derivation path as Ethereum
   'polygon': (index: number) => `44'/60'/0'/0/${index}`,
   'arbitrum': (index: number) => `44'/60'/0'/0/${index}`,
@@ -129,7 +143,7 @@ export class BIP39Keyring {
   private _accounts: Map<string, Account> | null = null;
 
   /**
-   *
+   * Creates a new BIP39 keyring instance
    */
   constructor() {
     // Initialize account indices for each chain type
@@ -139,7 +153,8 @@ export class BIP39Keyring {
   }
 
   /**
-   * Check if keyring is initialized
+   * Check if keyring is initialized with a mnemonic and root node
+   * @returns True if initialized, false otherwise
    */
   isInitialized(): boolean {
     return this.rootNode !== null && this.mnemonic !== null;
@@ -148,6 +163,7 @@ export class BIP39Keyring {
   /**
    * Generate a new mnemonic phrase
    * @param strength Bit strength (128 = 12 words, 256 = 24 words)
+   * @returns A new BIP39 mnemonic phrase
    */
   generateMnemonic(strength = 128): string {
     return bip39.generateMnemonic(strength);
@@ -157,6 +173,7 @@ export class BIP39Keyring {
    * Import keyring from a mnemonic phrase with password
    * @param mnemonic The mnemonic phrase
    * @param password Password to encrypt the keyring
+   * @returns Promise that resolves when import is complete
    */
   async importFromMnemonic(mnemonic: string, password: string): Promise<void> {
     if (!bip39.validateMnemonic(mnemonic)) {
@@ -200,9 +217,10 @@ export class BIP39Keyring {
   /**
    * Initialize keyring from a mnemonic phrase
    * @param mnemonic The mnemonic phrase
+   * @returns Promise that resolves when initialization is complete
    * @deprecated Use importFromMnemonic instead
    */
-  async initFromMnemonic(mnemonic: string): Promise<void> {
+  initFromMnemonic(mnemonic: string): void {
     if (!bip39.validateMnemonic(mnemonic)) {
       throw new Error('Invalid mnemonic phrase');
     }
@@ -217,19 +235,14 @@ export class BIP39Keyring {
   /**
    * Initialize keyring with options
    * @param options Initialization options
-   * @param options.mnemonic
-   * @param options.password
+   * @param options.mnemonic The mnemonic phrase to use
+   * @param options.password The password to encrypt the keyring
+   * @returns Promise that resolves when initialization is complete
    */
   async initialize(options: { mnemonic: string; password: string }): Promise<void> {
     await this.importFromMnemonic(options.mnemonic, options.password);
   }
 
-  /**
-   * Check if keyring is initialized
-   */
-  isInitialized(): boolean {
-    return this.mnemonic !== null && this.rootNode !== null;
-  }
 
   /**
    * Lock the keyring
@@ -249,10 +262,10 @@ export class BIP39Keyring {
 
     // Encrypt vault
     // Use provided password or stored password
-    const lockPassword = password || this.password || 'default';
+    const lockPassword = password ?? this.password ?? 'default';
     
     // Store password if provided
-    if (password) {
+    if (password !== undefined && password !== null) {
       this.password = password;
     }
     
@@ -297,14 +310,14 @@ export class BIP39Keyring {
     
     if (typeof encryptedVaultOrPassword === 'string') {
       // New signature: unlock(password)
-      if (!this.encryptedVault) {
+      if (this.encryptedVault === null) {
         throw new Error('No encrypted vault available');
       }
       vault = this.encryptedVault;
       pwd = encryptedVaultOrPassword;
     } else {
       // Old signature: unlock(vault, password)
-      if (!password) {
+      if (password === undefined) {
         throw new Error('Password required');
       }
       vault = encryptedVaultOrPassword;
@@ -328,17 +341,20 @@ export class BIP39Keyring {
         decipher.final()
       ]);
       
-      const vaultData = JSON.parse(decrypted.toString('utf8'));
+      const vaultData = JSON.parse(decrypted.toString('utf8')) as {
+        mnemonic: string;
+        accounts: Account[];
+      };
       
       // Restore keyring state
-      await this.initFromMnemonic(vaultData.mnemonic);
+      this.initFromMnemonic(vaultData.mnemonic);
       
       // Restore accounts
       for (const account of vaultData.accounts) {
         this.accounts.set(account.id, account);
-        const maxIndex = this.accountIndices.get(account.chainType as string) || 0;
+        const maxIndex = this.accountIndices.get(account.chainType) ?? 0;
         if (account.index >= maxIndex) {
-          this.accountIndices.set(account.chainType as string, account.index + 1);
+          this.accountIndices.set(account.chainType, account.index + 1);
         }
       }
       
@@ -358,7 +374,7 @@ export class BIP39Keyring {
     }
     
     // Throw error after timing delay if unlock failed
-    if (unlockError) {
+    if (unlockError !== null) {
       throw unlockError;
     }
   }
@@ -367,35 +383,39 @@ export class BIP39Keyring {
    * Create a new account for the specified chain
    * @param chainType The blockchain type
    * @param index Optional specific index to use
+   * @returns The created account
    */
   createAccount(chainType: ChainType | string, index?: number): Account {
     if (!this.isInitialized()) {
       throw new Error('Keyring not initialized');
     }
 
-    if (this.isLocked) {
+    if (this.isLocked === true) {
       throw new Error('Keyring is locked');
     }
 
     // Use provided index or get next available
     const chainKey = chainType;
-    const accountIndex = index !== undefined ? index : (this.accountIndices.get(chainKey) || 0);
+    const accountIndex = index !== undefined ? index : (this.accountIndices.get(chainKey) ?? 0);
     
     // Update the next index if we're using auto-increment
     if (index === undefined) {
       this.accountIndices.set(chainKey, accountIndex + 1);
     } else {
       // Also update the index tracker if we're using a specific index that's higher
-      const currentMax = this.accountIndices.get(chainKey) || 0;
+      const currentMax = this.accountIndices.get(chainKey) ?? 0;
       if (index >= currentMax) {
         this.accountIndices.set(chainKey, index + 1);
       }
     }
 
-    const derivationPathFn = DERIVATION_PATHS[chainType] || DERIVATION_PATHS[ChainType.Ethereum];
+    const derivationPathFn = DERIVATION_PATHS[chainType] ?? DERIVATION_PATHS[ChainType.ETHEREUM];
     const derivationPath = derivationPathFn(accountIndex);
     
-    const childNode = this.rootNode!.derivePath(derivationPath);
+    if (this.rootNode === null) {
+      throw new Error('Root node not initialized');
+    }
+    const childNode = this.rootNode.derivePath(derivationPath);
     
     // Store with full path including "m/"
     const fullDerivationPath = `m/${derivationPath}`;
@@ -418,15 +438,19 @@ export class BIP39Keyring {
 
   /**
    * Get all accounts
+   * @returns Array of accounts
    */
   getAccounts(): Account[];
   /**
-   *
+   * Get accounts by chain type
+   * @param chainType The blockchain type to filter by
+   * @returns Promise resolving to array of accounts
    */
   getAccounts(chainType: ChainType | string): Promise<Account[]>;
   /**
-   *
-   * @param chainType
+   * Get accounts implementation
+   * @param chainType Optional blockchain type to filter by
+   * @returns Array of accounts or promise of accounts
    */
   getAccounts(chainType?: ChainType | string): Account[] | Promise<Account[]> {
     // Async version with chain type
@@ -440,11 +464,12 @@ export class BIP39Keyring {
 
   /**
    * Get accounts by chain type (async implementation)
-   * @param chainType
+   * @param chainType The blockchain type to filter by
+   * @returns Promise resolving to array of accounts with optional private keys
    */
-  private async getAccountsAsync(chainType: ChainType | string): Promise<Array<Account & { privateKey?: string }>> {
+  private getAccountsAsync(chainType: ChainType | string): Promise<Array<Account & { privateKey?: string }>> {
     // If locked, throw error (tests expect this behavior)
-    if (this.isLocked) {
+    if (this.isLocked === true) {
       throw new Error('Keyring is locked');
     }
     
@@ -452,7 +477,7 @@ export class BIP39Keyring {
     const accountsArray = Array.from(this.accounts.values());
     const existingAccount = accountsArray.find(acc => acc.chainType === chainType);
     
-    if (!existingAccount) {
+    if (existingAccount === undefined) {
       // Create a default account for this chain type
       this.createAccount(chainType as ChainType, 0);
     }
@@ -464,7 +489,7 @@ export class BIP39Keyring {
     const filteredAccounts = updatedAccounts.filter(acc => acc.chainType === chainType);
     
     // Add private keys (keyring is unlocked at this point)
-    return filteredAccounts.map(account => {
+    const accountsWithKeys = filteredAccounts.map(account => {
       try {
         const privateKey = this.exportPrivateKey(account.id);
         return { ...account, privateKey };
@@ -472,50 +497,55 @@ export class BIP39Keyring {
         return account;
       }
     });
+
+    return Promise.resolve(accountsWithKeys);
   }
 
   /**
    * Export private key for an account
    * @param accountId The account ID
+   * @returns The private key in the appropriate format for the chain
    */
   exportPrivateKey(accountId: string): string {
     if (!this.isInitialized()) {
       throw new Error('Keyring not initialized');
     }
 
-    if (this.isLocked) {
+    if (this.isLocked === true) {
       throw new Error('Keyring is locked');
     }
 
     const account = this.accounts.get(accountId);
-    if (!account) {
+    if (account === undefined) {
       throw new Error('Account not found');
     }
 
     let childNode = this.derivedNodes.get(account.derivationPath);
-    if (!childNode) {
+    if (childNode === undefined) {
       // Remove the "m/" prefix for derivePath
       const pathWithoutM = account.derivationPath.startsWith('m/') 
         ? account.derivationPath.slice(2) 
         : account.derivationPath;
       
-      childNode = this.rootNode!.derivePath(pathWithoutM);
+      if (this.rootNode === null) {
+        throw new Error('Root node not initialized');
+      }
+      childNode = this.rootNode.derivePath(pathWithoutM);
       
       // Cache the derived node with full path
       this.derivedNodes.set(account.derivationPath, childNode);
     }
 
-    switch (account.chainType) {
-      case ChainType.Bitcoin:
-        return this.exportBitcoinPrivateKey(childNode);
-      case ChainType.Solana:
-        return this.exportSolanaPrivateKey(childNode);
-      case ChainType.Ethereum:
-      case ChainType.COTI:
-      case ChainType.OmniCoin:
-      case ChainType.Substrate:
-      default:
-        return childNode.privateKey;
+    // Convert chain type string to lowercase for comparison
+    const chainTypeLower = account.chainType.toLowerCase();
+    
+    if (chainTypeLower === 'bitcoin') {
+      return this.exportBitcoinPrivateKey(childNode);
+    } else if (chainTypeLower === 'solana') {
+      return this.exportSolanaPrivateKey(childNode);
+    } else {
+      // Default for Ethereum, COTI, OmniCoin, Substrate
+      return childNode.privateKey;
     }
   }
 
@@ -523,6 +553,7 @@ export class BIP39Keyring {
    * Export encrypted private key for an account
    * @param accountId The account ID
    * @param password Optional password for encryption
+   * @returns The encrypted private key as a JSON string
    */
   async exportAsEncrypted(accountId: string, password?: string): Promise<string> {
     if (!this.isInitialized()) {
@@ -530,13 +561,13 @@ export class BIP39Keyring {
     }
 
     // If locked and no password provided, throw error
-    if (this.isLocked && !password) {
+    if (this.isLocked && password === undefined) {
       throw new Error('Keyring is locked - password required');
     }
 
     // If password provided and keyring is locked, temporarily unlock
     const wasLocked = this.isLocked;
-    if (wasLocked && password) {
+    if (wasLocked && password !== undefined) {
       try {
         await this.unlock(password);
       } catch (error) {
@@ -549,7 +580,8 @@ export class BIP39Keyring {
       
       // Encrypt the private key
       const salt = crypto.randomBytes(32);
-      const key = await this.deriveKeyConstantTime(password || this.password || 'default', salt);
+      const encryptionPassword = password ?? this.password ?? 'default';
+      const key = await this.deriveKeyConstantTime(encryptionPassword, salt);
       const iv = crypto.randomBytes(16);
       const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
       
@@ -580,6 +612,7 @@ export class BIP39Keyring {
    * Sign a message
    * @param accountId The account ID
    * @param message The message to sign
+   * @returns The signed message
    */
   async signMessage(accountId: string, message: string): Promise<string> {
     if (!this.isInitialized() || this.isLocked) {
@@ -587,38 +620,37 @@ export class BIP39Keyring {
     }
 
     const account = this.accounts.get(accountId);
-    if (!account) {
+    if (account === undefined) {
       throw new Error('Account not found');
     }
 
     let childNode = this.derivedNodes.get(account.derivationPath);
-    if (!childNode) {
+    if (childNode === undefined) {
       // Remove the "m/" prefix for derivePath
       const pathWithoutM = account.derivationPath.startsWith('m/') 
         ? account.derivationPath.slice(2) 
         : account.derivationPath;
-      childNode = this.rootNode!.derivePath(pathWithoutM);
+      if (this.rootNode === null) {
+        throw new Error('Root node not initialized');
+      }
+      childNode = this.rootNode.derivePath(pathWithoutM);
       // Cache the derived node with full path
       this.derivedNodes.set(account.derivationPath, childNode);
     }
 
-    switch (account.chainType) {
-      case ChainType.Ethereum:
-      case ChainType.COTI:
-      case ChainType.OmniCoin:
-        return await childNode.signMessage(message);
-      
-      case ChainType.Bitcoin:
-        return this.signBitcoinMessage(childNode, message);
-      
-      case ChainType.Solana:
-        return this.signSolanaMessage(childNode, message);
-      
-      case ChainType.Substrate:
-        return this.signSubstrateMessage(childNode, message);
-      
-      default:
-        throw new Error(`Unsupported chain type: ${account.chainType}`);
+    // Convert chain type string to lowercase for comparison
+    const chainTypeLower = account.chainType.toLowerCase();
+    
+    if (chainTypeLower === 'ethereum' || chainTypeLower === 'coti' || chainTypeLower === 'omnicoin') {
+      return await childNode.signMessage(message);
+    } else if (chainTypeLower === 'bitcoin') {
+      return this.signBitcoinMessage(childNode, message);
+    } else if (chainTypeLower === 'solana') {
+      return this.signSolanaMessage(childNode, message);
+    } else if (chainTypeLower === 'substrate') {
+      return this.signSubstrateMessage(childNode, message);
+    } else {
+      throw new Error(`Unsupported chain type: ${account.chainType}`);
     }
   }
 
@@ -626,47 +658,54 @@ export class BIP39Keyring {
    * Sign a transaction
    * @param accountId The account ID
    * @param transaction The transaction to sign
+   * @returns The signed transaction
    */
-  async signTransaction(accountId: string, transaction: any): Promise<string> {
+  async signTransaction(accountId: string, transaction: unknown): Promise<string> {
     if (!this.isInitialized() || this.isLocked) {
       throw new Error('Keyring is locked or not initialized');
     }
 
     const account = this.accounts.get(accountId);
-    if (!account) {
+    if (account === undefined) {
       throw new Error('Account not found');
     }
 
     let childNode = this.derivedNodes.get(account.derivationPath);
-    if (!childNode) {
+    if (childNode === undefined) {
       // Remove the "m/" prefix for derivePath
       const pathWithoutM = account.derivationPath.startsWith('m/') 
         ? account.derivationPath.slice(2) 
         : account.derivationPath;
-      childNode = this.rootNode!.derivePath(pathWithoutM);
+      if (this.rootNode === null) {
+        throw new Error('Root node not initialized');
+      }
+      childNode = this.rootNode.derivePath(pathWithoutM);
       // Cache the derived node with full path
       this.derivedNodes.set(account.derivationPath, childNode);
     }
 
-    switch (account.chainType) {
-      case ChainType.Ethereum:
-      case ChainType.COTI:
-      case ChainType.OmniCoin:
-        return await childNode.signTransaction(transaction);
-      
-      case ChainType.Bitcoin:
-        return this.signBitcoinTransaction(childNode, transaction);
-      
-      case ChainType.Solana:
-        return this.signSolanaTransaction(childNode, transaction);
-      
-      default:
-        throw new Error(`Unsupported chain type: ${account.chainType}`);
+    // Convert chain type string to lowercase for comparison
+    const chainTypeLower = account.chainType.toLowerCase();
+    
+    if (chainTypeLower === 'ethereum' || chainTypeLower === 'coti' || chainTypeLower === 'omnicoin') {
+      return await childNode.signTransaction(transaction as TransactionRequest);
+    } else if (chainTypeLower === 'bitcoin') {
+      return this.signBitcoinTransaction(childNode, transaction);
+    } else if (chainTypeLower === 'solana') {
+      return this.signSolanaTransaction(childNode, transaction);
+    } else {
+      throw new Error(`Unsupported chain type: ${account.chainType}`);
     }
   }
 
   // Private helper methods
 
+  /**
+   * Get address and public key for a specific chain type
+   * @param chainType The blockchain type
+   * @param hdNode The HD node to derive from
+   * @returns Address and public key for the chain
+   */
   private getAddressForChain(chainType: ChainType | string, hdNode: HDNodeWallet): { address: string; publicKey: string } {
     // Handle EVM-compatible chains
     const evmChains = ['ethereum', 'coti', 'omnicoin', 'polygon', 'arbitrum', 'optimism', 'bsc', 'avalanche'];
@@ -677,36 +716,42 @@ export class BIP39Keyring {
       };
     }
 
-    switch (chainType) {
-      case ChainType.Bitcoin:
-      case 'bitcoin':
-        return this.getBitcoinAddress(hdNode);
-
-      case ChainType.Solana:
-      case 'solana':
-        return this.getSolanaAddress(hdNode);
-
-      case ChainType.Substrate:
-      case 'substrate':
-        return this.getSubstrateAddress(hdNode);
-
-      default:
-        throw new Error(`Unsupported chain type: ${chainType}`);
+    // Convert chain type string to lowercase for comparison
+    const chainTypeLower = chainType.toLowerCase();
+    
+    if (chainTypeLower === 'bitcoin') {
+      return this.getBitcoinAddress(hdNode);
+    } else if (chainTypeLower === 'solana') {
+      return this.getSolanaAddress(hdNode);
+    } else if (chainTypeLower === 'substrate') {
+      return this.getSubstrateAddress(hdNode);
+    } else {
+      throw new Error(`Unsupported chain type: ${chainType}`);
     }
   }
 
+  /**
+   * Get Bitcoin address from HD node
+   * @param hdNode The HD node to derive from
+   * @returns Bitcoin address and public key
+   */
   private getBitcoinAddress(hdNode: HDNodeWallet): { address: string; publicKey: string } {
     const network = bitcoin.networks.bitcoin;
     const publicKey = Buffer.from(hdNode.publicKey.slice(2), 'hex');
     const { address } = bitcoin.payments.p2wpkh({ pubkey: publicKey, network });
     
-    if (!address) {
+    if (address === undefined) {
       throw new Error('Failed to generate Bitcoin address');
     }
 
     return { address, publicKey: hdNode.publicKey };
   }
 
+  /**
+   * Get Solana address from HD node
+   * @param hdNode The HD node to derive from
+   * @returns Solana address and public key
+   */
   private getSolanaAddress(hdNode: HDNodeWallet): { address: string; publicKey: string } {
     const privateKey = Buffer.from(hdNode.privateKey.slice(2), 'hex');
     const keypair = Keypair.fromSeed(privateKey.slice(0, 32));
@@ -717,6 +762,11 @@ export class BIP39Keyring {
     };
   }
 
+  /**
+   * Get Substrate address from HD node
+   * @param hdNode The HD node to derive from
+   * @returns Substrate address and public key
+   */
   private getSubstrateAddress(hdNode: HDNodeWallet): { address: string; publicKey: string } {
     const keyring = new Keyring({ type: 'sr25519' });
     const privateKey = Buffer.from(hdNode.privateKey.slice(2), 'hex');
@@ -729,19 +779,35 @@ export class BIP39Keyring {
     };
   }
 
+  /**
+   * Export Bitcoin private key in WIF format
+   * @param hdNode The HD node to export from
+   * @returns Bitcoin private key in WIF format
+   */
   private exportBitcoinPrivateKey(hdNode: HDNodeWallet): string {
     const network = bitcoin.networks.bitcoin;
     const privateKey = Buffer.from(hdNode.privateKey.slice(2), 'hex');
-    const keyPair = bitcoin.ECPair.fromPrivateKey(privateKey, { network });
+    const keyPair = ECPair.fromPrivateKey(privateKey, { network });
     return keyPair.toWIF();
   }
 
+  /**
+   * Export Solana private key in base58 format
+   * @param hdNode The HD node to export from
+   * @returns Solana private key in base58 format
+   */
   private exportSolanaPrivateKey(hdNode: HDNodeWallet): string {
     const privateKey = Buffer.from(hdNode.privateKey.slice(2), 'hex');
     const keypair = Keypair.fromSeed(privateKey.slice(0, 32));
     return bs58.encode(keypair.secretKey);
   }
 
+  /**
+   * Sign message with Bitcoin key
+   * @param hdNode The HD node to sign with
+   * @param message The message to sign
+   * @returns Base64 encoded signature
+   */
   private signBitcoinMessage(hdNode: HDNodeWallet, message: string): string {
     const messagePrefix = '\x18Bitcoin Signed Message:\n';
     const messageBuffer = Buffer.from(message, 'utf8');
@@ -759,11 +825,21 @@ export class BIP39Keyring {
     // Convert to base64 for compatibility with tests
     const r = signature.r.toArray('be', 32);
     const s = signature.s.toArray('be', 32);
-    const v = signature.recoveryParam! + 27;
+    const recoveryParam = signature.recoveryParam;
+    if (recoveryParam === null) {
+      throw new Error('Failed to get recovery parameter');
+    }
+    const v = recoveryParam + 27;
     
     return Buffer.concat([Buffer.from([v]), Buffer.from(r), Buffer.from(s)]).toString('base64');
   }
 
+  /**
+   * Sign message with Solana key
+   * @param hdNode The HD node to sign with
+   * @param message The message to sign
+   * @returns Base58 encoded signature
+   */
   private signSolanaMessage(hdNode: HDNodeWallet, message: string): string {
     const privateKey = Buffer.from(hdNode.privateKey.slice(2), 'hex');
     const keypair = Keypair.fromSeed(privateKey.slice(0, 32));
@@ -774,6 +850,12 @@ export class BIP39Keyring {
     return bs58.encode(signature);
   }
 
+  /**
+   * Sign message with Substrate key
+   * @param hdNode The HD node to sign with
+   * @param message The message to sign
+   * @returns Hex encoded signature
+   */
   private signSubstrateMessage(hdNode: HDNodeWallet, message: string): string {
     const keyring = new Keyring({ type: 'sr25519' });
     const privateKey = Buffer.from(hdNode.privateKey.slice(2), 'hex');
@@ -786,12 +868,12 @@ export class BIP39Keyring {
     return u8aToHex(signature);
   }
 
-  private signBitcoinTransaction(hdNode: HDNodeWallet, transaction: any): string {
+  private signBitcoinTransaction(_hdNode: HDNodeWallet, _transaction: unknown): string {
     // Simplified implementation - in production would use bitcoinjs-lib transaction builder
     return 'bitcoin_signed_tx_' + crypto.randomBytes(32).toString('hex');
   }
 
-  private signSolanaTransaction(hdNode: HDNodeWallet, transaction: any): string {
+  private signSolanaTransaction(_hdNode: HDNodeWallet, _transaction: unknown): string {
     // Simplified implementation - in production would use @solana/web3.js
     return 'solana_signed_tx_' + crypto.randomBytes(32).toString('hex');
   }
@@ -799,8 +881,9 @@ export class BIP39Keyring {
   /**
    * Add a new account for the specified chain
    * @param chainType The blockchain type
+   * @returns Array containing the new account with optional private key
    */
-  async addAccount(chainType: ChainType | string): Promise<Array<Account & { privateKey?: string }>> {
+  addAccount(chainType: ChainType | string): Array<Account & { privateKey?: string }> {
     const chainTypeEnum = chainType as ChainType;
     
     // Get the current highest index for this chain type
@@ -826,16 +909,17 @@ export class BIP39Keyring {
   /**
    * Get accounts by chain type with private keys
    * @param chainType The blockchain type
+   * @returns Array of accounts with their private keys
    */
-  async getAccountsWithKeys(chainType?: ChainType | string): Promise<Array<Account & { privateKey?: string }>> {
-    if (this.isLocked) {
+  getAccountsWithKeys(chainType?: ChainType | string): Array<Account & { privateKey?: string }> {
+    if (this.isLocked === true) {
       throw new Error('Keyring is locked');
     }
 
     const accountsArray = Array.from(this.accounts.values());
     
     // Filter by chain type if provided
-    const filteredAccounts = chainType 
+    const filteredAccounts = chainType !== undefined && chainType !== null && chainType !== ''
       ? accountsArray.filter(acc => acc.chainType === chainType)
       : accountsArray;
 
@@ -853,9 +937,10 @@ export class BIP39Keyring {
   /**
    * Get mnemonic phrase (requires password verification)
    * @param password Password to verify access
+   * @returns The mnemonic phrase
    */
   async getMnemonic(password: string): Promise<string> {
-    if (!this.password || !this.mnemonic) {
+    if (this.password === null || this.mnemonic === null) {
       throw new Error('Keyring not properly initialized');
     }
 
@@ -881,10 +966,11 @@ export class BIP39Keyring {
    * Create account with name
    * @param chainType The blockchain type
    * @param name Account name
+   * @returns The created account
    */
-  async createAccountWithName(chainType: ChainType | string, name?: string): Promise<Account> {
+  createAccountWithName(chainType: ChainType | string, name?: string): Account {
     const account = this.createAccount(chainType as ChainType);
-    if (name) {
+    if (name !== undefined && name !== null && name !== '') {
       account.name = name;
     }
     return account;
@@ -894,6 +980,7 @@ export class BIP39Keyring {
    * Derive key with constant-time operations to prevent timing attacks
    * @param password Password for key derivation
    * @param salt Salt for PBKDF2
+   * @returns Derived key buffer
    */
   private async deriveKeyConstantTime(password: string, salt: Buffer): Promise<Buffer> {
     return new Promise((resolve, reject) => {
@@ -902,7 +989,7 @@ export class BIP39Keyring {
       const digest = 'sha256';
 
       crypto.pbkdf2(password, salt, iterations, keyLength, digest, (err, derivedKey) => {
-        if (err) {
+        if (err !== null && err !== undefined) {
           reject(err);
         } else {
           resolve(derivedKey);
@@ -916,7 +1003,7 @@ export class BIP39Keyring {
    */
   private secureWipe(): void {
     // Clear mnemonic
-    if (this.mnemonic) {
+    if (this.mnemonic !== null) {
       const mnemonicBuffer = Buffer.from(this.mnemonic);
       crypto.randomFillSync(mnemonicBuffer);
       this.mnemonic = null;
@@ -932,13 +1019,10 @@ export class BIP39Keyring {
     this._accounts = null;
 
     // Clear password
-    if (this.password) {
+    if (this.password !== null) {
       const pwdBuffer = Buffer.from(this.password);
       crypto.randomFillSync(pwdBuffer);
       this.password = null;
     }
   }
 }
-
-// Import nacl for Solana signing
-import * as nacl from 'tweetnacl';

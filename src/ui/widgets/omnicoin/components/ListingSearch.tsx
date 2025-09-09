@@ -1,116 +1,98 @@
 /* @jsxImportSource react */
 import React, { useState } from 'react';
-import styled, { DefaultTheme } from 'styled-components';
+
 // Minimal search filter type to avoid external type import
 interface SearchFilters {
-  type?: 'product' | 'service' | string;
+  type?: string;
   category?: string;
   priceRange?: { min?: number; max?: number };
   location?: { city?: string; country?: string };
-  sortBy?: 'price' | 'rating' | 'date' | 'popularity' | string;
-  sortOrder?: 'asc' | 'desc' | string;
+  sortBy?: string;
+  sortOrder?: string;
 }
-// import { OmniCoinLoading } from './OmniCoinLoading';
-// import { OmniCoinToast } from './OmniCoinToast';
 
-const SearchContainer = styled.div`
-  padding: 1rem;
-  background: ${(props: { theme: DefaultTheme }) => props.theme.colors.background};
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-`;
+// Inline styles to avoid styled-components typing issues
+const searchContainerStyle: React.CSSProperties = {
+  padding: '1rem',
+  background: '#ffffff',
+  borderRadius: '8px',
+  boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
+};
 
-const SearchForm = styled.form`
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1rem;
-  margin-bottom: 1rem;
-`;
+const searchFormStyle: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+  gap: '1rem',
+  marginBottom: '1rem'
+};
 
-const InputGroup = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-`;
+const inputGroupStyle: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '0.5rem'
+};
 
-const Label = styled.label`
-  font-size: 0.875rem;
-  color: ${(props: { theme: DefaultTheme }) => props.theme.colors.text.primary};
-`;
+const labelStyle: React.CSSProperties = {
+  fontSize: '0.875rem',
+  color: '#1f2937'
+};
 
-const Input = styled.input`
-  padding: 0.5rem;
-  border: 1px solid ${(props: { theme: DefaultTheme }) => props.theme.colors.border};
-  border-radius: 4px;
-  font-size: 0.875rem;
+const inputStyle: React.CSSProperties = {
+  padding: '0.5rem',
+  border: '1px solid #d1d5db',
+  borderRadius: '4px',
+  fontSize: '0.875rem'
+};
 
-  &:focus {
-    outline: none;
-    border-color: ${(props: { theme: DefaultTheme }) => props.theme.colors.primary};
-  }
-`;
+const selectStyle: React.CSSProperties = {
+  padding: '0.5rem',
+  border: '1px solid #d1d5db',
+  borderRadius: '4px',
+  fontSize: '0.875rem',
+  background: 'white'
+};
 
-const Select = styled.select`
-  padding: 0.5rem;
-  border: 1px solid ${(props: { theme: DefaultTheme }) => props.theme.colors.border};
-  border-radius: 4px;
-  font-size: 0.875rem;
-  background: white;
+const buttonStyle: React.CSSProperties = {
+  padding: '0.5rem 1rem',
+  background: '#3b82f6',
+  color: 'white',
+  border: 'none',
+  borderRadius: '4px',
+  cursor: 'pointer',
+  transition: 'opacity 0.2s ease'
+};
 
-  &:focus {
-    outline: none;
-    border-color: ${(props: { theme: DefaultTheme }) => props.theme.colors.primary};
-  }
-`;
+const buttonDisabledStyle: React.CSSProperties = {
+  ...buttonStyle,
+  background: '#9ca3af',
+  cursor: 'not-allowed'
+};
 
-const Button = styled.button`
-  padding: 0.5rem 1rem;
-  background: ${(props: { theme: DefaultTheme }) => props.theme.colors.primary};
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: opacity 0.2s ease;
+const filterTagsStyle: React.CSSProperties = {
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: '0.5rem',
+  marginTop: '1rem'
+};
 
-  &:hover {
-    opacity: 0.9;
-  }
+const filterTagStyle: React.CSSProperties = {
+  padding: '0.25rem 0.5rem',
+  background: '#f3f4f6',
+  borderRadius: '4px',
+  fontSize: '0.875rem',
+  display: 'flex',
+  alignItems: 'center',
+  gap: '0.5rem'
+};
 
-  &:disabled {
-    background: ${(props: { theme: DefaultTheme }) => props.theme.colors.disabled};
-    cursor: not-allowed;
-  }
-`;
-
-const FilterTags = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-top: 1rem;
-`;
-
-const FilterTag = styled.span`
-  padding: 0.25rem 0.5rem;
-  background: ${(props: { theme: DefaultTheme }) => props.theme.colors.backgroundAlt};
-  border-radius: 4px;
-  font-size: 0.875rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-`;
-
-const RemoveButton = styled.button`
-  background: none;
-  border: none;
-  color: ${(props: { theme: DefaultTheme }) => props.theme.colors.text.secondary};
-  cursor: pointer;
-  padding: 0;
-  font-size: 1rem;
-
-  &:hover {
-    color: ${(props: { theme: DefaultTheme }) => props.theme.colors.text.primary};
-  }
-`;
+const removeButtonStyle: React.CSSProperties = {
+  background: 'none',
+  border: 'none',
+  color: '#6b7280',
+  cursor: 'pointer',
+  padding: '0',
+  fontSize: '1rem'
+};
 
 interface ListingSearchProps {
     onSearch: (filters: SearchFilters) => void;
@@ -118,10 +100,11 @@ interface ListingSearchProps {
 }
 
 /**
- *
- * @param root0
- * @param root0.onSearch
- * @param root0.isLoading
+ * Search form component for filtering marketplace listings
+ * @param props - Component props
+ * @param props.onSearch - Callback function called when search is submitted
+ * @param props.isLoading - Whether search is currently in progress
+ * @returns React component with search form and active filters
  */
 export const ListingSearch: React.FC<ListingSearchProps> = ({ onSearch, isLoading }) => {
     const [filters, setFilters] = useState<SearchFilters>({
@@ -137,13 +120,21 @@ export const ListingSearch: React.FC<ListingSearchProps> = ({ onSearch, isLoadin
 
         if (name.includes('.')) {
             const [parent, child] = name.split('.');
-            setFilters(prev => ({
-                ...prev,
-                [parent]: {
-                    ...(prev[parent as keyof SearchFilters] as Record<string, unknown> || {}),
-                    [child]: value ? Number(value) : undefined,
-                },
-            }));
+            if (typeof parent === 'string' && typeof child === 'string') {
+                setFilters(prev => {
+                    const parentValue = prev[parent as keyof SearchFilters];
+                    const existingParentValue = typeof parentValue === 'object' && parentValue !== null 
+                        ? parentValue as Record<string, unknown>
+                        : {};
+                    return {
+                        ...prev,
+                        [parent]: {
+                            ...existingParentValue,
+                            [child]: value.length > 0 ? Number(value) : undefined,
+                        },
+                    };
+                });
+            }
         } else {
             setFilters(prev => ({
                 ...prev,
@@ -161,11 +152,14 @@ export const ListingSearch: React.FC<ListingSearchProps> = ({ onSearch, isLoadin
     const updateActiveFilters = (): void => {
         const newActiveFilters: Record<string, string> = {};
         Object.entries(filters).forEach(([key, value]) => {
-            if (value && typeof value !== 'object') {
-                newActiveFilters[key] = value.toString();
-            } else if (value && typeof value === 'object') {
-                Object.entries(value).forEach(([subKey, subValue]) => {
-                    if (subValue) {
+            if (typeof value === 'string' && value.length > 0) {
+                newActiveFilters[key] = value;
+            } else if (typeof value === 'object' && value !== null) {
+                const valueObj = value as Record<string, unknown>;
+                Object.entries(valueObj).forEach(([subKey, subValue]) => {
+                    if (typeof subValue === 'string' && subValue.length > 0) {
+                        newActiveFilters[`${key}.${subKey}`] = subValue;
+                    } else if (typeof subValue === 'number') {
                         newActiveFilters[`${key}.${subKey}`] = subValue.toString();
                     }
                 });
@@ -177,13 +171,21 @@ export const ListingSearch: React.FC<ListingSearchProps> = ({ onSearch, isLoadin
     const removeFilter = (key: string): void => {
         if (key.includes('.')) {
             const [parent, child] = key.split('.');
-            setFilters(prev => ({
-                ...prev,
-                [parent]: {
-                    ...(prev[parent as keyof SearchFilters] as Record<string, unknown> || {}),
-                    [child]: undefined,
-                },
-            }));
+            if (typeof parent === 'string' && typeof child === 'string') {
+                setFilters(prev => {
+                    const parentValue = prev[parent as keyof SearchFilters];
+                    const existingParentValue = typeof parentValue === 'object' && parentValue !== null 
+                        ? parentValue as Record<string, unknown>
+                        : {};
+                    return {
+                        ...prev,
+                        [parent]: {
+                            ...existingParentValue,
+                            [child]: undefined,
+                        },
+                    };
+                });
+            }
         } else {
             setFilters(prev => {
                 const newFilters = { ...prev };
@@ -200,103 +202,110 @@ export const ListingSearch: React.FC<ListingSearchProps> = ({ onSearch, isLoadin
     };
 
     return (
-        <SearchContainer>
-            <SearchForm onSubmit={handleSubmit}>
-                <InputGroup>
-                    <Label>Type</Label>
-                    <Select
+        <div style={searchContainerStyle}>
+            <form style={searchFormStyle} onSubmit={handleSubmit}>
+                <div style={inputGroupStyle}>
+                    <label style={labelStyle}>Type</label>
+                    <select
                         name="type"
-                        value={filters.type || ''}
+                        value={filters.type ?? ''}
                         onChange={handleInputChange}
+                        style={selectStyle}
                     >
                         <option value="product">Product</option>
                         <option value="service">Service</option>
-                    </Select>
-                </InputGroup>
+                    </select>
+                </div>
 
-                <InputGroup>
-                    <Label>Category</Label>
-                    <Input
+                <div style={inputGroupStyle}>
+                    <label style={labelStyle}>Category</label>
+                    <input
                         type="text"
                         name="category"
-                        value={filters.category || ''}
+                        value={filters.category ?? ''}
                         onChange={handleInputChange}
                         placeholder="Enter category"
+                        style={inputStyle}
                     />
-                </InputGroup>
+                </div>
 
-                <InputGroup>
-                    <Label>Price Range</Label>
+                <div style={inputGroupStyle}>
+                    <label style={labelStyle}>Price Range</label>
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        <Input
+                        <input
                             type="number"
                             name="priceRange.min"
-                            value={filters.priceRange?.min || ''}
+                            value={typeof filters.priceRange?.min === 'number' ? filters.priceRange.min.toString() : ''}
                             onChange={handleInputChange}
                             placeholder="Min"
+                            style={inputStyle}
                         />
-                        <Input
+                        <input
                             type="number"
                             name="priceRange.max"
-                            value={filters.priceRange?.max || ''}
+                            value={typeof filters.priceRange?.max === 'number' ? filters.priceRange.max.toString() : ''}
                             onChange={handleInputChange}
                             placeholder="Max"
+                            style={inputStyle}
                         />
                     </div>
-                </InputGroup>
+                </div>
 
-                <InputGroup>
-                    <Label>Location</Label>
-                    <Input
+                <div style={inputGroupStyle}>
+                    <label style={labelStyle}>Location</label>
+                    <input
                         type="text"
                         name="location.city"
-                        value={filters.location?.city || ''}
+                        value={filters.location?.city ?? ''}
                         onChange={handleInputChange}
                         placeholder="City"
+                        style={inputStyle}
                     />
-                </InputGroup>
+                </div>
 
-                <InputGroup>
-                    <Label>Sort By</Label>
-                    <Select
+                <div style={inputGroupStyle}>
+                    <label style={labelStyle}>Sort By</label>
+                    <select
                         name="sortBy"
-                        value={filters.sortBy || ''}
+                        value={filters.sortBy ?? ''}
                         onChange={handleInputChange}
+                        style={selectStyle}
                     >
                         <option value="price">Price</option>
                         <option value="rating">Rating</option>
                         <option value="date">Date</option>
                         <option value="popularity">Popularity</option>
-                    </Select>
-                </InputGroup>
+                    </select>
+                </div>
 
-                <InputGroup>
-                    <Label>Order</Label>
-                    <Select
+                <div style={inputGroupStyle}>
+                    <label style={labelStyle}>Order</label>
+                    <select
                         name="sortOrder"
-                        value={filters.sortOrder || ''}
+                        value={filters.sortOrder ?? ''}
                         onChange={handleInputChange}
+                        style={selectStyle}
                     >
                         <option value="asc">Ascending</option>
                         <option value="desc">Descending</option>
-                    </Select>
-                </InputGroup>
+                    </select>
+                </div>
 
-                <Button type="submit" disabled={isLoading}>
+                <button type="submit" disabled={isLoading} style={isLoading ? buttonDisabledStyle : buttonStyle}>
                     {isLoading ? 'Searching...' : 'Search'}
-                </Button>
-            </SearchForm>
+                </button>
+            </form>
 
             {Object.keys(activeFilters).length > 0 && (
-                <FilterTags>
+                <div style={filterTagsStyle}>
                     {Object.entries(activeFilters).map(([key, value]) => (
-                        <FilterTag key={key}>
+                        <span key={key} style={filterTagStyle}>
                             {key}: {value}
-                            <RemoveButton onClick={() => removeFilter(key)}>×</RemoveButton>
-                        </FilterTag>
+                            <button onClick={() => removeFilter(key)} style={removeButtonStyle}>×</button>
+                        </span>
                     ))}
-                </FilterTags>
+                </div>
             )}
-        </SearchContainer>
+        </div>
     );
-}; 
+};

@@ -88,37 +88,42 @@ export interface AccountAbstraction {
 
   // Privacy Features
   /**
-   *
+   * Enable privacy features for account
+   * @returns Promise that resolves when privacy features are enabled
    */
   enablePrivacyFeatures(): Promise<void>;
   /**
-   *
+   * Disable privacy features for account
+   * @returns Promise that resolves when privacy features are disabled
    */
   disablePrivacyFeatures(): Promise<void>;
 
   // Event Handlers
   /**
-   *
+   * Register callback for account changes
+   * @param callback Function to call when account changes
    */
   onAccountChange(callback: (account: AccountMetadata) => void): void;
   /**
-   *
+   * Register callback for login events
+   * @param callback Function to call when user logs in
    */
   onLogin(callback: (account: AccountMetadata) => void): void;
   /**
-   *
+   * Register callback for logout events
+   * @param callback Function to call when user logs out
    */
   onLogout(callback: () => void): void;
 }
 
 /**
- *
+ * Error class for account abstraction related errors
  */
 export class AccountAbstractionError extends Error {
   /**
-   *
-   * @param message
-   * @param code
+   * Creates a new AccountAbstractionError
+   * @param message - The error message
+   * @param code - The error code for categorization
    */
   constructor(message: string, public code: string) {
     super(message);

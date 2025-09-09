@@ -133,7 +133,7 @@ export class DEXService {
    */
   constructor(walletService: WalletService, config?: DEXConfig) {
     this.walletService = walletService;
-    this.config = config || {
+    this.config = (config !== null && config !== undefined) ? config : {
       contractAddress: '0x1234567890123456789012345678901234567890',
       supportedPairs: [
         {
@@ -197,21 +197,21 @@ export class DEXService {
    * @param symbol - Trading pair symbol
    * @returns Market data
    */
-  async getMarketData(symbol: string): Promise<MarketData | null> {
+  getMarketData(symbol: string): MarketData | null {
     const pair = this.config.supportedPairs.find(p => p.symbol === symbol);
-    if (!pair) {
+    if (pair === null || pair === undefined) {
       return null;
     }
 
     const orderBook = this.orderBook.get(symbol);
-    if (!orderBook) {
+    if (orderBook === null || orderBook === undefined) {
       return null;
     }
 
     // Calculate market data from order book
     const lastPrice = ethers.parseEther('100'); // Mock price
-    const bid = orderBook.bids.length > 0 ? orderBook.bids[0].price : 0n;
-    const ask = orderBook.asks.length > 0 ? orderBook.asks[0].price : 0n;
+    const bid = orderBook.bids.length > 0 ? orderBook.bids[0].price : BigInt(0);
+    const ask = orderBook.asks.length > 0 ? orderBook.asks[0].price : BigInt(0);
 
     return {
       pair,
@@ -220,7 +220,7 @@ export class DEXService {
       volume24h: ethers.parseEther('1000'), // Mock volume
       bid,
       ask,
-      spread: ask > bid ? ask - bid : 0n
+      spread: ask > bid ? ask - bid : BigInt(0)
     };
   }
 
@@ -230,9 +230,9 @@ export class DEXService {
    * @param depth - Number of levels to return
    * @returns Order book data
    */
-  async getOrderBook(symbol: string, depth: number = 10): Promise<OrderBook | null> {
+  getOrderBook(symbol: string, depth: number = 10): OrderBook | null {
     const orderBook = this.orderBook.get(symbol);
-    if (!orderBook) {
+    if (orderBook === null || orderBook === undefined) {
       return null;
     }
 
@@ -246,11 +246,11 @@ export class DEXService {
   /**
    * Place a new order
    * @param params - Order parameters
-   * @param params.symbol
-   * @param params.side
-   * @param params.price
-   * @param params.quantity
-   * @param params.expiresAt
+   * @param params.symbol - Trading pair symbol
+   * @param params.side - Order side (buy/sell)
+   * @param params.price - Order price
+   * @param params.quantity - Order quantity
+   * @param params.expiresAt - Optional expiration timestamp
    * @returns Created order
    * @throws {Error} When order placement fails
    */
@@ -266,7 +266,7 @@ export class DEXService {
     }
 
     const pair = this.config.supportedPairs.find(p => p.symbol === params.symbol);
-    if (!pair) {
+    if (pair === null || pair === undefined) {
       throw new Error(`Unsupported trading pair: ${params.symbol}`);
     }
 
@@ -284,11 +284,11 @@ export class DEXService {
         side: params.side,
         price: params.price,
         quantity: params.quantity,
-        filledQuantity: 0n,
+        filledQuantity: BigInt(0),
         status: OrderStatus.PENDING,
         trader: address,
         createdAt: Date.now(),
-        expiresAt: params.expiresAt || (Date.now() + this.config.defaultOrderExpiry * 1000)
+        expiresAt: (params.expiresAt !== null && params.expiresAt !== undefined) ? params.expiresAt : (Date.now() + this.config.defaultOrderExpiry * 1000)
       };
 
       // Add to active orders
@@ -313,7 +313,7 @@ export class DEXService {
    */
   async cancelOrder(orderId: string): Promise<boolean> {
     const order = this.activeOrders.get(orderId);
-    if (!order) {
+    if (order === null || order === undefined) {
       throw new Error('Order not found');
     }
 
@@ -364,12 +364,12 @@ export class DEXService {
 
   /**
    * Add order to order book
-   * @param order
+   * @param order - Order to add to the book
    * @private
    */
   private addToOrderBook(order: Order): void {
     const orderBook = this.orderBook.get(order.pair.symbol);
-    if (!orderBook) {
+    if (orderBook === null || orderBook === undefined) {
       return;
     }
 
@@ -406,12 +406,12 @@ export class DEXService {
 
   /**
    * Remove order from order book
-   * @param order
+   * @param order - Order to remove from the book
    * @private
    */
   private removeFromOrderBook(order: Order): void {
     const orderBook = this.orderBook.get(order.pair.symbol);
-    if (!orderBook) {
+    if (orderBook === null || orderBook === undefined) {
       return;
     }
 
@@ -443,9 +443,9 @@ export class DEXService {
   /**
    * Clear cache and reset data
    */
-  async clearCache(): Promise<void> {
+  clearCache(): void {
     // Clear order books but keep structure
-    for (const [symbol, orderBook] of this.orderBook.entries()) {
+    for (const [_symbol, orderBook] of Array.from(this.orderBook.entries())) {
       orderBook.bids = [];
       orderBook.asks = [];
       orderBook.timestamp = Date.now();
@@ -456,7 +456,7 @@ export class DEXService {
   /**
    * Cleanup service and release resources
    */
-  async cleanup(): Promise<void> {
+  cleanup(): void {
     try {
       this.orderBook.clear();
       this.activeOrders.clear();

@@ -41,7 +41,7 @@ import { useWalletStore } from '../stores/wallet';
 defineEmits(['close', 'mark-all-read']);
 
 const walletStore = useWalletStore();
-const notifications = computed(() => walletStore.notifications || []);
+const notifications = computed(() => walletStore.notifications ?? []);
 
 const getIcon = (type: string): string => {
   const icons: Record<string, string> = {
@@ -51,7 +51,7 @@ const getIcon = (type: string): string => {
     error: '❌',
     success: '✅'
   };
-  return icons[type] || 'ℹ️';
+  return icons[type] ?? 'ℹ️';
 };
 
 const formatTime = (timestamp: number): string => {

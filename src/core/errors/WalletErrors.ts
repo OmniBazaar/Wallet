@@ -95,8 +95,8 @@ export class TransactionSigningError extends WalletError {
  */
 export class KeyringError extends WalletError {
   /**
-   *
-   * @param message
+   * Create a new KeyringError
+   * @param message - Error message
    */
   constructor(message: string) {
     super(message, 'KEYRING_ERROR');
@@ -109,9 +109,9 @@ export class KeyringError extends WalletError {
  */
 export class BridgeError extends WalletError {
   /**
-   *
-   * @param message
-   * @param bridgeProvider
+   * Create a new BridgeError
+   * @param message - Error message
+   * @param bridgeProvider - Optional bridge provider identifier
    */
   constructor(message: string, public readonly bridgeProvider?: string) {
     super(message, 'BRIDGE_ERROR');

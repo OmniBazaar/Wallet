@@ -3,17 +3,22 @@
  * Manages token swap functionality and state
  */
 import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
+import { ref } from 'vue';
 import type { BigNumberish } from 'ethers';
 
 /**
  * Token interface for swap operations
  */
 export interface SwapToken {
+  /** Token contract address */
   address: string;
+  /** Token symbol (e.g., ETH, USDC) */
   symbol: string;
+  /** Number of decimal places for the token */
   decimals: number;
+  /** Full token name */
   name?: string;
+  /** Token logo URI */
   logoURI?: string;
 }
 
@@ -21,10 +26,15 @@ export interface SwapToken {
  * Swap quote interface
  */
 export interface SwapQuote {
+  /** Expected output amount in wei */
   amountOut?: bigint;
+  /** Price impact percentage (0-100) */
   priceImpact?: number;
+  /** Token addresses in the swap route */
   route?: string[];
+  /** Exchange rate */
   rate?: number;
+  /** Estimated gas cost in wei */
   estimatedGas?: bigint;
 }
 
@@ -32,9 +42,13 @@ export interface SwapQuote {
  * Gas estimate interface
  */
 export interface GasEstimate {
+  /** Maximum gas units that can be consumed */
   gasLimit: string;
+  /** Price per gas unit in gwei */
   gasPrice: string;
+  /** Total transaction cost in ETH */
   totalCost: string;
+  /** Total transaction cost in USD */
   totalCostUSD: string;
 }
 
@@ -42,12 +56,19 @@ export interface GasEstimate {
  * Recent swap interface
  */
 export interface RecentSwap {
+  /** Unique swap identifier */
   id: string;
+  /** Input token address */
   tokenIn: string;
+  /** Output token address */
   tokenOut: string;
+  /** Input amount in wei */
   amountIn: string;
+  /** Output amount in wei */
   amountOut: string;
+  /** Timestamp of the swap */
   timestamp: number;
+  /** Transaction hash */
   txHash?: string;
 }
 
@@ -55,11 +76,26 @@ export interface RecentSwap {
  * Swap parameters interface
  */
 export interface SwapParams {
+  /** Input token address */
   tokenIn: string;
+  /** Output token address */
   tokenOut: string;
+  /** Input amount */
   amountIn: BigNumberish;
+  /** Slippage tolerance percentage */
   slippage?: number;
+  /** Transaction deadline in minutes */
   deadline?: number;
+}
+
+/**
+ * Swap result interface
+ */
+interface SwapResult {
+  /** Transaction hash */
+  hash: string;
+  /** Success status */
+  success: boolean;
 }
 
 export const useSwapStore = defineStore('swap', () => {
@@ -80,10 +116,12 @@ export const useSwapStore = defineStore('swap', () => {
   // Methods
   /**
    * Fetch available tokens for swapping
+   * @returns Promise that resolves when tokens are fetched
    */
   const fetchAvailableTokens = async (): Promise<void> => {
     try {
       // In real implementation, this would fetch from DEX or token list
+      await new Promise(resolve => setTimeout(resolve, 100)); // Simulate API call
       availableTokens.value = [
         {
           address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
@@ -106,12 +144,14 @@ export const useSwapStore = defineStore('swap', () => {
       ];
     } catch (err) {
       error.value = 'Failed to fetch tokens';
-      console.error('Failed to fetch tokens:', err);
+      throw err;
     }
   };
 
   /**
    * Get swap quote
+   * @param params - Swap parameters including tokens and amounts
+   * @returns Promise that resolves to a swap quote or null if failed
    */
   const getQuote = async (params: SwapParams): Promise<SwapQuote | null> => {
     try {
@@ -135,24 +175,29 @@ export const useSwapStore = defineStore('swap', () => {
       return mockQuote;
     } catch (err) {
       error.value = 'Failed to get quote';
-      console.error('Failed to get quote:', err);
       return null;
     }
   };
 
   /**
    * Check if token approval is needed
+   * @param tokenAddress - Token contract address
+   * @param _amount - Amount to be approved (unused in mock)
+   * @returns Promise that resolves to true if approval is needed
    */
-  const checkApproval = async (tokenAddress: string, amount: BigNumberish): Promise<boolean> => {
+  const checkApproval = async (tokenAddress: string, _amount: BigNumberish): Promise<boolean> => {
     // In real implementation, check allowance against DEX router
     // For now, simulate that native tokens don't need approval
+    await new Promise(resolve => setTimeout(resolve, 50)); // Simulate async check
     return tokenAddress !== '0x0000000000000000000000000000000000000000';
   };
 
   /**
    * Approve token for spending
+   * @param _tokenAddress - Token contract address (unused in mock)
+   * @returns Promise that resolves to true if approval succeeds
    */
-  const approveToken = async (tokenAddress: string): Promise<boolean> => {
+  const approveToken = async (_tokenAddress: string): Promise<boolean> => {
     try {
       transactionStatus.value = 'pending';
       error.value = '';
@@ -166,21 +211,23 @@ export const useSwapStore = defineStore('swap', () => {
     } catch (err) {
       error.value = 'Approval failed';
       transactionStatus.value = 'failed';
-      console.error('Approval failed:', err);
       return false;
     }
   };
 
   /**
    * Execute swap
+   * @param params - Swap parameters
+   * @returns Promise that resolves to transaction result or null if failed
    */
-  const executeSwap = async (params: SwapParams): Promise<{ hash: string; success: boolean } | null> => {
+  const executeSwap = async (params: SwapParams): Promise<SwapResult | null> => {
     try {
       transactionStatus.value = 'pending';
       error.value = '';
       
       // In real implementation, call DEX router contract
-      const mockHash = '0x' + Math.random().toString(16).substr(2, 64);
+      const randomHex = Math.random().toString(16).substring(2, 66);
+      const mockHash = '0x' + randomHex;
       transactionHash.value = mockHash;
       
       // Simulate transaction
@@ -192,7 +239,7 @@ export const useSwapStore = defineStore('swap', () => {
         tokenIn: params.tokenIn,
         tokenOut: params.tokenOut,
         amountIn: params.amountIn.toString(),
-        amountOut: quote.value?.amountOut?.toString() || '0',
+        amountOut: quote.value?.amountOut?.toString() ?? '0',
         timestamp: Date.now(),
         txHash: mockHash
       };
@@ -207,33 +254,38 @@ export const useSwapStore = defineStore('swap', () => {
     } catch (err) {
       error.value = 'Swap failed';
       transactionStatus.value = 'failed';
-      console.error('Swap failed:', err);
       return null;
     }
   };
 
   /**
    * Update token balances
+   * @param tokens - Array of token addresses to update balances for
+   * @returns Promise that resolves when balances are updated
    */
   const updateBalances = async (tokens: string[]): Promise<void> => {
     try {
       // In real implementation, fetch actual balances
+      await new Promise(resolve => setTimeout(resolve, 100)); // Simulate API call
       const mockBalances: Record<string, string> = {};
       for (const token of tokens) {
         mockBalances[token] = '1000000000'; // Mock balance
       }
       balances.value = mockBalances;
     } catch (err) {
-      console.error('Failed to update balances:', err);
+      error.value = 'Failed to update balances';
     }
   };
 
   /**
    * Estimate gas for swap
+   * @param _params - Swap parameters (unused in mock)
+   * @returns Promise that resolves when gas estimate is complete
    */
-  const estimateGas = async (params: SwapParams): Promise<void> => {
+  const estimateGas = async (_params: SwapParams): Promise<void> => {
     try {
       // In real implementation, estimate actual gas
+      await new Promise(resolve => setTimeout(resolve, 100)); // Simulate estimation
       gasEstimate.value = {
         gasLimit: '100000',
         gasPrice: '30',
@@ -241,12 +293,13 @@ export const useSwapStore = defineStore('swap', () => {
         totalCostUSD: '6.00'
       };
     } catch (err) {
-      console.error('Failed to estimate gas:', err);
+      error.value = 'Failed to estimate gas';
     }
   };
 
   /**
    * Clear swap data
+   * @returns void
    */
   const clearSwap = (): void => {
     quote.value = null;

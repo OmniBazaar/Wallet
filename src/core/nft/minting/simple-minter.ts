@@ -2,75 +2,75 @@ import type { NFTMintRequest, NFTMetadata, NFTItem } from '../../../types/nft';
 import type { ListingMetadata } from '../../../types/listing';
 
 /**
- *
+ * Configuration for NFT minting
  */
 export interface MintingConfig {
   /**
-   *
+   * NFT contract address
    */
   contractAddress: string;
   /**
-   *
+   * Marketplace contract address
    */
   marketplaceAddress: string;
   /**
-   *
+   * IPFS gateway URL
    */
   ipfsGateway: string;
   /**
-   *
+   * Default royalty percentage (0-100)
    */
   defaultRoyalty: number;
   /**
-   *
+   * RPC URL for blockchain connection
    */
   rpcUrl: string;
 }
 
 /**
- *
+ * Result of NFT minting operation
  */
 export interface MintingResult {
   /**
-   *
+   * Whether minting was successful
    */
   success: boolean;
   /**
-   *
+   * Minted token ID
    */
   tokenId?: string;
   /**
-   *
+   * Transaction hash of minting
    */
   transactionHash?: string;
   /**
-   *
+   * IPFS hash of metadata
    */
   ipfsHash?: string;
   /**
-   *
+   * Created NFT item
    */
   nftItem?: NFTItem;
   /**
-   *
+   * Error message if failed
    */
   error?: string;
 }
 
 /**
- *
+ * Result of IPFS upload operation
  */
 export interface IPFSUploadResult {
   /**
-   *
+   * Whether upload was successful
    */
   success: boolean;
   /**
-   *
+   * IPFS hash of uploaded content
    */
   hash?: string;
   /**
-   *
+   * Error message if failed
    */
   error?: string;
 }
@@ -83,8 +83,8 @@ export class SimplifiedNFTMinter {
   private config: MintingConfig;
 
   /**
-   *
-   * @param config
+   * Initialize the NFT minter
+   * @param config - Minting configuration
    */
   constructor(config: MintingConfig) {
     this.config = config;
@@ -92,9 +92,10 @@ export class SimplifiedNFTMinter {
 
   /**
    * Mint NFT for marketplace listing on OmniCoin blockchain
-   * @param mintRequest
-   * @param listingData
-   * @param sellerAddress
+   * @param mintRequest - NFT mint request details
+   * @param listingData - Marketplace listing metadata
+   * @param sellerAddress - Address of the seller
+   * @returns Promise resolving to minting result
    */
   async mintListingNFT(
     mintRequest: NFTMintRequest,
@@ -126,7 +127,7 @@ export class SimplifiedNFTMinter {
       const mintResult = await this.simulateBlockchainMinting(
         sellerAddress,
         tokenId,
-        ipfsResult.hash || 'unknown'
+        ipfsResult.hash !== undefined && ipfsResult.hash !== '' ? ipfsResult.hash : 'unknown'
       );
 
       if (!mintResult.success) {
@@ -137,8 +138,8 @@ export class SimplifiedNFTMinter {
       const nftItem = this.createNFTItem(
         tokenId,
         metadata,
-        mintResult.transactionHash || 'unknown',
-        ipfsResult.hash || 'unknown',
+        mintResult.transactionHash !== undefined && mintResult.transactionHash !== '' ? mintResult.transactionHash : 'unknown',
+        ipfsResult.hash !== undefined && ipfsResult.hash !== '' ? ipfsResult.hash : 'unknown',
         sellerAddress
       );
 
@@ -148,8 +149,12 @@ export class SimplifiedNFTMinter {
         tokenId,
         nftItem,
       };
-      if (mintResult.transactionHash) result.transactionHash = mintResult.transactionHash;
-      if (ipfsResult.hash) result.ipfsHash = ipfsResult.hash;
+      if (mintResult.transactionHash !== undefined && mintResult.transactionHash !== '') {
+        result.transactionHash = mintResult.transactionHash;
+      }
+      if (ipfsResult.hash !== undefined && ipfsResult.hash !== '') {
+        result.ipfsHash = ipfsResult.hash;
+      }
       return result;
 
     } catch (error) {
@@ -163,8 +168,9 @@ export class SimplifiedNFTMinter {
 
   /**
    * Prepare NFT metadata optimized for marketplace
-   * @param mintRequest
-   * @param listingData
+   * @param mintRequest - NFT mint request details
+   * @param listingData - Marketplace listing metadata
+   * @returns NFT metadata
    */
   private prepareNFTMetadata(
     mintRequest: NFTMintRequest,
@@ -172,7 +178,7 @@ export class SimplifiedNFTMinter {
   ): NFTMetadata {
     // Extract condition from listing details
     let condition: 'new' | 'used' | 'refurbished' | undefined;
-    if (listingData.details && 'condition' in listingData.details) {
+    if (listingData.details !== undefined && 'condition' in listingData.details) {
       condition = listingData.details.condition;
     }
 
@@ -184,23 +190,23 @@ export class SimplifiedNFTMinter {
         ...mintRequest.attributes,
         // Add marketplace-specific attributes
         { trait_type: 'Listing Type', value: listingData.type },
-        { trait_type: 'Category', value: mintRequest.category || 'General' },
+        { trait_type: 'Category', value: mintRequest.category !== undefined && mintRequest.category !== '' ? mintRequest.category : 'General' },
         { trait_type: 'Seller', value: listingData.seller.name },
         { trait_type: 'Location', value: listingData.seller.location.country },
         { trait_type: 'Blockchain', value: 'OmniCoin' },
         { trait_type: 'Minted Date', value: new Date().toISOString() }
       ],
       properties: {
-        ...(mintRequest.category ? { category: mintRequest.category } : {}),
+        ...(mintRequest.category !== undefined && mintRequest.category !== '' ? { category: mintRequest.category } : {}),
         creators: [{
           address: listingData.seller.address,
           share: 100
         }]
       },
       marketplace: {
-        category: mintRequest.category || 'general',
-        condition: condition || 'new',
-        location: `${listingData.seller.location.city || 'Unknown'}, ${listingData.seller.location.country}`,
+        category: mintRequest.category !== undefined && mintRequest.category !== '' ? mintRequest.category : 'general',
+        condition: condition !== undefined ? condition : 'new',
+        location: `${listingData.seller.location.city !== undefined ? listingData.seller.location.city : 'Unknown'}, ${listingData.seller.location.country}`,
         shipping: {
           domestic: 0, // TODO: Extract from listing data
           international: 0,
@@ -217,16 +223,20 @@ export class SimplifiedNFTMinter {
 
   /**
    * Simulate IPFS upload (replace with real implementation)
-   * @param metadata
-   * @param _image
+   * @param metadata - NFT metadata to upload
+   * @param _image - Image file or string (unused in simulation)
+   * @returns Promise resolving to upload result
    */
   private async simulateIPFSUpload(metadata: NFTMetadata, _image: File | string): Promise<IPFSUploadResult> {
     try {
       // Simulate async upload delay
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Generate mock IPFS hash
-      const hash = 'Qm' + Math.random().toString(36).substring(2, 47);
+      // Generate secure mock IPFS hash
+      // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-unsafe-assignment
+      const { secureRandomBase36 } = require('../../utils/secure-random');
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-assignment
+      const hash = 'Qm' + secureRandomBase36(45);
       
       // Update metadata with IPFS image URL
       metadata.image = `ipfs://${hash}`;
@@ -246,17 +256,22 @@ export class SimplifiedNFTMinter {
 
   /**
    * Generate a unique token ID
+   * @returns Generated token ID
    */
   private generateTokenId(): string {
-    // Use timestamp + random for uniqueness
-    return Date.now().toString() + Math.random().toString(36).substring(2, 9);
+    // Use timestamp + secure random for uniqueness
+    // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-unsafe-assignment
+    const { secureRandomBase36 } = require('../../utils/secure-random');
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    return Date.now().toString() + secureRandomBase36(7);
   }
 
   /**
    * Simulate blockchain minting (replace with real implementation)
-   * @param _toAddress
-   * @param _tokenId
-   * @param _metadataHash
+   * @param _toAddress - Address to mint to (unused in simulation)
+   * @param _tokenId - Token ID (unused in simulation)
+   * @param _metadataHash - Metadata hash (unused in simulation)
+   * @returns Promise resolving to minting result
    */
   private async simulateBlockchainMinting(
     _toAddress: string,
@@ -267,14 +282,16 @@ export class SimplifiedNFTMinter {
       // Simulate async blockchain interaction delay
       await new Promise(resolve => setTimeout(resolve, 2000));
       
-      // Generate mock transaction hash
-      const transactionHash = '0x' + Array.from({ length: 64 }, () => 
-        Math.floor(Math.random() * 16).toString(16)
-      ).join('');
+      // Generate secure mock transaction hash
+      // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-unsafe-assignment
+      const { generateSecureMockTxHash } = require('../../utils/secure-random');
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-assignment
+      const transactionHash = generateSecureMockTxHash();
 
       console.warn('Blockchain minting simulated:', transactionHash);
       return {
         success: true,
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         transactionHash
       };
     } catch (error) {
@@ -287,11 +304,12 @@ export class SimplifiedNFTMinter {
 
   /**
    * Create NFTItem from minting result
-   * @param tokenId
-   * @param metadata
-   * @param transactionHash
-   * @param ipfsHash
-   * @param owner
+   * @param tokenId - Token ID
+   * @param metadata - NFT metadata
+   * @param transactionHash - Transaction hash
+   * @param ipfsHash - IPFS hash
+   * @param owner - Owner address
+   * @returns NFT item object
    */
   private createNFTItem(
     tokenId: string,
@@ -324,7 +342,8 @@ export class SimplifiedNFTMinter {
 
   /**
    * Get IPFS gateway URL for content
-   * @param hash
+   * @param hash - IPFS hash
+   * @returns Gateway URL
    */
   private getIPFSGatewayUrl(hash: string): string {
     // Remove ipfs:// protocol if present
@@ -334,40 +353,41 @@ export class SimplifiedNFTMinter {
 
   /**
    * Validate mint request
-   * @param mintRequest
+   * @param mintRequest - Mint request to validate
+   * @returns Validation result
    */
   validateMintRequest(mintRequest: NFTMintRequest): { valid: boolean; errors: string[] } {
     const errors: string[] = [];
 
-    if (!mintRequest.name || mintRequest.name.trim().length === 0) {
+    if (mintRequest.name === undefined || mintRequest.name === '' || mintRequest.name.trim().length === 0) {
       errors.push('NFT name is required');
     }
 
-    if (mintRequest.name && mintRequest.name.length > 100) {
+    if (mintRequest.name !== undefined && mintRequest.name !== '' && mintRequest.name.length > 100) {
       errors.push('NFT name must be 100 characters or less');
     }
 
-    if (!mintRequest.description || mintRequest.description.trim().length === 0) {
+    if (mintRequest.description === undefined || mintRequest.description === '' || mintRequest.description.trim().length === 0) {
       errors.push('NFT description is required');
     }
 
-    if (mintRequest.description && mintRequest.description.length > 1000) {
+    if (mintRequest.description !== undefined && mintRequest.description !== '' && mintRequest.description.length > 1000) {
       errors.push('NFT description must be 1000 characters or less');
     }
 
-    if (!mintRequest.image) {
+    if (mintRequest.image === undefined || mintRequest.image === null || (typeof mintRequest.image === 'string' && mintRequest.image === '')) {
       errors.push('NFT image is required');
     }
 
-    if (mintRequest.listImmediately && !mintRequest.listingPrice) {
+    if (mintRequest.listImmediately === true && (mintRequest.listingPrice === undefined || mintRequest.listingPrice === null || mintRequest.listingPrice === '')) {
       errors.push('Listing price is required when listing immediately');
     }
 
-    if (mintRequest.listingPrice && parseFloat(mintRequest.listingPrice) <= 0) {
+    if (mintRequest.listingPrice !== undefined && mintRequest.listingPrice !== null && mintRequest.listingPrice !== '' && parseFloat(mintRequest.listingPrice) <= 0) {
       errors.push('Listing price must be greater than 0');
     }
 
-    if (mintRequest.royalties && (mintRequest.royalties < 0 || mintRequest.royalties > 20)) {
+    if (mintRequest.royalties !== undefined && mintRequest.royalties !== null && (mintRequest.royalties < 0 || mintRequest.royalties > 20)) {
       errors.push('Royalties must be between 0% and 20%');
     }
 
@@ -379,22 +399,24 @@ export class SimplifiedNFTMinter {
 
   /**
    * Get estimated minting cost
+   * @returns Promise resolving to cost estimate
    */
-  async getEstimatedMintingCost(): Promise<{
+  getEstimatedMintingCost(): Promise<{
     gasEstimate: string;
     totalCost: string;
     currency: string;
   }> {
     // Simulate gas estimation
-    return {
+    return Promise.resolve({
       gasEstimate: '200000',
       totalCost: '0.005', // 0.005 XOM
       currency: 'XOM'
-    };
+    });
   }
 
   /**
    * Get configuration
+   * @returns Current minting configuration
    */
   getConfig(): MintingConfig {
     return { ...this.config };
@@ -402,7 +424,7 @@ export class SimplifiedNFTMinter {
 
   /**
    * Update configuration
-   * @param updates
+   * @param updates - Partial configuration updates
    */
   updateConfig(updates: Partial<MintingConfig>): void {
     this.config = { ...this.config, ...updates };

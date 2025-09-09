@@ -176,9 +176,9 @@ export const POLKADOT_NETWORKS: Record<string, PolkadotNetworkConfig> = {
   }
 };
 
-// Helper to get all mainnet networks
 /**
- *
+ * Get all mainnet Polkadot networks
+ * @returns Array of mainnet network configurations
  */
 export function getMainnetPolkadotNetworks(): PolkadotNetworkConfig[] {
   return Object.values(POLKADOT_NETWORKS).filter(
@@ -186,9 +186,9 @@ export function getMainnetPolkadotNetworks(): PolkadotNetworkConfig[] {
   );
 }
 
-// Helper to get testnet networks
 /**
- *
+ * Get testnet Polkadot networks
+ * @returns Array of testnet network configurations
  */
 export function getTestnetPolkadotNetworks(): PolkadotNetworkConfig[] {
   return Object.values(POLKADOT_NETWORKS).filter(

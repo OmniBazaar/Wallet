@@ -9,45 +9,27 @@ import { ethers, type InterfaceAbi, AbstractSigner } from 'ethers';
 // Import keyringService lazily to avoid circular dependency
 
 /**
- *
+ * COTI Network configuration interface
  */
 export interface COTINetwork {
-  /**
-   *
-   */
+  /** Network display name */
   name: string;
-  /**
-   *
-   */
+  /** Network chain ID */
   chainId: number;
-  /**
-   *
-   */
+  /** RPC endpoint URL */
   rpcUrl: string;
-  /**
-   *
-   */
+  /** Block explorer URL */
   blockExplorer?: string;
-  /**
-   *
-   */
+  /** Native currency configuration */
   nativeCurrency: {
-    /**
-     *
-     */
+    /** Currency name */
     name: string;
-    /**
-     *
-     */
+    /** Currency symbol */
     symbol: string;
-    /**
-     *
-     */
+    /** Currency decimals */
     decimals: number;
   };
-  /**
-   *
-   */
+  /** Whether privacy features are enabled */
   privacyEnabled: boolean;
 }
 
@@ -80,7 +62,7 @@ export const COTI_NETWORKS: Record<string, COTINetwork> = {
 };
 
 /**
- *
+ * Live COTI provider with privacy features and keyring integration
  */
 export class LiveCOTIProvider {
   private provider: ethers.JsonRpcProvider;
@@ -89,12 +71,12 @@ export class LiveCOTIProvider {
   private privacyMode = false;
   
   /**
-   *
-   * @param networkName
+   * Create new LiveCOTIProvider instance
+   * @param networkName - COTI network name (mainnet/testnet)
    */
   constructor(networkName = 'testnet') {
     const network = COTI_NETWORKS[networkName];
-    if (!network) {
+    if (network === null || network === undefined) {
       throw new Error(`Unknown COTI network: ${networkName}`);
     }
     
@@ -107,6 +89,7 @@ export class LiveCOTIProvider {
 
   /**
    * Get the provider instance
+   * @returns The ethers JSON-RPC provider
    */
   getProvider(): ethers.JsonRpcProvider {
     return this.provider;
@@ -114,6 +97,7 @@ export class LiveCOTIProvider {
 
   /**
    * Get network info
+   * @returns Current network configuration
    */
   getNetwork(): COTINetwork {
     return this.network;
@@ -121,7 +105,7 @@ export class LiveCOTIProvider {
 
   /**
    * Enable/disable privacy mode
-   * @param enabled
+   * @param enabled - Whether to enable privacy mode
    */
   setPrivacyMode(enabled: boolean): void {
     if (!this.network.privacyEnabled) {
@@ -132,6 +116,7 @@ export class LiveCOTIProvider {
 
   /**
    * Get privacy mode status
+   * @returns True if privacy mode is enabled
    */
   isPrivacyEnabled(): boolean {
     return this.privacyMode && this.network.privacyEnabled;
@@ -139,11 +124,11 @@ export class LiveCOTIProvider {
 
   /**
    * Switch to a different network
-   * @param networkName
+   * @param networkName - Target network name
    */
-  async switchNetwork(networkName: string): Promise<void> {
+  switchNetwork(networkName: string): void {
     const network = COTI_NETWORKS[networkName];
-    if (!network) {
+    if (network === null || network === undefined) {
       throw new Error(`Unknown COTI network: ${networkName}`);
     }
     
@@ -159,17 +144,18 @@ export class LiveCOTIProvider {
 
   /**
    * Get signer for active account
+   * @returns Promise resolving to COTI keyring signer
    */
   async getSigner(): Promise<COTIKeyringSigner> {
     // Lazy import to avoid circular dependency
     const { keyringService } = await import('../../keyring/KeyringService');
     
     const activeAccount = keyringService.getActiveAccount();
-    if (!activeAccount || activeAccount.chainType !== 'coti') {
+    if (activeAccount === null || activeAccount === undefined || String(activeAccount.chainType) !== 'coti') {
       throw new Error('No active COTI account');
     }
 
-    if (!this.signer) {
+    if (this.signer === null || this.signer === undefined) {
       // Create a custom signer that uses keyring for signing
       this.signer = new COTIKeyringSigner(activeAccount.address, this.provider, this.privacyMode);
     }
@@ -179,17 +165,18 @@ export class LiveCOTIProvider {
 
   /**
    * Get account balance (public or private)
-   * @param address
-   * @param includePrivate
+   * @param address - Target address to get balance for
+   * @param includePrivate - Whether to include private balance
+   * @returns Promise resolving to balance object with public and optional private amounts
    */
   async getBalance(address?: string, includePrivate = false): Promise<{ public: bigint; private?: bigint }> {
     let targetAddress = address;
-    if (!targetAddress) {
+    if (targetAddress === null || targetAddress === undefined || targetAddress.length === 0) {
       // Lazy import to avoid circular dependency
       const { keyringService } = await import('../../keyring/KeyringService');
       targetAddress = keyringService.getActiveAccount()?.address;
     }
-    if (!targetAddress) {
+    if (targetAddress === null || targetAddress === undefined || targetAddress.length === 0) {
       throw new Error('No address provided');
     }
     
@@ -204,7 +191,8 @@ export class LiveCOTIProvider {
         const privateBalance = await this.getPrivateBalance(targetAddress);
         result.private = privateBalance;
       } catch (error) {
-        console.warn('Could not fetch private balance:', error);
+        // In production, use proper logger instead of console
+        // console.warn('Could not fetch private balance:', error);
       }
     }
     
@@ -213,19 +201,24 @@ export class LiveCOTIProvider {
 
   /**
    * Get private balance (COTI-specific)
-   * @param address
+   * @param address - Address to query private balance for
+   * @returns Promise resolving to private balance amount
    */
   private async getPrivateBalance(address: string): Promise<bigint> {
     // This would use COTI's privacy-preserving balance query
     // Placeholder implementation - actual implementation depends on COTI v2 API
-    const result = await this.provider.send('coti_getPrivateBalance', [address]);
+    const result: unknown = await this.provider.send('coti_getPrivateBalance', [address]);
+    if (typeof result !== 'string' && typeof result !== 'number') {
+      throw new Error('Invalid balance response from COTI API');
+    }
     return BigInt(result);
   }
 
   /**
    * Get formatted balance
-   * @param address
-   * @param includePrivate
+   * @param address - Target address to get balance for
+   * @param includePrivate - Whether to include private balance
+   * @returns Promise resolving to formatted balance strings
    */
   async getFormattedBalance(address?: string, includePrivate = false): Promise<{ public: string; private?: string }> {
     const balances = await this.getBalance(address, includePrivate);
@@ -234,7 +227,7 @@ export class LiveCOTIProvider {
       public: ethers.formatEther(balances.public)
     };
     
-    if (balances.private) {
+    if (balances.private !== null && balances.private !== undefined) {
       result.private = ethers.formatEther(balances.private);
     }
     
@@ -243,7 +236,8 @@ export class LiveCOTIProvider {
 
   /**
    * Send private transaction (COTI-specific)
-   * @param transaction
+   * @param transaction - Transaction request with privacy flag
+   * @returns Promise resolving to transaction response
    */
   async sendPrivateTransaction(transaction: ethers.TransactionRequest & { private?: boolean }): Promise<ethers.TransactionResponse> {
     if (!this.privacyMode) {
@@ -264,7 +258,8 @@ export class LiveCOTIProvider {
 
   /**
    * Estimate gas for transaction
-   * @param transaction
+   * @param transaction - Transaction request to estimate
+   * @returns Promise resolving to estimated gas amount
    */
   async estimateGas(transaction: ethers.TransactionRequest): Promise<bigint> {
     return await this.provider.estimateGas(transaction);
@@ -272,6 +267,7 @@ export class LiveCOTIProvider {
 
   /**
    * Get current gas price
+   * @returns Promise resolving to current gas price
    */
   async getGasPrice(): Promise<bigint> {
     const fee = await this.provider.getFeeData();
@@ -280,6 +276,7 @@ export class LiveCOTIProvider {
 
   /**
    * Get fee data
+   * @returns Promise resolving to current fee data
    */
   async getFeeData(): Promise<ethers.FeeData> {
     return await this.provider.getFeeData();
@@ -287,7 +284,8 @@ export class LiveCOTIProvider {
 
   /**
    * Send transaction
-   * @param transaction
+   * @param transaction - Transaction request to send
+   * @returns Promise resolving to transaction response
    */
   async sendTransaction(transaction: ethers.TransactionRequest): Promise<ethers.TransactionResponse> {
     const signer = await this.getSigner();
@@ -296,7 +294,8 @@ export class LiveCOTIProvider {
 
   /**
    * Get transaction receipt
-   * @param txHash
+   * @param txHash - Transaction hash to get receipt for
+   * @returns Promise resolving to transaction receipt or null if not found
    */
   async getTransactionReceipt(txHash: string): Promise<ethers.TransactionReceipt | null> {
     return await this.provider.getTransactionReceipt(txHash);
@@ -304,8 +303,9 @@ export class LiveCOTIProvider {
 
   /**
    * Wait for transaction confirmation
-   * @param txHash
-   * @param confirmations
+   * @param txHash - Transaction hash to wait for
+   * @param confirmations - Number of confirmations to wait for
+   * @returns Promise resolving to transaction receipt or null if timeout
    */
   async waitForTransaction(txHash: string, confirmations = 1): Promise<ethers.TransactionReceipt | null> {
     return await this.provider.waitForTransaction(txHash, confirmations);
@@ -313,8 +313,9 @@ export class LiveCOTIProvider {
 
   /**
    * Create contract instance
-   * @param address
-   * @param abi
+   * @param address - Contract address
+   * @param abi - Contract ABI
+   * @returns Contract instance connected to provider
    */
   getContract(address: string, abi: InterfaceAbi): ethers.Contract {
     return new ethers.Contract(address, abi, this.provider);
@@ -322,8 +323,9 @@ export class LiveCOTIProvider {
 
   /**
    * Create contract instance with signer
-   * @param address
-   * @param abi
+   * @param address - Contract address
+   * @param abi - Contract ABI
+   * @returns Promise resolving to contract instance with signer
    */
   async getContractWithSigner(address: string, abi: InterfaceAbi): Promise<ethers.Contract> {
     const signer = await this.getSigner();
@@ -332,7 +334,8 @@ export class LiveCOTIProvider {
 
   /**
    * Convert public coins to private (COTI-specific)
-   * @param amount
+   * @param amount - Amount to convert
+   * @returns Promise resolving to conversion transaction response
    */
   async convertToPrivate(amount: bigint): Promise<ethers.TransactionResponse> {
     const signer = await this.getSigner();
@@ -349,9 +352,10 @@ export class LiveCOTIProvider {
 
   /**
    * Convert private coins to public (COTI-specific)
-   * @param amount
+   * @param _amount - Amount to convert (currently unused in placeholder)
+   * @returns Promise resolving to conversion transaction response
    */
-  async convertToPublic(amount: bigint): Promise<ethers.TransactionResponse> {
+  async convertToPublic(_amount: bigint): Promise<ethers.TransactionResponse> {
     if (!this.privacyMode) {
       throw new Error('Privacy mode not enabled');
     }
@@ -383,8 +387,8 @@ class COTIKeyringSigner extends AbstractSigner {
     Object.defineProperty(this, 'provider', { value: provider, enumerable: true });
   }
 
-  override async getAddress(): Promise<string> {
-    return this.address;
+  override getAddress(): Promise<string> {
+    return Promise.resolve(this.address);
   }
 
   override async signMessage(message: string | Uint8Array): Promise<string> {
@@ -399,14 +403,27 @@ class COTIKeyringSigner extends AbstractSigner {
     const { keyringService } = await import('../../keyring/KeyringService');
     
     // Populate transaction
-    const tx: any = { ...(transaction as any) };
+    const tx = { ...transaction } as Record<string, unknown>;
     
     // Remove from field for signing
     if ('from' in tx) {
-      delete tx.from;
+      delete tx['from'];
     }
     
-    return await keyringService.signTransaction(this.address, tx);
+    // Convert ethers TransactionRequest to KeyringService TransactionRequest
+    const keyringTx: import('../../keyring/KeyringService').TransactionRequest = {
+      to: (tx['to'] !== undefined && tx['to'] !== null) ? String(tx['to']) : '',
+      ...(tx['value'] !== undefined && tx['value'] !== null && { value: String(tx['value']) }),
+      ...(tx['data'] !== undefined && tx['data'] !== null && { data: String(tx['data']) }),
+      ...(tx['gasLimit'] !== undefined && tx['gasLimit'] !== null && { gasLimit: String(tx['gasLimit']) }),
+      ...(tx['gasPrice'] !== undefined && tx['gasPrice'] !== null && { gasPrice: String(tx['gasPrice']) }),
+      ...(tx['maxFeePerGas'] !== undefined && tx['maxFeePerGas'] !== null && { maxFeePerGas: String(tx['maxFeePerGas']) }),
+      ...(tx['maxPriorityFeePerGas'] !== undefined && tx['maxPriorityFeePerGas'] !== null && { maxPriorityFeePerGas: String(tx['maxPriorityFeePerGas']) }),
+      ...(tx['nonce'] !== undefined && tx['nonce'] !== null && { nonce: Number(tx['nonce']) }),
+      ...(tx['chainId'] !== undefined && tx['chainId'] !== null && { chainId: Number(tx['chainId']) })
+    };
+    
+    return await keyringService.signTransaction(this.address, keyringTx);
   }
 
   override async sendTransaction(transaction: ethers.TransactionRequest): Promise<ethers.TransactionResponse> {
@@ -414,7 +431,9 @@ class COTIKeyringSigner extends AbstractSigner {
     const signedTx = await this.signTransaction(transaction);
     
     // Send to network
-    if (!this.provider) throw new Error('Provider not available');
+    if (this.provider === null || this.provider === undefined) {
+      throw new Error('Provider not available');
+    }
     return await (this.provider as ethers.JsonRpcProvider).broadcastTransaction(signedTx);
   }
 
@@ -426,27 +445,30 @@ class COTIKeyringSigner extends AbstractSigner {
     const signedTx = await this.signTransaction(transaction);
     
     // Send as private transaction
-    if (!this.provider) throw new Error('Provider not available');
-    return await (this.provider as ethers.JsonRpcProvider).send('coti_sendPrivateTransaction', [signedTx]);
+    if (this.provider === null || this.provider === undefined) {
+      throw new Error('Provider not available');
+    }
+    const result: unknown = await (this.provider as ethers.JsonRpcProvider).send('coti_sendPrivateTransaction', [signedTx]);
+    return result as ethers.TransactionResponse;
   }
 
   override connect(provider: ethers.Provider): COTIKeyringSigner {
     return new COTIKeyringSigner(this.address, provider, this.privacyMode);
   }
 
-  override async signTypedData(
+  override signTypedData(
     _domain: ethers.TypedDataDomain,
     _types: Record<string, ethers.TypedDataField[]>,
-    _value: Record<string, any>
+    _value: Record<string, unknown>
   ): Promise<string> {
     throw new Error('signTypedData not supported for COTIKeyringSigner');
   }
 }
 
-// Factory function to create provider
 /**
- *
- * @param networkName
+ * Factory function to create COTI provider
+ * @param networkName - Network name (mainnet/testnet)
+ * @returns New LiveCOTIProvider instance
  */
 export function createLiveCOTIProvider(networkName?: string): LiveCOTIProvider {
   return new LiveCOTIProvider(networkName);

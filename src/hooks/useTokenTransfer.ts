@@ -54,15 +54,15 @@ export const useTokenTransfer = (tokenAddress: string): TokenTransferHook => {
    */
   const transfer = useCallback(async (recipient: string, amount: string): Promise<string> => {
     // Validation checks first
-    if (!tokenAddress) {
+    if (tokenAddress.trim() === '') {
       throw new Error('Token address is required');
     }
 
-    if (!recipient) {
+    if (recipient.trim() === '') {
       throw new Error('Recipient address is required');
     }
 
-    if (!amount || parseFloat(amount) <= 0) {
+    if (amount.trim() === '' || parseFloat(amount) <= 0) {
       throw new Error('Valid transfer amount is required');
     }
 
@@ -74,8 +74,9 @@ export const useTokenTransfer = (tokenAddress: string): TokenTransferHook => {
 
     try {
       // Get the provider from the browser wallet (MetaMask, etc.)
-      const globalWindow = (global as any).window || (typeof window !== 'undefined' ? window : null);
-      if (!globalWindow || !globalWindow.ethereum) {
+      const globalWindow = (global as unknown as { window?: unknown }) ?? (typeof window !== 'undefined' ? { window } : null);
+      const windowWithEthereum = globalWindow?.window as { ethereum?: unknown } | undefined;
+      if (windowWithEthereum?.ethereum === undefined) {
         const errorMessage = 'Ethereum wallet not available. Please install MetaMask or connect a wallet.';
         flushSync(() => {
           setError(errorMessage);
@@ -87,9 +88,10 @@ export const useTokenTransfer = (tokenAddress: string): TokenTransferHook => {
       // For test environment, we need to mock the ethereum provider's methods
       let provider: BrowserProvider;
       try {
-        provider = new BrowserProvider(globalWindow.ethereum);
-      } catch (providerError: any) {
-        const errorMessage = providerError?.message || 'Failed to create wallet provider';
+        provider = new BrowserProvider(windowWithEthereum.ethereum as import('ethers').Eip1193Provider);
+      } catch (providerError: unknown) {
+        const error = providerError as { message?: string };
+        const errorMessage = error?.message ?? 'Failed to create wallet provider';
         flushSync(() => {
           setError(errorMessage);
           setIsTransferring(false);
@@ -102,7 +104,7 @@ export const useTokenTransfer = (tokenAddress: string): TokenTransferHook => {
       const tokenContract = new Contract(tokenAddress, ERC20_ABI, signer);
       
       // Get token decimals to properly format the amount
-      const decimals = await tokenContract.decimals();
+      const decimals = await tokenContract.decimals() as number;
       
       // Convert amount to wei (proper token units)
       const tokenAmount = ethers.parseUnits(amount, decimals);
@@ -118,7 +120,7 @@ export const useTokenTransfer = (tokenAddress: string): TokenTransferHook => {
       }
       
       // Execute the transfer
-      const transaction = await tokenContract.transfer(recipient, tokenAmount);
+      const transaction = await tokenContract.transfer(recipient, tokenAmount) as { hash: string; wait: () => Promise<unknown> };
       
       // Wait for transaction confirmation
       await transaction.wait();
@@ -131,8 +133,9 @@ export const useTokenTransfer = (tokenAddress: string): TokenTransferHook => {
       
       return transaction.hash;
       
-    } catch (err: any) {
-      const errorMessage = err?.reason || err?.message || 'Token transfer failed';
+    } catch (err: unknown) {
+      const error = err as { reason?: string; message?: string };
+      const errorMessage = error?.reason ?? error?.message ?? 'Token transfer failed';
       
       // Batch error state updates with flushSync
       flushSync(() => {

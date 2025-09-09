@@ -345,19 +345,19 @@ export const ALL_NETWORKS = {
   ...TESTNET_NETWORKS
 };
 
-// Helper function to get network by chainId
 /**
- *
- * @param chainId
+ * Get network configuration by chain ID
+ * @param chainId - The chain ID to search for
+ * @returns Network configuration or undefined if not found
  */
 export function getNetworkByChainId(chainId: number): EVMNetworkConfig | undefined {
   return Object.values(ALL_NETWORKS).find(network => network.chainId === chainId);
 }
 
-// Helper function to get RPC URL (handles array or string)
 /**
- *
- * @param network
+ * Get RPC URL from network configuration (handles array or string)
+ * @param network - Network configuration to get RPC URL from
+ * @returns Primary RPC URL string
  */
 export function getRpcUrl(network: EVMNetworkConfig): string {
   if (Array.isArray(network.rpcUrl)) {

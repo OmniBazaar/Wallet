@@ -17,59 +17,59 @@ const OMNICOIN_NFT_ABI = [
 ];
 
 /**
- *
+ * Configuration for NFT minting
  */
 export interface MintingConfig {
   /**
-   *
+   * NFT contract address
    */
   contractAddress: string;
   /**
-   *
+   * Marketplace contract address
    */
   marketplaceAddress: string;
   /**
-   *
+   * IPFS gateway URL
    */
   ipfsGateway: string;
   /**
-   *
+   * Default royalty percentage (0-100)
    */
   defaultRoyalty: number;
 }
 
 /**
- *
+ * Result of NFT minting operation
  */
 export interface MintingResult {
   /**
-   *
+   * Whether minting was successful
    */
   success: boolean;
   /**
-   *
+   * Minted token ID
    */
   tokenId?: string;
   /**
-   *
+   * Transaction hash of minting
    */
   transactionHash?: string;
   /**
-   *
+   * IPFS hash of metadata
    */
   ipfsHash?: string;
   /**
-   *
+   * Created NFT item
    */
   nftItem?: NFTItem;
   /**
-   *
+   * Error message if failed
    */
   error?: string;
 }
 
 /**
- *
+ * OmniCoin NFT minting service for marketplace
  */
 export class OmniCoinNFTMinter {
   private provider: LiveOmniCoinProvider;
@@ -77,20 +77,21 @@ export class OmniCoinNFTMinter {
   private config: MintingConfig;
 
   /**
-   *
-   * @param config
+   * Initialize the NFT minter
+   * @param config - Minting configuration
    */
   constructor(config: MintingConfig) {
     this.config = config;
     this.provider = new LiveOmniCoinProvider('testnet');
-    this.ipfsService = new IPFSService(config.ipfsGateway || 'https://ipfs.io');
+    this.ipfsService = new IPFSService(config.ipfsGateway !== '' ? config.ipfsGateway : 'https://ipfs.io');
   }
 
   /**
    * Mint NFT for marketplace listing on OmniCoin blockchain
-   * @param mintRequest
-   * @param listingData
-   * @param sellerAddress
+   * @param mintRequest - NFT mint request details
+   * @param listingData - Marketplace listing metadata
+   * @param sellerAddress - Address of the seller
+   * @returns Promise resolving to minting result
    */
   async mintListingNFT(
     mintRequest: NFTMintRequest,
@@ -99,7 +100,7 @@ export class OmniCoinNFTMinter {
   ): Promise<MintingResult> {
     try {
       // 1. Prepare metadata for IPFS
-      const metadata = await this.prepareNFTMetadata(mintRequest, listingData);
+      const metadata = this.prepareNFTMetadata(mintRequest, listingData);
       
       // 2. Upload metadata to IPFS
       const ipfsResult = await this.uploadToIPFS(metadata, mintRequest.image);
@@ -111,7 +112,7 @@ export class OmniCoinNFTMinter {
       const tokenId = await this.getNextTokenId();
       
       // 4. Mint NFT on OmniCoin
-      if (!ipfsResult.metadataUri) {
+      if (ipfsResult.metadataUri === undefined || ipfsResult.metadataUri === '') {
         return { success: false, error: 'IPFS metadata URI is required' };
       }
       
@@ -126,11 +127,11 @@ export class OmniCoinNFTMinter {
       }
 
       // 5. Create NFT item object
-      if (!mintResult.transactionHash) {
+      if (mintResult.transactionHash === undefined || mintResult.transactionHash === '') {
         return { success: false, error: 'Transaction hash missing from mint result' };
       }
       
-      const nftItem = await this.createNFTItem(
+      const nftItem = this.createNFTItem(
         tokenId,
         metadata,
         mintResult.transactionHash,
@@ -139,8 +140,8 @@ export class OmniCoinNFTMinter {
       );
 
       // 6. Auto-list if requested
-      if (mintRequest.listImmediately && mintRequest.listingPrice) {
-        await this.createMarketplaceListing(nftItem, mintRequest);
+      if (mintRequest.listImmediately === true && mintRequest.listingPrice !== undefined) {
+        this.createMarketplaceListing(nftItem, mintRequest);
       }
 
       const result: MintingResult = {
@@ -148,8 +149,12 @@ export class OmniCoinNFTMinter {
         tokenId,
         nftItem,
       };
-      if (mintResult.transactionHash) result.transactionHash = mintResult.transactionHash;
-      if (ipfsResult.ipfsHash) result.ipfsHash = ipfsResult.ipfsHash;
+      if (mintResult.transactionHash !== undefined && mintResult.transactionHash !== '') {
+        result.transactionHash = mintResult.transactionHash;
+      }
+      if (ipfsResult.ipfsHash !== undefined && ipfsResult.ipfsHash !== '') {
+        result.ipfsHash = ipfsResult.ipfsHash;
+      }
       return result;
 
     } catch (error) {
@@ -163,13 +168,14 @@ export class OmniCoinNFTMinter {
 
   /**
    * Prepare NFT metadata optimized for marketplace
-   * @param mintRequest
-   * @param listingData
+   * @param mintRequest - NFT mint request details
+   * @param listingData - Marketplace listing metadata
+   * @returns Promise resolving to NFT metadata
    */
-  private async prepareNFTMetadata(
+  private prepareNFTMetadata(
     mintRequest: NFTMintRequest,
     listingData: ListingMetadata
-  ): Promise<NFTMetadata> {
+  ): NFTMetadata {
     return {
       name: mintRequest.name,
       description: mintRequest.description,
@@ -178,21 +184,21 @@ export class OmniCoinNFTMinter {
         ...mintRequest.attributes,
         // Add marketplace-specific attributes
         { trait_type: 'Listing Type', value: listingData.type },
-        { trait_type: 'Category', value: mintRequest.category || 'General' },
+        { trait_type: 'Category', value: mintRequest.category !== undefined && mintRequest.category !== '' ? mintRequest.category : 'General' },
         { trait_type: 'Seller', value: listingData.seller.name },
         { trait_type: 'Location', value: listingData.seller.location.country },
         { trait_type: 'Blockchain', value: 'OmniCoin' },
         { trait_type: 'Minted Date', value: new Date().toISOString() }
       ],
       properties: {
-        ...(mintRequest.category && { category: mintRequest.category }),
+        ...(mintRequest.category !== undefined && mintRequest.category !== '' && { category: mintRequest.category }),
         creators: [{
           address: listingData.seller.address,
           share: 100
         }]
       },
       marketplace: {
-        category: mintRequest.category || 'general',
+        category: mintRequest.category !== undefined && mintRequest.category !== '' ? mintRequest.category : 'general',
         condition: 'condition' in listingData.details ? listingData.details.condition : 'new',
         location: `${listingData.seller.location.city}, ${listingData.seller.location.country}`,
         shipping: {
@@ -211,24 +217,25 @@ export class OmniCoinNFTMinter {
 
   /**
    * Upload image and metadata to IPFS
-   * @param metadata
-   * @param image
+   * @param metadata - NFT metadata to upload
+   * @param image - Image file or base64 string
+   * @returns Promise resolving to upload result
    */
   private async uploadToIPFS(metadata: NFTMetadata, image: File | string): Promise<{
     /**
-     *
+     * Whether upload was successful
      */
     success: boolean;
     /**
-     *
+     * IPFS hash of metadata
      */
     ipfsHash?: string;
     /**
-     *
+     * IPFS URI for metadata
      */
     metadataUri?: string;
     /**
-     *
+     * Error message if failed
      */
     error?: string;
   }> {
@@ -277,6 +284,7 @@ export class OmniCoinNFTMinter {
 
   /**
    * Get next available token ID
+   * @returns Promise resolving to next token ID
    */
   private async getNextTokenId(): Promise<string> {
     try {
@@ -284,9 +292,12 @@ export class OmniCoinNFTMinter {
         this.config.contractAddress,
         OMNICOIN_NFT_ABI
       );
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const nextTokenIdMethod = contract['nextTokenId'];
       if (typeof nextTokenIdMethod === 'function') {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-assignment
         const nextId = await nextTokenIdMethod();
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return
         return nextId.toString();
       } else {
         throw new Error('nextTokenId method not available');
@@ -299,50 +310,62 @@ export class OmniCoinNFTMinter {
 
   /**
    * Mint NFT to OmniCoin blockchain
-   * @param toAddress
-   * @param tokenId
-   * @param tokenURI
+   * @param toAddress - Address to mint to
+   * @param tokenId - Token ID to mint
+   * @param tokenURI - Token metadata URI
+   * @returns Promise resolving to mint result
    */
   private async mintToBlockchain(
     toAddress: string,
     tokenId: string,
     tokenURI: string
-  ): Promise<{ /**
-                *
-                */
-  success: boolean; /**
-                     *
-                     */
-  transactionHash?: string; /**
-                             *
-                             */
-  error?: string }> {
+  ): Promise<{
+    /**
+     * Whether mint was successful
+     */
+    success: boolean;
+    /**
+     * Transaction hash if successful
+     */
+    transactionHash?: string;
+    /**
+     * Error message if failed
+     */
+    error?: string;
+  }> {
     try {
-      const signer = await this.provider.getSigner();
+      await this.provider.getSigner();
       const contract = this.provider.getContract(
         this.config.contractAddress,
         OMNICOIN_NFT_ABI
       );
 
       // Estimate gas
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const mintMethod = contract['mint'];
-      if (!mintMethod || !mintMethod.estimateGas) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      if (mintMethod === undefined || mintMethod === null || mintMethod.estimateGas === undefined) {
         throw new Error('mint method not found');
       }
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
       const gasEstimate = await mintMethod.estimateGas(toAddress, tokenId, tokenURI);
       const gasLimit = Math.floor(Number(gasEstimate) * 1.2); // 20% buffer
 
       // Send transaction
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-assignment
       const tx = await mintMethod(toAddress, tokenId, tokenURI, {
         gasLimit
       });
 
       // Wait for confirmation
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-assignment
       const receipt = await tx.wait();
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
+      const txHash = receipt.transactionHash;
 
       return {
         success: true,
-        transactionHash: receipt.transactionHash
+        transactionHash: typeof txHash === 'string' ? txHash : undefined
       };
 
     } catch (error) {
@@ -355,19 +378,20 @@ export class OmniCoinNFTMinter {
 
   /**
    * Create NFTItem from minting result
-   * @param tokenId
-   * @param metadata
-   * @param transactionHash
-   * @param metadataUri
-   * @param owner
+   * @param tokenId - Token ID
+   * @param metadata - NFT metadata
+   * @param transactionHash - Transaction hash
+   * @param metadataUri - Metadata URI
+   * @param owner - Owner address
+   * @returns NFT item object
    */
-  private async createNFTItem(
+  private createNFTItem(
     tokenId: string,
     metadata: NFTMetadata,
     transactionHash: string,
     metadataUri: string,
     owner: string
-  ): Promise<NFTItem> {
+  ): NFTItem {
     return {
       id: `omnicoin_${this.config.contractAddress}_${tokenId}`,
       tokenId,
@@ -392,13 +416,13 @@ export class OmniCoinNFTMinter {
 
   /**
    * Create marketplace listing for newly minted NFT
-   * @param nftItem
-   * @param mintRequest
+   * @param nftItem - NFT item to list
+   * @param mintRequest - Mint request with listing details
    */
-  private async createMarketplaceListing(
+  private createMarketplaceListing(
     nftItem: NFTItem,
     mintRequest: NFTMintRequest
-  ): Promise<void> {
+  ): void {
     try {
       // TODO: Integrate with marketplace listing service
       console.warn('Creating marketplace listing for NFT:', nftItem.id);
@@ -408,7 +432,7 @@ export class OmniCoinNFTMinter {
       if (mintRequest.listingPrice !== undefined) {
         nftItem.price = mintRequest.listingPrice;
       }
-      nftItem.currency = mintRequest.listingCurrency || 'XOM';
+      nftItem.currency = mintRequest.listingCurrency !== undefined && mintRequest.listingCurrency !== '' ? mintRequest.listingCurrency : 'XOM';
       
     } catch (error) {
       console.warn('Failed to create marketplace listing:', error);
@@ -417,13 +441,15 @@ export class OmniCoinNFTMinter {
 
   /**
    * Utility: Convert base64 to blob
-   * @param base64
+   * @param base64 - Base64 encoded data
+   * @returns Blob object
    */
   private base64ToBlob(base64: string): Blob {
     const parts = base64.split(',');
-    const mimeType = parts[0]?.match(/:(.*?);/)?.[1] || 'image/jpeg';
+    const mimeMatch = parts[0] !== undefined ? parts[0].match(/:(.*?);/) : null;
+    const mimeType = mimeMatch !== null && mimeMatch[1] !== undefined ? mimeMatch[1] : 'image/jpeg';
     const data = parts[1];
-    if (!data) {
+    if (data === undefined || data === '') {
       throw new Error('Invalid base64 data');
     }
     const bytes = atob(data);
@@ -438,22 +464,23 @@ export class OmniCoinNFTMinter {
 
   /**
    * Get minting fee estimate
+   * @returns Promise resolving to fee estimate
    */
-  async getMintingFee(): Promise<{
+  getMintingFee(): Promise<{
     /**
-     *
+     * Gas price in wei
      */
     gasPrice: string;
     /**
-     *
+     * Gas limit for minting
      */
     gasLimit: string;
     /**
-     *
+     * Total fee in wei
      */
     totalFee: string;
     /**
-     *
+     * Currency symbol
      */
     currency: string;
   }> {
@@ -463,47 +490,51 @@ export class OmniCoinNFTMinter {
       const gasLimit = '200000'; // Estimated gas limit for minting
       const totalFee = (BigInt(gasPrice) * BigInt(gasLimit)).toString();
 
-      return {
+      return Promise.resolve({
         gasPrice,
         gasLimit,
         totalFee,
         currency: 'XOM'
-      };
+      });
     } catch (error) {
-      throw new Error(`Failed to estimate minting fee: ${error}`);
+      throw new Error(`Failed to estimate minting fee: ${String(error)}`);
     }
   }
 
   /**
    * Validate mint request
-   * @param mintRequest
+   * @param mintRequest - Mint request to validate
+   * @returns Validation result
    */
-  validateMintRequest(mintRequest: NFTMintRequest): { /**
-                                                       *
-                                                       */
-  valid: boolean; /**
-                   *
-                   */
-  errors: string[] } {
+  validateMintRequest(mintRequest: NFTMintRequest): {
+    /**
+     * Whether request is valid
+     */
+    valid: boolean;
+    /**
+     * List of validation errors
+     */
+    errors: string[];
+  } {
     const errors: string[] = [];
 
-    if (!mintRequest.name || mintRequest.name.trim().length === 0) {
+    if (mintRequest.name === undefined || mintRequest.name === '' || mintRequest.name.trim().length === 0) {
       errors.push('NFT name is required');
     }
 
-    if (!mintRequest.description || mintRequest.description.trim().length === 0) {
+    if (mintRequest.description === undefined || mintRequest.description === '' || mintRequest.description.trim().length === 0) {
       errors.push('NFT description is required');
     }
 
-    if (!mintRequest.image) {
+    if (mintRequest.image === undefined || mintRequest.image === null || (typeof mintRequest.image === 'string' && mintRequest.image === '')) {
       errors.push('NFT image is required');
     }
 
-    if (mintRequest.listImmediately && !mintRequest.listingPrice) {
+    if (mintRequest.listImmediately === true && (mintRequest.listingPrice === undefined || mintRequest.listingPrice === null)) {
       errors.push('Listing price is required when listing immediately');
     }
 
-    if (mintRequest.royalties && (mintRequest.royalties < 0 || mintRequest.royalties > 20)) {
+    if (mintRequest.royalties !== undefined && mintRequest.royalties !== null && (mintRequest.royalties < 0 || mintRequest.royalties > 20)) {
       errors.push('Royalties must be between 0% and 20%');
     }
 

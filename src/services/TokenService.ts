@@ -194,7 +194,7 @@ export class TokenService {
         if (balance > BigInt(0)) {
           const formatted = ethers.formatUnits(balance, token.decimals);
           const price = await priceFeedService.getPrice(token.symbol);
-          const valueUSD = price ? parseFloat(formatted) * price : undefined;
+          const valueUSD = price?.priceUSD ? parseFloat(formatted) * price.priceUSD : undefined;
           
           balances.push({
             token: { ...token, chain },
@@ -587,6 +587,10 @@ export class TokenService {
   /**
    * Convert token amounts between different tokens
    * @param params - Conversion parameters
+   * @param params.fromToken
+   * @param params.toToken
+   * @param params.amount
+   * @param params.chain
    * @returns Converted amount
    */
   async convertToken(params: {
@@ -695,6 +699,10 @@ export class TokenService {
   /**
    * Calculate yield for DeFi positions
    * @param params - Yield calculation parameters
+   * @param params.protocol
+   * @param params.token
+   * @param params.amount
+   * @param params.duration
    * @returns Yield information
    */
   async calculateYield(params: {

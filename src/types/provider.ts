@@ -86,13 +86,9 @@ export interface OnMessageResponse {
 export interface ProviderOptions {
   /** Provider name identifier */
   name: ProviderName;
-  /**
-   *
-   */
+  /** Provider type classification */
   type: ProviderType;
-  /**
-   *
-   */
+  /** Message handler for provider communication */
   sendMessageHandler: SendMessageHandler;
 }
 
@@ -126,10 +122,9 @@ export abstract class BackgroundProviderInterface extends EventEmitter {
   toWindow: (message: string) => void;
   middlewares: MiddlewareFunction[] = [];
 
-  /**
-   *
-   * @param toWindow
-   * @param _options
+  /** Create a new background provider instance
+   * @param toWindow - Function to send messages to window
+   * @param _options - Optional configuration
    */
   constructor(toWindow: (message: string) => void, _options?: unknown) {
     super();
@@ -151,10 +146,9 @@ export abstract class ProviderAPIInterface {
   // Not abstract to allow assignment in base constructor
   node: string;
 
-  /**
-   *
-   * @param node
-   * @param _options
+  /** Create a new provider API instance
+   * @param node - Node URL to connect to
+   * @param _options - Optional configuration
    */
   constructor(node: string, _options?: unknown) {
     this.node = node;
@@ -169,21 +163,13 @@ export abstract class ProviderAPIInterface {
  * Interface for NFT-related operations in the marketplace
  */
 export interface NFTProviderInterface {
-  /**
-   *
-   */
+  /** Mint a new NFT with metadata */
   mintNFT(metadata: { name: string; description: string; image: string }): Promise<string>;
-  /**
-   *
-   */
+  /** Transfer NFT to another address */
   transferNFT(tokenId: string, to: string): Promise<string>;
-  /**
-   *
-   */
+  /** Get NFT collections for an address */
   getNFTCollection(address: string): Promise<NFTCollection[]>;
-  /**
-   *
-   */
+  /** Create a marketplace listing for an NFT */
   createMarketplaceListing(tokenId: string, price: string): Promise<string>;
 }
 
@@ -191,21 +177,13 @@ export interface NFTProviderInterface {
  * Interface for payment operations across different blockchains
  */
 export interface PaymentProviderInterface {
-  /**
-   *
-   */
+  /** Initiate a payment transaction */
   initiatePayment(amount: string, to: string, token?: string): Promise<string>;
-  /**
-   *
-   */
+  /** Get payment history for an address */
   getPaymentHistory(address: string): Promise<{ hash: string; amount: string; timestamp: number }[]>;
-  /**
-   *
-   */
+  /** Estimate gas cost for a transaction */
   estimateGas(transaction: { to: string; value?: string; data?: string }): Promise<string>;
-  /**
-   *
-   */
+  /** Swap tokens through DEX integration */
   swapTokens(fromToken: string, toToken: string, amount: string): Promise<string>;
 }
 
@@ -213,21 +191,13 @@ export interface PaymentProviderInterface {
  * Interface for privacy-enhanced transactions using COTI
  */
 export interface PrivacyProviderInterface {
-  /**
-   *
-   */
+  /** Create a privacy-enhanced transaction */
   createPrivateTransaction(params: { to: string; amount: string }): Promise<string>;
-  /**
-   *
-   */
+  /** Get private balance using COTI privacy features */
   getPrivateBalance(address: string): Promise<string>;
-  /**
-   *
-   */
+  /** Enable privacy mode for transactions */
   enablePrivacyMode(): Promise<void>;
-  /**
-   *
-   */
+  /** Disable privacy mode */
   disablePrivacyMode(): Promise<void>;
 }
 
@@ -236,51 +206,31 @@ export interface PrivacyProviderInterface {
  * Extends base provider with marketplace-specific methods
  */
 export interface OmniBazaarProviderInterface extends BackgroundProviderInterface {
-  /**
-   *
-   */
+  /** NFT operations provider */
   nftProvider: NFTProviderInterface;
-  /**
-   *
-   */
+  /** Payment operations provider */
   paymentProvider: PaymentProviderInterface;
-  /**
-   *
-   */
+  /** Optional privacy operations provider */
   privacyProvider?: PrivacyProviderInterface;
 
   // Marketplace methods
-  /**
-   *
-   */
+  /** Create a new marketplace listing */
   createListing(nftData: { tokenId: string; contractAddress: string }, price: string): Promise<string>;
-  /**
-   *
-   */
+  /** Purchase an item from the marketplace */
   purchaseItem(listingId: string): Promise<string>;
-  /**
-   *
-   */
+  /** Search marketplace listings */
   searchMarketplace(query: string): Promise<{ id: string; name: string; price: string }[]>;
 
   // Node discovery methods
-  /**
-   *
-   */
+  /** Discover available listing nodes */
   discoverNodes(): Promise<string[]>;
-  /**
-   *
-   */
+  /** Connect to a specific listing node */
   connectToNode(nodeUrl: string): Promise<boolean>;
 
   // IPFS methods
-  /**
-   *
-   */
+  /** Upload data to IPFS */
   uploadToIPFS(data: Record<string, unknown>): Promise<string>;
-  /**
-   *
-   */
+  /** Retrieve data from IPFS */
   getFromIPFS(hash: string): Promise<Record<string, unknown>>;
 }
 
@@ -298,17 +248,11 @@ export type Provider =
  * Ethereum-specific provider interface
  */
 export interface EthereumProviderInterface extends BackgroundProviderInterface {
-  /**
-   *
-   */
+  /** Current Ethereum chain ID */
   chainId: string;
-  /**
-   *
-   */
+  /** Network version string */
   networkVersion: string;
-  /**
-   *
-   */
+  /** Currently selected wallet address */
   selectedAddress: string | null;
 }
 
@@ -316,13 +260,9 @@ export interface EthereumProviderInterface extends BackgroundProviderInterface {
  * Bitcoin-specific provider interface
  */
 export interface BitcoinProviderInterface extends BackgroundProviderInterface {
-  /**
-   *
-   */
+  /** Bitcoin network type */
   network: 'mainnet' | 'testnet';
-  /**
-   *
-   */
+  /** Bitcoin address format */
   addressType: 'legacy' | 'segwit' | 'native_segwit';
 }
 
@@ -330,13 +270,9 @@ export interface BitcoinProviderInterface extends BackgroundProviderInterface {
  * Solana-specific provider interface
  */
 export interface SolanaProviderInterface extends BackgroundProviderInterface {
-  /**
-   *
-   */
+  /** Solana cluster endpoint */
   cluster: 'mainnet-beta' | 'testnet' | 'devnet';
-  /**
-   *
-   */
+  /** Current public key */
   publicKey: string | null;
 }
 
@@ -344,13 +280,9 @@ export interface SolanaProviderInterface extends BackgroundProviderInterface {
  * Polkadot-specific provider interface
  */
 export interface PolkadotProviderInterface extends BackgroundProviderInterface {
-  /**
-   *
-   */
+  /** Available Polkadot accounts */
   accounts: string[];
-  /**
-   *
-   */
+  /** Chain metadata */
   metadata: Record<string, unknown>;
 }
 
@@ -358,12 +290,8 @@ export interface PolkadotProviderInterface extends BackgroundProviderInterface {
  * COTI-specific provider interface with privacy features
  */
 export interface COTIProviderInterface extends BackgroundProviderInterface {
-  /**
-   *
-   */
+  /** Whether privacy features are enabled */
   privacyEnabled: boolean;
-  /**
-   *
-   */
+  /** Whether MPC (Multi-Party Computation) is enabled */
   mpcEnabled: boolean;
 }

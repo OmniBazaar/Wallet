@@ -75,11 +75,11 @@ export function isValidUUID(id: string): boolean {
  * Useful for preventing duplicate transactions
  *
  * @param txData - Transaction data to hash
- * @param txData.from
- * @param txData.to
- * @param txData.amount
- * @param txData.nonce
- * @param txData.chainId
+ * @param txData.from - Sender address for the transaction
+ * @param txData.to - Recipient address for the transaction  
+ * @param txData.amount - Transaction amount in string format
+ * @param txData.nonce - Transaction nonce number
+ * @param txData.chainId - Blockchain chain ID number
  * @returns A deterministic UUID-like string
  */
 export function generateDeterministicTxId(txData: {

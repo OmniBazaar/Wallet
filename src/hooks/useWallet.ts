@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { BrowserProvider, Contract, parseEther } from 'ethers';
+import { BrowserProvider } from 'ethers';
 import { WalletState } from '../types/wallet';
 import { getProvider, getAvailableProviders, type ProviderId } from '../config/providers';
 import { getNetworkByChainId, getRpcUrl } from '../core/chains/evm/networks';
@@ -10,6 +10,7 @@ import { getNetworkByChainId, getRpcUrl } from '../core/chains/evm/networks';
  * available wallet providers discovered in the environment.
  *
  * Note: This hook wraps an EIP‑1193 provider with `ethers.BrowserProvider`.
+ * @returns Wallet hook interface with connection state and methods
  */
 export const useWallet = (): {
     /** Current connected wallet address */
@@ -17,7 +18,7 @@ export const useWallet = (): {
     /** Current chain ID */
     chainId: number | null;
     /** Browser provider instance */
-    provider: BrowserProvider | null;
+    provider: { request: (params: unknown) => Promise<unknown> } | null;
     /** Whether connection is in progress */
     isConnecting: boolean;
     /** Connection error message */
@@ -75,44 +76,51 @@ export const useWallet = (): {
             setState(prev => ({ ...prev, isConnecting: true, error: null }));
 
             const providerConfig = getProvider(providerId);
-            if (!providerConfig) {
+            if (providerConfig === null || providerConfig === undefined) {
                 throw new Error(`Provider ${providerId} not found`);
             }
 
             const injected = await providerConfig.getProvider();
-            if (!injected) {
+            if (injected === null) {
                 throw new Error('Provider not available');
             }
 
-            const ethersProvider = new BrowserProvider(injected as any);
-            const accounts: string[] = await ethersProvider.send('eth_requestAccounts', []);
+            const ethersProvider = new BrowserProvider(injected as unknown as import('ethers').Eip1193Provider);
+            const accounts = await ethersProvider.send('eth_requestAccounts', []) as string[];
             const network = await ethersProvider.getNetwork();
 
             setState({
-                address: accounts[0] ?? null,
+                address: (Array.isArray(accounts) && accounts.length > 0) ? accounts[0] : null,
                 chainId: Number(network.chainId),
-                provider: ethersProvider,
+                provider: { request: (params: unknown) => ethersProvider.send((params as { method: string }).method, (params as { params?: unknown[] }).params ?? []) },
                 isConnected: true,
                 isConnecting: false,
                 error: null
             });
 
             // Setup event listeners
-            (injected as any).on?.('accountsChanged', (accounts: string[]) => {
-                setState(prev => ({
-                    ...prev,
-                    address: accounts[0] || null
-                }));
+            const providerWithEvents = injected as unknown as {
+                on?: (event: string, callback: (...args: unknown[]) => void) => void;
+            };
+            providerWithEvents.on?.('accountsChanged', (accounts: unknown) => {
+                if (Array.isArray(accounts) && accounts.every(acc => typeof acc === 'string')) {
+                    setState(prev => ({
+                        ...prev,
+                        address: accounts[0] ?? null
+                    }));
+                }
             });
 
-            (injected as any).on?.('chainChanged', (chainId: string) => {
-                setState(prev => ({
-                    ...prev,
-                    chainId: parseInt(chainId, 16)
-                }));
+            providerWithEvents.on?.('chainChanged', (chainId: unknown) => {
+                if (typeof chainId === 'string') {
+                    setState(prev => ({
+                        ...prev,
+                        chainId: parseInt(chainId, 16)
+                    }));
+                }
             });
 
-            (injected as any).on?.('disconnect', () => {
+            providerWithEvents.on?.('disconnect', () => {
                 resetState();
             });
 
@@ -121,7 +129,7 @@ export const useWallet = (): {
             setState(prev => ({
                 ...prev,
                 isConnecting: false,
-                error: walletError.message || 'Failed to connect wallet'
+                error: walletError.message ?? 'Failed to connect wallet'
             }));
         }
     }, [resetState]);
@@ -132,11 +140,15 @@ export const useWallet = (): {
      */
     const disconnect = useCallback((): void => {
         // EIP-1193 providers may support a disconnect method
-        void (async () => {
+        void (async (): Promise<void> => {
             try {
-                if (state.provider) {
-                    const raw: any = (state.provider as any).provider ?? null;
-                    if (raw?.disconnect) {
+                if (state.provider !== null) {
+                    const providerAny = state.provider as unknown as {
+                        provider?: { disconnect?: () => Promise<void> };
+                        disconnect?: () => Promise<void>;
+                    };
+                    const raw = providerAny.provider ?? providerAny;
+                    if (raw?.disconnect !== undefined) {
                         await raw.disconnect();
                     }
                 }
@@ -155,32 +167,37 @@ export const useWallet = (): {
      */
     const switchNetwork = useCallback(async (chainId: number): Promise<void> => {
         try {
-            if (!state.provider) {
+            if (state.provider === null) {
                 throw new Error('No provider connected');
             }
 
-            const provider = (state.provider as any).provider ?? state.provider;
+            const providerAny = state.provider as unknown as {
+                provider?: { request: (args: { method: string; params?: unknown[] }) => Promise<unknown> };
+                request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+            };
+            const provider = providerAny.provider ?? providerAny;
             const network = getNetworkByChainId(chainId);
 
-            if (!network) {
+            if (network === null || network === undefined) {
                 throw new Error(`Network with chainId ${chainId} not supported`);
             }
 
             try {
-                await (provider).request({
+                await provider.request({
                     method: 'wallet_switchEthereumChain',
                     params: [{ chainId: `0x${network.chainId.toString(16)}` }]
                 });
             } catch (switchError: unknown) {
-                if ((switchError as { code?: number }).code === 4902) {
-                    await (provider).request({
+                const errorWithCode = switchError as { code?: number };
+                if (errorWithCode.code === 4902) {
+                    await provider.request({
                         method: 'wallet_addEthereumChain',
                         params: [{
                             chainId: `0x${network.chainId.toString(16)}`,
                             chainName: network.name,
                             nativeCurrency: { name: network.currency, symbol: network.currency, decimals: 18 },
                             rpcUrls: [getRpcUrl(network)],
-                            blockExplorerUrls: network.explorer ? [network.explorer] : []
+                            ...(network.explorer !== undefined && { blockExplorerUrls: [network.explorer] })
                         }]
                     });
                 } else {
@@ -197,7 +214,7 @@ export const useWallet = (): {
             const walletError = error as WalletError;
             setState(prev => ({
                 ...prev,
-                error: walletError.message || 'Failed to switch network'
+                error: walletError.message ?? 'Failed to switch network'
             }));
         }
     }, [state.provider]);

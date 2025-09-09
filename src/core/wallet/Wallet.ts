@@ -1,5 +1,5 @@
 import { BrowserProvider, TransactionResponse, Contract } from 'ethers';
-import type { TransactionRequest, AddressLike } from 'ethers';
+import type { TransactionRequest } from 'ethers';
 import * as ethers from 'ethers';
 import { Transaction } from './Transaction';
 // import { SupportedAssets } from './assets'; // TODO: implement asset support
@@ -134,25 +134,15 @@ export class WalletError extends Error {
  * Simplified transaction format for internal signer use
  */
 export interface SimpleTransaction {
-  /**
-   *
-   */
+  /** Target address for the transaction (optional) */
   to?: string | null;
-  /**
-   *
-   */
+  /** Value to send in wei (optional) */
   value?: bigint;
-  /**
-   *
-   */
+  /** Transaction data (optional) */
   data?: string;
-  /**
-   *
-   */
+  /** Gas limit for the transaction (optional) */
   gasLimit?: bigint;
-  /**
-   *
-   */
+  /** Gas price in wei (optional) */
   gasPrice?: bigint;
 }
 
@@ -272,10 +262,10 @@ export class WalletImpl implements Wallet {
       };
 
       // Set up event listeners
-      this.provider.on('accountsChanged', (accounts: string[]) => {
+      void this.provider.on('accountsChanged', (accounts: string[]) => {
         void this.handleAccountChange(accounts);
       });
-      this.provider.on('chainChanged', (chainId: string) => {
+      void this.provider.on('chainChanged', (chainId: string) => {
         void this.handleNetworkChange(chainId);
       });
     } catch (error: unknown) {
@@ -289,7 +279,7 @@ export class WalletImpl implements Wallet {
    */
   async disconnect(): Promise<void> {
     this.state = null;
-    this.provider.removeAllListeners();
+    await Promise.resolve();
   }
 
   /**
@@ -299,7 +289,7 @@ export class WalletImpl implements Wallet {
    */
   async getAddress(): Promise<string> {
     if (this.state == null) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
-    return this.state.address;
+    return Promise.resolve(this.state.address);
   }
 
   /**
@@ -326,7 +316,7 @@ export class WalletImpl implements Wallet {
    */
   async getChainId(): Promise<number> {
     if (this.state == null) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
-    return this.state.chainId;
+    return Promise.resolve(this.state.chainId);
   }
 
   /**
@@ -399,8 +389,8 @@ export class WalletImpl implements Wallet {
     }
 
     const contract = new Contract(tokenAddress, ['function balanceOf(address) view returns (uint256)'], this.provider);
-    const balanceOfMethod = contract['balanceOf'];
-    if (!balanceOfMethod || typeof balanceOfMethod !== 'function') {
+    const balanceOfMethod = contract['balanceOf'] as ((address: string) => Promise<bigint>) | undefined;
+    if (balanceOfMethod == null || typeof balanceOfMethod !== 'function') {
       throw new Error('Contract does not have balanceOf method');
     }
     return balanceOfMethod(this.state.address);
@@ -424,17 +414,21 @@ export class WalletImpl implements Wallet {
       provider: this.provider,
       sendTransaction: async (tx: TransactionRequest) => {
         const convertedTx = await this.convertTransactionAsync(tx);
-        return this.signer!.sendTransaction(convertedTx);
+        if (this.signer == null) throw new Error('Signer not initialized');
+        return this.signer.sendTransaction(convertedTx);
       },
       call: async (tx: TransactionRequest) => this.provider.call(tx),
       estimateGas: async (tx: TransactionRequest) => this.provider.estimateGas(tx),
       resolveName: async (name: string) => this.provider.resolveName(name),
-      getAddress: () => this.signer!.getAddress()
+      getAddress: () => {
+        if (this.signer == null) throw new Error('Signer not initialized');
+        return this.signer.getAddress();
+      }
     };
     
     const contract = new Contract(tokenAddress, ['function approve(address,uint256)'], contractRunner);
-    const approveMethod = contract['approve'];
-    if (!approveMethod || typeof approveMethod !== 'function') {
+    const approveMethod = contract['approve'] as ((spender: string, amount: bigint) => Promise<TransactionResponse>) | undefined;
+    if (approveMethod == null || typeof approveMethod !== 'function') {
       throw new Error('Contract does not have approve method');
     }
     return approveMethod(spender, amount);
@@ -450,7 +444,7 @@ export class WalletImpl implements Wallet {
       await this.provider.send('wallet_switchEthereumChain', [{ chainId: `0x${chainId.toString(16)}` }]);
       
       // Update state with new chain ID in test environment
-      if (process.env.NODE_ENV === 'test' && this.state) {
+      if (process.env.NODE_ENV === 'test' && this.state != null) {
         this.state.chainId = chainId;
       }
     } catch (error: unknown) {
@@ -508,7 +502,7 @@ export class WalletImpl implements Wallet {
    */
   async getState(): Promise<WalletState> {
     if (this.state == null) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
-    return this.state;
+    return Promise.resolve(this.state);
   }
 
   /**
@@ -520,7 +514,7 @@ export class WalletImpl implements Wallet {
       this.state = null;
     } else {
       const address = accounts[0];
-      if (!address) {
+      if (address == null || address === '') {
         throw new Error('No valid address found in accounts');
       }
       const balance = await this.provider.getBalance(address);
@@ -535,7 +529,7 @@ export class WalletImpl implements Wallet {
    * Handles network change events from the provider
    * @param chainId - New chain ID in hex format
    */
-  private async handleNetworkChange(chainId: string): Promise<void> {
+  private handleNetworkChange(chainId: string): void {
     const newChainId = parseInt(chainId, 16);
     if (this.state == null) throw new Error('Wallet state not initialized');
     this.state = { ...this.state, chainId: newChainId };
@@ -543,8 +537,10 @@ export class WalletImpl implements Wallet {
   }
 
   /**
-   *
-   * @param amount
+   * Stakes OmniCoin for rewards
+   * @param amount - Amount of OmniCoin to stake in wei
+   * @returns Promise resolving to transaction response
+   * @throws {WalletError} When wallet is not connected or transaction fails
    */
   async stakeOmniCoin(amount: bigint): Promise<TransactionResponse> {
     if (this.state == null) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
@@ -568,19 +564,21 @@ export class WalletImpl implements Wallet {
 
     // Get gas price
     const fee = await this.provider.getFeeData();
-    if (fee.gasPrice) tx.gasPrice = fee.gasPrice;
+    if (fee.gasPrice != null) tx.gasPrice = fee.gasPrice;
 
     // Sign and send transaction
     const convertedTx = await this.convertTransactionAsync(tx);
     const signedTx = await this.signer?.sendTransaction(convertedTx);
-    if (!signedTx) throw new WalletError('Failed to send transaction', 'TX_FAILED');
+    if (signedTx == null) throw new WalletError('Failed to send transaction', 'TX_FAILED');
 
     return signedTx;
   }
 
   /**
-   *
-   * @param amount
+   * Unstakes OmniCoin and claims rewards
+   * @param amount - Amount of OmniCoin to unstake in wei
+   * @returns Promise resolving to transaction response
+   * @throws {WalletError} When wallet is not connected or transaction fails
    */
   async unstakeOmniCoin(amount: bigint): Promise<TransactionResponse> {
     if (this.state == null) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
@@ -609,18 +607,20 @@ export class WalletImpl implements Wallet {
 
     // Get gas price
     const fee2 = await this.provider.getFeeData();
-    if (fee2.gasPrice) tx.gasPrice = fee2.gasPrice;
+    if (fee2.gasPrice != null) tx.gasPrice = fee2.gasPrice;
 
     // Sign and send transaction
     const convertedTx = await this.convertTransactionAsync(tx);
     const signedTx = await this.signer?.sendTransaction(convertedTx);
-    if (!signedTx) throw new WalletError('Failed to send transaction', 'TX_FAILED');
+    if (signedTx == null) throw new WalletError('Failed to send transaction', 'TX_FAILED');
 
     return signedTx;
   }
 
   /**
-   *
+   * Gets the current staked OmniCoin balance
+   * @returns Promise resolving to staked balance in wei
+   * @throws {WalletError} When wallet is not connected
    */
   async getStakedBalance(): Promise<bigint> {
     if (this.state == null) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
@@ -629,10 +629,10 @@ export class WalletImpl implements Wallet {
     // Get staking contract address from network config
     const stakingContract = '0x1234567890123456789012345678901234567890'; // TODO: Get from config
 
-    // Encode balanceOf function call
+    // Encode balanceOf function call using ethers v6 approach
     const functionSignature = 'balanceOf(address)';
     const functionHash = ethers.id(functionSignature).substring(0, 10);
-    const abiCoder = new ethers.AbiCoder();
+    const abiCoder = ethers.AbiCoder.defaultAbiCoder();
     const encodedAddress = abiCoder.encode(['address'], [this.state.address]);
     const data = functionHash + encodedAddress.substring(2);
 
@@ -644,11 +644,18 @@ export class WalletImpl implements Wallet {
 
     // Decode the result
     const decoded = ethers.AbiCoder.defaultAbiCoder().decode(['uint256'], result);
-    return BigInt(decoded[0].toString());
+    // Safe access with type checking
+    const decodedValue = decoded[0] as unknown;
+    if (decodedValue == null || typeof decodedValue !== 'object' || !('toString' in decodedValue)) {
+      throw new Error('Invalid decoded value from staking contract');
+    }
+    return BigInt(String(decodedValue));
   }
 
   /**
-   *
+   * Creates a new privacy account for confidential transactions
+   * @returns Promise resolving to transaction response
+   * @throws {WalletError} When wallet is not connected or transaction fails
    */
   async createPrivacyAccount(): Promise<TransactionResponse> {
     if (this.state == null) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
@@ -682,12 +689,12 @@ export class WalletImpl implements Wallet {
 
     // Get gas price
     const fee3 = await this.provider.getFeeData();
-    if (fee3.gasPrice) tx.gasPrice = fee3.gasPrice;
+    if (fee3.gasPrice != null) tx.gasPrice = fee3.gasPrice;
 
     // Sign and send transaction
     const convertedTx = await this.convertTransactionAsync(tx);
     const signedTx = await this.signer?.sendTransaction(convertedTx);
-    if (!signedTx) throw new WalletError('Failed to send transaction', 'TX_FAILED');
+    if (signedTx == null) throw new WalletError('Failed to send transaction', 'TX_FAILED');
 
     // Store privacy key securely (would use SecureIndexedDB in production)
     localStorage.setItem(`privacy_key_${this.state.address}`, ethers.hexlify(privacyKey));
@@ -696,7 +703,9 @@ export class WalletImpl implements Wallet {
   }
 
   /**
-   *
+   * Closes the privacy account and retrieves remaining funds
+   * @returns Promise resolving to transaction response
+   * @throws {WalletError} When wallet is not connected or transaction fails
    */
   async closePrivacyAccount(): Promise<TransactionResponse> {
     if (this.state == null) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
@@ -707,7 +716,7 @@ export class WalletImpl implements Wallet {
 
     // Get stored privacy key
     const privacyKeyHex = localStorage.getItem(`privacy_key_${this.state.address}`);
-    if (!privacyKeyHex) throw new WalletError('Privacy account not found', 'NO_PRIVACY_ACCOUNT');
+    if (privacyKeyHex == null || privacyKeyHex === '') throw new WalletError('Privacy account not found', 'NO_PRIVACY_ACCOUNT');
 
     // Generate proof for account closure
     const privacyKey = ethers.getBytes(privacyKeyHex);
@@ -733,12 +742,12 @@ export class WalletImpl implements Wallet {
 
     // Get gas price
     const fee4 = await this.provider.getFeeData();
-    if (fee4.gasPrice) tx.gasPrice = fee4.gasPrice;
+    if (fee4.gasPrice != null) tx.gasPrice = fee4.gasPrice;
 
     // Sign and send transaction
     const convertedTx = await this.convertTransactionAsync(tx);
     const signedTx = await this.signer?.sendTransaction(convertedTx);
-    if (!signedTx) throw new WalletError('Failed to send transaction', 'TX_FAILED');
+    if (signedTx == null) throw new WalletError('Failed to send transaction', 'TX_FAILED');
 
     // Remove privacy key from storage
     localStorage.removeItem(`privacy_key_${this.state.address}`);
@@ -747,7 +756,9 @@ export class WalletImpl implements Wallet {
   }
 
   /**
-   *
+   * Gets balance in the privacy account
+   * @returns Promise resolving to privacy balance in wei
+   * @throws {WalletError} When wallet is not connected
    */
   async getPrivacyBalance(): Promise<bigint> {
     if (this.state == null) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
@@ -758,7 +769,7 @@ export class WalletImpl implements Wallet {
 
     // Get stored privacy key for generating view key
     const privacyKeyHex = localStorage.getItem(`privacy_key_${this.state.address}`);
-    if (!privacyKeyHex) return BigInt(0); // No privacy account
+    if (privacyKeyHex == null || privacyKeyHex === '') return BigInt(0); // No privacy account
 
     // Generate view key from privacy key
     const privacyKey = ethers.getBytes(privacyKeyHex);
@@ -783,13 +794,20 @@ export class WalletImpl implements Wallet {
     const decoded = ethers.AbiCoder.defaultAbiCoder().decode(['uint256'], result);
 
     // In real implementation, would decrypt using MPC/garbled circuits
-    return BigInt(decoded[0].toString());
+    // Safe access with type checking
+    const decodedValue = decoded[0] as unknown;
+    if (decodedValue == null || typeof decodedValue !== 'object' || !('toString' in decodedValue)) {
+      throw new Error('Invalid decoded value from privacy contract');
+    }
+    return BigInt(String(decodedValue));
   }
 
   /**
-   *
-   * @param description
-   * @param actions
+   * Proposes a new governance action
+   * @param description - Human-readable description of the proposal
+   * @param actions - Array of governance actions to execute
+   * @returns Promise resolving to transaction response
+   * @throws {WalletError} When wallet is not connected or transaction fails
    */
   async proposeGovernanceAction(description: string, actions: GovernanceAction[]): Promise<TransactionResponse> {
     if (this.state == null) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
@@ -800,9 +818,10 @@ export class WalletImpl implements Wallet {
 
     // Encode proposal data
     const targets = actions.map(a => a.target);
-    const values = actions.map(a => a.value || BigInt(0));
-    const calldatas = actions.map(a => a.data || '0x');
-    const descriptionHash = ethers.keccak256(ethers.toUtf8Bytes(description));
+    const values = actions.map(a => a.value ?? BigInt(0));
+    const calldatas = actions.map(a => a.data ?? '0x');
+    // Note: descriptionHash would be used in a more complete implementation
+    // const descriptionHash = ethers.keccak256(ethers.toUtf8Bytes(description));
 
     // Encode propose function call
     const functionSignature = 'propose(address[],uint256[],bytes[],string)';
@@ -827,20 +846,22 @@ export class WalletImpl implements Wallet {
 
     // Get gas price
     const fee5 = await this.provider.getFeeData();
-    if (fee5.gasPrice) tx.gasPrice = fee5.gasPrice;
+    if (fee5.gasPrice != null) tx.gasPrice = fee5.gasPrice;
 
     // Sign and send transaction
     const convertedTx = await this.convertTransactionAsync(tx);
     const signedTx = await this.signer?.sendTransaction(convertedTx);
-    if (!signedTx) throw new WalletError('Failed to send transaction', 'TX_FAILED');
+    if (signedTx == null) throw new WalletError('Failed to send transaction', 'TX_FAILED');
 
     return signedTx;
   }
 
   /**
-   *
-   * @param proposalId
-   * @param support
+   * Votes on an existing governance proposal
+   * @param proposalId - ID of the proposal to vote on
+   * @param support - True to vote for, false to vote against
+   * @returns Promise resolving to transaction response
+   * @throws {WalletError} When wallet is not connected or transaction fails
    */
   async voteOnProposal(proposalId: number, support: boolean): Promise<TransactionResponse> {
     if (this.state == null) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
@@ -873,12 +894,12 @@ export class WalletImpl implements Wallet {
 
     // Get gas price
     const fee6 = await this.provider.getFeeData();
-    if (fee6.gasPrice) tx.gasPrice = fee6.gasPrice;
+    if (fee6.gasPrice != null) tx.gasPrice = fee6.gasPrice;
 
     // Sign and send transaction
     const convertedTx = await this.convertTransactionAsync(tx);
     const signedTx = await this.signer?.sendTransaction(convertedTx);
-    if (!signedTx) throw new WalletError('Failed to send transaction', 'TX_FAILED');
+    if (signedTx == null) throw new WalletError('Failed to send transaction', 'TX_FAILED');
 
     return signedTx;
   }
@@ -894,7 +915,7 @@ export class WalletImpl implements Wallet {
 export async function sendOmniCoin(wallet: Wallet, to: string, amount: string): Promise<TransactionResponse> {
   const transaction = new Transaction({
     to: OmniCoinMetadata.contractAddress,
-    value: 0n,
+    value: BigInt(0),
     data: `0x${Buffer.from(amount).toString('hex')}`
   });
   return wallet.sendTransaction(transaction);

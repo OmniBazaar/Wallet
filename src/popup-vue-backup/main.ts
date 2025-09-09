@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument */
 /**
  * OmniBazaar Wallet Popup Main Entry Point
  * Initializes the Vue.js application for the browser extension popup

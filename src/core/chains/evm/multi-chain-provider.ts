@@ -46,7 +46,7 @@ export class MultiChainEVMProvider extends LiveEthereumProvider {
    * Switch to a different EVM network
    * @param networkKey Network identifier to switch to
    */
-  override async switchNetwork(networkKey: string): Promise<void> {
+  override switchNetwork(networkKey: string): void {
     const network = ALL_NETWORKS[networkKey];
     if (network == null) {
       throw new Error(`Unknown network: ${networkKey}`);
@@ -102,7 +102,8 @@ export class MultiChainEVMProvider extends LiveEthereumProvider {
 
   /**
    * Get explorer URL for address
-   * @param address
+   * @param address - Ethereum address to get explorer URL for
+   * @returns Explorer URL for the address
    */
   getAddressExplorerUrl(address: string): string {
     return `${this.currentNetwork.explorer}/address/${address}`;
@@ -110,7 +111,7 @@ export class MultiChainEVMProvider extends LiveEthereumProvider {
 
   /**
    * Add custom network
-   * @param network
+   * @param network - Network configuration to add
    */
   async addCustomNetwork(network: EVMNetworkConfig): Promise<void> {
     const rpcUrl = getRpcUrl(network);
@@ -133,6 +134,7 @@ export class MultiChainEVMProvider extends LiveEthereumProvider {
 
   /**
    * Get gas price with network-specific adjustments
+   * @returns Promise resolving to gas price with network adjustments
    */
   override async getGasPrice(): Promise<bigint> {
     const feeData = await this.provider.getFeeData();
@@ -155,7 +157,8 @@ export class MultiChainEVMProvider extends LiveEthereumProvider {
 
   /**
    * Estimate gas with network-specific limits
-   * @param transaction
+   * @param transaction - Transaction request to estimate gas for
+   * @returns Promise resolving to estimated gas with network adjustments
    */
   override async estimateGas(transaction: ethers.TransactionRequest): Promise<bigint> {
     const estimate = await this.provider.estimateGas(transaction);
@@ -174,6 +177,7 @@ export class MultiChainEVMProvider extends LiveEthereumProvider {
 
   /**
    * Get the active account address
+   * @returns Promise resolving to the active account address
    */
   async getAddress(): Promise<string> {
     const signer = await this.getSigner();
@@ -182,10 +186,11 @@ export class MultiChainEVMProvider extends LiveEthereumProvider {
 
   /**
    * Get formatted balance with native currency symbol
-   * @param address
+   * @param address - Address to get balance for (optional, uses active account if not provided)
+   * @returns Promise resolving to formatted balance with currency symbol
    */
   override async getFormattedBalance(address?: string): Promise<string> {
-    const addr = address || await this.getAddress();
+    const addr = (address !== null && address !== undefined && address.length > 0) ? address : await this.getAddress();
     const balance = await this.provider.getBalance(addr);
     const formatted = ethers.formatEther(balance);
     return `${formatted} ${this.currentNetwork.currency}`;
@@ -193,14 +198,15 @@ export class MultiChainEVMProvider extends LiveEthereumProvider {
 
   /**
    * Send transaction with network-specific handling
-   * @param transaction
+   * @param transaction - Transaction request to send
+   * @returns Promise resolving to transaction response
    */
   override async sendTransaction(transaction: ethers.TransactionRequest): Promise<ethers.TransactionResponse> {
     // Add chain ID to prevent replay attacks
     transaction.chainId = this.currentNetwork.chainId;
 
     // Handle network-specific requirements
-    if (this.currentNetwork.shortName === 'bsc' && !transaction.gasPrice) {
+    if (this.currentNetwork.shortName === 'bsc' && (transaction.gasPrice === null || transaction.gasPrice === undefined)) {
       // BSC requires gasPrice
       transaction.gasPrice = await this.getGasPrice();
     }
@@ -210,6 +216,7 @@ export class MultiChainEVMProvider extends LiveEthereumProvider {
 
   /**
    * Get list of supported networks
+   * @returns Array of all supported network configurations
    */
   static getSupportedNetworks(): EVMNetworkConfig[] {
     return Object.values(ALL_NETWORKS);
@@ -217,13 +224,15 @@ export class MultiChainEVMProvider extends LiveEthereumProvider {
 
   /**
    * Get mainnet networks only
+   * @returns Array of mainnet network configurations
    */
   static getMainnetNetworks(): EVMNetworkConfig[] {
-    return Object.values(ALL_NETWORKS).filter(network => !network.testnet);
+    return Object.values(ALL_NETWORKS).filter(network => network.testnet !== true);
   }
 
   /**
    * Get testnet networks only
+   * @returns Array of testnet network configurations
    */
   static getTestnetNetworks(): EVMNetworkConfig[] {
     return Object.values(ALL_NETWORKS).filter(network => network.testnet === true);

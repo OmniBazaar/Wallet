@@ -38,6 +38,8 @@ export default {
     '^@utils/(.*)$': '<rootDir>/src/utils/$1',
     '^@types/(.*)$': '<rootDir>/src/types/$1',
     '^.*/core/providers/ProviderManager$': '<rootDir>/__mocks__/src/core/providers/ProviderManager.ts',
+    '^.*/core/contracts/ContractConfig$': '<rootDir>/__mocks__/src/core/contracts/ContractManager.ts',
+    '^.*/core/ens/ENSService$': '<rootDir>/__mocks__/src/core/ens/ENSService.ts',
     // '^.*/core/keyring/KeyringService$': '<rootDir>/__mocks__/src/core/keyring/KeyringService.ts',
     // '^.*/core/keyring/BIP39Keyring$': '<rootDir>/__mocks__/src/core/keyring/BIP39Keyring.ts',
     '^.*/core/chains/omnicoin/live-provider$': '<rootDir>/__mocks__/src/core/chains/omnicoin/live-provider.js',

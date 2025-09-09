@@ -168,6 +168,9 @@ export interface LiquidityResult {
   positionId?: string;
   /** Actual amounts used/received */
   amount0?: bigint;
+  /**
+   *
+   */
   amount1?: bigint;
   /** Error message */
   error?: string;

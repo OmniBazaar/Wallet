@@ -54,6 +54,28 @@ describe('Production Readiness Validation', () => {
     const KeyringServiceClass = (await import('../../src/core/keyring/KeyringService')).KeyringService;
     const keyringService = KeyringServiceClass.getInstance();
     await keyringService.initialize();
+    
+    // Create wallet with password first
+    const TEST_PASSWORD = 'testPassword123!';
+    try {
+      await keyringService.restoreWallet(TEST_MNEMONIC, TEST_PASSWORD);
+    } catch (error) {
+      // If vault already exists, ensure we're initialized and unlocked
+      if (!keyringService.getState().isInitialized) {
+        // Force re-initialization
+        await keyringService.initialize();
+      }
+      try {
+        await keyringService.unlock(TEST_PASSWORD);
+      } catch (unlockError) {
+        console.warn('Failed to unlock existing vault, trying to create new one:', unlockError);
+        // If unlock fails, reset and create new vault
+        await keyringService.cleanup();
+        await keyringService.initialize();
+        await keyringService.restoreWallet(TEST_MNEMONIC, TEST_PASSWORD);
+      }
+    }
+    
     await keyringService.addAccountFromSeed(TEST_MNEMONIC, 'Production Test Wallet');
     await walletService.connect();
 
@@ -229,7 +251,8 @@ describe('Production Readiness Validation', () => {
         expect(retrievedWallet).toBeDefined();
 
         // Unlock keyring for remaining tests
-        await services.keyring.unlock('password');
+        const TEST_PASSWORD = 'testPassword123!';
+        await services.keyring.unlock(TEST_PASSWORD);
       });
     });
   });

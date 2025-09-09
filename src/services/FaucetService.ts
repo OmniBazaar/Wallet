@@ -227,10 +227,13 @@ export class FaucetService {
    */
   constructor(provider: ethers.Provider, validatorEndpoint?: string) {
     this.provider = provider;
-    this.validatorEndpoint = validatorEndpoint || 'http://localhost:3001';
+    this.validatorEndpoint = (validatorEndpoint !== null && validatorEndpoint !== undefined && validatorEndpoint.length > 0) ? validatorEndpoint : 'http://localhost:3001';
   }
   
-  /** Initialize background status updates and fetch initial stats. */
+  /**
+   * Initialize background status updates and fetch initial stats.
+   * @returns Promise that resolves when initialization is complete
+   */
   async initialize(): Promise<void> {
     // Start periodic status updates
     this.startStatusUpdates();
@@ -244,11 +247,12 @@ export class FaucetService {
   /**
    * Claim testnet tokens via the validator faucet service.
    * @param request Faucet claim request payload
+   * @returns Promise resolving to claim response with transaction details
    */
   async claimTokens(request: FaucetClaimRequest): Promise<FaucetClaimResponse> {
     try {
       const config = this.networkConfigs.get(request.testnet);
-      if (!config) {
+      if (config === null || config === undefined) {
         return {
           success: false,
           error: 'Unsupported testnet'
@@ -259,7 +263,7 @@ export class FaucetService {
       const status = await this.getUserStatus(request.address);
       const networkStatus = status.claims.get(request.testnet);
       
-      if (networkStatus && !networkStatus.canClaim) {
+      if (networkStatus !== null && networkStatus !== undefined && !networkStatus.canClaim) {
         const waitTime = Math.ceil((networkStatus.nextClaimTime - Date.now()) / 1000);
         return {
           success: false,
@@ -286,7 +290,7 @@ export class FaucetService {
       const claimData = {
         address: request.address,
         testnet: request.testnet,
-        amount: request.amount || config.defaultAmount,
+        amount: (request.amount !== null && request.amount !== undefined && request.amount.length > 0) ? request.amount : config.defaultAmount,
         verification: request.verification,
         metadata: {
           ip: await this.getClientIP(),
@@ -312,7 +316,7 @@ export class FaucetService {
         };
       }
       
-      const result = await response.json();
+      const result = await response.json() as { transactionId: string; amount: string; };
       
       // Clear cache to force refresh
       this.userStatusCache.delete(request.address);
@@ -322,7 +326,7 @@ export class FaucetService {
         txHash: result.transactionId,
         amount: result.amount,
         nextClaimTime: Date.now() + (config.claimInterval * 3600 * 1000),
-        remainingClaims: config.maxClaims - ((networkStatus?.totalClaims || 0) + 1)
+        remainingClaims: config.maxClaims - ((networkStatus !== null && networkStatus !== undefined ? networkStatus.totalClaims : 0) + 1)
       };
       
     } catch (error) {
@@ -337,11 +341,12 @@ export class FaucetService {
   /**
    * Get per‑network faucet status for a user (cached with periodic refresh).
    * @param address User address
+   * @returns Faucet status for the user
    */
   async getUserStatus(address: string): Promise<FaucetStatus> {
     // Check cache
     const cached = this.userStatusCache.get(address);
-    if (cached) return cached;
+    if (cached !== null && cached !== undefined) return cached;
     
     try {
       const response = await fetch(`${this.validatorEndpoint}/api/faucet/status/${address}`);
@@ -349,7 +354,7 @@ export class FaucetService {
         throw new Error('Failed to fetch user status');
       }
       
-      const data = await response.json();
+      const data = await response.json() as Record<string, unknown>;
       const status = this.processStatusData(address, data);
       
       // Update cache
@@ -364,54 +369,72 @@ export class FaucetService {
   
   /**
    * Normalize status data from the validator API.
-   * @param address
-   * @param data
+   * @param address User's wallet address
+   * @param data Raw data from validator API
+   * @returns Processed faucet status
    */
-  private processStatusData(address: string, data: any): FaucetStatus {
-    const claims = new Map<TestnetType, any>();
+  private processStatusData(address: string, data: Record<string, unknown>): FaucetStatus {
+    const claims = new Map<TestnetType, {
+      totalClaims: number;
+      lastClaim: number;
+      totalAmount: string;
+      nextClaimTime: number;
+      canClaim: boolean;
+    }>();
     
-    for (const [network, claimData] of Object.entries(data.claims || {})) {
+    const rawClaims = data.claims as Record<string, unknown> | null | undefined;
+    for (const [network, claimData] of Object.entries(rawClaims ?? {})) {
       const config = this.networkConfigs.get(network as TestnetType);
-      if (!config) continue;
+      if (config === null || config === undefined) continue;
       
-      const data = claimData as { lastClaim?: number; totalClaims?: number; totalAmount?: string };
-      const lastClaim = data.lastClaim || 0;
+      const typedClaimData = claimData as { lastClaim?: number; totalClaims?: number; totalAmount?: string };
+      const lastClaim = typedClaimData.lastClaim ?? 0;
+      const totalClaims = typedClaimData.totalClaims ?? 0;
+      const totalAmount = typedClaimData.totalAmount ?? '0';
       const nextClaimTime = lastClaim + (config.claimInterval * 3600 * 1000);
       
       claims.set(network as TestnetType, {
-        totalClaims: data.totalClaims || 0,
+        totalClaims,
         lastClaim,
-        totalAmount: data.totalAmount || '0',
+        totalAmount,
         nextClaimTime,
-        canClaim: Date.now() >= nextClaimTime && 
-                  (data.totalClaims || 0) < config.maxClaims
+        canClaim: Date.now() >= nextClaimTime && totalClaims < config.maxClaims
       });
     }
+    
+    const verificationData = data.verification as { email?: boolean; phone?: boolean; twitter?: boolean; discord?: boolean; github?: boolean } | null | undefined;
     
     return {
       address,
       claims,
       verification: {
-        email: data.verification?.email || false,
-        phone: data.verification?.phone || false,
-        twitter: data.verification?.twitter || false,
-        discord: data.verification?.discord || false,
-        github: data.verification?.github || false
+        email: verificationData?.email ?? false,
+        phone: verificationData?.phone ?? false,
+        twitter: verificationData?.twitter ?? false,
+        discord: verificationData?.discord ?? false,
+        github: verificationData?.github ?? false
       },
-      trustLevel: data.trustLevel || 0,
-      isVIP: data.isVIP || false
+      trustLevel: (typeof data.trustLevel === 'number') ? data.trustLevel : 0,
+      isVIP: (typeof data.isVIP === 'boolean') ? data.isVIP : false
     };
   }
   
   /**
    * Build a default status object for new users with claimable networks.
-   * @param address
+   * @param address User's wallet address
+   * @returns Default faucet status
    */
   private getDefaultStatus(address: string): FaucetStatus {
-    const claims = new Map<TestnetType, any>();
+    const claims = new Map<TestnetType, {
+      totalClaims: number;
+      lastClaim: number;
+      totalAmount: string;
+      nextClaimTime: number;
+      canClaim: boolean;
+    }>();
     
     // Initialize all networks as claimable
-    for (const [network, config] of this.networkConfigs) {
+    for (const [network, _config] of Array.from(this.networkConfigs.entries())) {
       claims.set(network, {
         totalClaims: 0,
         lastClaim: 0,
@@ -438,8 +461,9 @@ export class FaucetService {
   
   /**
    * Compute missing verification methods for a user against required set.
-   * @param userVerification
-   * @param required
+   * @param userVerification User's current verification status with booleans for each method
+   * @param required Required verification methods array
+   * @returns Array of missing verification methods
    */
   private checkVerification(
     userVerification: FaucetStatus['verification'],
@@ -471,14 +495,15 @@ export class FaucetService {
   }
   
   /**
-   * Verify a user’s identity using the selected verification method.
+   * Verify a user's identity using the selected verification method.
    * @param address User address
    * @param method Verification method to use
    * @param verificationData Method-specific data (email/phone/handles/codes)
-   * @param verificationData.email
-   * @param verificationData.phone
-   * @param verificationData.socialHandle
-   * @param verificationData.verificationCode
+   * @param verificationData.email - Email address for verification
+   * @param verificationData.phone - Phone number for verification
+   * @param verificationData.socialHandle - Social media handle for verification
+   * @param verificationData.verificationCode - Verification code received
+   * @returns Promise resolving to success status and optional error
    */
   async verifyIdentity(
     address: string,
@@ -527,9 +552,10 @@ export class FaucetService {
   
   /**
    * Get faucet statistics
+   * @returns Promise resolving to faucet statistics
    */
   async getFaucetStats(): Promise<FaucetStats> {
-    if (this.statsCache) {
+    if (this.statsCache !== null && this.statsCache !== undefined) {
       return this.statsCache;
     }
     
@@ -539,15 +565,20 @@ export class FaucetService {
         throw new Error('Failed to fetch faucet stats');
       }
       
-      const data = await response.json();
+      const data = await response.json() as Record<string, unknown>;
+      
+      const totalDistributedObj = data.totalDistributed as Record<string, unknown> | null | undefined;
+      const dailyDistributionObj = data.dailyDistribution as Record<string, unknown> | null | undefined;
+      const remainingPoolsObj = data.remainingPools as Record<string, unknown> | null | undefined;
+      const avgClaimAmountObj = data.avgClaimAmount as Record<string, unknown> | null | undefined;
       
       this.statsCache = {
-        totalDistributed: new Map(Object.entries(data.totalDistributed || {}).map(([k, v]) => [k as TestnetType, String(v)])),
-        uniqueUsers: data.uniqueUsers || 0,
-        dailyDistribution: new Map(Object.entries(data.dailyDistribution || {}).map(([k, v]) => [k as TestnetType, String(v)])),
-        remainingPools: new Map(Object.entries(data.remainingPools || {}).map(([k, v]) => [k as TestnetType, String(v)])),
-        avgClaimAmount: new Map(Object.entries(data.avgClaimAmount || {}).map(([k, v]) => [k as TestnetType, String(v)])),
-        successRate: data.successRate || 0
+        totalDistributed: new Map(Object.entries(totalDistributedObj ?? {}).map(([k, v]) => [k as TestnetType, String(v)])),
+        uniqueUsers: (typeof data.uniqueUsers === 'number') ? data.uniqueUsers : 0,
+        dailyDistribution: new Map(Object.entries(dailyDistributionObj ?? {}).map(([k, v]) => [k as TestnetType, String(v)])),
+        remainingPools: new Map(Object.entries(remainingPoolsObj ?? {}).map(([k, v]) => [k as TestnetType, String(v)])),
+        avgClaimAmount: new Map(Object.entries(avgClaimAmountObj ?? {}).map(([k, v]) => [k as TestnetType, String(v)])),
+        successRate: (typeof data.successRate === 'number') ? data.successRate : 0
       };
       
       return this.statsCache;
@@ -567,7 +598,8 @@ export class FaucetService {
   
   /**
    * Get network configuration
-   * @param testnet
+   * @param testnet Testnet type to get config for
+   * @returns Network configuration or undefined if not found
    */
   getNetworkConfig(testnet: TestnetType): FaucetNetworkConfig | undefined {
     return this.networkConfigs.get(testnet);
@@ -575,6 +607,7 @@ export class FaucetService {
   
   /**
    * Get all supported networks
+   * @returns Array of supported network types and their configurations
    */
   getSupportedNetworks(): Array<{
     type: TestnetType;
@@ -588,11 +621,12 @@ export class FaucetService {
   
   /**
    * Add custom network to wallet
-   * @param testnet
+   * @param testnet Testnet type to add to wallet
+   * @returns Promise resolving to success status and optional error
    */
   async addNetworkToWallet(testnet: TestnetType): Promise<{ success: boolean; error?: string }> {
     const config = this.networkConfigs.get(testnet);
-    if (!config) {
+    if (config === null || config === undefined) {
       return {
         success: false,
         error: 'Network not supported'
@@ -601,8 +635,9 @@ export class FaucetService {
     
     try {
       // Request to add network to wallet (MetaMask, etc.)
-      if (window.ethereum) {
-        await window.ethereum.request({
+      const ethereum = (window as unknown as { ethereum?: { request: (args: { method: string; params?: unknown[] }) => Promise<unknown> } }).ethereum;
+      if (ethereum !== null && ethereum !== undefined) {
+        await ethereum.request({
           method: 'wallet_addEthereumChain',
           params: [{
             chainId: `0x${config.chainId.toString(16)}`,
@@ -636,15 +671,16 @@ export class FaucetService {
   
   /**
    * Get drip amount for user based on trust level
-   * @param address
-   * @param testnet
+   * @param address User's wallet address
+   * @param testnet Testnet type to get drip amount for
+   * @returns Drip amount as string
    */
   getDripAmount(address: string, testnet: TestnetType): string {
     const status = this.userStatusCache.get(address);
     const config = this.networkConfigs.get(testnet);
     
-    if (!status || !config) {
-      return config?.defaultAmount || '0';
+    if (status === null || status === undefined || config === null || config === undefined) {
+      return (config !== null && config !== undefined && config.defaultAmount.length > 0) ? config.defaultAmount : '0';
     }
     
     const baseAmount = parseFloat(config.defaultAmount);
@@ -661,6 +697,7 @@ export class FaucetService {
   
   /**
    * Load faucet statistics
+   * @returns Promise that resolves when stats are loaded
    */
   private async loadFaucetStats(): Promise<void> {
     await this.getFaucetStats();
@@ -668,11 +705,12 @@ export class FaucetService {
   
   /**
    * Get client IP address
+   * @returns Promise resolving to IP address string
    */
   private async getClientIP(): Promise<string> {
     try {
       const response = await fetch('https://api.ipify.org?format=json');
-      const data = await response.json();
+      const data = await response.json() as { ip: string };
       return data.ip;
     } catch {
       return '0.0.0.0';
@@ -681,7 +719,8 @@ export class FaucetService {
   
   /**
    * Format time duration
-   * @param seconds
+   * @param seconds Duration in seconds
+   * @returns Formatted time string
    */
   private formatTime(seconds: number): string {
     const hours = Math.floor(seconds / 3600);
@@ -698,19 +737,24 @@ export class FaucetService {
    */
   private startStatusUpdates(): void {
     // Update status every 5 minutes
-    this.updateInterval = setInterval(async () => {
-      // Refresh stats
-      this.statsCache = null;
-      await this.loadFaucetStats();
-      
-      // Clear old cache entries
-      const now = Date.now();
-      for (const [address, status] of this.userStatusCache) {
-        // Remove if older than 10 minutes
-        if (now - (status.claims.values().next().value?.lastClaim || 0) > 600000) {
-          this.userStatusCache.delete(address);
+    this.updateInterval = setInterval(() => {
+      // Use void to handle async operation
+      void (async () => {
+        // Refresh stats
+        this.statsCache = null;
+        await this.loadFaucetStats();
+        
+        // Clear old cache entries
+        const now = Date.now();
+        for (const [address, status] of Array.from(this.userStatusCache.entries())) {
+          // Remove if older than 10 minutes
+          const firstClaim = status.claims.values().next().value;
+          const lastClaim = (firstClaim !== null && firstClaim !== undefined) ? firstClaim.lastClaim : 0;
+          if (now - lastClaim > 600000) {
+            this.userStatusCache.delete(address);
+          }
         }
-      }
+      })();
     }, 5 * 60 * 1000);
   }
   
@@ -718,19 +762,12 @@ export class FaucetService {
    * Shutdown the service
    */
   shutdown(): void {
-    if (this.updateInterval) {
+    if (this.updateInterval !== null && this.updateInterval !== undefined) {
       clearInterval(this.updateInterval);
       this.updateInterval = null;
     }
     this.userStatusCache.clear();
     this.statsCache = null;
-  }
-}
-
-// Window type declaration for Ethereum provider
-declare global {
-  interface Window {
-    ethereum?: any;
   }
 }
 

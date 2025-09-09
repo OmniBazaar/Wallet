@@ -11,51 +11,15 @@
  * @module components/auth/LegacyLoginModal
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
-import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-  Button,
-  Alert,
-  AlertTitle,
-  Box,
-  Typography,
-  LinearProgress,
-  Stepper,
-  Step,
-  StepLabel,
-  StepContent,
-  Chip,
-  IconButton,
-  Tooltip,
-  Paper,
-  Divider,
-  List,
-  ListItem,
-  ListItemIcon,
-  ListItemText,
-  Collapse
-} from '@mui/material';
-import {
-  Warning as WarningIcon,
-  CheckCircle as CheckCircleIcon,
-  Info as InfoIcon,
-  Close as CloseIcon,
-  AccountBalance as AccountBalanceIcon,
-  VpnKey as VpnKeyIcon,
-  Transform as TransformIcon,
-  Wallet as WalletIcon,
-  History as HistoryIcon,
-  HelpOutline as HelpIcon,
-  ExpandMore as ExpandMoreIcon,
-  ExpandLess as ExpandLessIcon
-} from '@mui/icons-material';
-import { LegacyMigrationService, MigrationStatus, ValidationResult, ClaimResult } from '../../services/LegacyMigrationService';
+import { LegacyMigrationService, MigrationStatus, ValidationResult, AccessResult } from '../../services/LegacyMigrationService';
 import { KeyringManager } from '../../core/keyring/KeyringManager';
+
+/**
+ * Type alias for claim result (using AccessResult from service)
+ */
+type ClaimResult = AccessResult;
 
 /**
  * Props for LegacyLoginModal component
@@ -72,9 +36,9 @@ export interface LegacyLoginModalProps {
   /** Provider for blockchain connection */
   provider: ethers.Provider;
   /** Signer for transactions */
-  signer?: ethers.Signer;
+  signer?: ethers.Signer | undefined;
   /** Migration contract address */
-  migrationContractAddress?: string;
+  migrationContractAddress?: string | undefined;
 }
 
 /**
@@ -91,6 +55,15 @@ enum MigrationStep {
  * Legacy Login Modal Component
  * 
  * Provides a step-by-step interface for legacy users to migrate their accounts
+ * @param props - The component props
+ * @param props.open - Modal open state
+ * @param props.username - Username to pre-fill
+ * @param props.onClose - Modal close handler
+ * @param props.onSuccess - Success callback with new account info
+ * @param props.provider - Provider for blockchain connection
+ * @param props.signer - Signer for transactions
+ * @param props.migrationContractAddress - Migration contract address
+ * @returns React component for legacy login modal
  */
 export const LegacyLoginModal: React.FC<LegacyLoginModalProps> = ({
   open,
@@ -126,14 +99,14 @@ export const LegacyLoginModal: React.FC<LegacyLoginModalProps> = ({
    * Initialize migration service
    */
   useEffect(() => {
-    if (open && provider) {
+    if (open && provider !== null && provider !== undefined) {
       const service = new LegacyMigrationService(
-        provider,
-        signer,
-        migrationContractAddress
+        provider
       );
-      service.initialize().then(() => {
+      void service.initialize().then(() => {
         setMigrationService(service);
+      }).catch((error: unknown) => {
+        console.error('Failed to initialize migration service:', error);
       });
     }
   }, [open, provider, signer, migrationContractAddress]);
@@ -142,8 +115,8 @@ export const LegacyLoginModal: React.FC<LegacyLoginModalProps> = ({
    * Check if username is legacy when it changes
    */
   useEffect(() => {
-    const checkLegacyUser = async () => {
-      if (username && migrationService) {
+    const checkLegacyUser = async (): Promise<void> => {
+      if (username.length > 0 && migrationService !== null) {
         // Special case: block "null" account
         if (username.toLowerCase() === 'null') {
           setError('The null account cannot be migrated (tokens were burned)');
@@ -155,22 +128,24 @@ export const LegacyLoginModal: React.FC<LegacyLoginModalProps> = ({
           const status = await migrationService.getMigrationStatus(username);
           setMigrationStatus(status);
           
-          if (status?.isClaimed) {
-            setError(`This account was already migrated on ${new Date(status.claimTimestamp! * 1000).toLocaleDateString()}`);
+          if (status !== null && status.isClaimed && typeof status.claimTimestamp === 'number') {
+            setError(`This account was already migrated on ${new Date(status.claimTimestamp * 1000).toLocaleDateString()}`);
           }
         }
       }
     };
     
-    const debounceTimer = setTimeout(checkLegacyUser, 500);
+    const debounceTimer = setTimeout(() => {
+      void checkLegacyUser();
+    }, 500);
     return () => clearTimeout(debounceTimer);
   }, [username, migrationService]);
   
   /**
    * Step 1: Verify legacy credentials
    */
-  const handleVerifyLegacy = async () => {
-    if (!migrationService) {
+  const handleVerifyLegacy = async (): Promise<void> => {
+    if (migrationService === null) {
       setError('Migration service not initialized');
       return;
     }
@@ -189,13 +164,15 @@ export const LegacyLoginModal: React.FC<LegacyLoginModalProps> = ({
       
       if (result.isValid) {
         setValidationResult(result);
-        setSuccess(`Legacy account verified! Balance: ${ethers.formatUnits(result.balance || '0', 6)} XOM (legacy)`);
+        const balance = result.balance ?? '0';
+        setSuccess(`Legacy account verified! Balance: ${ethers.formatUnits(balance, 6)} XOM (legacy)`);
         setActiveStep(MigrationStep.CREATE_WALLET);
       } else {
-        setError(result.error || 'Invalid credentials');
+        setError(result.error ?? 'Invalid credentials');
       }
-    } catch (err: any) {
-      setError(err.message || 'Failed to verify legacy account');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to verify legacy account';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -204,8 +181,8 @@ export const LegacyLoginModal: React.FC<LegacyLoginModalProps> = ({
   /**
    * Step 2: Create new wallet
    */
-  const handleCreateWallet = async () => {
-    if (!newPassword || newPassword !== confirmPassword) {
+  const handleCreateWallet = async (): Promise<void> => {
+    if (newPassword.length === 0 || newPassword !== confirmPassword) {
       setError('Passwords do not match');
       return;
     }
@@ -228,9 +205,10 @@ export const LegacyLoginModal: React.FC<LegacyLoginModalProps> = ({
       setNewAddress(session.accounts.omnicoin.address);
       setSuccess('New wallet created successfully!');
       setActiveStep(MigrationStep.CLAIM_BALANCE);
-    } catch (err: any) {
+    } catch (error: unknown) {
       // If username exists, try login instead
-      if (err.message.includes('already exists')) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create wallet';
+      if (errorMessage.includes('already exists')) {
         try {
           const session = await keyringManager.loginUser({
             username,
@@ -239,11 +217,11 @@ export const LegacyLoginModal: React.FC<LegacyLoginModalProps> = ({
           setNewAddress(session.accounts.omnicoin.address);
           setSuccess('Wallet accessed successfully!');
           setActiveStep(MigrationStep.CLAIM_BALANCE);
-        } catch (loginErr: any) {
+        } catch {
           setError('Username exists but password is incorrect');
         }
       } else {
-        setError(err.message || 'Failed to create wallet');
+        setError(errorMessage);
       }
     } finally {
       setLoading(false);
@@ -253,8 +231,8 @@ export const LegacyLoginModal: React.FC<LegacyLoginModalProps> = ({
   /**
    * Step 3: Claim legacy balance
    */
-  const handleClaimBalance = async () => {
-    if (!migrationService || !newAddress) {
+  const handleClaimBalance = async (): Promise<void> => {
+    if (migrationService === null || newAddress === null) {
       setError('Migration not properly initialized');
       return;
     }
@@ -263,26 +241,27 @@ export const LegacyLoginModal: React.FC<LegacyLoginModalProps> = ({
     setError(null);
     
     try {
-      const result = await migrationService.claimLegacyBalance(
+      const result = await migrationService.accessLegacyBalance(
         username,
-        password, // Legacy password for verification
-        newAddress
+        password // Legacy password for verification
       );
       
       if (result.success) {
         setClaimResult(result);
-        setSuccess(`Successfully claimed ${result.amount} XOM!`);
+        const amount = result.amount ?? '0';
+        setSuccess(`Successfully claimed ${amount} XOM!`);
         setActiveStep(MigrationStep.COMPLETE);
         
         // Notify parent component
         setTimeout(() => {
-          onSuccess(username, newAddress, result.amount || '0');
+          onSuccess(username, newAddress, amount);
         }, 2000);
       } else {
-        setError(result.error || 'Failed to claim balance');
+        setError(result.error ?? 'Failed to claim balance');
       }
-    } catch (err: any) {
-      setError(err.message || 'Failed to claim balance');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to claim balance';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -291,7 +270,7 @@ export const LegacyLoginModal: React.FC<LegacyLoginModalProps> = ({
   /**
    * Reset form
    */
-  const handleReset = () => {
+  const handleReset = (): void => {
     setActiveStep(MigrationStep.VERIFY_LEGACY);
     setUsername(initialUsername);
     setPassword('');
@@ -307,8 +286,11 @@ export const LegacyLoginModal: React.FC<LegacyLoginModalProps> = ({
   
   /**
    * Format balance for display
+   * @param balance - The balance to format
+   * @param decimals - The decimal places to use
+   * @returns Formatted balance string
    */
-  const formatBalance = (balance: string, decimals: number = 18): string => {
+  const formatBalance = (balance: string, decimals = 18): string => {
     try {
       return ethers.formatUnits(balance, decimals);
     } catch {
@@ -316,373 +298,381 @@ export const LegacyLoginModal: React.FC<LegacyLoginModalProps> = ({
     }
   };
   
+  if (!open) {
+    return null;
+  }
+  
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      maxWidth="md"
-      fullWidth
-      PaperProps={{
-        sx: {
-          borderRadius: 2,
-          minHeight: '60vh'
+    <div 
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1000
+      }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
         }
       }}
     >
-      <DialogTitle sx={{ pb: 1 }}>
-        <Box display="flex" alignItems="center" justifyContent="space-between">
-          <Box display="flex" alignItems="center" gap={1}>
-            <HistoryIcon color="primary" />
-            <Typography variant="h6">Legacy Account Migration</Typography>
-            <Chip 
-              label="OmniCoin v1 → v2" 
-              size="small" 
-              color="info"
-              variant="outlined"
-            />
-          </Box>
-          <Box>
-            <Tooltip title="Help">
-              <IconButton size="small" onClick={() => setShowHelp(!showHelp)}>
-                <HelpIcon />
-              </IconButton>
-            </Tooltip>
-            <IconButton size="small" onClick={onClose}>
-              <CloseIcon />
-            </IconButton>
-          </Box>
-        </Box>
-      </DialogTitle>
-      
-      <DialogContent>
-        {/* Help Section */}
-        <Collapse in={showHelp}>
-          <Alert severity="info" sx={{ mb: 2 }}>
-            <AlertTitle>Legacy Migration Help</AlertTitle>
-            <Typography variant="body2" paragraph>
-              This tool helps legacy OmniCoin v1 users migrate their accounts to the new system.
-            </Typography>
-            <List dense>
-              <ListItem>
-                <ListItemIcon><CheckCircleIcon fontSize="small" /></ListItemIcon>
-                <ListItemText 
-                  primary="Step 1: Verify your legacy account"
-                  secondary="Enter your v1 username and password"
-                />
-              </ListItem>
-              <ListItem>
-                <ListItemIcon><CheckCircleIcon fontSize="small" /></ListItemIcon>
-                <ListItemText 
-                  primary="Step 2: Create new wallet"
-                  secondary="Set a new secure password for v2"
-                />
-              </ListItem>
-              <ListItem>
-                <ListItemIcon><CheckCircleIcon fontSize="small" /></ListItemIcon>
-                <ListItemText 
-                  primary="Step 3: Claim your balance"
-                  secondary="Transfer tokens to your new wallet"
-                />
-              </ListItem>
-            </List>
-            <Typography variant="body2" color="warning.main">
-              Note: The "null" account cannot be migrated (tokens were burned).
-            </Typography>
-          </Alert>
-        </Collapse>
+      <div 
+        style={{
+          backgroundColor: 'white',
+          borderRadius: '8px',
+          padding: '24px',
+          maxWidth: '600px',
+          width: '90%',
+          maxHeight: '80vh',
+          overflow: 'auto'
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <h2 style={{ margin: 0 }}>Legacy Account Migration</h2>
+          <div>
+            <button 
+              type="button"
+              onClick={() => setShowHelp(!showHelp)}
+              style={{ marginRight: '8px', padding: '4px 8px' }}
+            >
+              Help
+            </button>
+            <button 
+              type="button"
+              onClick={onClose}
+              style={{ padding: '4px 8px' }}
+            >
+              ×
+            </button>
+          </div>
+        </div>
         
-        {/* Migration Status */}
-        {migrationStatus && (
-          <Paper variant="outlined" sx={{ p: 2, mb: 2, bgcolor: 'background.default' }}>
-            <Box display="flex" alignItems="center" gap={1} mb={1}>
-              <AccountBalanceIcon color="primary" />
-              <Typography variant="subtitle2">Account Status</Typography>
-            </Box>
-            <Grid container spacing={2}>
-              <Grid item xs={6}>
-                <Typography variant="caption" color="text.secondary">
-                  Legacy Balance
-                </Typography>
-                <Typography variant="body1">
-                  {formatBalance(migrationStatus.legacyBalance, 6)} XOM
-                </Typography>
-              </Grid>
-              <Grid item xs={6}>
-                <Typography variant="caption" color="text.secondary">
-                  New Balance (18 decimals)
-                </Typography>
-                <Typography variant="body1">
-                  {formatBalance(migrationStatus.newBalance, 18)} XOM
-                </Typography>
-              </Grid>
-              {migrationStatus.isClaimed && (
-                <Grid item xs={12}>
-                  <Alert severity="warning">
-                    This account was already migrated on {
-                      new Date(migrationStatus.claimTimestamp! * 1000).toLocaleDateString()
-                    }
-                  </Alert>
-                </Grid>
-              )}
-            </Grid>
-          </Paper>
+        {showHelp && (
+          <div style={{ 
+            backgroundColor: '#e3f2fd', 
+            padding: '16px', 
+            borderRadius: '4px', 
+            marginBottom: '16px' 
+          }}>
+            <h4>Legacy Migration Help</h4>
+            <p>This tool helps legacy OmniCoin v1 users migrate their accounts to the new system.</p>
+            <ol>
+              <li>Step 1: Verify your legacy account - Enter your v1 username and password</li>
+              <li>Step 2: Create new wallet - Set a new secure password for v2</li>
+              <li>Step 3: Claim your balance - Transfer tokens to your new wallet</li>
+            </ol>
+            <p style={{ color: '#ff9800' }}>Note: The "null" account cannot be migrated (tokens were burned).</p>
+          </div>
         )}
         
-        {/* Error/Success Messages */}
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
-            {error}
-          </Alert>
-        )}
-        {success && (
-          <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess(null)}>
-            {success}
-          </Alert>
+        {migrationStatus !== null && (
+          <div style={{ 
+            border: '1px solid #ccc', 
+            padding: '16px', 
+            borderRadius: '4px', 
+            marginBottom: '16px',
+            backgroundColor: '#f5f5f5'
+          }}>
+            <h4>Account Status</h4>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <div>
+                <strong>Legacy Balance:</strong> {formatBalance(migrationStatus.legacyBalance ?? '0', 6)} XOM
+              </div>
+              <div>
+                <strong>New Balance:</strong> {formatBalance(migrationStatus.newBalance ?? '0', 18)} XOM
+              </div>
+            </div>
+            {migrationStatus.isClaimed === true && typeof migrationStatus.claimTimestamp === 'number' && (
+              <div style={{ color: '#ff9800', marginTop: '8px' }}>
+                This account was already migrated on {new Date((migrationStatus.claimTimestamp ?? 0) * 1000).toLocaleDateString()}
+              </div>
+            )}
+          </div>
         )}
         
-        {/* Migration Steps */}
-        <Stepper activeStep={activeStep} orientation="vertical">
-          {/* Step 1: Verify Legacy Account */}
-          <Step>
-            <StepLabel
-              StepIconComponent={() => <VpnKeyIcon color={activeStep >= 0 ? "primary" : "disabled"} />}
-            >
-              Verify Legacy Account
-            </StepLabel>
-            <StepContent>
-              <Box sx={{ mb: 2 }}>
-                <TextField
-                  fullWidth
-                  label="Legacy Username"
-                  value={username}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUsername(e.target.value)}
-                  margin="normal"
-                  helperText={
-                    username.toLowerCase() === 'null' 
-                      ? "This account cannot be migrated (burned tokens)"
-                      : "Enter your OmniCoin v1 username"
-                  }
-                  error={username.toLowerCase() === 'null'}
-                  disabled={loading}
-                />
-                <TextField
-                  fullWidth
-                  type="password"
-                  label="Legacy Password"
-                  value={password}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
-                  margin="normal"
-                  helperText="Enter your OmniCoin v1 password"
-                  disabled={loading || username.toLowerCase() === 'null'}
-                />
-              </Box>
-              <Box sx={{ mb: 2 }}>
-                <Button
-                  variant="contained"
-                  onClick={handleVerifyLegacy}
-                  disabled={!username || !password || loading || username.toLowerCase() === 'null'}
-                  sx={{ mr: 1 }}
-                >
-                  Verify Account
-                </Button>
-              </Box>
-            </StepContent>
-          </Step>
-          
-          {/* Step 2: Create New Wallet */}
-          <Step>
-            <StepLabel
-              StepIconComponent={() => <WalletIcon color={activeStep >= 1 ? "primary" : "disabled"} />}
-            >
-              Create New Wallet
-            </StepLabel>
-            <StepContent>
-              <Alert severity="info" sx={{ mb: 2 }}>
-                Your username will remain the same, but you need to set a new secure password for v2.
-              </Alert>
-              <Box sx={{ mb: 2 }}>
-                <TextField
-                  fullWidth
-                  type="password"
-                  label="New Password"
-                  value={newPassword}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewPassword(e.target.value)}
-                  margin="normal"
-                  helperText="Minimum 12 characters"
-                  disabled={loading}
-                />
-                <TextField
-                  fullWidth
-                  type="password"
-                  label="Confirm Password"
-                  value={confirmPassword}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setConfirmPassword(e.target.value)}
-                  margin="normal"
-                  error={confirmPassword !== '' && confirmPassword !== newPassword}
-                  helperText={
-                    confirmPassword !== '' && confirmPassword !== newPassword
-                      ? "Passwords do not match"
-                      : "Re-enter your new password"
-                  }
-                  disabled={loading}
-                />
-              </Box>
-              <Box sx={{ mb: 2 }}>
-                <Button
-                  variant="contained"
-                  onClick={handleCreateWallet}
-                  disabled={!newPassword || newPassword !== confirmPassword || loading}
-                  sx={{ mr: 1 }}
-                >
-                  Create Wallet
-                </Button>
-                <Button onClick={() => setActiveStep(MigrationStep.VERIFY_LEGACY)}>
-                  Back
-                </Button>
-              </Box>
-            </StepContent>
-          </Step>
-          
-          {/* Step 3: Claim Balance */}
-          <Step>
-            <StepLabel
-              StepIconComponent={() => <TransformIcon color={activeStep >= 2 ? "primary" : "disabled"} />}
-            >
-              Claim Your Balance
-            </StepLabel>
-            <StepContent>
-              <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
-                <Typography variant="subtitle2" gutterBottom>
-                  Migration Summary
-                </Typography>
-                <Divider sx={{ my: 1 }} />
-                <Box display="flex" justifyContent="space-between" mb={1}>
-                  <Typography variant="body2" color="text.secondary">
-                    Legacy Balance (6 decimals):
-                  </Typography>
-                  <Typography variant="body2">
-                    {validationResult ? formatBalance(validationResult.balance!, 6) : '0'} XOM
-                  </Typography>
-                </Box>
-                <Box display="flex" justifyContent="space-between" mb={1}>
-                  <Typography variant="body2" color="text.secondary">
-                    New Balance (18 decimals):
-                  </Typography>
-                  <Typography variant="body2" color="primary">
-                    {validationResult ? formatBalance(
-                      (BigInt(validationResult.balance!) * BigInt(10 ** 12)).toString(),
-                      18
-                    ) : '0'} XOM
-                  </Typography>
-                </Box>
-                <Box display="flex" justifyContent="space-between">
-                  <Typography variant="body2" color="text.secondary">
-                    Recipient Address:
-                  </Typography>
-                  <Typography variant="body2" sx={{ 
-                    fontFamily: 'monospace',
-                    fontSize: '0.75rem'
-                  }}>
-                    {newAddress ? `${newAddress.slice(0, 6)}...${newAddress.slice(-4)}` : ''}
-                  </Typography>
-                </Box>
-              </Paper>
-              
-              <Alert severity="warning" sx={{ mb: 2 }}>
-                This action cannot be undone. Once claimed, your legacy balance will be transferred to your new wallet.
-              </Alert>
-              
-              <Box sx={{ mb: 2 }}>
-                <Button
-                  variant="contained"
-                  color="success"
-                  onClick={handleClaimBalance}
-                  disabled={loading}
-                  sx={{ mr: 1 }}
-                >
-                  Claim Balance
-                </Button>
-                <Button onClick={() => setActiveStep(MigrationStep.CREATE_WALLET)}>
-                  Back
-                </Button>
-              </Box>
-            </StepContent>
-          </Step>
-          
-          {/* Step 4: Complete */}
-          <Step>
-            <StepLabel
-              StepIconComponent={() => <CheckCircleIcon color="success" />}
-            >
-              Migration Complete
-            </StepLabel>
-            <StepContent>
-              <Alert severity="success" sx={{ mb: 2 }}>
-                <AlertTitle>Migration Successful!</AlertTitle>
-                Your legacy balance has been successfully transferred to your new wallet.
-              </Alert>
-              
-              {claimResult && (
-                <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
-                  <Typography variant="subtitle2" gutterBottom>
-                    Transaction Details
-                  </Typography>
-                  <Divider sx={{ my: 1 }} />
-                  <Box display="flex" justifyContent="space-between" mb={1}>
-                    <Typography variant="body2" color="text.secondary">
-                      Amount Claimed:
-                    </Typography>
-                    <Typography variant="body2" color="success.main">
-                      {claimResult.amount} XOM
-                    </Typography>
-                  </Box>
-                  <Box display="flex" justifyContent="space-between">
-                    <Typography variant="body2" color="text.secondary">
-                      Transaction Hash:
-                    </Typography>
-                    <Typography variant="body2" sx={{ 
-                      fontFamily: 'monospace',
-                      fontSize: '0.75rem'
-                    }}>
-                      {claimResult.txHash ? `${claimResult.txHash.slice(0, 10)}...` : ''}
-                    </Typography>
-                  </Box>
-                </Paper>
+        {error !== null && (
+          <div style={{ 
+            backgroundColor: '#ffebee', 
+            color: '#c62828', 
+            padding: '12px', 
+            borderRadius: '4px', 
+            marginBottom: '16px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+          }}>
+            <span>{error}</span>
+            <button type="button" onClick={() => setError(null)} style={{ background: 'none', border: 'none', fontSize: '16px' }}>×</button>
+          </div>
+        )}
+        
+        {success !== null && (
+          <div style={{ 
+            backgroundColor: '#e8f5e8', 
+            color: '#2e7d32', 
+            padding: '12px', 
+            borderRadius: '4px', 
+            marginBottom: '16px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+          }}>
+            <span>{success}</span>
+            <button type="button" onClick={() => setSuccess(null)} style={{ background: 'none', border: 'none', fontSize: '16px' }}>×</button>
+          </div>
+        )}
+        
+        {/* Step 1: Verify Legacy Account */}
+        {activeStep >= MigrationStep.VERIFY_LEGACY && (
+          <div style={{ marginBottom: '24px' }}>
+            <h3>Step 1: Verify Legacy Account</h3>
+            <div style={{ marginBottom: '16px' }}>
+              <input
+                type="text"
+                placeholder="Legacy Username"
+                value={username}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUsername(e.target.value)}
+                disabled={loading}
+                style={{ 
+                  width: '100%', 
+                  padding: '8px', 
+                  marginBottom: '8px',
+                  borderColor: username.toLowerCase() === 'null' ? '#f44336' : '#ccc'
+                }}
+              />
+              {username.toLowerCase() === 'null' && (
+                <div style={{ color: '#f44336', fontSize: '12px' }}>
+                  This account cannot be migrated (burned tokens)
+                </div>
               )}
               
-              <Box sx={{ mb: 2 }}>
-                <Button
-                  variant="contained"
-                  onClick={onClose}
-                >
-                  Close
-                </Button>
-              </Box>
-            </StepContent>
-          </Step>
-        </Stepper>
+              <input
+                type="password"
+                placeholder="Legacy Password"
+                value={password}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
+                disabled={loading || username.toLowerCase() === 'null'}
+                style={{ width: '100%', padding: '8px', marginBottom: '8px' }}
+              />
+              
+              <button
+                type="button"
+                onClick={() => void handleVerifyLegacy()}
+                disabled={username.length === 0 || password.length === 0 || loading || username.toLowerCase() === 'null'}
+                style={{ padding: '8px 16px', marginRight: '8px' }}
+              >
+                Verify Account
+              </button>
+            </div>
+          </div>
+        )}
         
-        {/* Loading Indicator */}
-        {loading && <LinearProgress sx={{ mt: 2 }} />}
-      </DialogContent>
-      
-      <DialogActions>
+        {/* Step 2: Create New Wallet */}
+        {activeStep >= MigrationStep.CREATE_WALLET && (
+          <div style={{ marginBottom: '24px' }}>
+            <h3>Step 2: Create New Wallet</h3>
+            <div style={{ backgroundColor: '#e3f2fd', padding: '12px', borderRadius: '4px', marginBottom: '16px' }}>
+              Your username will remain the same, but you need to set a new secure password for v2.
+            </div>
+            <div style={{ marginBottom: '16px' }}>
+              <input
+                type="password"
+                placeholder="New Password (minimum 12 characters)"
+                value={newPassword}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewPassword(e.target.value)}
+                disabled={loading}
+                style={{ width: '100%', padding: '8px', marginBottom: '8px' }}
+              />
+              
+              <input
+                type="password"
+                placeholder="Confirm Password"
+                value={confirmPassword}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setConfirmPassword(e.target.value)}
+                disabled={loading}
+                style={{ 
+                  width: '100%', 
+                  padding: '8px', 
+                  marginBottom: '8px',
+                  borderColor: (confirmPassword.length > 0 && confirmPassword !== newPassword) ? '#f44336' : '#ccc'
+                }}
+              />
+              {confirmPassword.length > 0 && confirmPassword !== newPassword && (
+                <div style={{ color: '#f44336', fontSize: '12px' }}>Passwords do not match</div>
+              )}
+              
+              <button
+                type="button"
+                onClick={() => void handleCreateWallet()}
+                disabled={newPassword.length === 0 || newPassword !== confirmPassword || loading}
+                style={{ padding: '8px 16px', marginRight: '8px' }}
+              >
+                Create Wallet
+              </button>
+              <button 
+                type="button"
+                onClick={() => setActiveStep(MigrationStep.VERIFY_LEGACY)}
+                style={{ padding: '8px 16px' }}
+              >
+                Back
+              </button>
+            </div>
+          </div>
+        )}
+        
+        {/* Step 3: Claim Balance */}
+        {activeStep >= MigrationStep.CLAIM_BALANCE && (
+          <div style={{ marginBottom: '24px' }}>
+            <h3>Step 3: Claim Your Balance</h3>
+            <div style={{ 
+              border: '1px solid #ccc', 
+              padding: '16px', 
+              borderRadius: '4px', 
+              marginBottom: '16px' 
+            }}>
+              <h4>Migration Summary</h4>
+              <hr />
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <span>Legacy Balance (6 decimals):</span>
+                <span>{validationResult !== null && validationResult.balance !== undefined ? formatBalance(validationResult.balance, 6) : '0'} XOM</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <span>New Balance (18 decimals):</span>
+                <span style={{ color: '#1976d2' }}>
+                  {validationResult !== null && validationResult.balance !== undefined ? formatBalance(
+                    (BigInt(validationResult.balance) * BigInt(10 ** 12)).toString(),
+                    18
+                  ) : '0'} XOM
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>Recipient Address:</span>
+                <span style={{ fontFamily: 'monospace', fontSize: '12px' }}>
+                  {newAddress !== null ? `${newAddress.slice(0, 6)}...${newAddress.slice(-4)}` : ''}
+                </span>
+              </div>
+            </div>
+            
+            <div style={{ backgroundColor: '#fff3cd', color: '#856404', padding: '12px', borderRadius: '4px', marginBottom: '16px' }}>
+              This action cannot be undone. Once claimed, your legacy balance will be transferred to your new wallet.
+            </div>
+            
+            <button
+              type="button"
+              onClick={() => void handleClaimBalance()}
+              disabled={loading}
+              style={{ padding: '8px 16px', marginRight: '8px', backgroundColor: '#4caf50', color: 'white' }}
+            >
+              Claim Balance
+            </button>
+            <button 
+              type="button"
+              onClick={() => setActiveStep(MigrationStep.CREATE_WALLET)}
+              style={{ padding: '8px 16px' }}
+            >
+              Back
+            </button>
+          </div>
+        )}
+        
+        {/* Step 4: Complete */}
+        {activeStep >= MigrationStep.COMPLETE && (
+          <div style={{ marginBottom: '24px' }}>
+            <h3>Migration Complete</h3>
+            <div style={{ backgroundColor: '#e8f5e8', color: '#2e7d32', padding: '16px', borderRadius: '4px', marginBottom: '16px' }}>
+              <h4>Migration Successful!</h4>
+              <p>Your legacy balance has been successfully transferred to your new wallet.</p>
+            </div>
+            
+            {claimResult !== null && (
+              <div style={{ 
+                border: '1px solid #ccc', 
+                padding: '16px', 
+                borderRadius: '4px', 
+                marginBottom: '16px' 
+              }}>
+                <h4>Transaction Details</h4>
+                <hr />
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <span>Amount Claimed:</span>
+                  <span style={{ color: '#4caf50' }}>
+                    {claimResult.amount ?? '0'} XOM
+                  </span>
+                </div>
+                {claimResult.address !== undefined && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>Legacy Address:</span>
+                    <span style={{ fontFamily: 'monospace', fontSize: '12px' }}>
+                      {`${claimResult.address.slice(0, 6)}...${claimResult.address.slice(-4)}`}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+            
+            <button
+              type="button"
+              onClick={onClose}
+              style={{ padding: '8px 16px' }}
+            >
+              Close
+            </button>
+          </div>
+        )}
+        
+        {loading && (
+          <div style={{ 
+            backgroundColor: '#f0f0f0', 
+            height: '4px', 
+            borderRadius: '2px', 
+            overflow: 'hidden',
+            marginTop: '16px'
+          }}>
+            <div style={{
+              height: '100%',
+              backgroundColor: '#1976d2',
+              animation: 'loading 2s infinite ease-in-out'
+            }} />
+          </div>
+        )}
+        
         {activeStep < MigrationStep.COMPLETE && (
-          <>
-            <Button onClick={handleReset} disabled={loading}>
+          <div style={{ borderTop: '1px solid #ccc', paddingTop: '16px', marginTop: '16px' }}>
+            <button 
+              type="button"
+              onClick={handleReset} 
+              disabled={loading}
+              style={{ padding: '8px 16px', marginRight: '8px' }}
+            >
               Reset
-            </Button>
-            <Button onClick={onClose} disabled={loading}>
+            </button>
+            <button 
+              type="button"
+              onClick={onClose} 
+              disabled={loading}
+              style={{ padding: '8px 16px' }}
+            >
               Cancel
-            </Button>
-          </>
+            </button>
+          </div>
         )}
-      </DialogActions>
-    </Dialog>
+      </div>
+      
+      <style>{`
+        @keyframes loading {
+          0% { transform: translateX(-100%); }
+          50% { transform: translateX(0%); }
+          100% { transform: translateX(100%); }
+        }
+      `}</style>
+    </div>
   );
 };
-
-// Missing import for Grid
-import { Grid } from '@mui/material';
 
 export default LegacyLoginModal;

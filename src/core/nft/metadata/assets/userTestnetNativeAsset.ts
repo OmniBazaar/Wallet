@@ -10,11 +10,28 @@
  * - Integration with our provider system
  */
 
+interface TestnetNativeAsset {
+  symbol: string;
+  name: string;
+  chainId: number;
+  testnet: boolean;
+  balance: string;
+  decimals: number;
+  [key: string]: unknown;
+}
+
+interface TestnetNativeAssetHookResult {
+  data: TestnetNativeAsset | null;
+  isLoading: boolean;
+  error: Error | null;
+}
+
 // Placeholder exports to prevent import errors
 /**
- *
+ * Hook to manage testnet native asset
+ * @returns Hook result with testnet native asset data, loading state and error
  */
-export const useUserTestnetNativeAsset = () => {
+export const useUserTestnetNativeAsset = (): TestnetNativeAssetHookResult => {
   // TODO: Implement using TestnetService
   return {
     data: null,
@@ -24,9 +41,10 @@ export const useUserTestnetNativeAsset = () => {
 };
 
 /**
- *
+ * Get testnet native asset for the current user
+ * @returns Promise resolving to testnet native asset or null
  */
-export const getUserTestnetNativeAsset = async (): Promise<unknown | null> => {
+export const getUserTestnetNativeAsset = (): Promise<TestnetNativeAsset | null> => {
   // TODO: Implement using TestnetService
-  return null;
+  return Promise.resolve(null);
 };

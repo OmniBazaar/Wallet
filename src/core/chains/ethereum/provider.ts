@@ -79,10 +79,14 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
    */
   constructor(
     toWindow: (message: string) => void,
-    network: EthereumNetwork = EthereumNetworks['ethereum']
+    network?: EthereumNetwork
   ) {
     super();
-    this.network = network;
+    const defaultNetwork = network ?? EthereumNetworks['ethereum'];
+    if (defaultNetwork === undefined) {
+      throw new Error('Ethereum mainnet network configuration not found');
+    }
+    this.network = defaultNetwork;
     this.toWindow = toWindow;
     this.namespace = ProviderName.ETHEREUM;
     this.chainId = this.network.chainID;
@@ -96,10 +100,13 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
   /** Set up event listeners for provider state changes. */
   private setupEventListeners(): void {
     // Listen for network changes
-    (this.provider as any).on('network', (newNetwork: { chainId: number }, oldNetwork: { chainId: number } | null) => {
-      if (oldNetwork != null) {
+    const providerWithEvents = this.provider as ethers.JsonRpcProvider & {
+      on(event: 'network', listener: (newNetwork: { chainId: number }, oldNetwork: { chainId: number } | null) => void): void;
+    };
+    providerWithEvents.on('network', (newNetwork: { chainId: number }, oldNetwork: { chainId: number } | null) => {
+      if (oldNetwork !== null && oldNetwork !== undefined) {
         this.emit('chainChanged', '0x' + newNetwork.chainId.toString(16));
-        this.sendNotification(JSON.stringify({
+        void this.sendNotification(JSON.stringify({
           method: 'chainChanged',
           params: ['0x' + newNetwork.chainId.toString(16)]
         }));
@@ -169,7 +176,7 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
       case 'eth_accounts':
       case 'eth_requestAccounts':
         // Return connected accounts (will be integrated with keyring)
-        return this.selectedAddress ? [this.selectedAddress] : [];
+        return this.selectedAddress !== null && this.selectedAddress !== undefined && this.selectedAddress !== '' ? [this.selectedAddress] : [];
 
       case 'eth_getBalance': {
         const address = params[0];
@@ -182,7 +189,7 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
 
       case 'eth_sendTransaction': {
         const tx = params[0];
-        if (tx && typeof tx === 'object') {
+        if (tx !== null && tx !== undefined && typeof tx === 'object') {
           return await this.prepareTransaction(tx as { to: string; value?: string; data?: string; gas?: string; gasPrice?: string });
         }
         throw new Error('Missing transaction parameter');
@@ -190,7 +197,7 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
 
       case 'eth_signTransaction': {
         const tx = params[0];
-        if (tx && typeof tx === 'object') {
+        if (tx !== null && tx !== undefined && typeof tx === 'object') {
           return await this.signTransactionInternal(tx as { to: string; value?: string; data?: string; gas?: string; gasPrice?: string });
         }
         throw new Error('Missing transaction parameter');
@@ -234,7 +241,7 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
 
       case 'eth_estimateGas': {
         const tx = params[0];
-        if (tx && typeof tx === 'object') {
+        if (tx !== null && tx !== undefined && typeof tx === 'object') {
           const gasEstimate = await this.provider.estimateGas(tx as ethers.TransactionRequest);
           return ethers.toQuantity(gasEstimate);
         }
@@ -260,7 +267,7 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
       case 'eth_getBlockByNumber': {
         const blockTag = params[0];
         if (typeof blockTag === 'string' || typeof blockTag === 'number') {
-          const block = await this.provider.getBlock(blockTag as any);
+          const block = await this.provider.getBlock(blockTag as ethers.BlockTag);
           return block;
         }
         throw new Error('Missing block parameter');
@@ -286,24 +293,47 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
 
       default:
         // Forward unknown methods to the provider
-        return await this.provider.send(method, params as any[]);
+        return await this.provider.send(method, params as string[]);
     }
   }
 
-  protected async prepareTransaction(txParams: { to: string; value?: string; data?: string; gas?: string; gasPrice?: string }): Promise<string> {
+  protected prepareTransaction(txParams: { to: string; value?: string; data?: string; gas?: string; gasPrice?: string }): string {
     try {
       // Create transaction request
       const transactionRequest: ethers.TransactionRequest = {
         to: txParams.to,
-        value: txParams.value ? ethers.parseEther(txParams.value) : 0,
-        data: txParams.data || '0x',
-        gasLimit: txParams.gas ? BigInt(txParams.gas) : undefined,
-        gasPrice: txParams.gasPrice ? BigInt(txParams.gasPrice) : undefined
+        value: txParams.value !== null && txParams.value !== undefined && txParams.value !== '' ? ethers.parseEther(txParams.value) : 0,
+        data: txParams.data ?? '0x'
       };
+
+      // Add optional properties only if they have values
+      if (txParams.gas !== null && txParams.gas !== undefined && txParams.gas !== '') {
+        transactionRequest.gasLimit = BigInt(txParams.gas);
+      }
+      if (txParams.gasPrice !== null && txParams.gasPrice !== undefined && txParams.gasPrice !== '') {
+        transactionRequest.gasPrice = BigInt(txParams.gasPrice);
+      }
 
       // This method should be called with a signer
       // For now, we'll prepare the transaction for signing
-      const serializedTx = ethers.Transaction.from(transactionRequest).serialized;
+      // Convert TransactionRequest to compatible format
+      const txData: ethers.TransactionLike<string> = {
+        to: transactionRequest.to?.toString() || '',
+        value: transactionRequest.value?.toString() ?? '0',
+        data: transactionRequest.data ?? '0x'
+      };
+
+      // Add optional properties only if they exist
+      if (transactionRequest.gasLimit !== undefined && transactionRequest.gasLimit !== null) {
+        txData.gasLimit = transactionRequest.gasLimit.toString();
+      }
+      if (transactionRequest.gasPrice !== undefined && transactionRequest.gasPrice !== null) {
+        txData.gasPrice = transactionRequest.gasPrice.toString();
+      }
+      if (transactionRequest.nonce !== undefined) {
+        txData.nonce = transactionRequest.nonce;
+      }
+      const serializedTx = ethers.Transaction.from(txData).serialized;
       
       // Return the serialized transaction hash that would be signed by keyring
       return ethers.keccak256(serializedTx);
@@ -318,10 +348,16 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
       const transactionRequest: ethers.TransactionRequest = {
         to: txParams.to,
         value: txParams.value ? ethers.parseEther(txParams.value) : 0,
-        data: txParams.data || '0x',
-        gasLimit: txParams.gas ? BigInt(txParams.gas) : undefined,
-        gasPrice: txParams.gasPrice ? BigInt(txParams.gasPrice) : undefined
+        data: txParams.data || '0x'
       };
+
+      // Add optional properties only if they have values  
+      if (txParams.gas) {
+        transactionRequest.gasLimit = BigInt(txParams.gas);
+      }
+      if (txParams.gasPrice) {
+        transactionRequest.gasPrice = BigInt(txParams.gasPrice);
+      }
 
       // Get nonce
       if (this.selectedAddress) {
@@ -340,7 +376,24 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
       }
 
       // Serialize the transaction for signing
-      const tx = ethers.Transaction.from(transactionRequest);
+      // Convert TransactionRequest to compatible format
+      const txData: ethers.TransactionLike<string> = {
+        to: transactionRequest.to?.toString() || '',
+        value: transactionRequest.value?.toString() || '0',
+        data: transactionRequest.data || '0x'
+      };
+
+      // Add optional properties only if they exist
+      if (transactionRequest.gasLimit !== undefined && transactionRequest.gasLimit !== null) {
+        txData.gasLimit = transactionRequest.gasLimit.toString();
+      }
+      if (transactionRequest.gasPrice !== undefined && transactionRequest.gasPrice !== null) {
+        txData.gasPrice = transactionRequest.gasPrice.toString();
+      }
+      if (transactionRequest.nonce !== undefined) {
+        txData.nonce = transactionRequest.nonce;
+      }
+      const tx = ethers.Transaction.from(txData);
       return tx.serialized;
     } catch (error) {
       throw new Error(`Failed to sign transaction: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -393,7 +446,8 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
 
   private async handleSubscription(type: string, _params?: string[]): Promise<string> {
     // Generate subscription ID
-    const subscriptionId = Math.random().toString(16).slice(2);
+    const { generateSecureSubscriptionId } = require('../../utils/secure-random');
+    const subscriptionId = generateSecureSubscriptionId();
 
     // Handle different subscription types
     switch (type) {
@@ -562,13 +616,23 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
    */
   async signTransaction(privateKey: string, transaction: import('@/types').TransactionRequest): Promise<string> {
     // Create ethers transaction request
-    const ethersRequest = {
-      to: transaction.to,
-      value: transaction.value,
-      data: transaction.data,
-      gas: transaction.gasLimit,
-      gasPrice: transaction.gasPrice
+    const ethersRequest: { to: string; value?: string; data?: string; gas?: string; gasPrice?: string } = {
+      to: transaction.to
     };
+
+    // Add optional properties only if they exist
+    if (transaction.value !== undefined) {
+      ethersRequest.value = transaction.value;
+    }
+    if (transaction.data !== undefined) {
+      ethersRequest.data = transaction.data;
+    }
+    if (transaction.gasLimit !== undefined) {
+      ethersRequest.gas = transaction.gasLimit;
+    }
+    if (transaction.gasPrice !== undefined) {
+      ethersRequest.gasPrice = transaction.gasPrice;
+    }
     
     return await this.signTransactionInternal(ethersRequest);
   }
@@ -601,7 +665,7 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
         throw new Error('Transaction not found');
       }
 
-      return {
+      const transaction: import('@/types').Transaction = {
         hash: tx.hash,
         from: tx.from,
         to: tx.to || '',
@@ -609,14 +673,31 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
         fee: receipt ? (receipt.gasUsed * (tx.gasPrice || 0n)).toString() : '0',
         data: tx.data,
         gasLimit: tx.gasLimit.toString(),
-        gasPrice: tx.gasPrice?.toString(),
         nonce: tx.nonce,
-        chainId: tx.chainId ? Number(tx.chainId) : undefined,
-        blockNumber: tx.blockNumber || undefined,
-        blockHash: tx.blockHash || undefined,
-        timestamp: receipt?.blockNumber ? (await this.provider.getBlock(receipt.blockNumber))?.timestamp : undefined,
-        status: receipt ? (receipt.status === 1 ? 'confirmed' : 'failed') : 'pending'
+        status: receipt ? (receipt.status === 1 ? 'confirmed' as const : 'failed' as const) : 'pending' as const
       };
+
+      // Add optional properties only if they exist
+      if (tx.gasPrice !== null) {
+        transaction.gasPrice = tx.gasPrice.toString();
+      }
+      if (tx.chainId !== null) {
+        transaction.chainId = Number(tx.chainId);
+      }
+      if (tx.blockNumber !== null) {
+        transaction.blockNumber = tx.blockNumber;
+      }
+      if (tx.blockHash !== null) {
+        transaction.blockHash = tx.blockHash;
+      }
+      if (receipt?.blockNumber) {
+        const block = await this.provider.getBlock(receipt.blockNumber);
+        if (block?.timestamp) {
+          transaction.timestamp = block.timestamp;
+        }
+      }
+
+      return transaction;
     } catch (error) {
       throw new Error(`Failed to get transaction: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }

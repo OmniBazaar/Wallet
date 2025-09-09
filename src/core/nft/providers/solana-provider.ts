@@ -367,8 +367,9 @@ export class SolanaNFTProvider implements ChainProvider {
     // This is only used internally now, not for mock data
     const chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
     let result = '';
+    const { secureRandomInt } = require('../../utils/secure-random');
     for (let i = 0; i < 44; i++) {
-      result += chars[Math.floor(Math.random() * chars.length)];
+      result += chars[secureRandomInt(0, chars.length - 1)];
     }
     return result;
   }

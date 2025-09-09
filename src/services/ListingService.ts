@@ -5,50 +5,77 @@
  * managing, and searching marketplace listings.
  */
 
+/** Listing data structure */
+export interface Listing {
+  /** Unique listing ID */
+  id?: string;
+  /** Listing title */
+  title: string;
+  /** Listing description */
+  description: string;
+  /** Price in XOM */
+  price: string;
+  /** Seller address */
+  seller: string;
+  /** Category */
+  category: string;
+  /** Image URLs */
+  images: string[];
+  /** Creation timestamp */
+  createdAt?: number;
+  /** Status */
+  status?: 'active' | 'sold' | 'cancelled';
+}
+
 /**
- *
+ * Service for managing marketplace listings
  */
 export class ListingService {
   private isInitialized = false;
 
   /**
-   *
+   * Creates a new ListingService instance
    */
   constructor() {}
 
   /**
-   *
+   * Initialize the listing service
+   * @returns Promise that resolves when initialization is complete
    */
-  async init(): Promise<void> {
+  init(): void {
     if (this.isInitialized) return;
     this.isInitialized = true;
     // console.log('ListingService initialized');
   }
 
   /**
-   *
-   * @param listing
+   * Create a new marketplace listing
+   * @param listing Listing data
+   * @returns Created listing with generated ID
    */
-  async createListing(listing: any): Promise<any> {
-    return { id: 'mock-listing-id', ...listing };
+  createListing(listing: Listing): Listing {
+    return { id: 'mock-listing-id', ...listing, createdAt: Date.now(), status: 'active' };
   }
 
   /**
-   *
+   * Get all listings
+   * @returns Array of listings
    */
-  async getListings(): Promise<any[]> {
+  getListings(): Listing[] {
     return [];
   }
 
   /**
-   *
+   * Clear any cached data
+   * @returns Promise that resolves when cache is cleared
    */
   async clearCache(): Promise<void> {
     // console.log('ListingService cache cleared');
   }
 
   /**
-   *
+   * Clean up resources and reset service
+   * @returns Promise that resolves when cleanup is complete
    */
   async cleanup(): Promise<void> {
     this.isInitialized = false;

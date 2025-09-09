@@ -1,23 +1,14 @@
-// Local minimal type to avoid external dependency/types issues
 /**
- *
+ * Ethereum encrypted data structure - local minimal type to avoid external dependency/types issues
  */
 export interface EthEncryptedData {
-  /**
-   *
-   */
+  /** Encryption version identifier */
   version: string;
-  /**
-   *
-   */
+  /** Cryptographic nonce */
   nonce: string;
-  /**
-   *
-   */
+  /** Ephemeral public key */
   ephemPublicKey: string;
-  /**
-   *
-   */
+  /** Encrypted data */
   ciphertext: string;
 }
 import { box as naclBox, randomBytes } from "tweetnacl";
@@ -70,7 +61,8 @@ const naclDecodeHex = (msgHex: string): Uint8Array =>
  */
 const encryptedDataStringToJson = (strData: string): EthEncryptedData => {
   const buf = hexToBuffer(strData);
-  return JSON.parse(buf.toString("utf8"));
+  const parsed: unknown = JSON.parse(buf.toString("utf8"));
+  return parsed as EthEncryptedData;
 };
 
 /**
@@ -159,11 +151,11 @@ const naclEncrypt = ({
   data: unknown;
   version: string;
 }): string => {
-  if (!publicKey) {
+  if (publicKey.length === 0) {
     throw new Error("Missing publicKey parameter");
-  } else if (!data) {
+  } else if (data === null || data === undefined) {
     throw new Error("Missing data parameter");
-  } else if (!version) {
+  } else if (version.length === 0) {
     throw new Error("Missing version parameter");
   }
 

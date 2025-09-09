@@ -204,6 +204,11 @@ const ethers = {
       this.privateKey = privateKey;
       this.provider = provider;
       this.address = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
+      this.publicKey = '0x04f39fd6e51aad88f6f4ce6ab8827279cfffb92266e94b8a1060e5c4c4e6aa5cbe3f4f5a5ad6b3b8e2f3e8b1e0c6fb8d7a7f8e8f3e6b8e2c3a1b9f8e7d6c5';
+      this.signingKey = {
+        publicKey: this.publicKey,
+        privateKey: this.privateKey
+      };
     }
     
     async signTransaction(transaction) {
@@ -226,7 +231,7 @@ const ethers = {
     }
   },
   HDNodeWallet: class MockHDNodeWallet {
-    constructor(privateKey, publicKey, address, derivationPath) {
+    constructor(privateKey, publicKey, address, derivationPath, mnemonic) {
       this.privateKey = privateKey || '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
       this.publicKey = publicKey || '0x04f39fd6e51aad88f6f4ce6ab8827279cfffb92266e94b8a1060e5c4c4e6aa5cbe3f4f5a5ad6b3b8e2f3e8b1e0c6fb8d7a7f8e8f3e6b8e2c3a1b9f8e7d6c5';
       this.address = address || '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
@@ -234,6 +239,16 @@ const ethers = {
       this.chainCode = Buffer.from('0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef', 'hex');
       this.index = 0;
       this.depth = 0;
+      this.mnemonic = mnemonic || {
+        phrase: 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about',
+        password: '',
+        wordlist: null,
+        entropy: '0x' + '00'.repeat(16)
+      };
+      this.signingKey = {
+        publicKey: this.publicKey,
+        privateKey: this.privateKey
+      };
     }
     
     derivePath(path) {
@@ -286,7 +301,23 @@ const ethers = {
     }
     
     static fromMnemonic(mnemonic) {
-      return new MockHDNodeWallet();
+      const mnemonicObj = {
+        phrase: typeof mnemonic === 'string' ? mnemonic : mnemonic.phrase,
+        password: '',
+        wordlist: null,
+        entropy: '0x' + '00'.repeat(16)
+      };
+      return new MockHDNodeWallet(undefined, undefined, undefined, undefined, mnemonicObj);
+    }
+    
+    static fromPhrase(phrase) {
+      const mnemonicObj = {
+        phrase: phrase,
+        password: '',
+        wordlist: null,
+        entropy: '0x' + '00'.repeat(16)
+      };
+      return new MockHDNodeWallet(undefined, undefined, undefined, undefined, mnemonicObj);
     }
   },
   Mnemonic: {
@@ -447,6 +478,23 @@ const ethers = {
     async getNetwork() {
       return { name: 'mock', chainId: 1337 };
     }
+  },
+  AbiCoder: {
+    defaultAbiCoder: () => ({
+      encode: (types, values) => {
+        // Mock encoding - return deterministic hex based on input
+        let encoded = '0x';
+        for (let i = 0; i < 64; i++) {
+          const charCode = values.length > 0 ? values[0].toString().charCodeAt(i % values[0].toString().length) : 65;
+          encoded += ((charCode + i) % 16).toString(16);
+        }
+        return encoded;
+      },
+      decode: (types, data) => {
+        // Mock decoding - return mock values based on types
+        return types.map(() => '0x1234567890123456789012345678901234567890');
+      }
+    })
   }
 };
 
@@ -481,3 +529,4 @@ module.exports.id = ethers.id;
 module.exports.zeroPadValue = ethers.zeroPadValue;
 module.exports.Interface = ethers.Interface;
 module.exports.solidityPacked = ethers.solidityPacked;
+module.exports.AbiCoder = ethers.AbiCoder;

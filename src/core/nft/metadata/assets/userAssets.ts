@@ -10,11 +10,29 @@
  * - Integration with our provider system
  */
 
+interface UserAsset {
+  id: string;
+  address: string;
+  symbol: string;
+  name: string;
+  balance: string;
+  decimals: number;
+  chainId: number;
+  [key: string]: unknown;
+}
+
+interface UserAssetsHookResult {
+  data: UserAsset[];
+  isLoading: boolean;
+  error: Error | null;
+}
+
 // Placeholder exports to prevent import errors
 /**
- *
+ * Hook to manage user assets
+ * @returns Hook result with user assets data, loading state and error
  */
-export const useUserAssets = () => {
+export const useUserAssets = (): UserAssetsHookResult => {
   // TODO: Implement using WalletService
   return {
     data: [],
@@ -24,9 +42,10 @@ export const useUserAssets = () => {
 };
 
 /**
- *
+ * Get all user assets
+ * @returns Promise resolving to array of user assets
  */
-export const getUserAssets = async (): Promise<unknown[]> => {
+export const getUserAssets = (): Promise<UserAsset[]> => {
   // TODO: Implement using WalletService
-  return [];
+  return Promise.resolve([]);
 };

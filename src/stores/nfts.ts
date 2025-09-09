@@ -73,7 +73,8 @@ export const useNFTStore = defineStore('nfts', () => {
 
   const totalFloorValue = computed(() => {
     return collections.value.reduce((total, collection) => {
-      const floorValue = (collection.floorPrice || 0) * collection.ownedCount;
+      const floorPrice = collection.floorPrice ?? 0;
+      const floorValue = floorPrice > 0 ? floorPrice * collection.ownedCount : 0;
       return total + floorValue;
     }, 0);
   });
@@ -81,6 +82,7 @@ export const useNFTStore = defineStore('nfts', () => {
   // Methods
   /**
    * Fetch NFTs for current wallet
+   * @returns Promise that resolves when NFTs are loaded
    */
   async function fetchNFTs(): Promise<void> {
     try {
@@ -89,6 +91,7 @@ export const useNFTStore = defineStore('nfts', () => {
 
       // In real implementation, fetch from blockchain or indexer
       // Mock data for now
+      await new Promise(resolve => setTimeout(resolve, 100)); // Simulate API call
       nfts.value = [
         {
           id: '1',
@@ -134,7 +137,7 @@ export const useNFTStore = defineStore('nfts', () => {
 
     } catch (err) {
       error.value = 'Failed to fetch NFTs';
-      console.error('Failed to fetch NFTs:', err);
+      // Error already stored in error.value
     } finally {
       isLoading.value = false;
     }
@@ -149,15 +152,25 @@ export const useNFTStore = defineStore('nfts', () => {
     // Group NFTs by collection
     nfts.value.forEach(nft => {
       const existing = collectionMap.get(nft.collectionAddress);
-      if (existing) {
+      if (existing !== undefined) {
         existing.ownedCount++;
       } else {
-        collectionMap.set(nft.collectionAddress, {
-          address: nft.collectionAddress,
-          name: nft.collectionName || 'Unknown Collection',
-          ownedCount: 1,
-          floorPrice: 0.1 // Mock floor price
-        });
+        const collectionName = nft.collectionName ?? '';
+        if (collectionName !== '') {
+          collectionMap.set(nft.collectionAddress, {
+            address: nft.collectionAddress,
+            name: collectionName,
+            ownedCount: 1,
+            floorPrice: 0.1 // Mock floor price
+          });
+        } else {
+          collectionMap.set(nft.collectionAddress, {
+            address: nft.collectionAddress,
+            name: 'Unknown Collection',
+            ownedCount: 1,
+            floorPrice: 0.1 // Mock floor price
+          });
+        }
       }
     });
 
@@ -166,6 +179,8 @@ export const useNFTStore = defineStore('nfts', () => {
 
   /**
    * Get NFTs by collection
+   * @param collectionAddress - The collection contract address
+   * @returns Array of NFTs from the specified collection
    */
   function getNFTsByCollection(collectionAddress: string): NFT[] {
     return nfts.value.filter(nft => 
@@ -175,6 +190,8 @@ export const useNFTStore = defineStore('nfts', () => {
 
   /**
    * Get NFT by ID
+   * @param id - The NFT identifier
+   * @returns The NFT if found, undefined otherwise
    */
   function getNFTById(id: string): NFT | undefined {
     return nfts.value.find(nft => nft.id === id);
@@ -182,35 +199,43 @@ export const useNFTStore = defineStore('nfts', () => {
 
   /**
    * Refresh NFT metadata
+   * @param nftId - The NFT identifier to refresh
+   * @returns Promise that resolves when metadata is refreshed
    */
   async function refreshNFTMetadata(nftId: string): Promise<void> {
     try {
       const nft = getNFTById(nftId);
-      if (!nft) {
+      if (nft === undefined) {
         throw new Error('NFT not found');
       }
 
       // In real implementation, fetch fresh metadata
-      console.log('Refreshing metadata for NFT:', nftId);
+      await new Promise(resolve => setTimeout(resolve, 50)); // Simulate API call
+      // Mock metadata refresh logic would go here
 
     } catch (err) {
-      console.error('Failed to refresh NFT metadata:', err);
+      error.value = 'Failed to refresh NFT metadata';
+      throw err;
     }
   }
 
   /**
    * Transfer NFT
+   * @param nftId - The NFT identifier to transfer
+   * @param _toAddress - The destination address
+   * @returns Promise that resolves to true if successful, false otherwise
    */
-  async function transferNFT(nftId: string, toAddress: string): Promise<boolean> {
+  async function transferNFT(nftId: string, _toAddress: string): Promise<boolean> {
     try {
       const nft = getNFTById(nftId);
-      if (!nft) {
+      if (nft === undefined) {
         error.value = 'NFT not found';
         return false;
       }
 
       // In real implementation, call NFT contract transfer method
-      console.log('Transferring NFT:', nftId, 'to:', toAddress);
+      await new Promise(resolve => setTimeout(resolve, 100)); // Simulate blockchain transaction
+      // Mock transfer logic would go here
 
       // Remove from local state
       nfts.value = nfts.value.filter(n => n.id !== nftId);
@@ -219,8 +244,7 @@ export const useNFTStore = defineStore('nfts', () => {
       return true;
     } catch (err) {
       error.value = 'Failed to transfer NFT';
-      console.error('Failed to transfer NFT:', err);
-      return false;
+      throw err;
     }
   }
 

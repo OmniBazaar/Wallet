@@ -94,6 +94,7 @@ const initializeServices = async (): Promise<void> => {
 
 /**
  * Convert chain ID to ChainType
+ * @param chainId
  */
 const getChainType = (chainId: number): ChainType => {
   const chainMap: Record<number, ChainType> = {

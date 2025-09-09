@@ -1,5 +1,7 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 /**
  * Network names enum for blockchain networks
+ * @enum {string}
  */
 export enum NetworkNames {
   // Ethereum family
@@ -38,6 +40,7 @@ export enum NetworkNames {
 
 /**
  * Hardware wallet capabilities enum
+ * @enum {string}
  */
 export enum HWwalletCapabilities {
   signMessage = "signMessage",
@@ -45,6 +48,7 @@ export enum HWwalletCapabilities {
   eip1559 = "eip1559",
   typedMessage = "typedMessage",
 }
+/* eslint-enable @typescript-eslint/naming-convention */
 
 /**
  * Re-export common utility functions used across the codebase

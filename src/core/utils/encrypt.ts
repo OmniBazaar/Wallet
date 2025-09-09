@@ -13,27 +13,27 @@ import { scrypt } from "ethereum-cryptography/scrypt";
 import { keccak256 } from "web3-utils";
 // Local type to avoid external dependency/types issues
 /**
- *
+ * Encrypted data structure
  */
 export interface EncryptedData {
   /**
-   *
+   * Encrypted data as hex string
    */
   ciphertext: string;
   /**
-   *
+   * Salt used for key derivation as hex string
    */
   salt: string;
   /**
-   *
+   * Initialization vector as hex string
    */
   iv: string;
   /**
-   *
+   * Encryption format version
    */
   version: number;
   /**
-   *
+   * Message authentication code as hex string
    */
   mac: string;
 }

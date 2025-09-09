@@ -4,15 +4,22 @@ import { randomBytes, createHash } from 'crypto';
 // @ts-ignore - CryptoJS types may not be available
 import CryptoJS from 'crypto-js';
 
-// Simplified HDKey interface
+/**
+ * Simplified HDKey interface for hierarchical deterministic key derivation
+ */
 interface HDKeyLike {
+  /** Public key buffer */
   publicKey: Buffer;
+  /** Private key buffer */
   privateKey: Buffer;
+  /** Derive child key from path */
   derive(path: string): HDKeyLike;
 }
 import BrowserStorage, { StorageInterface } from '../common/browser-storage';
 
-/** Represents a wallet account */
+/**
+ * Represents a wallet account
+ */
 export interface Account {
   /** Unique account identifier */
   id: string;
@@ -30,7 +37,9 @@ export interface Account {
   createdAt: number;
 }
 
-/** Wallet data structure containing accounts and metadata */
+/**
+ * Wallet data structure containing accounts and metadata
+ */
 export interface WalletData {
   /** Unique wallet identifier */
   id: string;
@@ -42,7 +51,9 @@ export interface WalletData {
   accounts: Account[];
 }
 
-/** Options for keyring initialization */
+/**
+ * Options for keyring initialization
+ */
 export interface KeyringOptions {
   /** Optional mnemonic phrase (generated if not provided) */
   mnemonic?: string;
@@ -52,7 +63,9 @@ export interface KeyringOptions {
   extraWord?: string;
 }
 
-/** Wallet keyring for managing HD wallet accounts and encryption */
+/**
+ * Wallet keyring for managing HD wallet accounts and encryption
+ */
 class WalletKeyring {
   private storage: StorageInterface;
   private isUnlocked = false;
@@ -68,23 +81,23 @@ class WalletKeyring {
 
   /**
    * Create a new wallet keyring
-   * @param namespace Storage namespace for this keyring
+   * @param namespace - Storage namespace for this keyring
    */
   constructor(namespace = 'omnibazaar-wallet') {
     this.storage = new BrowserStorage(namespace);
   }
 
-  // Initialize new wallet with mnemonic
   /**
-   *
-   * @param options
+   * Initialize new wallet with mnemonic
+   * @param options - Initialization options including optional mnemonic and required password
+   * @returns Promise that resolves when initialization is complete
    */
   async initialize(options: KeyringOptions): Promise<void> {
     if (await this.isInitialized()) {
       throw new Error('Wallet is already initialized');
     }
 
-    const mnemonic = options.mnemonic || _generateMnemonic(256); // 24 words
+    const mnemonic = options.mnemonic ?? _generateMnemonic(256); // 24 words
     if (!_validateMnemonic(mnemonic)) {
       throw new Error('Invalid mnemonic phrase');
     }
@@ -108,19 +121,19 @@ class WalletKeyring {
     await this.unlock(options.password);
   }
 
-  // Check if wallet is initialized
   /**
-   *
+   * Check if wallet is initialized
+   * @returns Promise resolving to true if wallet has been initialized
    */
   async isInitialized(): Promise<boolean> {
-    const encryptedMnemonic = await this.storage.get(this.STORAGE_KEYS.ENCRYPTED_MNEMONIC);
-    return !!encryptedMnemonic;
+    const encryptedMnemonic = await this.storage.get<string>(this.STORAGE_KEYS.ENCRYPTED_MNEMONIC);
+    return encryptedMnemonic !== null;
   }
 
-  // Unlock wallet with password
   /**
-   *
-   * @param password
+   * Unlock wallet with password
+   * @param password - Password to decrypt the wallet
+   * @returns Promise that resolves when wallet is unlocked
    */
   async unlock(password: string): Promise<void> {
     if (!await this.isInitialized()) {
@@ -129,10 +142,11 @@ class WalletKeyring {
 
     try {
       // Load encrypted mnemonic
-      this.encryptedMnemonic = await this.storage.get(this.STORAGE_KEYS.ENCRYPTED_MNEMONIC);
-      if (!this.encryptedMnemonic) {
+      const storedMnemonic = await this.storage.get<string>(this.STORAGE_KEYS.ENCRYPTED_MNEMONIC);
+      if (storedMnemonic === null || storedMnemonic === '') {
         throw new Error('No encrypted mnemonic found');
       }
+      this.encryptedMnemonic = storedMnemonic;
 
       // Decrypt mnemonic
       const mnemonic = this.decrypt(this.encryptedMnemonic, password);
@@ -143,10 +157,11 @@ class WalletKeyring {
       // this.masterHDKey = HDKey.fromMasterSeed(_seed);
 
       // Load wallet data
-      this.walletData = await this.storage.get(this.STORAGE_KEYS.WALLET_DATA);
-      if (!this.walletData) {
+      const storedWalletData = await this.storage.get<WalletData>(this.STORAGE_KEYS.WALLET_DATA);
+      if (storedWalletData === null) {
         throw new Error('No wallet data found');
       }
+      this.walletData = storedWalletData;
 
       this.isUnlocked = true;
     } catch (error) {
@@ -156,31 +171,31 @@ class WalletKeyring {
     }
   }
 
-  // Lock wallet
   /**
-   *
+   * Lock wallet and clear sensitive data from memory
+   * @returns void
    */
   lock(): void {
     this.isUnlocked = false;
     this.masterHDKey = null;
   }
 
-  // Get wallet lock status
   /**
-   *
+   * Get wallet lock status
+   * @returns True if wallet is locked
    */
   locked(): boolean {
     return !this.isUnlocked;
   }
 
-  // Create new account for specified chain
   /**
-   *
-   * @param chainType
-   * @param name
+   * Create new account for specified chain
+   * @param chainType - Blockchain type for the new account
+   * @param name - Optional custom name for the account
+   * @returns Promise resolving to the created account
    */
   async createAccount(chainType: Account['chainType'], name?: string): Promise<Account> {
-    if (!this.isUnlocked || !this.masterHDKey || !this.walletData) {
+    if (!this.isUnlocked || this.masterHDKey === null || this.walletData === null) {
       throw new Error('Wallet is locked');
     }
 
@@ -195,7 +210,9 @@ class WalletKeyring {
 
     const account: Account = {
       id: this.generateId(),
-      name: name || `${chainType.charAt(0).toUpperCase() + chainType.slice(1)} Account ${accountIndex + 1}`,
+      name: name !== undefined && name !== '' 
+        ? name 
+        : `${chainType.charAt(0).toUpperCase() + chainType.slice(1)} Account ${accountIndex + 1}`,
       address,
       publicKey: childKey.publicKey.toString('hex'),
       derivationPath,
@@ -212,47 +229,50 @@ class WalletKeyring {
     return account;
   }
 
-  // Get all accounts
   /**
-   *
-   * @param chainType
+   * Get all accounts
+   * @param chainType - Optional filter by chain type
+   * @returns Promise resolving to array of accounts
    */
-  async getAccounts(chainType?: Account['chainType']): Promise<Account[]> {
-    if (!this.walletData) {
-      return [];
+  getAccounts(chainType?: Account['chainType']): Promise<Account[]> {
+    if (this.walletData === null) {
+      return Promise.resolve([]);
     }
 
-    return chainType
-      ? this.walletData.accounts.filter(acc => acc.chainType === chainType)
-      : this.walletData.accounts;
+    return Promise.resolve(
+      chainType !== undefined
+        ? this.walletData.accounts.filter(acc => acc.chainType === chainType)
+        : this.walletData.accounts
+    );
   }
 
-  // Get account by address
   /**
-   *
-   * @param address
+   * Get account by address
+   * @param address - Account address to find
+   * @returns Promise resolving to account or null if not found
    */
-  async getAccount(address: string): Promise<Account | null> {
-    if (!this.walletData) {
-      return null;
+  getAccount(address: string): Promise<Account | null> {
+    if (this.walletData === null) {
+      return Promise.resolve(null);
     }
 
-    return this.walletData.accounts.find(acc => acc.address === address) || null;
+    const account = this.walletData.accounts.find(acc => acc.address === address);
+    return Promise.resolve(account ?? null);
   }
 
-  // Sign message with account
   /**
-   *
-   * @param address
-   * @param message
+   * Sign message with account
+   * @param address - Address of the account to sign with
+   * @param message - Message to sign
+   * @returns Promise resolving to signature string
    */
   async signMessage(address: string, message: string): Promise<string> {
-    if (!this.isUnlocked || !this.masterHDKey) {
+    if (!this.isUnlocked || this.masterHDKey === null) {
       throw new Error('Wallet is locked');
     }
 
     const account = await this.getAccount(address);
-    if (!account) {
+    if (account === null) {
       throw new Error('Account not found');
     }
 
@@ -263,26 +283,26 @@ class WalletKeyring {
     return `0x${messageHash.toString('hex')}`;
   }
 
-  // Get mnemonic (requires password verification)
   /**
-   *
-   * @param password
+   * Get mnemonic (requires password verification)
+   * @param password - Password to decrypt mnemonic
+   * @returns Promise resolving to mnemonic phrase
    */
   async getMnemonic(password: string): Promise<string> {
-    if (!this.encryptedMnemonic) {
-      this.encryptedMnemonic = await this.storage.get(this.STORAGE_KEYS.ENCRYPTED_MNEMONIC);
-    }
-
-    if (!this.encryptedMnemonic) {
-      throw new Error('No mnemonic found');
+    if (this.encryptedMnemonic === null || this.encryptedMnemonic === '') {
+      const storedMnemonic = await this.storage.get<string>(this.STORAGE_KEYS.ENCRYPTED_MNEMONIC);
+      if (storedMnemonic === null || storedMnemonic === '') {
+        throw new Error('No mnemonic found');
+      }
+      this.encryptedMnemonic = storedMnemonic;
     }
 
     return this.decrypt(this.encryptedMnemonic, password);
   }
 
-  // Reset wallet (delete all data)
   /**
-   *
+   * Reset wallet (delete all data)
+   * @returns Promise that resolves when reset is complete
    */
   async reset(): Promise<void> {
     await this.storage.clear();
@@ -291,22 +311,42 @@ class WalletKeyring {
     this.encryptedMnemonic = null;
   }
 
-  // Private helper methods
+  /**
+   * Encrypt text using AES
+   * @param text - Text to encrypt
+   * @param password - Password for encryption
+   * @returns Encrypted text string
+   */
   private encrypt(text: string, password: string): string {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
     return CryptoJS.AES.encrypt(text, password).toString();
   }
 
+  /**
+   * Decrypt text using AES
+   * @param encryptedText - Encrypted text to decrypt
+   * @param password - Password for decryption
+   * @returns Decrypted text string
+   */
   private decrypt(encryptedText: string, password: string): string {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
     const bytes = CryptoJS.AES.decrypt(encryptedText, password);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
     const decrypted = bytes.toString(CryptoJS.enc.Utf8);
 
-    if (!decrypted) {
+    if (decrypted === '') {
       throw new Error('Failed to decrypt');
     }
 
     return decrypted;
   }
 
+  /**
+   * Get derivation path for chain and account
+   * @param chainType - Type of blockchain
+   * @param accountIndex - Account index
+   * @returns BIP44 derivation path
+   */
   private getDerivationPath(chainType: Account['chainType'], accountIndex: number): string {
     const coinTypes = {
       ethereum: "60",
@@ -316,10 +356,16 @@ class WalletKeyring {
       omnicoin: "60" // Using Ethereum's coin type for now
     };
 
-    const coinType = coinTypes[chainType] || "60";
+    const coinType = coinTypes[chainType];
     return `m/44'/${coinType}'/0'/0/${accountIndex}`;
   }
 
+  /**
+   * Get address for specific blockchain type
+   * @param chainType - Type of blockchain
+   * @param hdKey - HD key to derive address from
+   * @returns Blockchain-specific address string
+   */
   private getAddressForChain(chainType: Account['chainType'], hdKey: HDKeyLike): string {
     switch (chainType) {
       case 'ethereum':
@@ -330,11 +376,18 @@ class WalletKeyring {
         return this.getBitcoinAddress(hdKey);
       case 'solana':
         return this.getSolanaAddress(hdKey);
-      default:
-        throw new Error(`Unsupported chain type: ${chainType}`);
+      default: {
+        const _exhaustiveCheck: never = chainType;
+        throw new Error(`Unsupported chain type: ${String(_exhaustiveCheck)}`);
+      }
     }
   }
 
+  /**
+   * Get Ethereum-style address from HD key
+   * @param hdKey - HD key to derive address from
+   * @returns Ethereum address string
+   */
   private getEthereumAddress(hdKey: HDKeyLike): string {
     // Simplified Ethereum address generation
     const publicKey = hdKey.publicKey.slice(1); // Remove 0x04 prefix
@@ -342,17 +395,31 @@ class WalletKeyring {
     return '0x' + hash.slice(-20).toString('hex');
   }
 
+  /**
+   * Get Bitcoin address from HD key
+   * @param hdKey - HD key to derive address from
+   * @returns Bitcoin address string
+   */
   private getBitcoinAddress(hdKey: HDKeyLike): string {
     // Simplified Bitcoin address generation (placeholder)
     const publicKeyHash = createHash('sha256').update(hdKey.publicKey).digest();
     return 'bc1' + publicKeyHash.slice(0, 32).toString('hex');
   }
 
+  /**
+   * Get Solana address from HD key
+   * @param hdKey - HD key to derive address from
+   * @returns Solana address string
+   */
   private getSolanaAddress(hdKey: HDKeyLike): string {
     // Simplified Solana address generation (placeholder)
     return hdKey.publicKey.toString('hex').slice(0, 44);
   }
 
+  /**
+   * Generate unique identifier
+   * @returns Hex string ID
+   */
   private generateId(): string {
     return randomBytes(16).toString('hex');
   }

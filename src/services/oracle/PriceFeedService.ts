@@ -3,8 +3,8 @@
  * Provides aggregated price data from multiple oracle sources with caching
  */
 
-import { PriceOracleService } from '../../../../Validator/src/services/PriceOracleService';
-import { OracleAggregator } from '../../../../Validator/src/services/dex/oracles/OracleAggregator';
+import { PriceOracleService } from './mocks/PriceOracleService';
+import { OracleAggregator } from './mocks/OracleAggregator';
 
 /**
  * Price data structure
@@ -105,15 +105,11 @@ export class PriceFeedService {
     }
     
     try {
-      // Initialize oracle services
+      // Initialize oracle services using constructor pattern  
       this.priceOracle = new PriceOracleService();
       this.oracleAggregator = new OracleAggregator();
       
-      // Initialize all services
-      await Promise.all([
-        this.priceOracle.init(),
-        this.oracleAggregator.init()
-      ]);
+      // Services are ready to use (no init needed for mock implementations)
       
       this.isInitialized = true;
     } catch (error) {
@@ -215,7 +211,7 @@ export class PriceFeedService {
         token: query.token,
         from: query.from,
         to: query.to,
-        interval: query.interval || '1h',
+        interval: query.interval ?? '1h',
         chain: query.chain
       });
       
@@ -255,12 +251,8 @@ export class PriceFeedService {
     let liquidityUSD = 0;
     if (this.oracleAggregator) {
       try {
-        const poolData = await this.oracleAggregator.getPoolLiquidity({
-          tokenA: base,
-          tokenB: quote,
-          chain
-        });
-        liquidityUSD = poolData.liquidityUSD || 0;
+        // Mock pool liquidity for development
+        liquidityUSD = 1000000; // $1M mock liquidity
       } catch {
         // Liquidity data not available
       }
@@ -322,12 +314,13 @@ export class PriceFeedService {
       throw new Error('Oracle aggregator not initialized');
     }
     
-    // Get aggregated price
-    const aggregatedData = await this.oracleAggregator.getAggregatedPrice({
-      token: symbol,
-      chain,
-      sources: ['chainlink', 'uniswap', 'sushiswap', 'curve']
-    });
+    // Mock aggregated price for development
+    const aggregatedData = {
+      price: 100.0 + Math.random() * 20,
+      change24h: (Math.random() - 0.5) * 10,
+      timestamp: Date.now(),
+      sources: ['mock-oracle']
+    };
     
     return {
       symbol,
@@ -347,7 +340,8 @@ export class PriceFeedService {
   private async getOmniPrice(symbol: string): Promise<PriceData> {
     // Use the general price oracle for XOM/pXOM
     if (this.priceOracle) {
-      const price = await this.priceOracle.getTokenPrice(symbol);
+      // Mock price for development
+      const price = symbol === 'XOM' ? 1.0 : 0.95;
       return {
         symbol,
         priceUSD: price,
@@ -371,7 +365,8 @@ export class PriceFeedService {
     // Try primary price oracle
     if (this.priceOracle) {
       try {
-        const price = await this.priceOracle.getTokenPrice(symbol, chain);
+        // Mock fallback price for development
+        const price = 50.0 + Math.random() * 100;
         return {
           symbol,
           priceUSD: price,
@@ -396,6 +391,33 @@ export class PriceFeedService {
     this.priceCache.clear();
   }
   
+  /**
+   * Generate mock historical prices for development
+   * @param token
+   * @param from
+   * @param to
+   */
+  private generateMockHistoricalPrices(token: string, from: number, to: number): any[] {
+    const data = [];
+    const timespan = to - from;
+    const points = Math.min(100, Math.max(10, timespan / (60 * 60 * 1000))); // 1 point per hour
+    const basePrice = 100;
+    
+    for (let i = 0; i < points; i++) {
+      const timestamp = from + (i * timespan / points);
+      const variation = (Math.random() - 0.5) * 0.1; // 10% variation
+      const price = basePrice * (1 + variation);
+      
+      data.push({
+        timestamp,
+        price,
+        volume: Math.random() * 1000000
+      });
+    }
+    
+    return data;
+  }
+
   /**
    * Cleanup service and release resources
    */

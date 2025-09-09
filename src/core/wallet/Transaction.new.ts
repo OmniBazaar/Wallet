@@ -80,7 +80,7 @@ export class Transaction {
         return {
             to: (this.data.to as unknown as AddressLike) ?? null,
             ...(this.data.value != null && { value: this.data.value }),
-            ...(this.data.data && { data: this.data.data }),
+            ...(this.data.data != null && this.data.data !== '' && { data: this.data.data }),
             ...((this.options.gasLimit ?? this.data.gasLimit) != null && { gasLimit: this.options.gasLimit ?? this.data.gasLimit }),
             ...(this.options.maxFeePerGas != null && { maxFeePerGas: this.options.maxFeePerGas }),
             ...(this.options.maxPriorityFeePerGas != null && { maxPriorityFeePerGas: this.options.maxPriorityFeePerGas }),
@@ -105,10 +105,11 @@ export class Transaction {
     }
 
     /**
-     *
-     * @param to
-     * @param data
-     * @param value
+     * Creates a transaction for calling a smart contract function
+     * @param to Contract address to call
+     * @param data Encoded function call data
+     * @param value ETH amount to send with the call (defaults to 0)
+     * @returns New Transaction instance for contract call
      */
     static createContractCall(
         to: string,
@@ -123,10 +124,11 @@ export class Transaction {
     }
 
     /**
-     *
-     * @param tokenAddress
-     * @param to
-     * @param amount
+     * Creates a transaction for ERC20 token transfer
+     * @param tokenAddress Address of the ERC20 token contract
+     * @param to Recipient address for the token transfer
+     * @param amount Amount of tokens to transfer (in smallest unit)
+     * @returns New Transaction instance for token transfer
      */
     static createTokenTransfer(
         tokenAddress: string,

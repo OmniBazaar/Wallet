@@ -4,7 +4,7 @@
  * Finds optimal payment paths across chains and exchanges
  */
 
-import { ethers, formatUnits, parseUnits, ZeroAddress, isAddress } from 'ethers';
+import { formatUnits, parseUnits, ZeroAddress, isAddress } from 'ethers';
 import { ChainType } from '../keyring/BIP39Keyring';
 import { providerManager } from '../providers/ProviderManager';
 import { bridgeService } from '../bridge';
@@ -191,10 +191,11 @@ export class PaymentRoutingService {
 
   /**
    * Find best payment route
-   * @param request
+   * @param request - Payment request parameters
+   * @returns Promise resolving to the best payment route or null
    */
   async findBestRoute(request: PaymentRequest): Promise<PaymentRoute | null> {
-    if (!request) return null;
+    if (request === null || request === undefined) return null;
     
     const routes = await this.findAllRoutes(request);
     if (routes.length === 0) return null;
@@ -202,8 +203,8 @@ export class PaymentRoutingService {
     // Sort routes by efficiency (least gas, best exchange rate)
     const sortedRoutes = routes.sort((a, b) => {
       // Prefer routes without approval
-      if (a.approvalRequired && !b.approvalRequired) return 1;
-      if (!a.approvalRequired && b.approvalRequired) return -1;
+      if (a.approvalRequired === true && b.approvalRequired !== true) return 1;
+      if (a.approvalRequired !== true && b.approvalRequired === true) return -1;
 
       // Prefer direct transfers over swaps
       if (a.exchangeRoutes.length === 0 && b.exchangeRoutes.length > 0) return -1;
@@ -220,16 +221,17 @@ export class PaymentRoutingService {
 
   /**
    * Find all possible payment routes
-   * @param request
+   * @param request - Payment request parameters
+   * @returns Promise resolving to array of payment routes
    */
   async findAllRoutes(request: PaymentRequest): Promise<PaymentRoute[]> {
     const routes: PaymentRoute[] = [];
-    if (!request) return routes;
+    if (request === null || request === undefined) return routes;
     
     const { from, to, amount, token, blockchain, accept } = request;
 
     // If specific blockchain is requested
-    if (blockchain) {
+    if (blockchain !== null && blockchain !== undefined && blockchain !== '') {
       const blockchainRoutes = await this.findRoutesForBlockchain(
         blockchain,
         from,
@@ -261,10 +263,10 @@ export class PaymentRoutingService {
 
   /**
    * Find routes for a specific blockchain
-   * @param blockchain
-   * @param from
-   * @param to
-   * @param amount
+   * @param blockchain - Target blockchain
+   * @param from - Sender address
+   * @param to - Recipient address
+   * @param amount - Amount to send
    * @param token
    * @param accept
    */

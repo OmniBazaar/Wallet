@@ -1,15 +1,10 @@
 /* @jsxImportSource react */
 import React from 'react';
-import { Theme } from '../../../../types/theme';
-
-// Since styled-components may not be available, use inline styles
-interface ThemeProps {
-  theme: Theme;
-}
+// Theme interface removed - not used in this component
 
 // Function to inject CSS animations into document head
 const injectStyles = (): void => {
-  if (typeof document !== 'undefined' && !document.getElementById('omnicoin-loading-styles-new')) {
+  if (typeof document !== 'undefined' && document.getElementById('omnicoin-loading-styles-new') === null) {
     const style = document.createElement('style');
     style.id = 'omnicoin-loading-styles-new';
     style.textContent = `
@@ -70,17 +65,21 @@ const getProgressStyle = (progress: number): React.CSSProperties => ({
 });
 
 interface OmniCoinLoadingProps {
+    /** Loading text to display */
     text?: string;
+    /** Progress value (0-100) for progress bar */
     progress?: number;
+    /** Whether to show progress bar */
     showProgress?: boolean;
 }
 
 /**
- *
- * @param root0
- * @param root0.text
- * @param root0.progress
- * @param root0.showProgress
+ * Loading component with spinner and optional progress bar
+ * @param props - Component props
+ * @param props.text - Loading text to display
+ * @param props.progress - Progress value (0-100) for progress bar
+ * @param props.showProgress - Whether to show progress bar
+ * @returns React component for loading state
  */
 export const OmniCoinLoading: React.FC<OmniCoinLoadingProps> = ({
     text = 'Loading...',

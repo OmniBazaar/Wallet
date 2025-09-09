@@ -4,9 +4,11 @@ import { WalletProvider } from '../ui/contexts/WalletContext';
 import WalletConnect from '../ui/widgets/omnicoin/components/WalletConnect';
 
 /**
- *
+ * Home page component for the OmniWallet application
+ * 
+ * @returns JSX element containing the main wallet interface
  */
-export default function Home() {
+export default function Home(): React.JSX.Element {
   return (
     <WalletProvider>
       <div className="container">

@@ -8,74 +8,74 @@ import { Keyring } from '@polkadot/keyring';
 import { hexToU8a, u8aToHex } from '@polkadot/util';
 import { encodeAddress, decodeAddress } from '@polkadot/util-crypto';
 import { BaseProvider } from '../base-provider';
-import { NetworkConfig, Transaction, TransactionRequest } from '@/types';
+import { NetworkConfig, Transaction, TransactionRequest } from '../../../types';
 
 /**
- *
+ * Configuration specific to Polkadot/Substrate networks extending base network config
  */
 export interface PolkadotNetworkConfig extends NetworkConfig {
   /**
-   *
+   * SS58 address format prefix for this network
    */
   prefix: number;
   /**
-   *
+   * Genesis block hash identifying the specific network
    */
   genesisHash: string;
   /**
-   *
+   * Number of decimal places for the native currency
    */
   decimals: number;
   /**
-   *
+   * Minimum balance required to keep an account alive
    */
   existentialDeposit: string;
 }
 
 /**
- *
+ * Transaction structure for Substrate-based networks
  */
 export interface SubstrateTransaction {
   /**
-   *
+   * Transaction sender address
    */
   from: string;
   /**
-   *
+   * Transaction recipient address
    */
   to: string;
   /**
-   *
+   * Transaction value in smallest unit
    */
   value: string;
   /**
-   *
+   * Transaction method name (e.g., 'transfer')
    */
   method: string;
   /**
-   *
+   * Transaction pallet/module name (e.g., 'balances')
    */
   section: string;
   /**
-   *
+   * Transaction arguments as an array of values
    */
   args: Array<unknown>;
   /**
-   *
+   * Transaction validity period
    */
   era?: string;
   /**
-   *
+   * Account nonce for transaction ordering
    */
   nonce?: number;
   /**
-   *
+   * Optional tip to prioritize transaction
    */
   tip?: string;
 }
 
 /**
- *
+ * Provider implementation for Polkadot/Substrate network interactions
  */
 export class PolkadotProvider extends BaseProvider {
   protected api: ApiPromise | null = null;
@@ -87,8 +87,8 @@ export class PolkadotProvider extends BaseProvider {
   protected existentialDeposit: string;
 
   /**
-   *
-   * @param config
+   * Initialize Polkadot provider with network configuration
+   * @param config - Network-specific configuration including prefix, genesis hash, etc.
    */
   constructor(config: PolkadotNetworkConfig) {
     super(config);
@@ -96,64 +96,73 @@ export class PolkadotProvider extends BaseProvider {
     this.genesisHash = config.genesisHash;
     this.decimals = config.decimals;
     this.existentialDeposit = config.existentialDeposit;
-    this.wsProvider = new WsProvider(config.rpcUrl);
+    this.wsProvider = new WsProvider(this.config.rpcUrl);
     this.keyring = new Keyring({ type: 'sr25519', ss58Format: this.prefix });
   }
 
   /**
    * Initialize the API connection
+   * @returns Promise that resolves when initialization is complete
    */
   async init(): Promise<void> {
-    if (!this.api) {
+    if (this.api === null) {
       this.api = await ApiPromise.create({ provider: this.wsProvider });
       await this.api.isReady;
     }
   }
 
   /**
-   * Ensure API is initialized
+   * Ensure API is initialized and available
+   * @returns Initialized API instance
    */
   protected async ensureApi(): Promise<ApiPromise> {
-    if (!this.api) {
+    if (this.api === null) {
       await this.init();
     }
-    if (!this.api) throw new Error('Failed to initialize Polkadot API');
+    if (this.api === null) throw new Error('Failed to initialize Polkadot API');
     return this.api;
   }
 
   /**
    * Get account from private key
-   * @param privateKey
+   * @param privateKey - Private key or seed phrase
+   * @returns Account address and public key
    */
-  async getAccount(privateKey: string): Promise<{ /**
-                                                   *
-                                                   */
-  address: string; /**
-                    *
-                    */
-  publicKey: string }> {
+  getAccount(privateKey: string): Promise<{ 
+    /** Account address in SS58 format */
+    address: string;
+    /** Public key as hex string */
+    publicKey: string;
+  }> {
     const keyPair = this.keyring.addFromUri(privateKey);
-    return {
+    return Promise.resolve({
       address: keyPair.address,
       publicKey: u8aToHex(keyPair.publicKey)
-    };
+    });
   }
 
   /**
    * Get balance for an address
-   * @param address
+   * @param address - Account address to check
+   * @returns Balance as string in smallest unit
    */
   async getBalance(address: string): Promise<string> {
     const api = await this.ensureApi();
-    const system = (api.query as any)['system'];
-    const account = await system?.['account'](address);
+    const system = api.query.system as unknown as {
+      account: (address: string) => Promise<{
+        data?: { free: { toString: () => string } };
+        free?: { toString: () => string };
+      }>;
+    };
+    const account = await system.account(address);
     const free = account?.data?.free ?? account?.free;
-    return free?.toString?.() ?? '0';
+    return free?.toString() ?? '0';
   }
 
   /**
    * Get formatted balance
-   * @param address
+   * @param address - Account address to check
+   * @returns Formatted balance string with currency symbol
    */
   async getFormattedBalance(address: string): Promise<string> {
     const balance = await this.getBalance(address);
@@ -163,15 +172,23 @@ export class PolkadotProvider extends BaseProvider {
 
   /**
    * Sign transaction
-   * @param privateKey
-   * @param transaction
+   * @param privateKey - Private key or seed phrase
+   * @param transaction - Transaction request object
+   * @returns Signed transaction as hex string
    */
   async signTransaction(privateKey: string, transaction: TransactionRequest): Promise<string> {
     const api = await this.ensureApi();
     const keyPair = this.keyring.addFromUri(privateKey);
     
     // Create the transfer
-    const transfer = (api.tx as any)['balances']?.['transfer'](transaction.to, transaction.value || '0');
+    const tx = api.tx as unknown as {
+      balances: {
+        transfer: (to: string, value: string) => {
+          signAsync: (signer: unknown) => Promise<{ toHex: () => string }>;
+        };
+      };
+    };
+    const transfer = tx.balances.transfer(transaction.to, transaction.value ?? '0');
     
     // Sign the transaction
     const signedTx = await transfer.signAsync(keyPair);
@@ -181,17 +198,19 @@ export class PolkadotProvider extends BaseProvider {
 
   /**
    * Send transaction
-   * @param signedTransaction
+   * @param signedTransaction - Signed transaction as hex string
+   * @returns Transaction hash
    */
   async sendTransaction(signedTransaction: string): Promise<string> {
     const api = await this.ensureApi();
-    const hash = await api.rpc.author.submitExtrinsic(signedTransaction as any);
+    const hash = await api.rpc.author.submitExtrinsic(signedTransaction);
     return hash.toString();
   }
 
   /**
    * Get transaction details using Subscan API
-   * @param txHash
+   * @param txHash - Transaction hash to look up
+   * @returns Transaction details
    */
   async getTransaction(txHash: string): Promise<Transaction> {
     try {
@@ -201,7 +220,7 @@ export class PolkadotProvider extends BaseProvider {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-API-Key': process.env.SUBSCAN_API_KEY || ''
+          'X-API-Key': process.env.SUBSCAN_API_KEY ?? ''
         },
         body: JSON.stringify({
           hash: txHash
@@ -218,14 +237,14 @@ export class PolkadotProvider extends BaseProvider {
           account_id: string;
           call_module: string;
           call_module_function: string;
-          params?: Array<{ name: string; value: any }>;
+          params?: Array<{ name: string; value: unknown }>;
           success: boolean;
           block_num: number;
           block_timestamp: number;
         };
       };
 
-      if (!data.data) {
+      if (data.data === null || data.data === undefined) {
         throw new Error('Transaction not found');
       }
 
@@ -236,15 +255,15 @@ export class PolkadotProvider extends BaseProvider {
       let value = '0';
       
       if (extrinsic.call_module === 'balances' && extrinsic.call_module_function === 'transfer') {
-        const params = extrinsic.params || [];
+        const params = extrinsic.params ?? [];
         const destParam = params.find(p => p.name === 'dest');
         const valueParam = params.find(p => p.name === 'value');
         
-        if (destParam && destParam.value?.Id) {
-          to = destParam.value.Id;
+        if (destParam !== null && destParam !== undefined && typeof destParam.value === 'object' && destParam.value !== null && 'Id' in destParam.value) {
+          to = String(destParam.value.Id);
         }
-        if (valueParam) {
-          value = valueParam.value?.toString() || '0';
+        if (valueParam !== undefined && valueParam.value !== null && valueParam.value !== undefined) {
+          value = String(valueParam.value);
         }
       }
 
@@ -258,7 +277,6 @@ export class PolkadotProvider extends BaseProvider {
         status: extrinsic.success ? 'confirmed' : 'failed'
       };
     } catch (error) {
-      console.error('Error fetching transaction:', error);
       // Fallback to basic structure
       return {
         hash: txHash,
@@ -272,8 +290,9 @@ export class PolkadotProvider extends BaseProvider {
 
   /**
    * Get transaction history using Subscan API
-   * @param address
-   * @param limit
+   * @param address - Address to get transaction history for
+   * @param limit - Maximum number of transactions to return
+   * @returns Array of transactions
    */
   async getTransactionHistory(address: string, limit = 10): Promise<Transaction[]> {
     try {
@@ -282,7 +301,7 @@ export class PolkadotProvider extends BaseProvider {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-API-Key': process.env.SUBSCAN_API_KEY || ''
+          'X-API-Key': process.env.SUBSCAN_API_KEY ?? ''
         },
         body: JSON.stringify({
           address,
@@ -309,7 +328,7 @@ export class PolkadotProvider extends BaseProvider {
         };
       };
 
-      if (!data.data) {
+      if (data.data === null || data.data === undefined) {
         return [];
       }
 
@@ -323,19 +342,19 @@ export class PolkadotProvider extends BaseProvider {
         status: tx.success ? 'confirmed' : 'failed'
       }));
     } catch (error) {
-      console.error('Error fetching transaction history:', error);
       return [];
     }
   }
 
   /**
    * Subscribe to new blocks
-   * @param callback
+   * @param callback - Function called with each new block number
+   * @returns Unsubscribe function
    */
   async subscribeToBlocks(callback: (blockNumber: number) => void): Promise<() => void> {
     const api = await this.ensureApi();
     
-    const unsubscribe = await api.rpc.chain.subscribeNewHeads((header) => {
+    const unsubscribe = await api.rpc.chain.subscribeNewHeads((header: { number: { toNumber: () => number } }) => {
       callback(header.number.toNumber());
     });
 
@@ -346,18 +365,20 @@ export class PolkadotProvider extends BaseProvider {
 
   /**
    * Sign message
-   * @param privateKey
-   * @param message
+   * @param privateKey - Private key or seed phrase
+   * @param message - Message to sign as hex string
+   * @returns Signature as hex string
    */
-  async signMessage(privateKey: string, message: string): Promise<string> {
+  signMessage(privateKey: string, message: string): Promise<string> {
     const keyPair = this.keyring.addFromUri(privateKey);
     const signature = keyPair.sign(hexToU8a(message));
-    return u8aToHex(signature);
+    return Promise.resolve(u8aToHex(signature));
   }
 
   /**
    * Encode address with network prefix
-   * @param address
+   * @param address - Address to encode
+   * @returns Encoded address with network prefix
    */
   encodeAddress(address: string): string {
     return encodeAddress(decodeAddress(address), this.prefix);
@@ -365,6 +386,7 @@ export class PolkadotProvider extends BaseProvider {
 
   /**
    * Get existential deposit
+   * @returns Existential deposit amount as string
    */
   getExistentialDeposit(): string {
     return this.existentialDeposit;
@@ -372,6 +394,7 @@ export class PolkadotProvider extends BaseProvider {
 
   /**
    * Get Subscan API URL based on network
+   * @returns Subscan API URL for the current network
    */
   private getSubscanUrl(): string {
     // Map network names to Subscan URLs
@@ -383,11 +406,12 @@ export class PolkadotProvider extends BaseProvider {
     };
 
     const networkName = this.config.name.toLowerCase();
-    return subscanUrls[networkName] || 'https://polkadot.api.subscan.io';
+    return subscanUrls[networkName] ?? 'https://polkadot.api.subscan.io';
   }
 
   /**
    * Get network information
+   * @returns Network configuration details
    */
   getNetworkInfo(): {
     name: string;
@@ -413,39 +437,50 @@ export class PolkadotProvider extends BaseProvider {
 
   /**
    * Get account nonce
-   * @param address
+   * @param address - Account address
+   * @returns Account nonce number
    */
   async getNonce(address: string): Promise<number> {
     const api = await this.ensureApi();
-    const system = (api.query as any)['system'];
-    const account = await system?.['account'](address);
-    return account?.nonce?.toNumber() || 0;
+    const system = api.query.system as unknown as {
+      account: (address: string) => Promise<{
+        nonce?: { toNumber: () => number };
+      }>;
+    };
+    const account = await system.account(address);
+    return account?.nonce?.toNumber() ?? 0;
   }
 
   /**
    * Estimate transaction fees
-   * @param transaction
+   * @param transaction - Transaction request to estimate fees for
+   * @returns Fee estimate as string in smallest unit
    */
   async estimateFee(transaction: TransactionRequest): Promise<string> {
     try {
       const api = await this.ensureApi();
-      const transfer = (api.tx as any)['balances']?.['transfer'](transaction.to, transaction.value || '0');
+      const tx = api.tx as unknown as {
+        balances: {
+          transfer: (to: string, value: string) => {
+            paymentInfo: (address: string) => Promise<{
+              partialFee: { toString: () => string };
+            }>;
+          };
+        };
+      };
+      const transfer = tx.balances.transfer(transaction.to, transaction.value ?? '0');
       
-      if (!transfer) {
-        throw new Error('Failed to create transaction');
-      }
-
       const info = await transfer.paymentInfo('5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY'); // Dummy address for fee estimation
       return info.partialFee.toString();
     } catch (error) {
-      console.error('Error estimating fee:', error);
       return '0';
     }
   }
 
   /**
    * Check if address is valid for this network
-   * @param address
+   * @param address - Address to validate
+   * @returns True if address is valid
    */
   isValidAddress(address: string): boolean {
     try {
@@ -458,7 +493,8 @@ export class PolkadotProvider extends BaseProvider {
 
   /**
    * Format balance with network decimals
-   * @param amount
+   * @param amount - Amount in smallest unit
+   * @returns Formatted balance string with currency
    */
   formatBalance(amount: string | number): string {
     const value = typeof amount === 'string' ? parseInt(amount) : amount;
@@ -468,7 +504,8 @@ export class PolkadotProvider extends BaseProvider {
 
   /**
    * Parse amount to smallest unit
-   * @param amount
+   * @param amount - Human-readable amount
+   * @returns Amount in smallest unit as string
    */
   parseAmount(amount: string): string {
     const value = parseFloat(amount);
@@ -477,9 +514,10 @@ export class PolkadotProvider extends BaseProvider {
 
   /**
    * Disconnect from the network
+   * @returns Promise that resolves when disconnected
    */
   async disconnect(): Promise<void> {
-    if (this.api) {
+    if (this.api !== null) {
       await this.api.disconnect();
       this.api = null;
     }

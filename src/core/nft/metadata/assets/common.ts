@@ -10,35 +10,52 @@
  * - Integration with our provider system
  */
 
+interface ParsedAsset {
+  id: string;
+  name: string;
+  symbol: string;
+  balance: string;
+  [key: string]: unknown;
+}
+
 // Placeholder exports to prevent import errors
 /**
- *
- * @param assets
+ * Parse raw asset data into a structured format
+ * @param assets - Array of raw asset data
+ * @returns Array of parsed assets
  */
-export const parseUserAssets = (assets: unknown[]): unknown[] => {
+export const parseUserAssets = (assets: unknown[]): ParsedAsset[] => {
   // TODO: Implement proper asset parsing
-  return assets;
+  return assets as ParsedAsset[];
 };
 
+/**
+ * Query key for user assets cache
+ */
 export const userAssetsQueryKey = 'userAssets';
 
 /**
- *
- * @param asset
+ * Get the balance of a specific asset
+ * @param _asset - The asset object
+ * @returns The balance as a string
  */
-export const getAssetBalance = (asset: unknown): string => {
+export const getAssetBalance = (_asset: unknown): string => {
   // TODO: Implement proper balance calculation
   return '0';
 };
 
 /**
- *
- * @param amount
- * @param decimals
+ * Format asset amount with proper decimals
+ * @param amount - The amount to format
+ * @param _decimals - Number of decimal places (default 18)
+ * @returns Formatted amount as string
  */
-export const formatAssetAmount = (amount: string, decimals = 18): string => {
+export const formatAssetAmount = (amount: string, _decimals = 18): string => {
   // TODO: Implement proper amount formatting
   return amount;
 };
 
+/**
+ * Placeholder object for common asset operations
+ */
 export const COMMON_PLACEHOLDER = {};

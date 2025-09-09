@@ -5,7 +5,14 @@
  */
 
 import { createAvalancheValidatorClient, AvalancheValidatorClient } from '../../Validator/src/client/AvalancheValidatorClient';
-import { gql } from '@apollo/client';
+// Simple gql template literal tag for GraphQL queries
+const gql = (strings: TemplateStringsArray, ...values: unknown[]): string => {
+  let result = strings[0];
+  for (let i = 0; i < values.length; i++) {
+    result += String(values[i]) + strings[i + 1];
+  }
+  return result;
+};
 import { ethers } from 'ethers';
 import { nanoid } from 'nanoid';
 import { ref, Ref } from 'vue';
@@ -1216,7 +1223,7 @@ export class ValidatorWalletService {
     combined.set(new Uint8Array(encrypted), salt.length + iv.length);
 
     // Return base64 encoded result
-    return btoa(String.fromCharCode(...combined));
+    return btoa(String.fromCharCode(...Array.from(combined)));
   }
 
   /**
@@ -1298,10 +1305,10 @@ export class ValidatorWalletService {
 
 // Export configured instance for easy use
 export const validatorWallet = new ValidatorWalletService({
-  validatorEndpoint: import.meta.env['VITE_VALIDATOR_ENDPOINT'] || 'http://localhost:4000',
-  wsEndpoint: import.meta.env['VITE_VALIDATOR_WS_ENDPOINT'] || 'ws://localhost:4000/graphql',
-  apiKey: import.meta.env['VITE_VALIDATOR_API_KEY'] || undefined,
-  networkId: import.meta.env['VITE_NETWORK_ID'] || 'omnibazaar-mainnet',
+  validatorEndpoint: (typeof process !== 'undefined' && process.env?.['VITE_VALIDATOR_ENDPOINT']) || 'http://localhost:4000',
+  wsEndpoint: (typeof process !== 'undefined' && process.env?.['VITE_VALIDATOR_WS_ENDPOINT']) || 'ws://localhost:4000/graphql',
+  apiKey: (typeof process !== 'undefined' && process.env?.['VITE_VALIDATOR_API_KEY']) || undefined,
+  networkId: (typeof process !== 'undefined' && process.env?.['VITE_NETWORK_ID']) || 'omnibazaar-mainnet',
   userId: '', // Will be set when user logs in
   enableSecureStorage: true,
   autoBackup: true

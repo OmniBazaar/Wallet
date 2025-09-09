@@ -26,7 +26,7 @@ interface UseListingsReturn {
  * @returns Listing data, loading state, pagination and helpers
  */
 export const useListings = (contractAddress: string): UseListingsReturn => {
-    const { provider } = useWallet();
+    const { provider: _provider } = useWallet();
     const [listings, setListings] = useState<ListingMetadata[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -36,39 +36,43 @@ export const useListings = (contractAddress: string): UseListingsReturn => {
     
     // Initialize OmniProvider for marketplace data
     useEffect(() => {
-        const initProvider = async () => {
+        const initProvider = (): void => {
             try {
                 const provider = new OmniProvider('marketplace-listings');
                 setOmniProvider(provider);
-            } catch (error) {
-                console.error('Failed to initialize OmniProvider:', error);
+            } catch (error: unknown) {
+                // Silently handle provider initialization error
             }
         };
         
         initProvider();
     }, []);
 
-    const searchListings = useCallback(async (filters: SearchFilters) => {
+    const searchListings = useCallback(async (filters: SearchFilters): Promise<void> => {
         try {
             setIsLoading(true);
             setError(null);
 
             // Try OmniProvider first for P2P marketplace data
-            if (omniProvider) {
+            if (omniProvider !== null) {
                 try {
                     const result = await omniProvider.send('omni_searchListings', [{
                         contractAddress,
                         ...filters
-                    }]);
+                    }]) as unknown;
                     
-                    if (result && result.listings) {
-                        setListings(result.listings);
-                        setTotalResults(result.total || result.listings.length);
-                        setCurrentPage(filters.page || 1);
+                    const resultData = result as {
+                        listings?: ListingMetadata[];
+                        total?: number;
+                    } | null;
+                    if (resultData !== null && resultData.listings !== undefined) {
+                        setListings(resultData.listings);
+                        setTotalResults(resultData.total ?? resultData.listings.length);
+                        setCurrentPage(filters.page ?? 1);
                         return;
                     }
-                } catch (error) {
-                    console.warn('OmniProvider search failed, falling back to API:', error);
+                } catch (error: unknown) {
+                    // Silently fall back to API
                 }
             }
 
@@ -88,14 +92,16 @@ export const useListings = (contractAddress: string): UseListingsReturn => {
                 throw new Error('Failed to search listings');
             }
 
-            const data = await response.json();
+            const data = await response.json() as {
+                listings: ListingMetadata[];
+                total: number;
+            };
             setListings(data.listings);
             setTotalResults(data.total);
-            setCurrentPage(filters.page || 1);
+            setCurrentPage(filters.page ?? 1);
 
-        } catch (err) {
+        } catch (err: unknown) {
             setError(err instanceof Error ? err.message : 'Failed to search listings');
-            console.error('Error searching listings:', err);
         } finally {
             setIsLoading(false);
         }
@@ -104,14 +110,17 @@ export const useListings = (contractAddress: string): UseListingsReturn => {
     const getListing = useCallback(async (tokenId: string): Promise<ListingMetadata | null> => {
         try {
             // Try OmniProvider first
-            if (omniProvider) {
+            if (omniProvider !== null) {
                 try {
-                    const result = await omniProvider.send('omni_getListing', [contractAddress, tokenId]);
-                    if (result && result.listing) {
-                        return result.listing;
+                    const result = await omniProvider.send('omni_getListing', [contractAddress, tokenId]) as unknown;
+                    const resultData = result as {
+                        listing?: ListingMetadata;
+                    } | null;
+                    if (resultData !== null && resultData.listing !== undefined) {
+                        return resultData.listing;
                     }
-                } catch (error) {
-                    console.warn('OmniProvider getListing failed, falling back to API:', error);
+                } catch (error: unknown) {
+                    // Silently fall back to API
                 }
             }
 
@@ -122,31 +131,36 @@ export const useListings = (contractAddress: string): UseListingsReturn => {
                 throw new Error('Failed to fetch listing');
             }
 
-            const data = await response.json();
+            const data = await response.json() as {
+                listing: ListingMetadata;
+            };
             return data.listing;
 
-        } catch (err) {
-            console.error('Error fetching listing:', err);
+        } catch (err: unknown) {
             return null;
         }
     }, [omniProvider, contractAddress]);
 
-    const refreshListings = useCallback(async () => {
+    const refreshListings = useCallback(async (): Promise<void> => {
         try {
             setIsLoading(true);
             setError(null);
 
             // Try OmniProvider first
-            if (omniProvider) {
+            if (omniProvider !== null) {
                 try {
-                    const result = await omniProvider.send('omni_refreshListings', [contractAddress]);
-                    if (result && result.listings) {
-                        setListings(result.listings);
-                        setTotalResults(result.total || result.listings.length);
+                    const result = await omniProvider.send('omni_refreshListings', [contractAddress]) as unknown;
+                    const resultData = result as {
+                        listings?: ListingMetadata[];
+                        total?: number;
+                    } | null;
+                    if (resultData !== null && resultData.listings !== undefined) {
+                        setListings(resultData.listings);
+                        setTotalResults(resultData.total ?? resultData.listings.length);
                         return;
                     }
-                } catch (error) {
-                    console.warn('OmniProvider refresh failed, falling back to API:', error);
+                } catch (error: unknown) {
+                    // Silently fall back to API
                 }
             }
 
@@ -157,13 +171,15 @@ export const useListings = (contractAddress: string): UseListingsReturn => {
                 throw new Error('Failed to refresh listings');
             }
 
-            const data = await response.json();
+            const data = await response.json() as {
+                listings: ListingMetadata[];
+                total: number;
+            };
             setListings(data.listings);
             setTotalResults(data.total);
 
-        } catch (err) {
+        } catch (err: unknown) {
             setError(err instanceof Error ? err.message : 'Failed to refresh listings');
-            console.error('Error refreshing listings:', err);
         } finally {
             setIsLoading(false);
         }

@@ -129,7 +129,8 @@ export class MultiChainNFTDisplay {
   /**
    * Get NFTs from all enabled chains for a given address.
    * Returns a flattened list and a per‑chain breakdown.
-   * @param address Wallet address
+   * @param address - Wallet address
+   * @returns Promise resolving to NFTs from all chains
    */
   async getAllNFTs(address: string): Promise<{
     nfts: NFTItem[];
@@ -142,7 +143,7 @@ export class MultiChainNFTDisplay {
     for (const chainId of this.enabledChains) {
       try {
         const provider = this.providers.get(chainId);
-        if (provider && provider.isConnected) {
+        if (provider !== undefined && provider.isConnected) {
           const chainNFTs = await provider.getNFTs(address);
           allNFTs.push(...chainNFTs);
           nftsByChain[chainId] = chainNFTs;
@@ -167,7 +168,8 @@ export class MultiChainNFTDisplay {
 
   /**
    * Get NFT collections from all enabled chains for a wallet address.
-   * @param address Wallet address
+   * @param address - Wallet address
+   * @returns Promise resolving to collections from all chains
    */
   async getAllCollections(address: string): Promise<{
     collections: NFTCollection[];
@@ -179,7 +181,7 @@ export class MultiChainNFTDisplay {
     for (const chainId of this.enabledChains) {
       try {
         const provider = this.providers.get(chainId);
-        if (provider && provider.isConnected) {
+        if (provider !== undefined && provider.isConnected) {
           const chainCollections = await provider.getCollections(address);
           allCollections.push(...chainCollections);
           collectionsByChain[chainId] = chainCollections;
@@ -203,7 +205,8 @@ export class MultiChainNFTDisplay {
 
   /**
    * Search NFTs across all enabled chains
-   * @param query
+   * @param query - Search parameters and filters
+   * @returns Promise resolving to search results with pagination
    */
   async searchNFTs(query: NFTSearchQuery): Promise<NFTSearchResult> {
     const results: NFTItem[] = [];
@@ -216,10 +219,10 @@ export class MultiChainNFTDisplay {
     for (const chainId of this.enabledChains) {
       try {
         const chainConfig = this.chains.get(chainId);
-        if (!chainConfig) continue;
+        if (chainConfig === undefined) continue;
 
         // Filter by blockchain if specified
-        if (query.blockchain && chainConfig.name.toLowerCase() !== query.blockchain.toLowerCase()) {
+        if (query.blockchain !== undefined && query.blockchain.length > 0 && chainConfig.name.toLowerCase() !== query.blockchain.toLowerCase()) {
           continue;
         }
 
@@ -230,15 +233,15 @@ export class MultiChainNFTDisplay {
         for (const nft of chainNFTs) {
           // Categories
           const category = nft.attributes.find(attr => attr.trait_type === 'Category')?.value as string;
-          if (category) {
-            filters.categories.set(category, (filters.categories.get(category) || 0) + 1);
+          if (category !== undefined && category.length > 0) {
+            filters.categories.set(category, (filters.categories.get(category) ?? 0) + 1);
           }
 
           // Blockchain
-          filters.blockchains.set(chainConfig.name, (filters.blockchains.get(chainConfig.name) || 0) + 1);
+          filters.blockchains.set(chainConfig.name, (filters.blockchains.get(chainConfig.name) ?? 0) + 1);
 
           // Price range
-          if (nft.price) {
+          if (nft.price !== undefined && nft.price.length > 0) {
             const price = parseFloat(nft.price);
             if (price > 0) {
               filters.priceRange.min = Math.min(filters.priceRange.min, price);
@@ -252,7 +255,7 @@ export class MultiChainNFTDisplay {
     }
 
     // Sort results
-    if (query.sortBy) {
+    if (query.sortBy !== undefined && query.sortBy.length > 0) {
       results.sort((a, b) => {
         const order = (query as { sortOrder?: string }).sortOrder === 'desc' ? -1 : 1;
         switch (query.sortBy) {
@@ -272,8 +275,8 @@ export class MultiChainNFTDisplay {
     }
 
     // Apply pagination
-    const offset = query.offset || 0;
-    const limit = query.limit || 50;
+    const offset = query.offset ?? 0;
+    const limit = query.limit ?? 50;
     const paginatedResults = results.slice(offset, offset + limit);
 
     // Convert NFTItems to MarketplaceListing format for search results
@@ -293,8 +296,9 @@ export class MultiChainNFTDisplay {
 
   /**
    * Search NFTs on a specific chain
-   * @param chainId
-   * @param query
+   * @param chainId - Chain ID to search
+   * @param query - Search query parameters
+   * @returns Promise resolving to filtered NFTs
    */
   private async searchChainNFTs(chainId: number, query: NFTSearchQuery): Promise<NFTItem[]> {
     // This would be replaced with actual chain-specific search logic
@@ -302,17 +306,17 @@ export class MultiChainNFTDisplay {
     
     // Apply basic filtering
     return mockNFTs.filter(nft => {
-      if (query.query && !nft.name.toLowerCase().includes(query.query.toLowerCase())) {
+      if (query.query !== undefined && query.query.length > 0 && !nft.name.toLowerCase().includes(query.query.toLowerCase())) {
         return false;
       }
-      if (query.category) {
+      if (query.category !== undefined && query.category.length > 0) {
         const category = nft.attributes.find(attr => attr.trait_type === 'Category')?.value;
         if (category !== query.category) return false;
       }
-      if (query.priceMin || query.priceMax) {
-        const price = parseFloat(nft.price || '0');
-        if (query.priceMin && price < query.priceMin) return false;
-        if (query.priceMax && price > query.priceMax) return false;
+      if ((query.priceMin !== undefined && query.priceMin > 0) || (query.priceMax !== undefined && query.priceMax > 0)) {
+        const price = parseFloat(nft.price ?? '0');
+        if (query.priceMin !== undefined && query.priceMin > 0 && price < query.priceMin) return false;
+        if (query.priceMax !== undefined && query.priceMax > 0 && price > query.priceMax) return false;
       }
       return true;
     });
@@ -320,21 +324,24 @@ export class MultiChainNFTDisplay {
 
   /**
    * Generate mock NFTs for demonstration (replace with real provider calls)
-   * @param chainId
-   * @param address
+   * @param chainId - Chain ID to generate NFTs for
+   * @param address - Wallet address
+   * @returns Promise resolving to mock NFTs
    */
   private async getMockNFTsForChain(chainId: number, address: string): Promise<NFTItem[]> {
     const chainConfig = this.chains.get(chainId);
-    if (!chainConfig) return [];
+    if (chainConfig === undefined) return [];
 
     const mockNFTs: NFTItem[] = [];
-    const count = Math.floor(Math.random() * 5) + 1; // 1-5 NFTs per chain
+    const { secureRandomInt } = require('../../utils/secure-random');
+    const count = secureRandomInt(1, 5); // 1-5 NFTs per chain
 
     for (let i = 0; i < count; i++) {
       const tokenId = (Date.now() + i).toString();
-      const isListed = Math.random() > 0.5;
-      const price = isListed ? (Math.random() * 10).toFixed(3) : undefined;
-      const currency = isListed ? (chainId === 8888 ? 'XOM' : ['ETH', 'MATIC', 'BNB', 'AVAX', 'SOL'][Math.floor(Math.random() * 5)]) : undefined;
+      const { secureRandom } = require('../../utils/secure-random');
+      const isListed = secureRandom() > 0.5;
+      const price = isListed ? (secureRandom() * 10).toFixed(3) : undefined;
+      const currency = isListed ? (chainId === 8888 ? 'XOM' : ['ETH', 'MATIC', 'BNB', 'AVAX', 'SOL'][secureRandomInt(0, 4)]) : undefined;
 
       mockNFTs.push({
         id: `${chainConfig.name.toLowerCase()}_${chainId}_${tokenId}`,
@@ -348,13 +355,22 @@ export class MultiChainNFTDisplay {
           { trait_type: 'Category', value: ['Art', 'Gaming', 'Collectibles'][i % 3] || 'Art' },
           { trait_type: 'Rarity', value: ['Common', 'Rare', 'Epic'][i % 3] || 'Common' }
         ],
-        contract: `0x${Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}`,
-        contractAddress: `0x${Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}`,
+        contract: (() => {
+          const { generateSecureMockAddress } = require('../../utils/secure-random');
+          return generateSecureMockAddress();
+        })(),
+        contractAddress: (() => {
+          const { generateSecureMockAddress } = require('../../utils/secure-random');
+          return generateSecureMockAddress();
+        })(),
         // Ensure a valid token standard string for strict types
         tokenStandard: chainConfig.nftStandards[0] || 'other',
         blockchain: chainConfig.name.toLowerCase(),
         owner: address,
-        creator: `0x${Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}`,
+        creator: (() => {
+          const { generateSecureMockAddress } = require('../../utils/secure-random');
+          return generateSecureMockAddress();
+        })(),
         ...(isListed && { isListed }),
         ...(price && { price }),
         ...(currency && { currency })
@@ -370,17 +386,26 @@ export class MultiChainNFTDisplay {
    */
   private async getMockCollectionsForChain(chainId: number): Promise<NFTCollection[]> {
     const chainConfig = this.chains.get(chainId);
-    if (!chainConfig) return [];
+    if (chainConfig === undefined) return [];
 
     return [{
       id: `collection_${chainId}`,
       name: `${chainConfig.name} Collection`,
       description: `Sample collection from ${chainConfig.name}`,
-      contract: `0x${Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}`,
-      contractAddress: `0x${Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}`,
+      contract: (() => {
+        const { generateSecureMockAddress } = require('../../utils/secure-random');
+        return generateSecureMockAddress();
+      })(),
+      contractAddress: (() => {
+        const { generateSecureMockAddress } = require('../../utils/secure-random');
+        return generateSecureMockAddress();
+      })(),
       tokenStandard: chainConfig.nftStandards[0] || 'other',
       blockchain: chainConfig.name.toLowerCase(),
-      creator: `0x${Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}`,
+      creator: (() => {
+        const { generateSecureMockAddress } = require('../../utils/secure-random');
+        return generateSecureMockAddress();
+      })(),
       verified: true,
       items: []
     }];

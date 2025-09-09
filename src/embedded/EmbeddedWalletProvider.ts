@@ -7,7 +7,7 @@
  * @module embedded/EmbeddedWalletProvider
  */
 
-import { ethers } from 'ethers';
+// ethers import removed - not used in this file
 import { v4 as uuidv4 } from 'uuid';
 
 /**
@@ -64,26 +64,37 @@ export enum RPCMethod {
  * Wallet message structure
  */
 export interface WalletMessage {
+  /** Message type identifier */
   type: MessageType;
+  /** Unique message ID */
   id: string;
+  /** RPC method name */
   method?: string;
-  params?: any[];
-  result?: any;
+  /** Method parameters */
+  params?: unknown[];
+  /** Method result */
+  result?: unknown;
+  /** Error information */
   error?: {
     code: number;
     message: string;
-    data?: any;
+    data?: unknown;
   };
+  /** Event name */
   event?: string;
-  data?: any;
+  /** Additional data */
+  data?: unknown;
 }
 
 /**
  * Authentication methods
  */
 export interface AuthMethod {
+  /** Authentication method type */
   type: 'email' | 'sms' | 'google' | 'apple' | 'github' | 'passkey' | 'legacy';
+  /** Credential for authentication (email, phone, username) */
   credential?: string;
+  /** Token for authentication (legacy auth) */
   token?: string;
 }
 
@@ -91,10 +102,15 @@ export interface AuthMethod {
  * Wallet connection state
  */
 export interface WalletState {
+  /** Connection status */
   connected: boolean;
+  /** Wallet address */
   address?: string;
+  /** Username */
   username?: string;
+  /** Chain ID */
   chainId?: string;
+  /** Authentication status */
   authenticated: boolean;
 }
 
@@ -102,10 +118,15 @@ export interface WalletState {
  * Configuration options for embedded wallet
  */
 export interface EmbeddedWalletConfig {
+  /** URL of the wallet iframe */
   walletUrl?: string;
+  /** List of allowed origins for PostMessage */
   allowedOrigins?: string[];
+  /** Enable debug logging */
   debug?: boolean;
+  /** Automatically connect wallet on initialization */
   autoConnect?: boolean;
+  /** UI theme preference */
   theme?: 'light' | 'dark' | 'auto';
 }
 
@@ -122,24 +143,28 @@ export class EmbeddedWalletProvider {
   private debug: boolean;
   private messageHandlers: Map<string, (message: WalletMessage) => void>;
   private pendingRequests: Map<string, {
-    resolve: (value: any) => void;
-    reject: (error: any) => void;
+    resolve: (value: unknown) => void;
+    reject: (error: unknown) => void;
     timeout: NodeJS.Timeout;
   }>;
-  private eventListeners: Map<string, Set<Function>>;
+  private eventListeners: Map<string, Set<(...args: unknown[]) => void>>;
   private walletState: WalletState;
   private isReady: boolean = false;
   private readyPromise: Promise<void>;
   private readyResolve?: () => void;
   
+  /**
+   * Creates an instance of EmbeddedWalletProvider
+   * @param config - Configuration options
+   */
   constructor(config: EmbeddedWalletConfig = {}) {
-    this.walletUrl = config.walletUrl || 'https://wallet.omnibazaar.com/embed';
-    this.allowedOrigins = new Set(config.allowedOrigins || [
+    this.walletUrl = config.walletUrl ?? 'https://wallet.omnibazaar.com/embed';
+    this.allowedOrigins = new Set(config.allowedOrigins ?? [
       'https://wallet.omnibazaar.com',
       'https://marketplace.omnibazaar.com',
       'https://dex.omnibazaar.com'
     ]);
-    this.debug = config.debug || false;
+    this.debug = config.debug ?? false;
     this.messageHandlers = new Map();
     this.pendingRequests = new Map();
     this.eventListeners = new Map();
@@ -157,16 +182,17 @@ export class EmbeddedWalletProvider {
     this.setupMessageListener();
     
     // Auto-connect if configured
-    if (config.autoConnect) {
-      this.initialize();
+    if (config.autoConnect === true) {
+      void this.initialize();
     }
   }
   
   /**
    * Initialize the embedded wallet iframe
+   * @returns Promise that resolves when wallet is ready
    */
   async initialize(): Promise<void> {
-    if (this.iframe) {
+    if (this.iframe !== null) {
       this.log('Wallet already initialized');
       return this.readyPromise;
     }
@@ -239,7 +265,7 @@ export class EmbeddedWalletProvider {
     this.isReady = true;
     this.log('Wallet is ready');
     
-    if (this.readyResolve) {
+    if (this.readyResolve !== null && this.readyResolve !== undefined) {
       this.readyResolve();
     }
     
@@ -250,9 +276,13 @@ export class EmbeddedWalletProvider {
   /**
    * Handle response from wallet
    */
+  /**
+   * Handle response from wallet
+   * @param message - The response message from wallet
+   */
   private handleResponse(message: WalletMessage): void {
     const pending = this.pendingRequests.get(message.id);
-    if (!pending) {
+    if (pending === null || pending === undefined) {
       this.log('No pending request for response:', message.id);
       return;
     }
@@ -260,7 +290,7 @@ export class EmbeddedWalletProvider {
     clearTimeout(pending.timeout);
     this.pendingRequests.delete(message.id);
     
-    if (message.error) {
+    if (message.error !== null && message.error !== undefined) {
       pending.reject(message.error);
     } else {
       pending.resolve(message.result);
@@ -270,15 +300,21 @@ export class EmbeddedWalletProvider {
   /**
    * Handle wallet events
    */
+  /**
+   * Handle wallet events
+   * @param message - The event message from wallet
+   */
   private handleEvent(message: WalletMessage): void {
-    if (!message.event) return;
+    if (message.event === null || message.event === undefined || message.event === '') {
+      return;
+    }
     
     // Update wallet state
     if (message.event === 'accountsChanged' && message.data) {
-      this.walletState.address = message.data[0];
-      this.walletState.connected = !!message.data[0];
-    } else if (message.event === 'chainChanged' && message.data) {
-      this.walletState.chainId = message.data;
+      this.walletState.address = (message.data as string[])[0];
+      this.walletState.connected = Boolean((message.data as string[])[0]);
+    } else if (message.event === 'chainChanged' && message.data !== null && message.data !== undefined) {
+      this.walletState.chainId = message.data as string;
     }
     
     // Emit to listeners
@@ -288,11 +324,15 @@ export class EmbeddedWalletProvider {
   /**
    * Handle error from wallet
    */
+  /**
+   * Handle error from wallet
+   * @param message - The error message from wallet
+   */
   private handleError(message: WalletMessage): void {
     this.log('Wallet error:', message.error);
     
     const pending = this.pendingRequests.get(message.id);
-    if (pending) {
+    if (pending !== null && pending !== undefined) {
       clearTimeout(pending.timeout);
       this.pendingRequests.delete(message.id);
       pending.reject(message.error);
@@ -302,15 +342,23 @@ export class EmbeddedWalletProvider {
   /**
    * Handle pong response for keepalive
    */
-  private handlePong(message: WalletMessage): void {
+  /**
+   * Handle pong response for keepalive
+   * @param _message - The pong message (unused)
+   */
+  private handlePong(_message: WalletMessage): void {
     this.log('Received pong');
   }
   
   /**
    * Send message to wallet iframe
    */
+  /**
+   * Send message to wallet iframe
+   * @param message - The message to send
+   */
   private sendMessage(message: WalletMessage): void {
-    if (!this.iframe || !this.iframe.contentWindow) {
+    if (this.iframe === null || this.iframe === undefined || this.iframe.contentWindow === null || this.iframe.contentWindow === undefined) {
       throw new Error('Wallet iframe not initialized');
     }
     
@@ -320,10 +368,14 @@ export class EmbeddedWalletProvider {
   
   /**
    * Send RPC request to wallet
+   * @param args - The request arguments
+   * @param args.method - The RPC method name
+   * @param args.params - The method parameters
+   * @returns Promise resolving to the RPC result
    */
   async request(args: { method: string; params?: any[] }): Promise<any> {
     // Ensure wallet is initialized
-    if (!this.isReady) {
+    if (this.isReady === false) {
       await this.initialize();
     }
     
@@ -332,7 +384,7 @@ export class EmbeddedWalletProvider {
       type: MessageType.WALLET_REQUEST,
       id,
       method: args.method,
-      params: args.params || []
+      params: args.params ?? []
     };
     
     return new Promise((resolve, reject) => {
@@ -352,20 +404,22 @@ export class EmbeddedWalletProvider {
   
   /**
    * Connect wallet with authentication
+   * @param authMethod - Optional authentication method
+   * @returns Promise resolving to array of accounts
    */
   async connect(authMethod?: AuthMethod): Promise<string[]> {
     // Send auth request if method provided
-    if (authMethod) {
+    if (authMethod !== null && authMethod !== undefined) {
       const authResult = await this.authenticate(authMethod);
-      if (!authResult) {
+      if (authResult === false) {
         throw new Error('Authentication failed');
       }
     }
     
     // Request accounts
-    const accounts = await this.request({
+    const accounts = (await this.request({
       method: RPCMethod.ETH_REQUEST_ACCOUNTS
-    });
+    })) as string[];
     
     this.walletState.connected = true;
     this.walletState.address = accounts[0];
@@ -375,6 +429,8 @@ export class EmbeddedWalletProvider {
   
   /**
    * Authenticate with wallet
+   * @param authMethod - The authentication method to use
+   * @returns Promise resolving to true if authentication succeeds
    */
   async authenticate(authMethod: AuthMethod): Promise<boolean> {
     const id = uuidv4();
@@ -403,7 +459,7 @@ export class EmbeddedWalletProvider {
   /**
    * Disconnect wallet
    */
-  async disconnect(): Promise<void> {
+  disconnect(): void {
     const message: WalletMessage = {
       type: MessageType.DISCONNECT_WALLET,
       id: uuidv4()
@@ -422,7 +478,9 @@ export class EmbeddedWalletProvider {
    * Show wallet UI (for transaction approval, etc)
    */
   showWallet(): void {
-    if (!this.iframe) return;
+    if (this.iframe === null || this.iframe === undefined) {
+      return;
+    }
     
     this.iframe.style.display = 'block';
     this.iframe.style.top = '50%';
@@ -439,42 +497,50 @@ export class EmbeddedWalletProvider {
    * Hide wallet UI
    */
   hideWallet(): void {
-    if (!this.iframe) return;
+    if (this.iframe === null || this.iframe === undefined) {
+      return;
+    }
     
     this.iframe.style.display = 'none';
   }
   
   /**
    * Add event listener
+   * @param event - The event name
+   * @param listener - The event listener function
    */
-  on(event: string, listener: Function): void {
+  on(event: string, listener: (...args: unknown[]) => void): void {
     if (!this.eventListeners.has(event)) {
       this.eventListeners.set(event, new Set());
     }
-    this.eventListeners.get(event)!.add(listener);
+    this.eventListeners.get(event)?.add(listener);
   }
   
   /**
    * Remove event listener
+   * @param event - The event name
+   * @param listener - The event listener function
    */
-  off(event: string, listener: Function): void {
+  off(event: string, listener: (...args: unknown[]) => void): void {
     const listeners = this.eventListeners.get(event);
-    if (listeners) {
+    if (listeners !== null && listeners !== undefined) {
       listeners.delete(listener);
     }
   }
   
   /**
    * Emit event to listeners
+   * @param event - The event name
+   * @param data - Optional event data
    */
-  private emit(event: string, data?: any): void {
+  private emit(event: string, data?: unknown): void {
     const listeners = this.eventListeners.get(event);
-    if (listeners) {
+    if (listeners !== null && listeners !== undefined) {
       listeners.forEach(listener => {
         try {
           listener(data);
         } catch (error) {
-          console.error('Error in event listener:', error);
+          // Error in event listener
         }
       });
     }
@@ -482,6 +548,7 @@ export class EmbeddedWalletProvider {
   
   /**
    * Check if wallet is connected
+   * @returns True if wallet is connected
    */
   isConnected(): boolean {
     return this.walletState.connected;
@@ -489,6 +556,7 @@ export class EmbeddedWalletProvider {
   
   /**
    * Get current wallet state
+   * @returns Current wallet state object
    */
   getState(): WalletState {
     return { ...this.walletState };
@@ -507,10 +575,11 @@ export class EmbeddedWalletProvider {
   
   /**
    * Debug logging
+   * @param args - Arguments to log
    */
-  private log(...args: any[]): void {
+  private log(..._args: unknown[]): void {
     if (this.debug) {
-      console.log('[EmbeddedWallet]', ...args);
+      // Debug log: [EmbeddedWallet]
     }
   }
   
@@ -529,7 +598,7 @@ export class EmbeddedWalletProvider {
     this.eventListeners.clear();
     
     // Remove iframe
-    if (this.iframe) {
+    if (this.iframe !== null && this.iframe !== undefined) {
       this.iframe.remove();
       this.iframe = null;
     }
@@ -545,6 +614,8 @@ export class EmbeddedWalletProvider {
 
 /**
  * Factory function to create embedded wallet provider
+ * @param config - Optional configuration for the wallet
+ * @returns New EmbeddedWalletProvider instance
  */
 export function createEmbeddedWallet(config?: EmbeddedWalletConfig): EmbeddedWalletProvider {
   return new EmbeddedWalletProvider(config);

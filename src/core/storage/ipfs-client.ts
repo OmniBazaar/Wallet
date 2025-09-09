@@ -3,17 +3,48 @@
  * Handles decentralized storage for NFT metadata and marketplace data
  */
 
-// IPFS HTTP Client type - loaded dynamically due to ESM module
+/**
+ * File type for upload operations
+ */
+interface IPFSFile {
+  /** File path */
+  path: string;
+  /** File content */
+  content: Uint8Array;
+}
+
+/**
+ * Add options for IPFS
+ */
+interface IPFSAddOptions {
+  /** Pin content after adding */
+  pin?: boolean;
+  /** Wrap with directory */
+  wrapWithDirectory?: boolean;
+}
+
+/**
+ * IPFS HTTP Client type - loaded dynamically due to ESM module
+ */
 interface IPFSHTTPClient {
-  add: (file: any, options?: any) => Promise<{ cid: { toString: () => string } }>;
+  /** Add content to IPFS */
+  add: (file: IPFSFile, options?: IPFSAddOptions) => Promise<{ cid: { toString: () => string } }>;
+  /** Read content from IPFS */
   cat: (cid: string) => AsyncIterable<Uint8Array>;
-  get: (cid: string) => AsyncIterable<any>;
+  /** Get content from IPFS */
+  get: (cid: string) => AsyncIterable<{ path: string; content: Uint8Array }>;
+  /** Pin operations */
   pin: {
+    /** Pin content */
     add: (cid: string) => Promise<void>;
+    /** Unpin content */
     rm: (cid: string) => Promise<void>;
+    /** List pinned content */
     ls: () => AsyncIterable<{ cid: { toString: () => string } }>;
   };
+  /** Object operations */
   object: {
+    /** Get object stats */
     stat: (cid: string) => Promise<{
       Hash: string;
       DataSize: number;
@@ -21,10 +52,13 @@ interface IPFSHTTPClient {
       NumLinks: number;
     }>;
   };
-  addAll: (files: any[], options?: any) => AsyncIterable<{ cid: { toString: () => string } }>;
+  /** Add multiple files */
+  addAll: (files: IPFSFile[], options?: IPFSAddOptions) => AsyncIterable<{ cid: { toString: () => string } }>;
 }
 
-/** Result of IPFS upload operation */
+/**
+ * Result of IPFS upload operation
+ */
 export interface IPFSUploadResult {
   /** IPFS hash of uploaded content */
   hash: string;
@@ -34,7 +68,9 @@ export interface IPFSUploadResult {
   size: number;
 }
 
-/** NFT metadata structure following OpenSea standard */
+/**
+ * NFT metadata structure following OpenSea standard
+ */
 export interface NFTMetadata {
   /** NFT name */
   name: string;
@@ -55,7 +91,9 @@ export interface NFTMetadata {
   animation_url?: string;
 }
 
-/** Marketplace listing data structure */
+/**
+ * Marketplace listing data structure
+ */
 export interface MarketplaceListing {
   /** Unique listing identifier */
   id: string;
@@ -76,6 +114,20 @@ export interface MarketplaceListing {
 }
 
 /**
+ * IPFS API configuration
+ */
+interface IPFSAPIConfig {
+  /** API host, e.g. localhost */
+  host: string;
+  /** API port, e.g. 5001 */
+  port: number;
+  /** Protocol (http/https) */
+  protocol: string;
+  /** API path (default /api/v0) */
+  apiPath: string;
+}
+
+/**
  * Lightweight IPFS client wrapper for uploads, retrieval, pinning,
  * and marketplace/NFT convenience helpers.
  */
@@ -84,27 +136,18 @@ export class IPFSClient {
   private pinningService: string | undefined;
   private client?: IPFSHTTPClient;
   private initialized = false;
-  private apiConfig: {
-    /** API host, e.g. localhost */
-    host: string;
-    /** API port, e.g. 5001 */
-    port: number;
-    /** Protocol (http/https) */
-    protocol: string;
-    /** API path (default /api/v0) */
-    apiPath: string;
-  };
+  private apiConfig: IPFSAPIConfig;
 
   /**
-   * Construct an IPFS client wrapper.
-   * @param gateway Public gateway base url used for content URLs
-   * @param pinningService Optional 3rd‑party pinning service identifier
-   * @param apiConfig IPFS HTTP client connection settings
+   * Construct an IPFS client wrapper
+   * @param gateway - Public gateway base url used for content URLs
+   * @param pinningService - Optional 3rd‑party pinning service identifier
+   * @param apiConfig - IPFS HTTP client connection settings
    */
   constructor(
     gateway = 'https://ipfs.io/ipfs/',
     pinningService?: string,
-    apiConfig = {
+    apiConfig: IPFSAPIConfig = {
       host: 'localhost',
       port: 5001,
       protocol: 'http',
@@ -118,6 +161,7 @@ export class IPFSClient {
 
   /**
    * Initialize the IPFS client (must be called before using the service)
+   * @returns Promise that resolves when initialization is complete
    */
   async init(): Promise<void> {
     if (this.initialized) return;
@@ -128,7 +172,7 @@ export class IPFSClient {
 
       this.client = create(this.apiConfig) as unknown as IPFSHTTPClient;
       this.initialized = true;
-      console.log('✅ IPFS client initialized');
+      console.warn('✅ IPFS client initialized');
     } catch (error) {
       console.error('Failed to initialize IPFS client:', error);
       // Continue without IPFS client - will fall back to gateway operations
@@ -137,19 +181,20 @@ export class IPFSClient {
   }
 
   /**
-   * Upload a file (Blob/File) to IPFS and return its hash and URL.
-   * @param file File to upload
+   * Upload a file (Blob/File) to IPFS and return its hash and URL
+   * @param file - File to upload
+   * @returns Upload result containing hash, URL, and size
    */
   async uploadFile(file: File): Promise<IPFSUploadResult> {
     try {
-      console.log('📤 Uploading file to IPFS:', file.name);
+      console.warn('📤 Uploading file to IPFS:', file.name);
 
       // Ensure client is initialized
       if (!this.initialized) {
         await this.init();
       }
 
-      if (this.client) {
+      if (this.client !== undefined) {
         // Use real IPFS client
         const fileBuffer = await file.arrayBuffer();
         const result = await this.client.add(
@@ -171,7 +216,7 @@ export class IPFSClient {
         };
       } else {
         // Fallback to pinning service or gateway if available
-        if (this.pinningService) {
+        if (this.pinningService !== undefined) {
           // Would implement pinning service API here
           console.warn('⚠️ IPFS client not available, using pinning service');
         }
@@ -192,8 +237,9 @@ export class IPFSClient {
   }
 
   /**
-   * Upload JSON serializable data to IPFS and return its hash and URL.
-   * @param data Serializable JSON object
+   * Upload JSON serializable data to IPFS and return its hash and URL
+   * @param data - Serializable JSON object
+   * @returns Upload result containing hash, URL, and size
    */
   async uploadJSON(data: NFTMetadata | MarketplaceListing): Promise<IPFSUploadResult> {
     try {
@@ -212,9 +258,10 @@ export class IPFSClient {
   }
 
   /**
-   * Upload NFT metadata and optional image, returning both content hashes/URLs.
-   * @param metadata NFT metadata payload
-   * @param imageFile Optional image file to upload first
+   * Upload NFT metadata and optional image, returning both content hashes/URLs
+   * @param metadata - NFT metadata payload
+   * @param imageFile - Optional image file to upload first
+   * @returns Object containing metadata and image hashes/URLs
    */
   async uploadNFTMetadata(metadata: NFTMetadata, imageFile?: File): Promise<{
     /** CID/hash of the JSON metadata */
@@ -234,7 +281,7 @@ export class IPFSClient {
       let imageUrl: string | undefined;
 
       // Upload image first if provided
-      if (imageFile) {
+      if (imageFile !== undefined) {
         const imageResult = await this.uploadFile(imageFile);
         imageHash = imageResult.hash;
         imageUrl = imageResult.url;
@@ -253,8 +300,8 @@ export class IPFSClient {
         metadataHash: metadataResult.hash,
         metadataUrl: metadataResult.url,
       };
-      if (imageHash) result.imageHash = imageHash;
-      if (imageUrl) result.imageUrl = imageUrl;
+      if (imageHash !== undefined) result.imageHash = imageHash;
+      if (imageUrl !== undefined) result.imageUrl = imageUrl;
       return result;
 
     } catch (error) {
@@ -264,19 +311,20 @@ export class IPFSClient {
   }
 
   /**
-   * Retrieve JSON content from IPFS by its hash via client or gateway.
-   * @param hash CID/hash of the content
+   * Retrieve JSON content from IPFS by its hash via client or gateway
+   * @param hash - CID/hash of the content
+   * @returns Retrieved content as NFTMetadata or MarketplaceListing
    */
   async getContent(hash: string): Promise<NFTMetadata | MarketplaceListing> {
     try {
-      console.log('📥 Fetching content from IPFS:', hash);
+      console.warn('📥 Fetching content from IPFS:', hash);
 
       // Ensure client is initialized
       if (!this.initialized) {
         await this.init();
       }
 
-      if (this.client) {
+      if (this.client !== undefined) {
         // Use real IPFS client
         const chunks: Uint8Array[] = [];
         for await (const chunk of this.client.cat(hash)) {
@@ -294,15 +342,15 @@ export class IPFSClient {
         }
 
         const text = new TextDecoder().decode(result);
-        return JSON.parse(text);
+        return JSON.parse(text) as NFTMetadata | MarketplaceListing;
       } else {
         // Fallback to gateway
-        console.log('⚠️ Using IPFS gateway for retrieval');
+        console.warn('⚠️ Using IPFS gateway for retrieval');
         const response = await fetch(`${this.gateway}${hash}`);
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
-        return await response.json();
+        return await response.json() as NFTMetadata | MarketplaceListing;
       }
     } catch (error) {
       console.error('❌ Failed to fetch content from IPFS:', error);
@@ -311,8 +359,9 @@ export class IPFSClient {
   }
 
   /**
-   * Upload a marketplace listing JSON document to IPFS.
-   * @param listing Listing payload
+   * Upload a marketplace listing JSON document to IPFS
+   * @param listing - Listing payload
+   * @returns Upload result containing hash, URL, and size
    */
   async uploadMarketplaceListing(listing: MarketplaceListing): Promise<IPFSUploadResult> {
     try {
@@ -327,86 +376,75 @@ export class IPFSClient {
   }
 
   /**
-   * Search for cached listings (simplified demo implementation).
-   * @param query Filter options
-   * @param query.seller Seller address filter
-   * @param query.priceRange Price range filter
-   * @param query.priceRange.min Minimum price
-   * @param query.priceRange.max Maximum price
-   * @param query.category Optional category filter
+   * Search for cached listings (simplified demo implementation)
+   * @param query - Filter options
+   * @param query.seller - Seller address to filter by
+   * @param query.priceRange - Price range filter
+   * @param query.priceRange.min - Minimum price
+   * @param query.priceRange.max - Maximum price
+   * @param query.category - Optional category filter
+   * @returns Array of matching marketplace listings
    */
-  async searchListings(query: {
+  searchListings(query: {
     /** Seller address to filter by */
     seller?: string;
-    /**
-     *
-     */
-    priceRange?: { /**
-                    *
-                    */
-      min: string; /**
-                    *
-                    */
+    /** Price range filter */
+    priceRange?: { 
+      /** Minimum price */
+      min: string; 
+      /** Maximum price */
       max: string
     };
-    /**
-     *
-     */
+    /** Optional category filter */
     category?: string;
-  }): Promise<MarketplaceListing[]> {
-    try {
-      console.warn('🔍 Searching marketplace listings:', query);
+  }): MarketplaceListing[] {
+    console.warn('🔍 Searching marketplace listings:', query);
 
-      // In production, this would query a decentralized index
-      // For now, return mock data
-      const mockListings: MarketplaceListing[] = [
-        {
-          id: '1',
-          seller: '0x1234567890123456789012345678901234567890',
-          tokenContract: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
-          tokenId: '1',
-          price: '1.5',
-          currency: 'ETH',
-          metadata: {
-            name: 'Digital Art #1',
-            description: 'A beautiful digital artwork',
-            image: 'https://example.com/image1.jpg'
-          },
-          timestamp: Date.now() - 86400000 // 1 day ago
-        }
-      ];
+    // In production, this would query a decentralized index
+    // For now, return mock data
+    const mockListings: MarketplaceListing[] = [
+      {
+        id: '1',
+        seller: '0x1234567890123456789012345678901234567890',
+        tokenContract: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
+        tokenId: '1',
+        price: '1.5',
+        currency: 'ETH',
+        metadata: {
+          name: 'Digital Art #1',
+          description: 'A beautiful digital artwork',
+          image: 'https://example.com/image1.jpg'
+        },
+        timestamp: Date.now() - 86400000 // 1 day ago
+      }
+    ];
 
-      return mockListings;
-
-    } catch (error) {
-      console.warn('❌ Failed to search listings:', error);
-      return [];
-    }
+    return mockListings;
   }
 
-  // Pin content to prevent garbage collection
   /**
-   *
-   * @param hash
+   * Pin content to prevent garbage collection
+   * @param hash - Content hash to pin
+   * @returns True if pinning succeeded
    */
   async pinContent(hash: string): Promise<boolean> {
     try {
-      console.log('📌 Pinning content to IPFS:', hash);
+      console.warn('📌 Pinning content to IPFS:', hash);
 
       // Ensure client is initialized
       if (!this.initialized) {
         await this.init();
       }
 
-      if (this.client) {
+      if (this.client !== undefined) {
         // Use real IPFS client
         await this.client.pin.add(hash);
-        console.log('✅ Content pinned successfully via IPFS client');
+        console.warn('✅ Content pinned successfully via IPFS client');
         return true;
-      } else if (this.pinningService) {
+      } else if (this.pinningService !== undefined) {
         // Use pinning service API
         // Implementation would depend on the service (Pinata, Infura, etc.)
-        console.log('✅ Content pinned successfully via pinning service');
+        console.warn('✅ Content pinned successfully via pinning service');
         return true;
       } else {
         console.warn('⚠️ No IPFS client or pinning service available');
@@ -420,19 +458,20 @@ export class IPFSClient {
 
   /**
    * Unpin content from IPFS
-   * @param hash
+   * @param hash - Content hash to unpin
+   * @returns True if unpinning succeeded
    */
   async unpinContent(hash: string): Promise<boolean> {
     try {
-      console.log('📌 Unpinning content from IPFS:', hash);
+      console.warn('📌 Unpinning content from IPFS:', hash);
 
       if (!this.initialized) {
         await this.init();
       }
 
-      if (this.client) {
+      if (this.client !== undefined) {
         await this.client.pin.rm(hash);
-        console.log('✅ Content unpinned successfully');
+        console.warn('✅ Content unpinned successfully');
         return true;
       } else {
         console.warn('⚠️ No IPFS client available for unpinning');
@@ -446,16 +485,17 @@ export class IPFSClient {
 
   /**
    * List all pinned content
+   * @returns Array of pinned content hashes
    */
   async listPinnedContent(): Promise<string[]> {
     try {
-      console.log('📋 Listing pinned content');
+      console.warn('📋 Listing pinned content');
 
       if (!this.initialized) {
         await this.init();
       }
 
-      if (this.client) {
+      if (this.client !== undefined) {
         const pins: string[] = [];
         for await (const pin of this.client.pin.ls()) {
           pins.push(pin.cid.toString());
@@ -473,24 +513,17 @@ export class IPFSClient {
 
   /**
    * Get content statistics
-   * @param hash
+   * @param hash - Content hash to get stats for
+   * @returns Content statistics or null if unavailable
    */
   async getContentStats(hash: string): Promise<{
-    /**
-     *
-     */
+    /** Content hash */
     hash: string;
-    /**
-     *
-     */
+    /** Data size in bytes */
     size: number;
-    /**
-     *
-     */
+    /** Cumulative size in bytes */
     cumulativeSize: number;
-    /**
-     *
-     */
+    /** Number of blocks/links */
     blocks: number;
   } | null> {
     try {
@@ -498,7 +531,7 @@ export class IPFSClient {
         await this.init();
       }
 
-      if (this.client) {
+      if (this.client !== undefined) {
         const stats = await this.client.object.stat(hash);
         return {
           hash: stats.Hash,
@@ -516,7 +549,11 @@ export class IPFSClient {
     }
   }
 
-  // Utility: Generate mock IPFS hash for testing
+  /**
+   * Generate mock IPFS hash for testing
+   * @param input - Input string to generate hash from
+   * @returns Mock IPFS hash
+   */
   private generateMockHash(input: string): string {
     // Generate a realistic-looking IPFS hash for testing
     const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -535,44 +572,44 @@ export class IPFSClient {
     return hash;
   }
 
-  // Utility: Format IPFS URL
   /**
-   *
-   * @param hash
+   * Format IPFS URL from hash
+   * @param hash - IPFS content hash
+   * @returns Formatted gateway URL
    */
   formatURL(hash: string): string {
     return `${this.gateway}${hash}`;
   }
 
-  // Utility: Extract hash from IPFS URL
   /**
-   *
-   * @param url
+   * Extract hash from IPFS URL
+   * @param url - IPFS gateway URL
+   * @returns Extracted hash or null
    */
   extractHash(url: string): string | null {
     const match = url.match(/\/ipfs\/([a-zA-Z0-9]+)/);
-    return match ? (match[1] ?? null) : null;
+    return match !== null && match[1] !== undefined ? match[1] : null;
   }
 
-  // Test IPFS connectivity
   /**
-   *
+   * Test IPFS connectivity
+   * @returns True if IPFS is accessible
    */
   async testConnectivity(): Promise<boolean> {
     try {
-      console.log('🔗 Testing IPFS connectivity...');
+      console.warn('🔗 Testing IPFS connectivity...');
 
       // First try to initialize client if not already done
       if (!this.initialized) {
         await this.init();
       }
 
-      if (this.client) {
+      if (this.client !== undefined) {
         // Test with client by trying to get stats of a well-known hash
         const testHash = 'QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG'; // IPFS readme
         try {
           await this.client.object.stat(testHash);
-          console.log('✅ IPFS client connectivity OK');
+          console.warn('✅ IPFS client connectivity OK');
           return true;
         } catch {
           console.warn('⚠️ IPFS client connected but cannot access content');
@@ -587,7 +624,7 @@ export class IPFSClient {
       });
 
       const connected = response.ok;
-      console.log(connected ? '✅ IPFS gateway connectivity OK' : '❌ IPFS connectivity failed');
+      console.warn(connected ? '✅ IPFS gateway connectivity OK' : '❌ IPFS connectivity failed');
       return connected;
     } catch (error) {
       console.error('❌ IPFS connectivity test failed:', error);
@@ -598,18 +635,18 @@ export class IPFSClient {
 
 // Default IPFS client instance
 export const ipfsClient = new IPFSClient(
-  (process?.env?.['IPFS_GATEWAY']) || 'https://ipfs.io/ipfs/',
-  (process?.env?.['IPFS_PINNING_SERVICE']),
+  process?.env?.['IPFS_GATEWAY'] ?? 'https://ipfs.io/ipfs/',
+  process?.env?.['IPFS_PINNING_SERVICE'],
   {
-    host: (process?.env?.['IPFS_HOST']) || 'localhost',
-    port: parseInt((process?.env?.['IPFS_PORT']) || '5001'),
-    protocol: (process?.env?.['IPFS_PROTOCOL']) || 'http',
-    apiPath: (process?.env?.['IPFS_API_PATH']) || '/api/v0'
+    host: process?.env?.['IPFS_HOST'] ?? 'localhost',
+    port: parseInt(process?.env?.['IPFS_PORT'] ?? '5001'),
+    protocol: process?.env?.['IPFS_PROTOCOL'] ?? 'http',
+    apiPath: process?.env?.['IPFS_API_PATH'] ?? '/api/v0'
   }
 );
 
 // Initialize the client on module load
-(async () => {
+void (async () => {
   try {
     await ipfsClient.init();
     await ipfsClient.testConnectivity();

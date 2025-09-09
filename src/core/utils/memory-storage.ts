@@ -1,27 +1,16 @@
-// Local interface to avoid external dependency/type issues
 /**
- *
+ * Browser storage area interface - local interface to avoid external dependency/type issues
  */
 export interface BrowserStorageArea {
-  /**
-   *
-   */
+  /** Get value by key from storage */
   get(key: string): Promise<Record<string, unknown>>;
-  /**
-   *
-   */
+  /** Set multiple key-value pairs in storage */
   set(items: Record<string, unknown>): Promise<void>;
-  /**
-   *
-   */
+  /** Remove item by key from storage */
   remove(key: string): Promise<void>;
-  /**
-   *
-   */
+  /** Clear all items from storage */
   clear(): Promise<void>;
-  /**
-   *
-   */
+  /** Get entire storage contents */
   getWholeStorage(): Promise<Record<string, unknown>>;
 }
 
@@ -37,8 +26,8 @@ class MemoryStorage implements BrowserStorageArea {
    * @param key Storage key to retrieve
    * @returns Promise resolving to record with key-value pair
    */
-  async get(key: string): Promise<Record<string, unknown>> {
-    return this.storage[key] != null ? { [key]: this.storage[key] } : {};
+  get(key: string): Promise<Record<string, unknown>> {
+    return Promise.resolve(this.storage[key] != null ? { [key]: this.storage[key] } : {});
   }
 
   /**
@@ -46,10 +35,11 @@ class MemoryStorage implements BrowserStorageArea {
    * @param items Record of key-value pairs to store
    * @returns Promise that resolves when items are stored
    */
-  async set(items: Record<string, unknown>): Promise<void> {
+  set(items: Record<string, unknown>): Promise<void> {
     Object.keys(items).forEach((key) => {
       this.storage[key] = items[key];
     });
+    return Promise.resolve();
   }
 
   /**
@@ -57,24 +47,26 @@ class MemoryStorage implements BrowserStorageArea {
    * @param key Storage key to remove
    * @returns Promise that resolves when item is removed
    */
-  async remove(key: string): Promise<void> {
+  remove(key: string): Promise<void> {
     delete this.storage[key];
+    return Promise.resolve();
   }
 
   /**
    * Clear all items from memory storage
    * @returns Promise that resolves when storage is cleared
    */
-  async clear(): Promise<void> {
+  clear(): Promise<void> {
     this.storage = {};
+    return Promise.resolve();
   }
 
   /**
    * Get entire storage contents
    * @returns Promise resolving to all stored data
    */
-  async getWholeStorage(): Promise<Record<string, unknown>> {
-    return this.storage;
+  getWholeStorage(): Promise<Record<string, unknown>> {
+    return Promise.resolve(this.storage);
   }
 }
 

@@ -10,11 +10,27 @@
  * - Integration with our provider system
  */
 
+interface CustomNetworkAsset {
+  id: string;
+  name: string;
+  symbol: string;
+  network: string;
+  balance: string;
+  [key: string]: unknown;
+}
+
+interface CustomNetworkAssetsHookResult {
+  data: CustomNetworkAsset[];
+  isLoading: boolean;
+  error: Error | null;
+}
+
 // Placeholder exports to prevent import errors
 /**
- *
+ * Hook to manage custom network assets
+ * @returns Hook result with custom network assets data, loading state and error
  */
-export const useCustomNetworkAssets = () => {
+export const useCustomNetworkAssets = (): CustomNetworkAssetsHookResult => {
   // TODO: Implement using NFTService and custom network support
   return {
     data: [],
@@ -24,11 +40,15 @@ export const useCustomNetworkAssets = () => {
 };
 
 /**
- *
+ * Get custom network assets for the current user
+ * @returns Promise resolving to array of custom network assets
  */
-export const getCustomNetworkAssets = async (): Promise<unknown[]> => {
+export const getCustomNetworkAssets = (): Promise<CustomNetworkAsset[]> => {
   // TODO: Implement using NFTManager with custom network support
-  return [];
+  return Promise.resolve([]);
 };
 
+/**
+ * Timeout duration for custom network asset operations in milliseconds
+ */
 export const ASSETS_TIMEOUT_DURATION = 10000;

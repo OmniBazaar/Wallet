@@ -79,6 +79,7 @@ describe('Service Integration Tests', () => {
     (keyringManager as any).currentSession = {
       username: 'test-user',
       isLoggedIn: true,
+      lastActivity: Date.now(),
       accounts: {
         ethereum: { address: TEST_ADDRESSES.ethereum, privateKey: 'mock-key' }
       }
@@ -200,8 +201,8 @@ describe('Service Integration Tests', () => {
 
         // Step 5: Verify transaction appears in history
         const history = await transactionService.getTransactionHistory();
-        expect(history.length).toBeGreaterThan(0);
-        expect(history.some(tx => tx.hash === txResponse.hash)).toBe(true);
+        expect(history.transactions.length).toBeGreaterThan(0);
+        expect(history.transactions.some(tx => tx.txHash === txResponse.hash)).toBe(true);
 
         // Step 6: Verify wallet balance updates (simulated)
         const balance = await walletService.getBalance();

@@ -1,8 +1,8 @@
 import type Transport from "@ledgerhq/hw-transport";
 import webUsbTransport from "@ledgerhq/hw-transport-webusb";
 import { HWwalletCapabilities, NetworkNames } from "../../../types/enkrypt-types";
+// @ts-expect-error - SolApp doesn't have type definitions
 import SolApp from "@ledgerhq/hw-app-solana";
-import HDKey from "hdkey";
 import { bufferToHex } from "../../../types/enkrypt-types";
 import {
   AddressResponse,
@@ -27,18 +27,19 @@ interface SolanaSignResponse {
 }
 
 /**
- *
+ * Ledger hardware wallet provider for Solana blockchain
+ * Handles Solana-specific operations through Ledger devices
  */
 class LedgerSolana implements HWWalletProvider {
   transport: Transport | null;
 
   network: NetworkNames;
 
-  HDNodes: Record<string, InstanceType<typeof HDKey>>;
+  HDNodes: Record<string, never>; // HDKey not used for Solana
 
   /**
-   *
-   * @param network
+   * Creates a new LedgerSolana instance
+   * @param network - The Solana network to connect to
    */
   constructor(network: NetworkNames) {
     this.transport = null;
@@ -47,14 +48,15 @@ class LedgerSolana implements HWWalletProvider {
   }
 
   /**
-   *
+   * Initializes the Ledger transport connection
+   * @returns Promise resolving to true if initialization succeeds
    */
   async init(): Promise<boolean> {
-    if (!this.transport) {
+    if (this.transport === null) {
       const support = await webUsbTransport.isSupported();
       if (support) {
         this.transport = await webUsbTransport.openConnected().then((res) => {
-          if (!res) return webUsbTransport.create();
+          if (res === null) return webUsbTransport.create();
           return res;
         });
       } else {
@@ -67,61 +69,76 @@ class LedgerSolana implements HWWalletProvider {
   }
 
   /**
-   *
-   * @param options
+   * Gets a Solana address from the Ledger device
+   * @param options - Address request options including path and index
+   * @returns Promise resolving to address and public key
    */
   async getAddress(options: getAddressRequest): Promise<AddressResponse> {
-    if (!supportedPaths[this.network as keyof typeof supportedPaths])
+    const paths = supportedPaths[this.network as keyof typeof supportedPaths];
+    if (paths === undefined)
       return Promise.reject(new Error("ledger-solana: Invalid network name"));
-    if (!this.transport)
+    if (this.transport === null)
       return Promise.reject(new Error("ledger-solana: Transport not initialized"));
-    const connection = new SolApp(this.transport);
+    // @ts-expect-error - SolApp doesn't have type definitions
+    const connection = new SolApp(this.transport) as {
+      getAddress(path: string, display: boolean): Promise<SolanaAddressResponse>;
+    };
     return connection
       .getAddress(
         options.pathType.path.replace(`{index}`, options.pathIndex.toString()),
         false,
       )
-      .then((res: SolanaAddressResponse) => ({
+      .then((res) => ({
         address: bufferToHex(res.address),
         publicKey: bufferToHex(res.address),
       }));
   }
 
   /**
-   *
-   * @param options
+   * Signs a personal message using the Ledger device
+   * @param options - Message signing options including path and message data
+   * @returns Promise resolving to the signature as a hex string
    */
   async signPersonalMessage(options: SignMessageRequest): Promise<string> {
-    if (!this.transport)
+    if (this.transport === null)
       return Promise.reject(new Error("ledger-solana: Transport not initialized"));
-    const connection = new SolApp(this.transport);
+    // @ts-expect-error - SolApp doesn't have type definitions
+    const connection = new SolApp(this.transport) as {
+      signOffchainMessage(path: string, message: Buffer): Promise<SolanaSignResponse>;
+    };
     return connection
       .signOffchainMessage(
         options.pathType.path.replace(`{index}`, options.pathIndex.toString()),
         options.message,
       )
-      .then((result: SolanaSignResponse) => bufferToHex(result.signature));
+      .then((result) => bufferToHex(result.signature));
   }
 
   /**
-   *
-   * @param options
+   * Signs a Solana transaction using the Ledger device
+   * @param options - Transaction signing options including path and transaction data
+   * @returns Promise resolving to the signature as a hex string
    */
   async signTransaction(options: SignTransactionRequest): Promise<string> {
-    if (!this.transport)
+    const transactionOptions = options.transaction as SolSignTransaction;
+    if (this.transport === null)
       return Promise.reject(new Error("ledger-solana: Transport not initialized"));
-    const connection = new SolApp(this.transport);
+    // @ts-expect-error - SolApp doesn't have type definitions
+    const connection = new SolApp(this.transport) as {
+      signTransaction(path: string, transaction: Buffer): Promise<SolanaSignResponse>;
+    };
     return connection
       .signTransaction(
         options.pathType.path.replace(`{index}`, options.pathIndex.toString()),
-        (options.transaction as SolSignTransaction).solTx,
+        transactionOptions.solTx,
       )
-      .then((result: SolanaSignResponse) => bufferToHex(result.signature));
+      .then((result) => bufferToHex(result.signature));
   }
 
   /**
-   *
-   * @param _request
+   * Signs a typed message (not supported for Solana)
+   * @param _request - Typed message request (unused)
+   * @returns Promise that always rejects as this is not supported
    */
   signTypedMessage(_request: SignTypedMessageRequest): Promise<string> {
     return Promise.reject(
@@ -135,7 +152,7 @@ class LedgerSolana implements HWWalletProvider {
    */
   getSupportedPaths(): PathType[] {
     const paths = supportedPaths[this.network as keyof typeof supportedPaths];
-    if (!paths) {
+    if (paths === undefined) {
       return [];
     }
     return paths;
@@ -151,22 +168,25 @@ class LedgerSolana implements HWWalletProvider {
   }
 
   /**
-   *
-   * @param networkName
+   * Checks if the Ledger is connected for a specific network
+   * @param networkName - The network to check connection for
+   * @returns Promise resolving to true if connected
    */
   isConnected(networkName: NetworkNames): Promise<boolean> {
     return ConnectToLedger.bind(this)(networkName);
   }
 
   /**
-   *
+   * Gets the list of supported Solana networks
+   * @returns Array of supported network names
    */
   static getSupportedNetworks(): NetworkNames[] {
     return Object.keys(supportedPaths) as NetworkNames[];
   }
 
   /**
-   *
+   * Gets the capabilities of the Ledger Solana wallet
+   * @returns Array of capability strings
    */
   static getCapabilities(): string[] {
     return [HWwalletCapabilities.signMessage, HWwalletCapabilities.signTx];

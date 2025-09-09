@@ -1,104 +1,100 @@
 /* @jsxImportSource react */
 import React from 'react';
-import styled, { DefaultTheme } from 'styled-components';
 import { OmniCoinLoading } from './OmniCoinLoading';
 import { OmniCoinToast } from './OmniCoinToast';
 
-const ResultsContainer = styled.div`
-  padding: 1rem;
-`;
+// Inline styles to avoid styled-components typing issues
+const resultsContainerStyle: React.CSSProperties = {
+  padding: '1rem'
+};
 
-const Grid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 1.5rem;
-  margin-top: 1rem;
-`;
+const gridStyle: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+  gap: '1.5rem',
+  marginTop: '1rem'
+};
 
-const ListingCard = styled.div`
-  background: ${(props: { theme: DefaultTheme }) => props.theme.colors.background};
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
-  transition: transform 0.2s ease;
+const listingCardStyle: React.CSSProperties = {
+  background: '#ffffff',
+  borderRadius: '8px',
+  boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+  overflow: 'hidden',
+  transition: 'transform 0.2s ease'
+};
 
-  &:hover {
-    transform: translateY(-2px);
-  }
-`;
+const listingImageStyle: React.CSSProperties = {
+  width: '100%',
+  height: '200px',
+  objectFit: 'cover'
+};
 
-const ListingImage = styled.img`
-  width: 100%;
-  height: 200px;
-  object-fit: cover;
-`;
+const listingContentStyle: React.CSSProperties = {
+  padding: '1rem'
+};
 
-const ListingContent = styled.div`
-  padding: 1rem;
-`;
+const listingTitleStyle: React.CSSProperties = {
+  margin: '0 0 0.5rem',
+  fontSize: '1.1rem',
+  color: '#1f2937'
+};
 
-const ListingTitle = styled.h3`
-  margin: 0 0 0.5rem;
-  font-size: 1.1rem;
-  color: ${(props: { theme: DefaultTheme }) => props.theme.colors.text.primary};
-`;
+const listingPriceStyle: React.CSSProperties = {
+  fontSize: '1.2rem',
+  fontWeight: 'bold',
+  color: '#3b82f6',
+  marginBottom: '0.5rem'
+};
 
-const ListingPrice = styled.div`
-  font-size: 1.2rem;
-  font-weight: bold;
-  color: ${(props: { theme: DefaultTheme }) => props.theme.colors.primary};
-  margin-bottom: 0.5rem;
-`;
+const listingDetailsStyle: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '0.5rem',
+  fontSize: '0.875rem',
+  color: '#6b7280'
+};
 
-const ListingDetails = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  font-size: 0.875rem;
-  color: ${(props: { theme: DefaultTheme }) => props.theme.colors.text.secondary};
-`;
+const listingLocationStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '0.5rem',
+  fontSize: '0.875rem',
+  color: '#6b7280'
+};
 
-const ListingLocation = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.875rem;
-  color: ${(props: { theme: DefaultTheme }) => props.theme.colors.text.secondary};
-`;
+const sellerInfoStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '0.5rem',
+  marginTop: '1rem',
+  paddingTop: '1rem',
+  borderTop: '1px solid #e5e7eb'
+};
 
-const SellerInfo = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-top: 1rem;
-  padding-top: 1rem;
-  border-top: 1px solid ${(props: { theme: DefaultTheme }) => props.theme.colors.border};
-`;
+const sellerAvatarStyle: React.CSSProperties = {
+  width: '32px',
+  height: '32px',
+  borderRadius: '50%',
+  objectFit: 'cover'
+};
 
-const SellerAvatar = styled.img`
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  object-fit: cover;
-`;
+const sellerNameStyle: React.CSSProperties = {
+  fontSize: '0.875rem',
+  color: '#1f2937'
+};
 
-const SellerName = styled.span`
-  font-size: 0.875rem;
-  color: ${(props: { theme: DefaultTheme }) => props.theme.colors.text.primary};
-`;
+const ratingStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '0.25rem',
+  color: '#3b82f6'
+};
 
-const Rating = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  color: ${(props: { theme: DefaultTheme }) => props.theme.colors.primary};
-`;
-
-const EmptyState = styled.div`
-  text-align: center;
-  padding: 2rem;
-  color: ${(props: { theme: DefaultTheme }) => props.theme.colors.textSecondary};
-`;
+const emptyStateStyle: React.CSSProperties = {
+  textAlign: 'center',
+  padding: '2rem',
+  color: '#9ca3af'
+};
 
 // Minimal listing types to decouple from external type import
 interface ListingSeller { avatar?: string; name?: string; rating?: number }
@@ -109,7 +105,7 @@ interface ListingMetadata {
   price: string;
   currency: string;
   description?: string;
-  type?: 'product' | 'service' | string;
+  type?: string;
   productDetails?: { condition?: string };
   serviceDetails?: { serviceType?: string };
   seller?: ListingSeller;
@@ -124,11 +120,12 @@ interface ListingResultsProps {
 }
 
 /**
- *
- * @param root0
- * @param root0.listings
- * @param root0.isLoading
- * @param root0.error
+ * Displays a grid of marketplace listings with loading and error states
+ * @param props - Component props
+ * @param props.listings - Array of listing nodes to display
+ * @param props.isLoading - Whether listings are currently loading
+ * @param props.error - Error message if listing fetch failed
+ * @returns React component showing listings grid or appropriate state
  */
 export const ListingResults: React.FC<ListingResultsProps> = ({
   listings,
@@ -139,34 +136,35 @@ export const ListingResults: React.FC<ListingResultsProps> = ({
     return <OmniCoinLoading />;
   }
 
-  if (error) {
+  if (typeof error === 'string' && error.length > 0) {
     return <OmniCoinToast type="error" message={error} />;
   }
 
   if (listings.length === 0) {
     return (
-      <EmptyState>
+      <div style={emptyStateStyle}>
         <h3>No listings found</h3>
         <p>Try adjusting your search filters</p>
-      </EmptyState>
+      </div>
     );
   }
 
   return (
-    <ResultsContainer>
-      <Grid>
+    <div style={resultsContainerStyle}>
+      <div style={gridStyle}>
         {listings.map((listing) => (
-          <ListingCard key={listing.id}>
-            <ListingImage
+          <div key={listing.id} style={listingCardStyle}>
+            <img
               src={listing.metadata.image}
               alt={listing.metadata.title}
+              style={listingImageStyle}
             />
-            <ListingContent>
-              <ListingTitle>{listing.metadata.title}</ListingTitle>
-              <ListingPrice>
+            <div style={listingContentStyle}>
+              <h3 style={listingTitleStyle}>{listing.metadata.title}</h3>
+              <div style={listingPriceStyle}>
                 {listing.metadata.price} {listing.metadata.currency}
-              </ListingPrice>
-              <ListingDetails>
+              </div>
+              <div style={listingDetailsStyle}>
                 <div>{listing.metadata.description}</div>
                 {listing.metadata.type === 'product' && (
                   <div>Condition: {listing.metadata.productDetails?.condition}</div>
@@ -174,24 +172,25 @@ export const ListingResults: React.FC<ListingResultsProps> = ({
                 {listing.metadata.type === 'service' && (
                   <div>Service Type: {listing.metadata.serviceDetails?.serviceType}</div>
                 )}
-              </ListingDetails>
-              <ListingLocation>
+              </div>
+              <div style={listingLocationStyle}>
                 📍 {listing.metadata.location?.city}, {listing.metadata.location?.country}
-              </ListingLocation>
-              <SellerInfo>
-                <SellerAvatar
+              </div>
+              <div style={sellerInfoStyle}>
+                <img
                   src={listing.metadata.seller?.avatar}
                   alt={listing.metadata.seller?.name}
+                  style={sellerAvatarStyle}
                 />
-                <SellerName>{listing.metadata.seller?.name}</SellerName>
-                <Rating>
+                <span style={sellerNameStyle}>{listing.metadata.seller?.name}</span>
+                <div style={ratingStyle}>
                   ⭐ {listing.metadata.seller?.rating}
-                </Rating>
-              </SellerInfo>
-            </ListingContent>
-          </ListingCard>
+                </div>
+              </div>
+            </div>
+          </div>
         ))}
-      </Grid>
-    </ResultsContainer>
+      </div>
+    </div>
   );
 }; 

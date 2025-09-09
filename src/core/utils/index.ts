@@ -8,18 +8,21 @@ import {
 // Note: bigIntToBytes and bigIntToHex may not be available in newer @ethereumjs/util versions
 // Using alternative implementation
 /**
- *
- * @param value
+ * Convert a bigint to bytes array
+ * @param value - BigInt value to convert
+ * @returns Uint8Array representation
  */
 const bigIntToBytes = (value: bigint): Uint8Array => {
   const hex = value.toString(16);
-  const paddedHex = hex.length % 2 ? '0' + hex : hex;
-  return new Uint8Array(paddedHex.match(/.{2}/g)?.map(byte => parseInt(byte, 16)) || []);
+  const paddedHex = hex.length % 2 !== 0 ? '0' + hex : hex;
+  const matches = paddedHex.match(/.{2}/g);
+  return new Uint8Array(matches !== null ? matches.map(byte => parseInt(byte, 16)) : []);
 };
 
 /**
- *
- * @param value
+ * Convert a bigint to hexadecimal string
+ * @param value - BigInt value to convert
+ * @returns Hexadecimal string with 0x prefix
  */
 const bigIntToHex = (value: bigint): string => {
   return '0x' + value.toString(16);

@@ -271,8 +271,8 @@ export class ProviderManager {
   async switchEVMNetwork(networkKey: string): Promise<void> {
     // Clean up listeners from current provider
     const currentProvider = this.getActiveProvider();
-    if (currentProvider && typeof (currentProvider as any).removeAllListeners === 'function') {
-      (currentProvider as any).removeAllListeners();
+    if (currentProvider && typeof (currentProvider as unknown as { removeAllListeners?: () => void }).removeAllListeners === 'function') {
+      (currentProvider as unknown as { removeAllListeners: () => void }).removeAllListeners();
     }
 
     const provider = this.evmProviders.get(networkKey);
@@ -366,19 +366,28 @@ export class ProviderManager {
 
   /**
    * Get chain configuration for a specific chain
-   * @param chainType
+   * @param chainType Chain type to get configuration for
+   * @returns Chain configuration or null
    */
-  getChainConfig(chainType: ChainType): any {
-    return SUPPORTED_CHAINS[chainType] || null;
+  getChainConfig(chainType: ChainType): ChainConfig | null {
+    return SUPPORTED_CHAINS[chainType] ?? null;
   }
 
 
   /**
    * Get network details for a specific network or chain
    * @param networkOrChain Network name or chain type
-   * @returns Network details
+   * @returns Network details including chain ID, name, and currency
    */
-  getNetworkDetails(networkOrChain: string): any {
+  getNetworkDetails(networkOrChain: string): {
+    chainId?: number;
+    name: string;
+    shortName?: string;
+    currency?: string;
+    rpcUrl?: string;
+    explorer?: string;
+    nativeCurrency: { symbol: string; decimals: number };
+  } {
     // Special case for ethereum mainnet
     if (networkOrChain === 'ethereum') {
       return {
@@ -509,12 +518,12 @@ export class ProviderManager {
             const evmProvider = this.evmProviders.get(this.activeNetwork);
             if (!evmProvider) throw new Error(`EVM provider not found for ${this.activeNetwork}`);
             // Return balance in wei as string
-            const balance = await (evmProvider as any).getBalance();
+            const balance = await (evmProvider as unknown as { getBalance: () => Promise<bigint> }).getBalance();
             return balance ? balance.toString() : '1000000000000000000'; // 1 ETH in wei for tests
           }
           const ethProvider = provider as LiveEthereumProvider;
           // Return balance in wei as string  
-          const balance = await (ethProvider as any).getBalance();
+          const balance = await (ethProvider as unknown as { getBalance: () => Promise<bigint> }).getBalance();
           return balance ? balance.toString() : '1000000000000000000'; // 1 ETH in wei for tests
         }
 
@@ -816,16 +825,15 @@ export class ProviderManager {
 
       if (this.activeNetwork !== 'ethereum' && this.evmProviders.has(this.activeNetwork)) {
         const evmProvider = this.evmProviders.get(this.activeNetwork);
-        if (evmProvider && (evmProvider as any).estimateGas) {
-          const estimate = await (evmProvider as any).estimateGas(transaction);
+        if (evmProvider && 'estimateGas' in evmProvider) {
+          const estimate = await (evmProvider as unknown as { estimateGas: (tx: unknown) => Promise<bigint> }).estimateGas(transaction);
           return estimate.toString();
         }
       }
 
       // Default Ethereum provider
-      const ethProvider = activeProvider as any;
-      if (ethProvider.estimateGas) {
-        const estimate = await ethProvider.estimateGas(transaction);
+      if ('estimateGas' in activeProvider) {
+        const estimate = await (activeProvider as unknown as { estimateGas: (tx: unknown) => Promise<bigint> }).estimateGas(transaction);
         return estimate.toString();
       }
     }
@@ -926,17 +934,16 @@ export class ProviderManager {
     if (this.activeChain === 'ethereum' || this.activeChain === 'coti') {
       if (this.activeNetwork !== 'ethereum' && this.evmProviders.has(this.activeNetwork)) {
         const evmProvider = this.evmProviders.get(this.activeNetwork);
-        if (evmProvider && (evmProvider as any).getFeeData) {
-          const feeData = await (evmProvider as any).getFeeData();
-          return feeData.gasPrice?.toString() || '30000000000'; // 30 gwei default
+        if (evmProvider && 'getFeeData' in evmProvider) {
+          const feeData = await (evmProvider as unknown as { getFeeData: () => Promise<{ gasPrice?: bigint }> }).getFeeData();
+          return feeData.gasPrice?.toString() ?? '30000000000'; // 30 gwei default
         }
       }
 
       // Default Ethereum provider
-      const ethProvider = activeProvider as any;
-      if (ethProvider.getFeeData) {
-        const feeData = await ethProvider.getFeeData();
-        return feeData.gasPrice?.toString() || '30000000000'; // 30 gwei default
+      if ('getFeeData' in activeProvider) {
+        const feeData = await (activeProvider as unknown as { getFeeData: () => Promise<{ gasPrice?: bigint }> }).getFeeData();
+        return feeData.gasPrice?.toString() ?? '30000000000'; // 30 gwei default
       }
     }
 
@@ -951,14 +958,15 @@ export class ProviderManager {
    * @param provider Provider to setup listeners for
    * @private
    */
-  private setupProviderListeners(provider: any): void {
-    if (provider && typeof provider.on === 'function') {
-      provider.on('block', (blockNumber: number) => {
+  private setupProviderListeners(provider: unknown): void {
+    if (provider && typeof (provider as { on?: (event: string, listener: (...args: unknown[]) => void) => void }).on === 'function') {
+      const eventProvider = provider as { on: (event: string, listener: (...args: unknown[]) => void) => void };
+      eventProvider.on('block', (blockNumber: number) => {
         // Handle new blocks
         console.debug('New block:', blockNumber);
       });
 
-      provider.on('network', (newNetwork: any, oldNetwork: any) => {
+      eventProvider.on('network', (newNetwork: unknown, oldNetwork: unknown) => {
         // Handle network changes
         console.debug('Network changed:', { oldNetwork, newNetwork });
       });
@@ -986,7 +994,7 @@ export class ProviderManager {
    * @returns Active account or null
    * @private
    */
-  private getActiveAccount(): any {
+  private getActiveAccount(): { address: string; chainType: ChainType } | null {
     try {
       return keyringService.getActiveAccount();
     } catch (error) {
@@ -1000,9 +1008,10 @@ export let providerManager = ProviderManager.getInstance();
 
 // For testing: allow resetting the singleton
 /**
- *
+ * Reset the provider manager singleton for testing
+ * @internal Only for testing purposes
  */
-export const resetProviderManager = () => {
-  (ProviderManager as any).instance = undefined;
+export const resetProviderManager = (): void => {
+  (ProviderManager as unknown as { instance?: ProviderManager }).instance = undefined;
   providerManager = ProviderManager.getInstance();
 };

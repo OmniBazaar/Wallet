@@ -21,9 +21,9 @@ export const useTokenApproval = (tokenAddress: string, spenderAddress: string): 
     /** Current allowance amount */
     allowance: string;
     /** Approve specific amount of tokens */
-    approve: (amount: string) => Promise<ethers.TransactionResponse>;
+    approve: (amount: string) => Promise<string>;
     /** Approve maximum amount of tokens */
-    approveMax: () => Promise<ethers.TransactionResponse>;
+    approveMax: () => Promise<string>;
     /** Check current allowance */
     checkAllowance: () => Promise<void>;
 } => {
@@ -32,25 +32,32 @@ export const useTokenApproval = (tokenAddress: string, spenderAddress: string): 
     const [error, setError] = useState<string | null>(null);
     const [allowance, setAllowance] = useState<string>('0');
 
-    const checkAllowance = useCallback(async () => {
-        if (provider == null || address == null || tokenAddress == null || spenderAddress == null) return;
+    const checkAllowance = useCallback(async (): Promise<void> => {
+        if (provider === null || address === null || tokenAddress.trim() === '' || spenderAddress.trim() === '') {
+            return;
+        }
 
         try {
-            const contract = new ethers.Contract(tokenAddress, ERC20_ABI, provider);
-            const allowanceMethod = contract['allowance'];
-            if (!allowanceMethod || typeof allowanceMethod !== 'function') {
-                throw new Error('Contract does not have allowance method');
-            }
-            const currentAllowance = await allowanceMethod(address, spenderAddress);
+            const encodedCall = new ethers.Interface(ERC20_ABI).encodeFunctionData('allowance', [address, spenderAddress]);
+            const result = await provider.request({
+                method: 'eth_call',
+                params: [{
+                    to: tokenAddress,
+                    data: encodedCall
+                }, 'latest']
+            }) as string;
+            
+            const decoded = new ethers.Interface(ERC20_ABI).decodeFunctionResult('allowance', result);
+            const currentAllowance = decoded[0] as bigint;
             setAllowance(currentAllowance.toString());
-        } catch (err) {
-            console.error('Error checking allowance:', err);
-            setError('Failed to check token allowance');
+        } catch (err: unknown) {
+            const error = err as Error;
+            setError(`Failed to check token allowance: ${error.message ?? 'Unknown error'}`);
         }
     }, [provider, address, tokenAddress, spenderAddress]);
 
-    const approve = useCallback(async (amount: string) => {
-        if (provider == null || address == null || tokenAddress == null || spenderAddress == null) {
+    const approve = useCallback(async (amount: string): Promise<string> => {
+        if (provider === null || address === null || tokenAddress.trim() === '' || spenderAddress.trim() === '') {
             throw new Error('Missing required parameters for approval');
         }
 
@@ -58,20 +65,21 @@ export const useTokenApproval = (tokenAddress: string, spenderAddress: string): 
             setIsApproving(true);
             setError(null);
 
-            const signer = await provider.getSigner();
-            const contract = new ethers.Contract(tokenAddress, ERC20_ABI, signer);
-
-            const approveMethod = contract['approve'];
-            if (!approveMethod || typeof approveMethod !== 'function') {
-                throw new Error('Contract does not have approve method');
-            }
-            const tx = await approveMethod(spenderAddress, amount);
-            await tx.wait();
+            const encodedCall = new ethers.Interface(ERC20_ABI).encodeFunctionData('approve', [spenderAddress, amount]);
+            
+            const txHash = await provider.request({
+                method: 'eth_sendTransaction',
+                params: [{
+                    from: address,
+                    to: tokenAddress,
+                    data: encodedCall
+                }]
+            }) as string;
 
             await checkAllowance();
-            return tx;
+            return txHash;
 
-        } catch (err) {
+        } catch (err: unknown) {
             const error = err as Error;
             setError(error.message ?? 'Failed to approve token');
             throw error;
@@ -80,7 +88,7 @@ export const useTokenApproval = (tokenAddress: string, spenderAddress: string): 
         }
     }, [provider, address, tokenAddress, spenderAddress, checkAllowance]);
 
-    const approveMax = useCallback(async () => {
+    const approveMax = useCallback(async (): Promise<string> => {
         return approve(ethers.MaxUint256.toString());
     }, [approve]);
 

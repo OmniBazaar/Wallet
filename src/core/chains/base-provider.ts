@@ -1,4 +1,4 @@
-import { NetworkConfig, Transaction, TransactionRequest } from '@/types';
+import { NetworkConfig, Transaction, TransactionRequest } from '../../types';
 
 /**
  * Base provider class that all chain-specific providers extend

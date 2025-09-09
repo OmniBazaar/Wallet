@@ -240,8 +240,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 import { KeyringManager } from '../../core/keyring/KeyringManager'
+import { secureRandomBase36 } from '../../core/utils/secure-random'
 
 interface TransactionItem {
   id: string
@@ -276,8 +277,8 @@ const selectedPaymentMethod = ref('wallet')
 const walletBalance = ref(1250.00) // TODO: Get from actual wallet
 
 const sendForm = ref({
-  recipient: props.initialRecipient || '',
-  amount: props.initialAmount || 0,
+  recipient: props.initialRecipient ?? '',
+  amount: props.initialAmount ?? 0,
   currency: 'USD',
   message: ''
 })
@@ -285,41 +286,46 @@ const sendForm = ref({
 const lastTransaction = ref<Transaction | null>(null)
 
 // Computed
-const calculateServiceFee = (price: number) => {
+const calculateServiceFee = (price: number): string => {
   return (price * 0.025).toFixed(2) // 2.5% service fee
 }
 
-const calculateNetworkFee = (price: number) => {
+const calculateNetworkFee = (price: number): string => {
   return (price * 0.01).toFixed(2) // 1% network fee (abstracts gas fees)
 }
 
-const calculateTotal = () => {
-  if (!props.item) return '0.00'
+const calculateTotal = (): string => {
+  if (props.item === null || props.item === undefined) return '0.00'
   const price = props.item.price
   const serviceFee = parseFloat(calculateServiceFee(price))
   const networkFee = parseFloat(calculateNetworkFee(price))
   return (price + serviceFee + networkFee).toFixed(2)
 }
 
-const calculateSendFee = () => {
-  const amount = parseFloat(sendForm.value.amount.toString()) || 0
+const calculateSendFee = (): string => {
+  const amount = parseFloat(sendForm.value.amount.toString())
+  if (isNaN(amount) || amount <= 0) return '0.50'
   return Math.max(0.50, amount * 0.01).toFixed(2) // Minimum $0.50 or 1%
 }
 
-const calculateSendTotal = () => {
-  const amount = parseFloat(sendForm.value.amount.toString()) || 0
+const calculateSendTotal = (): string => {
+  const amount = parseFloat(sendForm.value.amount.toString())
+  if (isNaN(amount) || amount <= 0) return '0.50'
   const fee = parseFloat(calculateSendFee())
   return (amount + fee).toFixed(2)
 }
 
-const formatDate = (timestamp?: number) => {
-  if (!timestamp) return ''
+const formatDate = (timestamp?: number): string => {
+  if (timestamp === undefined || timestamp === null || timestamp <= 0) return ''
   return new Date(timestamp).toLocaleString()
 }
 
 // Methods
-const processPurchase = async () => {
-  if (!props.item) return
+/**
+ * Process purchase transaction
+ */
+const processPurchase = async (): Promise<void> => {
+  if (props.item === null || props.item === undefined) return
   
   try {
     isProcessing.value = true
@@ -328,7 +334,7 @@ const processPurchase = async () => {
     const keyring = KeyringManager.getInstance()
     const session = keyring.getCurrentSession()
     
-    if (!session) {
+    if (session === null || session === undefined) {
       throw new Error('Please log in to complete your purchase')
     }
 
@@ -369,7 +375,10 @@ const processPurchase = async () => {
   }
 }
 
-const processSend = async () => {
+/**
+ * Process send money transaction
+ */
+const processSend = async (): Promise<void> => {
   try {
     isProcessing.value = true
     
@@ -377,12 +386,12 @@ const processSend = async () => {
     const keyring = KeyringManager.getInstance()
     const session = keyring.getCurrentSession()
     
-    if (!session) {
+    if (session === null || session === undefined) {
       throw new Error('Please log in to send money')
     }
 
     // Validate form
-    if (!sendForm.value.recipient || !sendForm.value.amount) {
+    if (sendForm.value.recipient.length === 0 || sendForm.value.amount <= 0) {
       throw new Error('Please fill in all required fields')
     }
 
@@ -418,26 +427,39 @@ const processSend = async () => {
   }
 }
 
-const retryTransaction = () => {
+/**
+ * Retry failed transaction
+ */
+const retryTransaction = (): void => {
   errorMessage.value = ''
   if (props.transactionType === 'purchase') {
-    processPurchase()
+    void processPurchase()
   } else if (props.transactionType === 'send') {
-    processSend()
+    void processSend()
   }
 }
 
-const viewTransaction = () => {
-  if (lastTransaction.value) {
+/**
+ * View transaction details
+ */
+const viewTransaction = (): void => {
+  if (lastTransaction.value !== null) {
     emit('view-transaction', lastTransaction.value)
   }
 }
 
+/**
+ * Generate secure transaction ID
+ */
 const generateTransactionId = (): string => {
-  return 'txn_' + Math.random().toString(36).substring(2, 15)
+  return 'txn_' + secureRandomBase36(13)
 }
 
 // Events
+/**
+ * Component event emitters
+ * @returns Event emitters for component communication
+ */
 const emit = defineEmits<{
   'transaction-success': [transaction: Transaction]
   'transaction-error': [error: string]

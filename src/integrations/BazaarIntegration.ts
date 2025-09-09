@@ -99,7 +99,7 @@ export class BazaarIntegration {
    * Disconnect from Bazaar marketplace
    */
   async disconnect(): Promise<void> {
-    await this.reset();
+    this.reset();
     await this.listingService.cleanup();
     this.connected = false;
   }
@@ -107,7 +107,7 @@ export class BazaarIntegration {
   /**
    * Reset integration state
    */
-  async reset(): Promise<void> {
+  reset(): void {
     this.session = null;
   }
 
@@ -117,7 +117,7 @@ export class BazaarIntegration {
   async connectWallet(address: string): Promise<ConnectionResult> {
     try {
       // Add address validation
-      if (!address || !address.match(/^0x[a-fA-F0-9]{40}$/)) {
+      if (address === '' || address.match(/^0x[a-fA-F0-9]{40}$/) === null) {
         throw new Error('Invalid wallet address');
       }
 

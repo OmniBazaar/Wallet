@@ -3,7 +3,7 @@ import { BitcoinNetworkConfig } from './provider';
 
 /** Bitcoin mainnet network configuration */
 export const BitcoinMainnet: BitcoinNetworkConfig = {
-  chainId: 0, // Bitcoin doesn't use chainId like Ethereum
+  chainId: 'bitcoin-mainnet', // Bitcoin identifier
   name: 'Bitcoin',
   currency: 'BTC',
   rpcUrl: 'https://blockstream.info/api', // Using Blockstream API as default
@@ -23,7 +23,7 @@ export const BitcoinMainnet: BitcoinNetworkConfig = {
 
 /** Bitcoin testnet network configuration */
 export const BitcoinTestnet: BitcoinNetworkConfig = {
-  chainId: 1, // Testnet identifier
+  chainId: 'bitcoin-testnet', // Testnet identifier
   name: 'Bitcoin Testnet',
   currency: 'tBTC',
   rpcUrl: 'https://blockstream.info/testnet/api',
