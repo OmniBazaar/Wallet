@@ -330,7 +330,7 @@ describe('PaymentRoutingService', () => {
       expect(providerManager.switchEVMNetwork).toHaveBeenCalledWith('ethereum');
     });
 
-    it.skip('should execute bridge transfer', async () => {
+    it('should execute bridge transfer', async () => {
       // Override provider manager methods
       providerManager.switchEVMNetwork = jest.fn().mockResolvedValue(undefined);
       const route: PaymentRoute = {

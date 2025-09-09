@@ -1,10 +1,10 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { OmniCoinTokenManagement } from './OmniCoinTokenManagement';
+import { OmniCoinTokenManagement } from '../../../../src/ui/widgets/omnicoin/components/OmniCoinTokenManagement';
 
 // Mock hooks
-jest.mock('../hooks/useOmniCoinToken', () => ({
+jest.mock('../../../../src/ui/widgets/omnicoin/hooks/useOmniCoinToken', () => ({
     useOmniCoinToken: () => ({
         tokens: [
             {

@@ -1,215 +1,201 @@
 /**
- * OrderBookService - Order Book Management Service
+ * OrderBookService - Decentralized Order Book Integration Service
  * 
- * Provides order book functionality for decentralized trading,
- * including order management, matching, and market data.
+ * Provides order book functionality including limit orders, order management,
+ * MEV protection, and order book depth analysis.
  */
 
-import { WalletService } from './WalletService';
 import { ethers } from 'ethers';
+import { DecentralizedOrderBook } from '../../../Validator/src/services/dex/DecentralizedOrderBook';
+import { MEVProtection } from '../../../Validator/src/services/dex/mev/MEVProtection';
+import { WalletService } from './WalletService';
+import { OmniProvider } from '../core/providers/OmniProvider';
 
-/** Order side enumeration */
-export enum OrderSide {
-  BUY = 'buy',
-  SELL = 'sell'
-}
-
-/** Order type enumeration */
+/** Order types */
 export enum OrderType {
-  LIMIT = 'limit',
-  MARKET = 'market',
-  STOP_LOSS = 'stop_loss',
-  TAKE_PROFIT = 'take_profit'
+  LIMIT = 'LIMIT',
+  MARKET = 'MARKET',
+  STOP_LIMIT = 'STOP_LIMIT',
+  STOP_MARKET = 'STOP_MARKET'
 }
 
-/** Order status enumeration */
+/** Order side */
+export enum OrderSide {
+  BUY = 'BUY',
+  SELL = 'SELL'
+}
+
+/** Order status */
 export enum OrderStatus {
-  PENDING = 'pending',
-  PARTIALLY_FILLED = 'partially_filled',
-  FILLED = 'filled',
-  CANCELED = 'canceled',
-  EXPIRED = 'expired',
-  REJECTED = 'rejected'
+  PENDING = 'PENDING',
+  OPEN = 'OPEN',
+  PARTIALLY_FILLED = 'PARTIALLY_FILLED',
+  FILLED = 'FILLED',
+  CANCELLED = 'CANCELLED',
+  EXPIRED = 'EXPIRED',
+  FAILED = 'FAILED'
 }
 
-/** Trading pair information */
-export interface TradingPair {
-  /** Base token address */
-  baseToken: string;
-  /** Quote token address */
-  quoteToken: string;
-  /** Trading pair symbol */
-  symbol: string;
-  /** Base token symbol */
-  baseSymbol: string;
-  /** Quote token symbol */
-  quoteSymbol: string;
-  /** Minimum order size */
-  minOrderSize: bigint;
-  /** Maximum order size */
-  maxOrderSize: bigint;
-  /** Price tick size */
-  tickSize: bigint;
-  /** Whether pair is active */
-  isActive: boolean;
-  /** Maker fee (in basis points) */
-  makerFee: number;
-  /** Taker fee (in basis points) */
-  takerFee: number;
+/** Order time in force */
+export enum TimeInForce {
+  GTC = 'GTC', // Good Till Cancelled
+  IOC = 'IOC', // Immediate Or Cancel
+  FOK = 'FOK', // Fill Or Kill
+  GTT = 'GTT'  // Good Till Time
+}
+
+/** Limit order parameters */
+export interface LimitOrderParams {
+  /** Token to sell */
+  tokenIn: string;
+  /** Token to buy */
+  tokenOut: string;
+  /** Amount of tokenIn to sell */
+  amountIn: bigint;
+  /** Minimum amount of tokenOut to receive */
+  amountOutMin: bigint;
+  /** Order side (BUY/SELL) */
+  side: OrderSide;
+  /** Limit price (tokenOut per tokenIn) */
+  price: number;
+  /** Time in force */
+  timeInForce?: TimeInForce;
+  /** Expiration timestamp (for GTT orders) */
+  expiration?: number;
+  /** Enable MEV protection */
+  mevProtection?: boolean;
+  /** Post-only order (maker only) */
+  postOnly?: boolean;
+  /** Reduce-only order */
+  reduceOnly?: boolean;
 }
 
 /** Order information */
 export interface Order {
   /** Unique order ID */
-  id: string;
-  /** Trading pair */
-  pair: TradingPair;
-  /** Order side */
-  side: OrderSide;
+  orderId: string;
+  /** Order creator address */
+  maker: string;
+  /** Token to sell */
+  tokenIn: string;
+  /** Token to buy */
+  tokenOut: string;
+  /** Original amount */
+  amountIn: bigint;
+  /** Remaining amount */
+  amountRemaining: bigint;
+  /** Filled amount */
+  amountFilled: bigint;
+  /** Minimum output amount */
+  amountOutMin: bigint;
   /** Order type */
   type: OrderType;
-  /** Order price (for limit orders) */
-  price: bigint;
-  /** Order quantity */
-  quantity: bigint;
-  /** Filled quantity */
-  filledQuantity: bigint;
-  /** Remaining quantity */
-  remainingQuantity: bigint;
+  /** Order side */
+  side: OrderSide;
+  /** Limit price */
+  price: number;
   /** Order status */
   status: OrderStatus;
-  /** Order creator address */
-  trader: string;
+  /** Time in force */
+  timeInForce: TimeInForce;
   /** Creation timestamp */
   createdAt: number;
   /** Last update timestamp */
   updatedAt: number;
   /** Expiration timestamp */
-  expiresAt?: number;
-  /** Stop price (for stop orders) */
-  stopPrice?: bigint;
+  expiration?: number;
   /** Transaction hash */
   txHash?: string;
-  /** Average fill price */
-  avgFillPrice?: bigint;
+  /** Execution price (for filled orders) */
+  executionPrice?: number;
   /** Total fees paid */
-  totalFees?: bigint;
+  fees?: bigint;
 }
 
-/** Order book level */
-export interface OrderBookLevel {
+/** Order book depth level */
+export interface DepthLevel {
   /** Price level */
-  price: bigint;
-  /** Total quantity at this level */
-  quantity: bigint;
-  /** Number of orders at this level */
+  price: number;
+  /** Total amount at this price */
+  amount: bigint;
+  /** Number of orders at this price */
   orderCount: number;
-  /** Orders at this level */
-  orders: Order[];
+  /** Cumulative amount up to this level */
+  cumulative: bigint;
 }
 
-/** Order book data */
-export interface OrderBook {
+/** Order book depth data */
+export interface OrderBookDepth {
   /** Trading pair */
-  pair: TradingPair;
-  /** Buy orders (bids) */
-  bids: OrderBookLevel[];
-  /** Sell orders (asks) */
-  asks: OrderBookLevel[];
+  pair: string;
+  /** Bid levels (buy orders) */
+  bids: DepthLevel[];
+  /** Ask levels (sell orders) */
+  asks: DepthLevel[];
+  /** Mid price */
+  midPrice: number;
+  /** Spread percentage */
+  spread: number;
   /** Last update timestamp */
   timestamp: number;
-  /** Sequence number for ordering */
-  sequence: number;
 }
 
-/** Market statistics */
-export interface MarketStats {
-  /** Trading pair */
-  pair: TradingPair;
-  /** Last traded price */
-  lastPrice: bigint;
-  /** 24h price change */
-  priceChange24h: bigint;
-  /** 24h percentage change */
-  percentChange24h: number;
-  /** 24h high price */
-  high24h: bigint;
-  /** 24h low price */
-  low24h: bigint;
-  /** 24h volume */
-  volume24h: bigint;
-  /** Best bid price */
-  bestBid: bigint;
-  /** Best ask price */
-  bestAsk: bigint;
-  /** Bid-ask spread */
-  spread: bigint;
+/** Order execution result */
+export interface OrderResult {
+  /** Success status */
+  success: boolean;
+  /** Order ID */
+  orderId?: string;
+  /** Transaction hash */
+  txHash?: string;
+  /** Error message */
+  error?: string;
+  /** Gas used */
+  gasUsed?: bigint;
+  /** MEV protection applied */
+  mevProtected?: boolean;
 }
 
-/** Order placement parameters */
-export interface PlaceOrderParams {
-  /** Trading pair symbol */
-  symbol: string;
-  /** Order side */
-  side: OrderSide;
-  /** Order type */
-  type: OrderType;
-  /** Order quantity */
-  quantity: bigint;
-  /** Order price (for limit orders) */
-  price?: bigint;
-  /** Stop price (for stop orders) */
-  stopPrice?: bigint;
-  /** Expiration timestamp */
-  expiresAt?: number;
-}
-
-/** Trade execution information */
-export interface Trade {
-  /** Trade ID */
-  id: string;
-  /** Trading pair */
-  pair: TradingPair;
-  /** Maker order ID */
-  makerOrderId: string;
-  /** Taker order ID */
-  takerOrderId: string;
-  /** Trade price */
-  price: bigint;
-  /** Trade quantity */
-  quantity: bigint;
-  /** Maker address */
-  maker: string;
+/** Order fill event */
+export interface OrderFillEvent {
+  /** Order ID */
+  orderId: string;
   /** Taker address */
   taker: string;
-  /** Trade timestamp */
-  timestamp: number;
-  /** Maker fee */
-  makerFee: bigint;
-  /** Taker fee */
-  takerFee: bigint;
+  /** Amount filled in this transaction */
+  amountFilled: bigint;
+  /** Amount of output token */
+  amountOut: bigint;
+  /** Execution price */
+  executionPrice: number;
   /** Transaction hash */
   txHash: string;
+  /** Fill timestamp */
+  timestamp: number;
 }
 
 /**
- * Order book management service
+ * Order book integration service
  */
 export class OrderBookService {
-  private walletService: WalletService;
+  private walletService?: WalletService;
+  private provider?: OmniProvider;
+  private orderBook?: DecentralizedOrderBook;
+  private mevProtection?: MEVProtection;
   private isInitialized = false;
-  private orderBooks: Map<string, OrderBook> = new Map();
-  private activeOrders: Map<string, Order> = new Map();
-  private trades: Map<string, Trade[]> = new Map();
-  private supportedPairs: Map<string, TradingPair> = new Map();
-  private sequenceNumber = 0;
+  private userOrders: Map<string, Order> = new Map();
+  private orderSubscriptions: Map<string, (event: OrderFillEvent) => void> = new Map();
 
   /**
    * Creates a new OrderBookService instance
-   * @param walletService - Wallet service instance
+   * @param providerOrWalletService - OmniProvider or WalletService instance
    */
-  constructor(walletService: WalletService) {
-    this.walletService = walletService;
+  constructor(providerOrWalletService: OmniProvider | WalletService) {
+    if ('getWallet' in providerOrWalletService) {
+      this.walletService = providerOrWalletService;
+    } else {
+      this.provider = providerOrWalletService;
+    }
   }
 
   /**
@@ -222,30 +208,24 @@ export class OrderBookService {
         return;
       }
 
-      // Ensure wallet service is initialized
-      if (!this.walletService.isServiceInitialized()) {
+      // Initialize wallet service if needed
+      if (this.walletService && !this.walletService.isServiceInitialized()) {
         await this.walletService.init();
       }
 
-      // Initialize supported trading pairs
-      await this.loadSupportedPairs();
+      // Initialize order book and MEV protection
+      this.orderBook = new DecentralizedOrderBook();
+      this.mevProtection = new MEVProtection();
+      
+      await Promise.all([
+        this.orderBook.init(),
+        this.mevProtection.init()
+      ]);
 
-      // Initialize order books for all pairs
-      for (const pair of this.supportedPairs.values()) {
-        this.orderBooks.set(pair.symbol, {
-          pair,
-          bids: [],
-          asks: [],
-          timestamp: Date.now(),
-          sequence: this.sequenceNumber++
-        });
-      }
-
-      // Load active orders
-      await this.loadActiveOrders();
+      // Load user orders
+      await this.loadUserOrders();
 
       this.isInitialized = true;
-      // console.log('OrderBookService initialized with', this.supportedPairs.size, 'trading pairs');
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       throw new Error(`Failed to initialize order book service: ${errorMessage}`);
@@ -253,358 +233,583 @@ export class OrderBookService {
   }
 
   /**
-   * Get supported trading pairs
-   * @returns Array of trading pairs
-   */
-  getSupportedPairs(): TradingPair[] {
-    return Array.from(this.supportedPairs.values());
-  }
-
-  /**
-   * Get trading pair by symbol
-   * @param symbol - Trading pair symbol
-   * @returns Trading pair or null if not found
-   */
-  getPair(symbol: string): TradingPair | null {
-    return this.supportedPairs.get(symbol) || null;
-  }
-
-  /**
-   * Get order book for a trading pair
-   * @param symbol - Trading pair symbol
-   * @param depth - Number of levels to return (default: 20)
-   * @returns Order book data
-   */
-  getOrderBook(symbol: string, depth: number = 20): OrderBook | null {
-    const orderBook = this.orderBooks.get(symbol);
-    if (!orderBook) {
-      return null;
-    }
-
-    return {
-      ...orderBook,
-      bids: orderBook.bids.slice(0, depth),
-      asks: orderBook.asks.slice(0, depth)
-    };
-  }
-
-  /**
-   * Place a new order
-   * @param params - Order placement parameters
-   * @returns Created order
+   * Place a limit order
+   * @param params - Limit order parameters
+   * @returns Order result with order ID
    * @throws {Error} When order placement fails
    */
-  async placeOrder(params: PlaceOrderParams): Promise<Order> {
+  async placeLimitOrder(params: LimitOrderParams): Promise<OrderResult> {
     if (!this.isInitialized) {
       throw new Error('Order book service not initialized');
     }
 
-    const pair = this.supportedPairs.get(params.symbol);
-    if (!pair) {
-      throw new Error(`Unsupported trading pair: ${params.symbol}`);
-    }
-
-    if (params.quantity < pair.minOrderSize) {
-      throw new Error('Order size below minimum');
-    }
-
-    if (params.quantity > pair.maxOrderSize) {
-      throw new Error('Order size above maximum');
-    }
-
     try {
-      const address = await this.walletService.getAddress();
-      const orderId = `order_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      
-      const order: Order = {
-        id: orderId,
-        pair,
-        side: params.side,
-        type: params.type,
-        price: params.price || 0n,
-        quantity: params.quantity,
-        filledQuantity: 0n,
-        remainingQuantity: params.quantity,
-        status: OrderStatus.PENDING,
-        trader: address,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-        expiresAt: params.expiresAt,
-        stopPrice: params.stopPrice
-      };
-
-      // Add to active orders
-      this.activeOrders.set(orderId, order);
-
-      // Add to order book if it's a limit order
-      if (params.type === OrderType.LIMIT) {
-        this.addOrderToBook(order);
+      if (!this.orderBook) {
+        throw new Error('Order book not available');
       }
 
-      // Try to match the order
-      await this.matchOrder(order);
+      // Validate parameters
+      if (params.amountIn === BigInt(0)) {
+        throw new Error('Order amount cannot be zero');
+      }
 
-      // console.log(`Order placed: ${orderId} - ${params.side} ${params.quantity} ${params.symbol} @ ${params.price || 'market'}`);
-      return order;
+      if (params.price <= 0) {
+        throw new Error('Order price must be positive');
+      }
+
+      // Get user address
+      const userAddress = await this.getUserAddress();
+
+      // Apply MEV protection if requested
+      let orderData = {
+        maker: userAddress,
+        tokenIn: params.tokenIn,
+        tokenOut: params.tokenOut,
+        amountIn: params.amountIn,
+        amountOutMin: params.amountOutMin,
+        side: params.side,
+        price: params.price,
+        timeInForce: params.timeInForce || TimeInForce.GTC,
+        expiration: params.expiration,
+        postOnly: params.postOnly,
+        reduceOnly: params.reduceOnly
+      };
+
+      if (params.mevProtection && this.mevProtection) {
+        const protectedOrder = await this.mevProtection.protectOrder({
+          ...orderData,
+          type: 'limit'
+        });
+        orderData = { ...orderData, ...protectedOrder };
+      }
+
+      // Submit order to decentralized order book
+      const result = await this.orderBook.submitOrder(orderData);
+
+      if (result.success && result.orderId) {
+        // Create order object
+        const order: Order = {
+          orderId: result.orderId,
+          maker: userAddress,
+          tokenIn: params.tokenIn,
+          tokenOut: params.tokenOut,
+          amountIn: params.amountIn,
+          amountRemaining: params.amountIn,
+          amountFilled: BigInt(0),
+          amountOutMin: params.amountOutMin,
+          type: OrderType.LIMIT,
+          side: params.side,
+          price: params.price,
+          status: OrderStatus.OPEN,
+          timeInForce: params.timeInForce || TimeInForce.GTC,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          expiration: params.expiration,
+          txHash: result.transactionHash
+        };
+
+        // Store order
+        this.userOrders.set(result.orderId, order);
+
+        // Subscribe to order events
+        this.subscribeToOrderEvents(result.orderId);
+      }
+
+      return {
+        success: result.success,
+        orderId: result.orderId,
+        txHash: result.transactionHash,
+        error: result.error,
+        gasUsed: result.gasUsed,
+        mevProtected: params.mevProtection
+      };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      throw new Error(`Failed to place order: ${errorMessage}`);
+      return {
+        success: false,
+        error: `Failed to place limit order: ${errorMessage}`
+      };
     }
   }
 
   /**
-   * Cancel an existing order
+   * Cancel an open order
    * @param orderId - Order ID to cancel
-   * @returns Success status
+   * @returns Cancellation result
    * @throws {Error} When cancellation fails
    */
-  async cancelOrder(orderId: string): Promise<boolean> {
-    const order = this.activeOrders.get(orderId);
-    if (!order) {
-      throw new Error('Order not found');
-    }
-
-    const address = await this.walletService.getAddress();
-    if (order.trader !== address) {
-      throw new Error('Not authorized to cancel this order');
-    }
-
-    if (order.status !== OrderStatus.PENDING && order.status !== OrderStatus.PARTIALLY_FILLED) {
-      throw new Error('Order cannot be canceled');
+  async cancelOrder(orderId: string): Promise<OrderResult> {
+    if (!this.isInitialized) {
+      throw new Error('Order book service not initialized');
     }
 
     try {
-      // Update order status
-      order.status = OrderStatus.CANCELED;
-      order.updatedAt = Date.now();
-      this.activeOrders.set(orderId, order);
+      if (!this.orderBook) {
+        throw new Error('Order book not available');
+      }
 
-      // Remove from order book
-      this.removeOrderFromBook(order);
+      // Verify order exists and is cancellable
+      const order = this.userOrders.get(orderId);
+      if (!order) {
+        throw new Error('Order not found');
+      }
 
-      // console.log(`Order canceled: ${orderId}`);
-      return true;
+      if (order.status !== OrderStatus.OPEN && order.status !== OrderStatus.PARTIALLY_FILLED) {
+        throw new Error(`Cannot cancel order with status: ${order.status}`);
+      }
+
+      // Cancel order in order book
+      const result = await this.orderBook.cancelOrder(orderId);
+
+      if (result.success) {
+        // Update order status
+        order.status = OrderStatus.CANCELLED;
+        order.updatedAt = Date.now();
+        this.userOrders.set(orderId, order);
+
+        // Unsubscribe from events
+        this.unsubscribeFromOrderEvents(orderId);
+      }
+
+      return {
+        success: result.success,
+        orderId,
+        txHash: result.transactionHash,
+        error: result.error,
+        gasUsed: result.gasUsed
+      };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      throw new Error(`Failed to cancel order: ${errorMessage}`);
-    }
-  }
-
-  /**
-   * Get active orders for current address
-   * @param symbol - Trading pair symbol (optional)
-   * @returns Array of active orders
-   */
-  async getActiveOrders(symbol?: string): Promise<Order[]> {
-    const address = await this.walletService.getAddress();
-    return Array.from(this.activeOrders.values()).filter(order => {
-      const isMyOrder = order.trader === address;
-      const isActive = order.status === OrderStatus.PENDING || order.status === OrderStatus.PARTIALLY_FILLED;
-      const matchesSymbol = !symbol || order.pair.symbol === symbol;
-      return isMyOrder && isActive && matchesSymbol;
-    });
-  }
-
-  /**
-   * Get order history for current address
-   * @param symbol - Trading pair symbol (optional)
-   * @param limit - Maximum number of orders to return
-   * @returns Array of historical orders
-   */
-  async getOrderHistory(symbol?: string, limit: number = 50): Promise<Order[]> {
-    const address = await this.walletService.getAddress();
-    return Array.from(this.activeOrders.values())
-      .filter(order => {
-        const isMyOrder = order.trader === address;
-        const matchesSymbol = !symbol || order.pair.symbol === symbol;
-        return isMyOrder && matchesSymbol;
-      })
-      .sort((a, b) => b.createdAt - a.createdAt)
-      .slice(0, limit);
-  }
-
-  /**
-   * Get trade history for a trading pair
-   * @param symbol - Trading pair symbol
-   * @param limit - Maximum number of trades to return
-   * @returns Array of recent trades
-   */
-  getTradeHistory(symbol: string, limit: number = 100): Trade[] {
-    const trades = this.trades.get(symbol) || [];
-    return trades.slice(0, limit);
-  }
-
-  /**
-   * Get market statistics for a trading pair
-   * @param symbol - Trading pair symbol
-   * @returns Market statistics
-   */
-  getMarketStats(symbol: string): MarketStats | null {
-    const pair = this.supportedPairs.get(symbol);
-    const orderBook = this.orderBooks.get(symbol);
-    
-    if (!pair || !orderBook) {
-      return null;
-    }
-
-    // Mock market stats - in production would calculate from actual data
-    const lastPrice = ethers.parseEther('100');
-    const bestBid = orderBook.bids.length > 0 ? orderBook.bids[0].price : 0n;
-    const bestAsk = orderBook.asks.length > 0 ? orderBook.asks[0].price : 0n;
-
-    return {
-      pair,
-      lastPrice,
-      priceChange24h: ethers.parseEther('5'),
-      percentChange24h: 5.0,
-      high24h: ethers.parseEther('105'),
-      low24h: ethers.parseEther('95'),
-      volume24h: ethers.parseEther('10000'),
-      bestBid,
-      bestAsk,
-      spread: bestAsk > bestBid ? bestAsk - bestBid : 0n
-    };
-  }
-
-  /**
-   * Add order to order book
-   * @param order
-   * @private
-   */
-  private addOrderToBook(order: Order): void {
-    const orderBook = this.orderBooks.get(order.pair.symbol);
-    if (!orderBook) {
-      return;
-    }
-
-    const levels = order.side === OrderSide.BUY ? orderBook.bids : orderBook.asks;
-    
-    // Find or create price level
-    let level = levels.find(l => l.price === order.price);
-    if (!level) {
-      level = {
-        price: order.price,
-        quantity: 0n,
-        orderCount: 0,
-        orders: []
+      return {
+        success: false,
+        error: `Failed to cancel order: ${errorMessage}`
       };
-      levels.push(level);
-      
-      // Sort levels (bids descending, asks ascending)
-      if (order.side === OrderSide.BUY) {
-        levels.sort((a, b) => b.price > a.price ? 1 : -1);
-      } else {
-        levels.sort((a, b) => a.price > b.price ? 1 : -1);
-      }
     }
-
-    // Add order to level
-    level.orders.push(order);
-    level.quantity += order.remainingQuantity;
-    level.orderCount += 1;
-
-    orderBook.timestamp = Date.now();
-    orderBook.sequence = this.sequenceNumber++;
   }
 
   /**
-   * Remove order from order book
-   * @param order
-   * @private
+   * Get user's open orders
+   * @param tokenPair - Optional token pair filter
+   * @returns Array of user's open orders
+   * @throws {Error} When query fails
    */
-  private removeOrderFromBook(order: Order): void {
-    const orderBook = this.orderBooks.get(order.pair.symbol);
-    if (!orderBook) {
-      return;
+  async getUserOrders(tokenPair?: { tokenIn: string; tokenOut: string }): Promise<Order[]> {
+    if (!this.isInitialized) {
+      throw new Error('Order book service not initialized');
     }
 
-    const levels = order.side === OrderSide.BUY ? orderBook.bids : orderBook.asks;
-    const level = levels.find(l => l.price === order.price);
-    
-    if (level) {
-      const orderIndex = level.orders.findIndex(o => o.id === order.id);
-      if (orderIndex >= 0) {
-        level.orders.splice(orderIndex, 1);
-        level.quantity -= order.remainingQuantity;
-        level.orderCount -= 1;
+    try {
+      const userAddress = await this.getUserAddress();
+      const orders = Array.from(this.userOrders.values());
 
-        // Remove empty level
-        if (level.orderCount === 0) {
-          const levelIndex = levels.findIndex(l => l.price === order.price);
-          if (levelIndex >= 0) {
-            levels.splice(levelIndex, 1);
-          }
+      // Filter by user
+      let userOrdersList = orders.filter(order => order.maker === userAddress);
+
+      // Filter by token pair if provided
+      if (tokenPair) {
+        userOrdersList = userOrdersList.filter(order =>
+          (order.tokenIn === tokenPair.tokenIn && order.tokenOut === tokenPair.tokenOut) ||
+          (order.tokenIn === tokenPair.tokenOut && order.tokenOut === tokenPair.tokenIn)
+        );
+      }
+
+      // Sort by creation time (newest first)
+      userOrdersList.sort((a, b) => b.createdAt - a.createdAt);
+
+      return userOrdersList;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(`Failed to get user orders: ${errorMessage}`);
+    }
+  }
+
+  /**
+   * Fill an order (taker side)
+   * @param orderId - Order ID to fill
+   * @param fillAmount - Amount to fill (partial fills allowed)
+   * @returns Fill result
+   * @throws {Error} When fill fails
+   */
+  async fillOrder(orderId: string, fillAmount: bigint): Promise<OrderResult> {
+    if (!this.isInitialized) {
+      throw new Error('Order book service not initialized');
+    }
+
+    try {
+      if (!this.orderBook) {
+        throw new Error('Order book not available');
+      }
+
+      // Get order details
+      const order = await this.orderBook.getOrder(orderId);
+      if (!order) {
+        throw new Error('Order not found');
+      }
+
+      if (order.status !== 'OPEN' && order.status !== 'PARTIALLY_FILLED') {
+        throw new Error('Order is not fillable');
+      }
+
+      // Validate fill amount
+      if (fillAmount > order.amountRemaining) {
+        throw new Error('Fill amount exceeds remaining order amount');
+      }
+
+      // Execute fill
+      const result = await this.orderBook.fillOrder({
+        orderId,
+        fillAmount,
+        taker: await this.getUserAddress()
+      });
+
+      return {
+        success: result.success,
+        orderId,
+        txHash: result.transactionHash,
+        error: result.error,
+        gasUsed: result.gasUsed
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      return {
+        success: false,
+        error: `Failed to fill order: ${errorMessage}`
+      };
+    }
+  }
+
+  /**
+   * Get order book depth for a token pair
+   * @param tokenIn - Input token address
+   * @param tokenOut - Output token address
+   * @param levels - Number of price levels to return (default: 20)
+   * @returns Order book depth data
+   * @throws {Error} When depth query fails
+   */
+  async getOrderBookDepth(
+    tokenIn: string,
+    tokenOut: string,
+    levels: number = 20
+  ): Promise<OrderBookDepth> {
+    if (!this.isInitialized) {
+      throw new Error('Order book service not initialized');
+    }
+
+    try {
+      if (!this.orderBook) {
+        throw new Error('Order book not available');
+      }
+
+      // Get orders for the pair
+      const orders = await this.orderBook.getOrdersForPair(tokenIn, tokenOut);
+
+      // Separate buy and sell orders
+      const buyOrders = orders.filter(o => o.side === 'BUY' && o.status === 'OPEN');
+      const sellOrders = orders.filter(o => o.side === 'SELL' && o.status === 'OPEN');
+
+      // Aggregate by price level
+      const bids = this.aggregateOrdersByPrice(buyOrders, levels, true);
+      const asks = this.aggregateOrdersByPrice(sellOrders, levels, false);
+
+      // Calculate mid price and spread
+      const bestBid = bids[0]?.price || 0;
+      const bestAsk = asks[0]?.price || Number.MAX_SAFE_INTEGER;
+      const midPrice = (bestBid + bestAsk) / 2;
+      const spread = bestAsk > 0 && bestBid > 0 ? ((bestAsk - bestBid) / midPrice) * 100 : 0;
+
+      return {
+        pair: `${tokenIn}/${tokenOut}`,
+        bids,
+        asks,
+        midPrice,
+        spread,
+        timestamp: Date.now()
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(`Failed to get order book depth: ${errorMessage}`);
+    }
+  }
+
+  /**
+   * Get order details by ID
+   * @param orderId - Order ID
+   * @returns Order details or null if not found
+   * @throws {Error} When query fails
+   */
+  async getOrder(orderId: string): Promise<Order | null> {
+    if (!this.isInitialized) {
+      throw new Error('Order book service not initialized');
+    }
+
+    try {
+      // Check local cache first
+      const cachedOrder = this.userOrders.get(orderId);
+      if (cachedOrder) {
+        return cachedOrder;
+      }
+
+      // Query from order book
+      if (this.orderBook) {
+        const orderData = await this.orderBook.getOrder(orderId);
+        if (orderData) {
+          const order: Order = {
+            orderId: orderData.orderId,
+            maker: orderData.maker,
+            tokenIn: orderData.tokenIn,
+            tokenOut: orderData.tokenOut,
+            amountIn: orderData.amountIn,
+            amountRemaining: orderData.amountRemaining,
+            amountFilled: orderData.amountIn - orderData.amountRemaining,
+            amountOutMin: orderData.amountOutMin,
+            type: OrderType.LIMIT,
+            side: orderData.side as OrderSide,
+            price: orderData.price,
+            status: orderData.status as OrderStatus,
+            timeInForce: orderData.timeInForce as TimeInForce,
+            createdAt: orderData.createdAt,
+            updatedAt: orderData.updatedAt,
+            expiration: orderData.expiration,
+            txHash: orderData.txHash,
+            executionPrice: orderData.executionPrice,
+            fees: orderData.fees
+          };
+          return order;
         }
       }
-    }
 
-    orderBook.timestamp = Date.now();
-    orderBook.sequence = this.sequenceNumber++;
-  }
-
-  /**
-   * Match order against existing orders
-   * @param order
-   * @private
-   */
-  private async matchOrder(order: Order): Promise<void> {
-    // Mock order matching - in production would implement proper matching engine
-    // console.log(`Matching order: ${order.id}`);
-    
-    // For now, just update order status
-    if (order.type === OrderType.MARKET) {
-      order.status = OrderStatus.FILLED;
-      order.filledQuantity = order.quantity;
-      order.remainingQuantity = 0n;
-      order.updatedAt = Date.now();
-      this.activeOrders.set(order.id, order);
+      return null;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(`Failed to get order: ${errorMessage}`);
     }
   }
 
   /**
-   * Load supported trading pairs
-   * @private
+   * Get order history for the user
+   * @param limit - Maximum number of orders to return
+   * @param offset - Offset for pagination
+   * @returns Array of historical orders
+   * @throws {Error} When query fails
    */
-  private async loadSupportedPairs(): Promise<void> {
-    // Mock trading pairs - in production would load from configuration or chain
-    const mockPair: TradingPair = {
-      baseToken: '0xA0b86a33E6441Cc00C5d8a08E3B7F4a0A6F0D4Ce',
-      quoteToken: '0x4Fcc7d9Ca9d22E21FCF25CF9a2E48D3A0c1a5A3E',
-      symbol: 'OMNI/USDC',
-      baseSymbol: 'OMNI',
-      quoteSymbol: 'USDC',
-      minOrderSize: ethers.parseEther('0.01'),
-      maxOrderSize: ethers.parseEther('1000000'),
-      tickSize: ethers.parseUnits('0.01', 6),
-      isActive: true,
-      makerFee: 10, // 0.1%
-      takerFee: 20  // 0.2%
-    };
-
-    this.supportedPairs.set(mockPair.symbol, mockPair);
-  }
-
-  /**
-   * Load active orders from storage
-   * @private
-   */
-  private async loadActiveOrders(): Promise<void> {
-    // Mock - in production would load from storage or blockchain
-    this.activeOrders.clear();
-  }
-
-  /**
-   * Clear all orders from order books
-   */
-  async clearOrders(): Promise<void> {
-    for (const orderBook of this.orderBooks.values()) {
-      orderBook.bids = [];
-      orderBook.asks = [];
-      orderBook.timestamp = Date.now();
-      orderBook.sequence = this.sequenceNumber++;
+  async getOrderHistory(limit: number = 50, offset: number = 0): Promise<Order[]> {
+    if (!this.isInitialized) {
+      throw new Error('Order book service not initialized');
     }
-    this.activeOrders.clear();
-    // console.log('OrderBookService orders cleared');
+
+    try {
+      if (!this.orderBook) {
+        throw new Error('Order book not available');
+      }
+
+      const userAddress = await this.getUserAddress();
+      const history = await this.orderBook.getUserOrderHistory(userAddress, limit, offset);
+
+      return history.map(orderData => ({
+        orderId: orderData.orderId,
+        maker: orderData.maker,
+        tokenIn: orderData.tokenIn,
+        tokenOut: orderData.tokenOut,
+        amountIn: orderData.amountIn,
+        amountRemaining: orderData.amountRemaining,
+        amountFilled: orderData.amountIn - orderData.amountRemaining,
+        amountOutMin: orderData.amountOutMin,
+        type: OrderType.LIMIT,
+        side: orderData.side as OrderSide,
+        price: orderData.price,
+        status: orderData.status as OrderStatus,
+        timeInForce: orderData.timeInForce as TimeInForce,
+        createdAt: orderData.createdAt,
+        updatedAt: orderData.updatedAt,
+        expiration: orderData.expiration,
+        txHash: orderData.txHash,
+        executionPrice: orderData.executionPrice,
+        fees: orderData.fees
+      }));
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(`Failed to get order history: ${errorMessage}`);
+    }
+  }
+
+  /**
+   * Subscribe to order fill events
+   * @param orderId - Order ID to monitor
+   * @param callback - Callback function for fill events
+   */
+  subscribeToFillEvents(orderId: string, callback: (event: OrderFillEvent) => void): void {
+    this.orderSubscriptions.set(orderId, callback);
+  }
+
+  /**
+   * Unsubscribe from order fill events
+   * @param orderId - Order ID to stop monitoring
+   */
+  unsubscribeFromFillEvents(orderId: string): void {
+    this.orderSubscriptions.delete(orderId);
+  }
+
+  /**
+   * Aggregate orders by price level
+   * @param orders - Orders to aggregate
+   * @param maxLevels - Maximum number of levels
+   * @param descending - Sort order (true for bids, false for asks)
+   * @returns Aggregated depth levels
+   * @private
+   */
+  private aggregateOrdersByPrice(
+    orders: any[],
+    maxLevels: number,
+    descending: boolean
+  ): DepthLevel[] {
+    const priceMap = new Map<number, { amount: bigint; count: number }>();
+
+    // Aggregate by price
+    for (const order of orders) {
+      const existing = priceMap.get(order.price) || { amount: BigInt(0), count: 0 };
+      priceMap.set(order.price, {
+        amount: existing.amount + order.amountRemaining,
+        count: existing.count + 1
+      });
+    }
+
+    // Convert to array and sort
+    const levels = Array.from(priceMap.entries())
+      .map(([price, data]) => ({
+        price,
+        amount: data.amount,
+        orderCount: data.count,
+        cumulative: BigInt(0)
+      }))
+      .sort((a, b) => descending ? b.price - a.price : a.price - b.price)
+      .slice(0, maxLevels);
+
+    // Calculate cumulative amounts
+    let cumulative = BigInt(0);
+    for (const level of levels) {
+      cumulative += level.amount;
+      level.cumulative = cumulative;
+    }
+
+    return levels;
+  }
+
+  /**
+   * Subscribe to order events
+   * @param orderId - Order ID to monitor
+   * @private
+   */
+  private subscribeToOrderEvents(orderId: string): void {
+    if (this.orderBook) {
+      // In production, would set up WebSocket subscription
+      // For now, poll for updates
+      const checkOrder = async () => {
+        try {
+          const orderData = await this.orderBook!.getOrder(orderId);
+          if (orderData) {
+            const order = this.userOrders.get(orderId);
+            if (order && orderData.status !== order.status) {
+              // Update order
+              order.status = orderData.status as OrderStatus;
+              order.amountRemaining = orderData.amountRemaining;
+              order.amountFilled = orderData.amountIn - orderData.amountRemaining;
+              order.updatedAt = Date.now();
+              this.userOrders.set(orderId, order);
+
+              // Trigger callback if subscribed
+              const callback = this.orderSubscriptions.get(orderId);
+              if (callback && order.amountFilled > BigInt(0)) {
+                callback({
+                  orderId,
+                  taker: 'unknown',
+                  amountFilled: order.amountFilled,
+                  amountOut: BigInt(0), // Would need calculation
+                  executionPrice: orderData.executionPrice || order.price,
+                  txHash: orderData.txHash || '',
+                  timestamp: Date.now()
+                });
+              }
+            }
+          }
+        } catch (error) {
+          // Ignore polling errors
+        }
+      };
+
+      // Poll every 5 seconds
+      const interval = setInterval(checkOrder, 5000);
+      
+      // Store interval for cleanup
+      (this as any)[`interval_${orderId}`] = interval;
+    }
+  }
+
+  /**
+   * Unsubscribe from order events
+   * @param orderId - Order ID to stop monitoring
+   * @private
+   */
+  private unsubscribeFromOrderEvents(orderId: string): void {
+    const interval = (this as any)[`interval_${orderId}`];
+    if (interval) {
+      clearInterval(interval);
+      delete (this as any)[`interval_${orderId}`];
+    }
+  }
+
+  /**
+   * Load user orders from order book
+   * @private
+   */
+  private async loadUserOrders(): Promise<void> {
+    try {
+      if (this.orderBook) {
+        const userAddress = await this.getUserAddress();
+        const orders = await this.orderBook.getUserOrders(userAddress);
+        
+        this.userOrders.clear();
+        for (const orderData of orders) {
+          const order: Order = {
+            orderId: orderData.orderId,
+            maker: orderData.maker,
+            tokenIn: orderData.tokenIn,
+            tokenOut: orderData.tokenOut,
+            amountIn: orderData.amountIn,
+            amountRemaining: orderData.amountRemaining,
+            amountFilled: orderData.amountIn - orderData.amountRemaining,
+            amountOutMin: orderData.amountOutMin,
+            type: OrderType.LIMIT,
+            side: orderData.side as OrderSide,
+            price: orderData.price,
+            status: orderData.status as OrderStatus,
+            timeInForce: orderData.timeInForce as TimeInForce,
+            createdAt: orderData.createdAt,
+            updatedAt: orderData.updatedAt,
+            expiration: orderData.expiration,
+            txHash: orderData.txHash
+          };
+          this.userOrders.set(order.orderId, order);
+        }
+      }
+    } catch (error) {
+      // Ignore load errors on init
+    }
+  }
+
+  /**
+   * Get user address
+   * @returns User address
+   * @private
+   */
+  private async getUserAddress(): Promise<string> {
+    if (this.walletService) {
+      return await this.walletService.getAddress();
+    } else if (this.provider) {
+      const signer = await this.provider.getSigner();
+      return await signer.getAddress();
+    } else {
+      throw new Error('No provider available');
+    }
   }
 
   /**
@@ -612,14 +817,18 @@ export class OrderBookService {
    */
   async cleanup(): Promise<void> {
     try {
-      this.orderBooks.clear();
-      this.activeOrders.clear();
-      this.trades.clear();
-      this.supportedPairs.clear();
+      // Clear all intervals
+      for (const orderId of this.userOrders.keys()) {
+        this.unsubscribeFromOrderEvents(orderId);
+      }
+      
+      this.userOrders.clear();
+      this.orderSubscriptions.clear();
       this.isInitialized = false;
-      // console.log('OrderBookService cleanup completed');
+      this.orderBook = undefined;
+      this.mevProtection = undefined;
     } catch (error) {
-      console.error('Error during OrderBookService cleanup:', error);
+      // Fail silently on cleanup
     }
   }
 }

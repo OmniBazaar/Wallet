@@ -95,7 +95,7 @@ describe('DEX Wallet Integration', () => {
       expect(swap.tokenOut).toBe(swapParams.tokenOut);
     });
 
-    it.skip('should handle multi-hop swaps - executeMultiHopSwap not implemented', async () => {
+    it('should handle multi-hop swaps', async () => {
       const multiHopSwap = await swapService.executeMultiHopSwap({
         path: [
           MOCK_TOKENS.ethereum.USDC.address,
@@ -112,7 +112,7 @@ describe('DEX Wallet Integration', () => {
       expect(multiHopSwap.transactionHash).toBeDefined();
     });
 
-    it.skip('should find best swap route - not implemented', async () => {
+    it('should find best swap route', async () => {
       const routes = await swapService.findBestRoute({
         tokenIn: MOCK_TOKENS.ethereum.USDC.address,
         tokenOut: '0xA0b86a33E6441Cc00C5d8a08E3B7F4a0A6F0D4Ce', // OMNI token,
@@ -129,7 +129,7 @@ describe('DEX Wallet Integration', () => {
       expect(bestRoute.pools).toBeDefined();
     });
 
-    it.skip('should calculate price impact - not implemented', async () => {
+    it('should calculate price impact', async () => {
       const impact = await swapService.calculatePriceImpact({
         tokenIn: MOCK_TOKENS.ethereum.USDC.address,
         tokenOut: '0xA0b86a33E6441Cc00C5d8a08E3B7F4a0A6F0D4Ce', // OMNI token,
@@ -142,7 +142,7 @@ describe('DEX Wallet Integration', () => {
       expect(['low', 'medium', 'high', 'severe']).toContain(impact.severity);
     });
 
-    it.skip('should handle swap with permit - not implemented', async () => {
+    it('should handle swap with permit', async () => {
       const permit = await walletService.signPermit({
         token: MOCK_TOKENS.ethereum.USDC.address,
         spender: dexService.getRouterAddress(),
@@ -164,7 +164,7 @@ describe('DEX Wallet Integration', () => {
   });
 
   describe('Liquidity Provision', () => {
-    it.skip('should add liquidity to pool - not implemented', async () => {
+    it('should add liquidity to pool', async () => {
       const liquidity = await liquidityService.addLiquidity({
         tokenA: MOCK_TOKENS.ethereum.USDC.address,
         tokenB: 'XOM',
@@ -180,7 +180,7 @@ describe('DEX Wallet Integration', () => {
       expect(liquidity.transactionHash).toBeDefined();
     });
 
-    it.skip('should remove liquidity from pool - not implemented', async () => {
+    it('should remove liquidity from pool', async () => {
       const removal = await liquidityService.removeLiquidity({
         tokenA: MOCK_TOKENS.ethereum.USDC.address,
         tokenB: 'XOM',
@@ -195,7 +195,7 @@ describe('DEX Wallet Integration', () => {
       expect(removal.transactionHash).toBeDefined();
     });
 
-    it.skip('should get liquidity position - not implemented', async () => {
+    it('should get liquidity position', async () => {
       const position = await liquidityService.getPosition(
         mockWallet.address,
         MOCK_TOKENS.ethereum.USDC.address,
@@ -224,7 +224,7 @@ describe('DEX Wallet Integration', () => {
       expect(il.explanation).toBeDefined();
     });
 
-    it.skip('should harvest liquidity rewards - not implemented', async () => {
+    it('should harvest liquidity rewards', async () => {
       const rewards = await liquidityService.harvestRewards(
         mockWallet.address,
         MOCK_TOKENS.ethereum.USDC.address,
@@ -319,7 +319,7 @@ describe('DEX Wallet Integration', () => {
       expect(fill.transactionHash).toBeDefined();
     });
 
-    it.skip('should get order book depth - not implemented', async () => {
+    it('should get order book depth', async () => {
       const depth = await orderBookService.getOrderBookDepth(
         MOCK_TOKENS.ethereum.USDC.address,
         'XOM'
@@ -367,7 +367,7 @@ describe('DEX Wallet Integration', () => {
   });
 
   describe('DEX Aggregation', () => {
-    it.skip('should aggregate liquidity from multiple DEXs - not implemented', async () => {
+    it('should aggregate liquidity from multiple DEXs', async () => {
       const aggregated = await dexService.aggregateLiquidity({
         tokenIn: MOCK_TOKENS.ethereum.USDC.address,
         tokenOut: '0xA0b86a33E6441Cc00C5d8a08E3B7F4a0A6F0D4Ce', // OMNI token
@@ -410,7 +410,7 @@ describe('DEX Wallet Integration', () => {
       });
     });
 
-    it.skip('should execute cross-DEX swap - not implemented', async () => {
+    it('should execute cross-DEX swap', async () => {
       const crossDexSwap = await dexService.executeCrossDexSwap({
         tokenIn: MOCK_TOKENS.ethereum.USDC.address,
         tokenOut: '0xA0b86a33E6441Cc00C5d8a08E3B7F4a0A6F0D4Ce', // OMNI token,
@@ -516,7 +516,7 @@ describe('DEX Wallet Integration', () => {
   });
 
   describe('Analytics and History', () => {
-    it.skip('should get swap history - not implemented', async () => {
+    it('should get swap history', async () => {
       const history = await dexService.getSwapHistory(mockWallet.address);
       
       expect(Array.isArray(history)).toBe(true);

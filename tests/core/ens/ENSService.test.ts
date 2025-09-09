@@ -2,11 +2,11 @@
  * Test suite for ENS Service
  */
 
-import { ENSService } from './ENSService';
-import { ContractManager } from '../contracts/ContractConfig';
+import { ENSService } from '../../../src/core/ens/ENSService';
+import { ContractManager } from '../../../src/core/contracts/ContractConfig';
 
 // Mock the contract manager
-jest.mock('../contracts/ContractConfig', () => ({
+jest.mock('../../../src/core/contracts/ContractConfig', () => ({
   ContractManager: {
     getInstance: jest.fn().mockReturnValue({
       getResolverContract: jest.fn().mockReturnValue({

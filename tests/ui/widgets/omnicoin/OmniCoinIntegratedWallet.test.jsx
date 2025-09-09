@@ -1,10 +1,10 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import OmniCoinIntegratedWallet from './OmniCoinIntegratedWallet';
+import OmniCoinIntegratedWallet from '../../../../src/ui/widgets/omnicoin/components/OmniCoinIntegratedWallet';
 
 // Mock hooks
-jest.mock('../hooks/useOmniCoin', () => ({
+jest.mock('../../../../src/ui/widgets/omnicoin/hooks/useOmniCoin', () => ({
     useOmniCoin: () => ({
         account: '0x123',
         balance: '100.0',
@@ -14,7 +14,7 @@ jest.mock('../hooks/useOmniCoin', () => ({
     })
 }));
 
-jest.mock('../hooks/useOmniCoinToken', () => ({
+jest.mock('../../../../src/ui/widgets/omnicoin/hooks/useOmniCoinToken', () => ({
     useOmniCoinToken: () => ({
         tokens: []
     })

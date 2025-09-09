@@ -276,6 +276,37 @@ export class WalletService {
   }
 
   /**
+   * Get native currency balance
+   * @param address - Address to check balance for
+   * @param chainId - Optional chain ID (defaults to current chain)
+   * @returns Native balance in wei
+   */
+  async getNativeBalance(address: string, chainId?: number): Promise<bigint> {
+    if (!ethers.isAddress(address)) {
+      throw new Error('Invalid wallet address');
+    }
+
+    // If chainId specified and different from current, switch chains
+    if (chainId && chainId !== this.currentChainId) {
+      await this.switchChain(chainId);
+    }
+
+    // Get provider for the current or specified chain
+    const provider = this.currentProvider;
+    if (!provider) {
+      throw new Error('No provider available');
+    }
+
+    try {
+      const balance = await provider.getBalance(address);
+      return balance;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(`Failed to get native balance: ${errorMessage}`);
+    }
+  }
+
+  /**
    * Get current chain ID
    * @returns Chain ID
    */

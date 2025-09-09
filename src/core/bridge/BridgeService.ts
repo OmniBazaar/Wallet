@@ -1,6 +1,6 @@
 /**
  * Cross-Chain Bridge Service
- * Manages bridge quotes, executions, and monitoring
+ * Manages bridge quotes, executions, and monitoring with real bridge integrations
  */
 
 import { ethers } from 'ethers';
@@ -16,6 +16,8 @@ import {
 import { providerManager } from '../providers/ProviderManager';
 import type { ProviderManager } from '../providers/ProviderManager';
 import { ChainType } from '../keyring/BIP39Keyring';
+import { CrossChainBridge } from '../../../../Validator/src/services/dex/crosschain/CrossChainBridge';
+import { OmniOracleService } from '../../../../Coin/src/services/OmniOracleService';
 
 /**
  * Token information for bridge operations
@@ -51,6 +53,15 @@ export class BridgeService {
   /** Provider manager instance for blockchain interactions */
   private providerManager: typeof providerManager;
   
+  /** Cross-chain bridge integration */
+  private crossChainBridge?: CrossChainBridge;
+  
+  /** Oracle service for price feeds */
+  private oracleService?: OmniOracleService;
+  
+  /** Initialization status */
+  private isInitialized = false;
+  
   /**
    * Creates a new BridgeService instance
    * @param provider - Optional provider manager instance (defaults to singleton)
@@ -60,12 +71,41 @@ export class BridgeService {
   }
   
   /**
+   * Initialize the bridge service
+   * @throws {Error} When initialization fails
+   */
+  async init(): Promise<void> {
+    if (this.isInitialized) {
+      return;
+    }
+    
+    try {
+      // Initialize cross-chain bridge and oracle service
+      this.crossChainBridge = new CrossChainBridge();
+      this.oracleService = new OmniOracleService();
+      
+      await Promise.all([
+        this.crossChainBridge.init(),
+        this.oracleService.init()
+      ]);
+      
+      this.isInitialized = true;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(`Failed to initialize bridge service: ${errorMessage}`);
+    }
+  }
+  
+  /**
    * Get quotes from multiple bridge providers for a cross-chain transfer
    * @param request - Bridge quote request containing transfer details
    * @returns Promise resolving to bridge quote response with available routes
-   * @throws {BridgeError} When no compatible bridges are found
+   * @throws {Error} When no compatible bridges are found
    */
   async getQuotes(request: BridgeQuoteRequest): Promise<BridgeQuoteResponse> {
+    if (!this.isInitialized) {
+      await this.init();
+    }
     
     // Find compatible bridges
     const compatibleBridges = this.findCompatibleBridges(
@@ -105,6 +145,10 @@ export class BridgeService {
    * @throws Error if transfer execution fails
    */
   async executeBridge(route: BridgeRoute): Promise<string> {
+    if (!this.isInitialized || !this.crossChainBridge) {
+      throw new Error('Bridge service not initialized');
+    }
+    
     const transferId = this.generateTransferId();
     
     // Initialize transfer status
@@ -115,33 +159,32 @@ export class BridgeService {
     });
     
     try {
-      // Execute each step (default to empty array if steps not provided)
-      const steps = route.steps || [];
-      for (const step of steps) {
-        switch (step.type) {
-          case 'approve':
-            await this.executeApproval(route);
-            break;
-            
-          case 'deposit': {
-            const txHash = await this.executeDeposit(route);
-            this.updateTransferStatus(transferId, {
-              fromTxHash: txHash
-            });
-            break;
-          }
-            
-          case 'wait':
-            // Monitoring happens in background
-            this.monitorBridge(transferId, route);
-            break;
-            
-          case 'claim':
-            // Some bridges require manual claim
-            await this.executeClaim(route);
-            break;
-        }
+      // Get recipient address
+      const recipient = route.toAddress || await this.providerManager.getAddress();
+      
+      // Execute bridge transfer using CrossChainBridge
+      const result = await this.crossChainBridge.executeBridge({
+        sourceChain: this.mapChainName(route.fromChain),
+        destinationChain: this.mapChainName(route.toChain),
+        tokenAddress: route.fromToken.address,
+        amount: BigInt(route.fromAmount),
+        recipient,
+        bridge: route.bridge.toLowerCase(),
+        bridgeData: route.data
+      });
+      
+      if (!result.success || !result.transactionHash) {
+        throw new Error(result.error || 'Bridge execution failed');
       }
+      
+      // Update transfer status
+      this.updateTransferStatus(transferId, {
+        fromTxHash: result.transactionHash,
+        status: 'processing'
+      });
+      
+      // Monitor bridge progress
+      this.monitorBridge(transferId, route, result.bridgeId);
       
       return transferId;
     } catch (error) {
@@ -199,37 +242,76 @@ export class BridgeService {
     bridge: BridgeProvider,
     request: BridgeQuoteRequest
   ): Promise<BridgeRoute | null> {
-    // In production, these would call actual bridge APIs
-    // For now, return mock quotes based on bridge characteristics
+    if (!this.crossChainBridge) {
+      return null;
+    }
     
-    const support = BRIDGE_SUPPORT[bridge];
-    const fromToken = this.getTokenInfo(request.fromChain, request.fromToken);
-    const toToken = this.getTokenInfo(request.toChain, request.toToken || request.fromToken);
-    
-    // Calculate estimated output (mock calculation)
-    const inputAmount = BigInt(request.amount);
-    const bridgeFee = (inputAmount * 10n) / 10000n; // 0.1% fee
-    const outputAmount = inputAmount - bridgeFee;
-    
-    const route: BridgeRoute = {
-      id: `${bridge}-${Date.now()}`,
-      fromChain: request.fromChain,
-      toChain: request.toChain,
-      fromToken,
-      toToken,
-      fromAmount: request.amount,
-      toAmount: outputAmount.toString(),
-      estimatedTime: support.estimatedTime,
-      fee: {
-        amount: bridgeFee.toString(),
-        token: fromToken.symbol,
-        inUSD: '0' // Would calculate from price feed
-      },
-      bridge,
-      steps: this.getBridgeSteps(bridge, fromToken)
-    };
-    
-    return route;
+    try {
+      const support = BRIDGE_SUPPORT[bridge];
+      const fromToken = this.getTokenInfo(request.fromChain, request.fromToken);
+      const toToken = this.getTokenInfo(request.toChain, request.toToken || request.fromToken);
+      
+      // Get real quote from CrossChainBridge
+      const quote = await this.crossChainBridge.getQuote({
+        sourceChain: this.mapChainName(request.fromChain),
+        destinationChain: this.mapChainName(request.toChain),
+        tokenAddress: fromToken.address,
+        amount: BigInt(request.amount),
+        bridge: bridge.toLowerCase()
+      });
+      
+      if (!quote || !quote.success) {
+        // Fallback to estimation if bridge quote fails
+        const inputAmount = BigInt(request.amount);
+        const bridgeFee = await this.getBridgeFees(bridge, request.fromChain, request.toChain, inputAmount);
+        const outputAmount = inputAmount - bridgeFee;
+        
+        const route: BridgeRoute = {
+          id: `${bridge}-${Date.now()}`,
+          fromChain: request.fromChain,
+          toChain: request.toChain,
+          fromToken,
+          toToken,
+          fromAmount: request.amount,
+          toAmount: outputAmount.toString(),
+          estimatedTime: support.estimatedTime,
+          fee: {
+            amount: bridgeFee.toString(),
+            token: fromToken.symbol,
+            inUSD: '0'
+          },
+          bridge,
+          steps: this.getBridgeSteps(bridge, fromToken)
+        };
+        
+        return route;
+      }
+      
+      // Use real quote data
+      const route: BridgeRoute = {
+        id: `${bridge}-${Date.now()}`,
+        fromChain: request.fromChain,
+        toChain: request.toChain,
+        fromToken,
+        toToken,
+        fromAmount: request.amount,
+        toAmount: quote.destinationAmount.toString(),
+        estimatedTime: quote.estimatedTime || support.estimatedTime,
+        fee: {
+          amount: quote.bridgeFee.toString(),
+          token: fromToken.symbol,
+          inUSD: quote.bridgeFeeUSD?.toString() || '0'
+        },
+        bridge,
+        steps: this.getBridgeSteps(bridge, fromToken),
+        data: quote.bridgeData
+      };
+      
+      return route;
+    } catch (error) {
+      // Return null on error to try other bridges
+      return null;
+    }
   }
   
   /**
@@ -378,17 +460,53 @@ export class BridgeService {
    * Monitor bridge progress
    * @param transferId
    * @param route
+   * @param bridgeId - Bridge-specific transfer ID
    */
-  private async monitorBridge(transferId: string, route: BridgeRoute): Promise<void> {
-    // In production, this would poll bridge APIs or listen to events
-    // For now, simulate completion after estimated time
+  private async monitorBridge(
+    transferId: string,
+    route: BridgeRoute,
+    bridgeId?: string
+  ): Promise<void> {
+    if (!this.crossChainBridge || !bridgeId) {
+      return;
+    }
     
+    const checkStatus = async () => {
+      try {
+        const status = await this.crossChainBridge!.getBridgeStatus({
+          bridgeId,
+          sourceChain: this.mapChainName(route.fromChain),
+          bridge: route.bridge.toLowerCase()
+        });
+        
+        if (status.status === 'completed' && status.destinationTxHash) {
+          this.updateTransferStatus(transferId, {
+            status: 'completed',
+            toTxHash: status.destinationTxHash
+          });
+          clearInterval(interval);
+        } else if (status.status === 'failed') {
+          this.updateTransferStatus(transferId, {
+            status: 'failed',
+            message: status.error || 'Bridge transfer failed'
+          });
+          clearInterval(interval);
+        }
+      } catch (error) {
+        // Continue polling on error
+      }
+    };
+    
+    // Poll every 10 seconds
+    const interval = setInterval(checkStatus, 10000);
+    
+    // Initial check
+    await checkStatus();
+    
+    // Stop polling after max time (2x estimated time)
     setTimeout(() => {
-      this.updateTransferStatus(transferId, {
-        status: 'completed',
-        toTxHash: '0x' + Math.random().toString(16).slice(2)
-      });
-    }, route.estimatedTime * 1000);
+      clearInterval(interval);
+    }, route.estimatedTime * 2000);
   }
   
   /**
@@ -459,6 +577,81 @@ export class BridgeService {
   }
   
   /**
+   * Get bridge fees
+   * @param bridge
+   * @param fromChain
+   * @param toChain
+   * @param amount
+   * @private
+   */
+  private async getBridgeFees(
+    bridge: BridgeProvider,
+    fromChain: string,
+    toChain: string,
+    amount: bigint
+  ): Promise<bigint> {
+    if (!this.oracleService) {
+      // Fallback to default percentage
+      const feePercentage = this.getDefaultBridgeFeePercentage(bridge);
+      return (amount * BigInt(feePercentage)) / BigInt(10000);
+    }
+    
+    try {
+      // Get bridge fee from oracle
+      const feeData = await this.oracleService.getBridgeFee({
+        bridge: bridge.toLowerCase(),
+        sourceChain: this.mapChainName(fromChain),
+        destinationChain: this.mapChainName(toChain),
+        amount
+      });
+      
+      return feeData.fee;
+    } catch (error) {
+      // Fallback to percentage calculation on error
+      const feePercentage = this.getDefaultBridgeFeePercentage(bridge);
+      return (amount * BigInt(feePercentage)) / BigInt(10000);
+    }
+  }
+  
+  /**
+   * Get default bridge fee percentage
+   * @param bridge
+   * @private
+   */
+  private getDefaultBridgeFeePercentage(bridge: BridgeProvider): number {
+    const fees: Record<BridgeProvider, number> = {
+      [BridgeProvider.Hop]: 30, // 0.3%
+      [BridgeProvider.Stargate]: 10, // 0.1%
+      [BridgeProvider.Across]: 25, // 0.25%
+      [BridgeProvider.Synapse]: 20, // 0.2%
+      [BridgeProvider.Wormhole]: 50, // 0.5%
+      [BridgeProvider.LayerZero]: 15, // 0.15%
+    };
+    
+    return fees[bridge] || 50;
+  }
+  
+  /**
+   * Map chain names to CrossChainBridge format
+   * @param chain
+   * @private
+   */
+  private mapChainName(chain: string): string {
+    const chainMap: Record<string, string> = {
+      ethereum: 'ethereum',
+      polygon: 'polygon',
+      arbitrum: 'arbitrum',
+      optimism: 'optimism',
+      base: 'base',
+      avalanche: 'avalanche',
+      bsc: 'bsc',
+      solana: 'solana'
+    };
+    
+    return chainMap[chain] || chain;
+  }
+  
+  /**
    * Estimate bridge fees
    * @param fromChain
    * @param toChain
@@ -471,6 +664,10 @@ export class BridgeService {
     token: string,
     amount: string
   ): Promise<{ bridge: BridgeProvider; fee: string; time: number }[]> {
+    if (!this.isInitialized) {
+      await this.init();
+    }
+    
     const request: BridgeQuoteRequest = {
       fromChain,
       toChain,
@@ -486,6 +683,20 @@ export class BridgeService {
       fee: route.fee.amount,
       time: route.estimatedTime
     }));
+  }
+  
+  /**
+   * Cleanup service and release resources
+   */
+  async cleanup(): Promise<void> {
+    try {
+      this.activeTransfers.clear();
+      this.isInitialized = false;
+      this.crossChainBridge = undefined;
+      this.oracleService = undefined;
+    } catch (error) {
+      // Fail silently on cleanup
+    }
   }
 }
 

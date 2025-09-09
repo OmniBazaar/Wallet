@@ -185,7 +185,7 @@ describe('NFTManager', () => {
   });
 
   describe('NFT Transfer', () => {
-    it.skip('should transfer ERC721 NFT', async () => {
+    it('should transfer ERC721 NFT', async () => {
       const erc721NFT: NFT = {
         ...MOCK_NFTS[0],
         type: NFTType.ERC721,
@@ -201,7 +201,7 @@ describe('NFTManager', () => {
       expect(providerManager.getProvider).toHaveBeenCalledWith('ethereum');
     });
 
-    it.skip('should transfer ERC1155 NFT with amount', async () => {
+    it('should transfer ERC1155 NFT with amount', async () => {
       const erc1155NFT: NFT = {
         ...MOCK_NFTS[0],
         type: NFTType.ERC1155,
@@ -229,7 +229,7 @@ describe('NFTManager', () => {
       ).rejects.toThrow('not supported');
     });
 
-    it.skip('should throw error for unsupported NFT type', async () => {
+    it('should throw error for unsupported NFT type', async () => {
       const unsupportedNFT: NFT = {
         ...MOCK_NFTS[0],
         type: 'UNKNOWN' as NFTType,

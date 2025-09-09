@@ -1,50 +1,282 @@
 /**
  * NFT Utility Functions
- * 
- * This module is temporarily disabled as it was copied from another codebase
- * and needs to be refactored to work with OmniBazaar's architecture.
- * 
- * TODO: Implement NFT utilities using:
- * - OmniBazaar's NFTService and utility functions
- * - Proper TypeScript types from our codebase
- * - Integration with our provider system
+ * Provides utility functions for NFT formatting, validation, and processing
  */
 
-// Placeholder utilities to prevent import errors
+import { ethers } from 'ethers';
+import type { NFTMetadata } from '../../../../Bazaar/src/types/nft';
+
 /**
- *
- * @param name
- * @param tokenId
+ * IPFS gateway configurations for redundancy
  */
-export const formatNFTName = (name: string, tokenId: string): string => {
-  // TODO: Implement proper NFT name formatting
-  return name || `Token #${tokenId}`;
+const IPFS_GATEWAYS = [
+  'https://gateway.pinata.cloud/ipfs/',
+  'https://ipfs.io/ipfs/',
+  'https://cloudflare-ipfs.com/ipfs/',
+  'https://gateway.ipfs.io/ipfs/'
+];
+
+/**
+ * Format NFT name with fallback to token ID
+ * @param name - NFT name from metadata
+ * @param tokenId - Token ID as fallback
+ * @returns Formatted NFT name
+ */
+export const formatNFTName = (name: string | undefined, tokenId: string): string => {
+  if (name && name.trim()) {
+    // Truncate long names
+    return name.length > 50 ? `${name.substring(0, 47)}...` : name;
+  }
+  
+  // Format token ID for display
+  if (tokenId.length > 10) {
+    return `Token #${tokenId.substring(0, 6)}...${tokenId.slice(-4)}`;
+  }
+  
+  return `Token #${tokenId}`;
 };
 
 /**
- *
- * @param price
- * @param currency
+ * Format NFT price with proper decimals and symbol
+ * @param price - Price in wei or smallest unit
+ * @param currency - Currency symbol (e.g., 'ETH', 'MATIC')
+ * @param decimals - Token decimals (default 18)
+ * @returns Formatted price string
  */
-export const formatNFTPrice = (price: string, currency: string): string => {
-  // TODO: Implement proper price formatting
-  return `${price} ${currency}`;
+export const formatNFTPrice = (
+  price: string | bigint,
+  currency: string,
+  decimals: number = 18
+): string => {
+  try {
+    const priceInWei = typeof price === 'string' ? BigInt(price) : price;
+    const formattedPrice = ethers.formatUnits(priceInWei, decimals);
+    
+    // Format to reasonable decimal places
+    const numPrice = parseFloat(formattedPrice);
+    let displayPrice: string;
+    
+    if (numPrice === 0) {
+      return `0 ${currency}`;
+    } else if (numPrice < 0.0001) {
+      displayPrice = numPrice.toExponential(2);
+    } else if (numPrice < 1) {
+      displayPrice = numPrice.toFixed(4);
+    } else if (numPrice < 1000) {
+      displayPrice = numPrice.toFixed(2);
+    } else {
+      displayPrice = numPrice.toLocaleString(undefined, { maximumFractionDigits: 0 });
+    }
+    
+    return `${displayPrice} ${currency}`;
+  } catch (error) {
+    console.error('Error formatting NFT price:', error);
+    return `${price} ${currency}`;
+  }
 };
 
 /**
- *
- * @param imageUrl
+ * Generate thumbnail URL with IPFS gateway fallback
+ * @param imageUrl - Original image URL
+ * @param size - Thumbnail size (optional)
+ * @returns Thumbnail URL with proper gateway
  */
-export const generateNFTThumbnail = (imageUrl: string): string => {
-  // TODO: Implement thumbnail generation
+export const generateNFTThumbnail = (imageUrl: string, size?: number): string => {
+  if (!imageUrl) {
+    return '/images/nft-placeholder.png';
+  }
+  
+  // Handle IPFS URLs
+  if (imageUrl.startsWith('ipfs://')) {
+    const ipfsHash = imageUrl.replace('ipfs://', '');
+    // Use primary gateway by default
+    return `${IPFS_GATEWAYS[0]}${ipfsHash}`;
+  }
+  
+  // Handle Arweave URLs
+  if (imageUrl.startsWith('ar://')) {
+    const arweaveId = imageUrl.replace('ar://', '');
+    return `https://arweave.net/${arweaveId}`;
+  }
+  
+  // For HTTP URLs, check if we can use a thumbnail service
+  if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+    // Some NFT platforms provide thumbnail endpoints
+    if (size && imageUrl.includes('opensea.io')) {
+      return imageUrl.replace(/w=\d+/, `w=${size}`);
+    }
+    return imageUrl;
+  }
+  
+  // Return original URL if no processing needed
   return imageUrl;
 };
 
 /**
- *
- * @param metadata
+ * Get fallback IPFS gateway URL if primary fails
+ * @param ipfsUrl - IPFS URL that failed
+ * @param currentGatewayIndex - Current gateway index
+ * @returns Next gateway URL or null
  */
-export const validateNFTMetadata = (metadata: unknown): boolean => {
-  // TODO: Implement metadata validation
-  return typeof metadata === 'object' && metadata !== null;
+export const getFallbackIPFSUrl = (
+  ipfsUrl: string,
+  currentGatewayIndex: number
+): string | null => {
+  const ipfsHash = ipfsUrl.split('/ipfs/').pop();
+  if (!ipfsHash || currentGatewayIndex >= IPFS_GATEWAYS.length - 1) {
+    return null;
+  }
+  
+  return `${IPFS_GATEWAYS[currentGatewayIndex + 1]}${ipfsHash}`;
+};
+
+/**
+ * Validate NFT metadata structure
+ * @param metadata - Metadata object to validate
+ * @returns True if metadata is valid
+ */
+export const validateNFTMetadata = (metadata: unknown): metadata is NFTMetadata => {
+  if (!metadata || typeof metadata !== 'object') {
+    return false;
+  }
+  
+  const meta = metadata as Record<string, unknown>;
+  
+  // Check required fields
+  if (typeof meta.name !== 'string' && typeof meta.title !== 'string') {
+    return false;
+  }
+  
+  // Validate image URL if present
+  if (meta.image && typeof meta.image !== 'string') {
+    return false;
+  }
+  
+  // Validate attributes if present
+  if (meta.attributes) {
+    if (!Array.isArray(meta.attributes)) {
+      return false;
+    }
+    
+    // Each attribute should have trait_type and value
+    for (const attr of meta.attributes) {
+      if (
+        typeof attr !== 'object' ||
+        !attr ||
+        !('trait_type' in attr) ||
+        !('value' in attr)
+      ) {
+        return false;
+      }
+    }
+  }
+  
+  return true;
+};
+
+/**
+ * Parse token URI to handle various formats
+ * @param tokenUri - Token URI from contract
+ * @returns Parsed URI ready for fetching
+ */
+export const parseTokenURI = (tokenUri: string): string => {
+  if (!tokenUri) {
+    throw new Error('Token URI is empty');
+  }
+  
+  // Handle data URIs (base64 encoded JSON)
+  if (tokenUri.startsWith('data:')) {
+    return tokenUri;
+  }
+  
+  // Handle IPFS URIs
+  if (tokenUri.startsWith('ipfs://')) {
+    const ipfsHash = tokenUri.replace('ipfs://', '');
+    return `${IPFS_GATEWAYS[0]}${ipfsHash}`;
+  }
+  
+  // Handle Arweave URIs
+  if (tokenUri.startsWith('ar://')) {
+    const arweaveId = tokenUri.replace('ar://', '');
+    return `https://arweave.net/${arweaveId}`;
+  }
+  
+  // Return as-is for HTTP(S) URLs
+  return tokenUri;
+};
+
+/**
+ * Extract attributes from NFT metadata
+ * @param metadata - NFT metadata object
+ * @returns Normalized attributes array
+ */
+export const extractNFTAttributes = (
+  metadata: NFTMetadata
+): Array<{ trait_type: string; value: string | number }> => {
+  if (!metadata.attributes || !Array.isArray(metadata.attributes)) {
+    return [];
+  }
+  
+  return metadata.attributes
+    .filter(attr => attr && typeof attr === 'object' && 'trait_type' in attr && 'value' in attr)
+    .map(attr => ({
+      trait_type: String(attr.trait_type),
+      value: attr.value
+    }));
+};
+
+/**
+ * Calculate NFT rarity score based on attributes
+ * @param attributes - NFT attributes
+ * @param collectionAttributes - All attributes in collection
+ * @returns Rarity score (0-100)
+ */
+export const calculateRarityScore = (
+  attributes: Array<{ trait_type: string; value: string | number }>,
+  collectionAttributes: Map<string, Map<string | number, number>>
+): number => {
+  if (!attributes.length || !collectionAttributes.size) {
+    return 50; // Default middle rarity
+  }
+  
+  let totalRarity = 0;
+  let attributeCount = 0;
+  
+  for (const attr of attributes) {
+    const traitMap = collectionAttributes.get(attr.trait_type);
+    if (!traitMap) continue;
+    
+    const occurrences = traitMap.get(attr.value) || 0;
+    const totalInTrait = Array.from(traitMap.values()).reduce((a, b) => a + b, 0);
+    
+    if (totalInTrait > 0) {
+      const rarity = 1 - (occurrences / totalInTrait);
+      totalRarity += rarity;
+      attributeCount++;
+    }
+  }
+  
+  if (attributeCount === 0) {
+    return 50;
+  }
+  
+  // Convert to 0-100 scale
+  return Math.round((totalRarity / attributeCount) * 100);
+};
+
+/**
+ * Format token ID for display
+ * @param tokenId - Token ID (string or number)
+ * @returns Formatted token ID
+ */
+export const formatTokenId = (tokenId: string | number): string => {
+  const id = tokenId.toString();
+  
+  // Handle very large token IDs
+  if (id.length > 10) {
+    return `${id.substring(0, 4)}...${id.slice(-4)}`;
+  }
+  
+  // Add commas for readability
+  return parseInt(id).toLocaleString();
 };

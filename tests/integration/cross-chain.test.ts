@@ -215,7 +215,7 @@ describe('Cross-Chain Integration', () => {
   });
 
   describe('Chain Switching', () => {
-    it.skip('should switch between EVM chains seamlessly', async () => {
+    it('should switch between EVM chains seamlessly', async () => {
       const evmChains = ['ethereum', 'polygon', 'arbitrum', 'optimism', 'base'];
       
       for (const chain of evmChains) {

@@ -1,0 +1,442 @@
+/**
+ * Price Feed Service
+ * Provides aggregated price data from multiple oracle sources with caching
+ */
+
+import { PriceOracleService } from '../../../../../Validator/src/services/PriceOracleService';
+import { OracleAggregator } from '../../../../../Validator/src/services/dex/oracles/OracleAggregator';
+import { OmniOracleService } from '../../../../../Coin/src/services/OmniOracleService';
+
+/**
+ * Price data structure
+ */
+export interface PriceData {
+  /** Token symbol */
+  symbol: string;
+  /** Price in USD */
+  priceUSD: number;
+  /** Price change percentage (24h) */
+  change24h: number;
+  /** Timestamp of price data */
+  timestamp: number;
+  /** Source of price data */
+  source: string;
+  /** Confidence level (0-1) */
+  confidence: number;
+}
+
+/**
+ * Multi-token price query parameters
+ */
+export interface MultiPriceQuery {
+  /** Array of token symbols to query */
+  tokens: string[];
+  /** Chain ID or name */
+  chain?: string;
+  /** Include metadata */
+  includeMetadata?: boolean;
+}
+
+/**
+ * Historical price query parameters
+ */
+export interface HistoricalPriceQuery {
+  /** Token symbol */
+  token: string;
+  /** Start timestamp */
+  from: number;
+  /** End timestamp */
+  to: number;
+  /** Time interval (e.g., '1h', '1d') */
+  interval?: string;
+  /** Chain ID or name */
+  chain?: string;
+}
+
+/**
+ * Price pair data
+ */
+export interface PricePair {
+  /** Base token */
+  base: string;
+  /** Quote token */
+  quote: string;
+  /** Exchange rate */
+  rate: number;
+  /** Liquidity in USD */
+  liquidityUSD: number;
+  /** Last update timestamp */
+  lastUpdate: number;
+}
+
+/**
+ * Price feed service for aggregating token prices from multiple oracles
+ * @example
+ * ```typescript
+ * const priceFeed = new PriceFeedService();
+ * await priceFeed.init();
+ * const price = await priceFeed.getPrice('ETH');
+ * console.log(`ETH price: $${price.priceUSD}`);
+ * ```
+ */
+export class PriceFeedService {
+  /** Price oracle service from Validator module */
+  private priceOracle?: PriceOracleService;
+  
+  /** Oracle aggregator for multiple sources */
+  private oracleAggregator?: OracleAggregator;
+  
+  /** OmniOracle service for XOM/pXOM pricing */
+  private omniOracle?: OmniOracleService;
+  
+  /** Price cache with TTL */
+  private priceCache: Map<string, { data: PriceData; expires: number }> = new Map();
+  
+  /** Cache TTL in milliseconds (30 seconds) */
+  private readonly CACHE_TTL = 30 * 1000;
+  
+  /** Initialization status */
+  private isInitialized = false;
+  
+  /**
+   * Initialize the price feed service
+   * @throws {Error} When initialization fails
+   */
+  async init(): Promise<void> {
+    if (this.isInitialized) {
+      return;
+    }
+    
+    try {
+      // Initialize oracle services
+      this.priceOracle = new PriceOracleService();
+      this.oracleAggregator = new OracleAggregator();
+      this.omniOracle = new OmniOracleService();
+      
+      // Initialize all services
+      await Promise.all([
+        this.priceOracle.init(),
+        this.oracleAggregator.init(),
+        this.omniOracle.init()
+      ]);
+      
+      this.isInitialized = true;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(`Failed to initialize price feed service: ${errorMessage}`);
+    }
+  }
+  
+  /**
+   * Get current price for a single token
+   * @param symbol - Token symbol (e.g., 'ETH', 'XOM', 'pXOM')
+   * @param chain - Optional chain ID or name
+   * @returns Promise resolving to price data
+   * @throws {Error} When price fetch fails
+   */
+  async getPrice(symbol: string, chain?: string): Promise<PriceData> {
+    if (!this.isInitialized) {
+      await this.init();
+    }
+    
+    // Check cache first
+    const cacheKey = `${symbol}-${chain || 'default'}`;
+    const cached = this.priceCache.get(cacheKey);
+    if (cached && cached.expires > Date.now()) {
+      return cached.data;
+    }
+    
+    try {
+      // Special handling for XOM and pXOM
+      if (symbol === 'XOM' || symbol === 'pXOM') {
+        return await this.getOmniPrice(symbol);
+      }
+      
+      // Get price from aggregated sources
+      const aggregatedPrice = await this.getAggregatedPrice(symbol, chain);
+      
+      // Cache the result
+      this.priceCache.set(cacheKey, {
+        data: aggregatedPrice,
+        expires: Date.now() + this.CACHE_TTL
+      });
+      
+      return aggregatedPrice;
+    } catch (error) {
+      // Try fallback sources
+      return await this.getFallbackPrice(symbol, chain);
+    }
+  }
+  
+  /**
+   * Get prices for multiple tokens
+   * @param query - Multi-price query parameters
+   * @returns Promise resolving to array of price data
+   */
+  async getMultiplePrices(query: MultiPriceQuery): Promise<PriceData[]> {
+    if (!this.isInitialized) {
+      await this.init();
+    }
+    
+    // Fetch prices in parallel
+    const pricePromises = query.tokens.map(token => 
+      this.getPrice(token, query.chain).catch(error => {
+        console.error(`Failed to get price for ${token}:`, error);
+        return {
+          symbol: token,
+          priceUSD: 0,
+          change24h: 0,
+          timestamp: Date.now(),
+          source: 'error',
+          confidence: 0
+        } as PriceData;
+      })
+    );
+    
+    return Promise.all(pricePromises);
+  }
+  
+  /**
+   * Get historical price data
+   * @param query - Historical price query parameters
+   * @returns Promise resolving to array of historical prices
+   */
+  async getHistoricalPrices(query: HistoricalPriceQuery): Promise<Array<{
+    timestamp: number;
+    price: number;
+    volume?: number;
+  }>> {
+    if (!this.isInitialized) {
+      await this.init();
+    }
+    
+    if (!this.oracleAggregator) {
+      throw new Error('Oracle aggregator not initialized');
+    }
+    
+    try {
+      // Get historical data from oracle aggregator
+      const historicalData = await this.oracleAggregator.getHistoricalPrices({
+        token: query.token,
+        from: query.from,
+        to: query.to,
+        interval: query.interval || '1h',
+        chain: query.chain
+      });
+      
+      return historicalData.map(point => ({
+        timestamp: point.timestamp,
+        price: point.price,
+        volume: point.volume
+      }));
+    } catch (error) {
+      console.error('Failed to get historical prices:', error);
+      return [];
+    }
+  }
+  
+  /**
+   * Get price for token pair
+   * @param base - Base token symbol
+   * @param quote - Quote token symbol
+   * @param chain - Optional chain ID or name
+   * @returns Promise resolving to price pair data
+   */
+  async getPricePair(base: string, quote: string, chain?: string): Promise<PricePair> {
+    if (!this.isInitialized) {
+      await this.init();
+    }
+    
+    // Get prices for both tokens
+    const [basePrice, quotePrice] = await Promise.all([
+      this.getPrice(base, chain),
+      this.getPrice(quote, chain)
+    ]);
+    
+    // Calculate exchange rate
+    const rate = quotePrice.priceUSD > 0 ? basePrice.priceUSD / quotePrice.priceUSD : 0;
+    
+    // Get liquidity data if available
+    let liquidityUSD = 0;
+    if (this.oracleAggregator) {
+      try {
+        const poolData = await this.oracleAggregator.getPoolLiquidity({
+          tokenA: base,
+          tokenB: quote,
+          chain
+        });
+        liquidityUSD = poolData.liquidityUSD || 0;
+      } catch {
+        // Liquidity data not available
+      }
+    }
+    
+    return {
+      base,
+      quote,
+      rate,
+      liquidityUSD,
+      lastUpdate: Date.now()
+    };
+  }
+  
+  /**
+   * Subscribe to price updates
+   * @param symbols - Array of token symbols to monitor
+   * @param callback - Callback function for price updates
+   * @returns Unsubscribe function
+   */
+  subscribeToPriceUpdates(
+    symbols: string[],
+    callback: (prices: Map<string, PriceData>) => void
+  ): () => void {
+    // Poll for price updates
+    const updatePrices = async () => {
+      const prices = new Map<string, PriceData>();
+      
+      for (const symbol of symbols) {
+        try {
+          const price = await this.getPrice(symbol);
+          prices.set(symbol, price);
+        } catch (error) {
+          console.error(`Failed to update price for ${symbol}:`, error);
+        }
+      }
+      
+      callback(prices);
+    };
+    
+    // Initial update
+    updatePrices();
+    
+    // Set up polling interval (every 30 seconds)
+    const interval = setInterval(updatePrices, 30000);
+    
+    // Return unsubscribe function
+    return () => clearInterval(interval);
+  }
+  
+  /**
+   * Get aggregated price from multiple oracles
+   * @param symbol - Token symbol
+   * @param chain - Optional chain ID or name
+   * @private
+   */
+  private async getAggregatedPrice(symbol: string, chain?: string): Promise<PriceData> {
+    if (!this.oracleAggregator) {
+      throw new Error('Oracle aggregator not initialized');
+    }
+    
+    // Get aggregated price
+    const aggregatedData = await this.oracleAggregator.getAggregatedPrice({
+      token: symbol,
+      chain,
+      sources: ['chainlink', 'uniswap', 'sushiswap', 'curve']
+    });
+    
+    return {
+      symbol,
+      priceUSD: aggregatedData.price,
+      change24h: aggregatedData.change24h || 0,
+      timestamp: aggregatedData.timestamp,
+      source: aggregatedData.sources.join(','),
+      confidence: aggregatedData.confidence || 0.95
+    };
+  }
+  
+  /**
+   * Get price specifically for XOM or pXOM
+   * @param symbol - 'XOM' or 'pXOM'
+   * @private
+   */
+  private async getOmniPrice(symbol: string): Promise<PriceData> {
+    if (!this.omniOracle) {
+      throw new Error('OmniOracle not initialized');
+    }
+    
+    try {
+      // Get price from OmniOracle
+      const omniPrice = await this.omniOracle.getTokenPrice({
+        token: symbol,
+        includeMetadata: true
+      });
+      
+      return {
+        symbol,
+        priceUSD: omniPrice.price,
+        change24h: omniPrice.change24h || 0,
+        timestamp: omniPrice.timestamp,
+        source: 'omni-oracle',
+        confidence: 1.0
+      };
+    } catch (error) {
+      // Fallback to general oracle if OmniOracle fails
+      if (this.priceOracle) {
+        const price = await this.priceOracle.getTokenPrice(symbol);
+        return {
+          symbol,
+          priceUSD: price,
+          change24h: 0,
+          timestamp: Date.now(),
+          source: 'price-oracle',
+          confidence: 0.9
+        };
+      }
+      
+      throw error;
+    }
+  }
+  
+  /**
+   * Get price from fallback sources
+   * @param symbol - Token symbol
+   * @param chain - Optional chain ID or name
+   * @private
+   */
+  private async getFallbackPrice(symbol: string, chain?: string): Promise<PriceData> {
+    // Try primary price oracle
+    if (this.priceOracle) {
+      try {
+        const price = await this.priceOracle.getTokenPrice(symbol, chain);
+        return {
+          symbol,
+          priceUSD: price,
+          change24h: 0,
+          timestamp: Date.now(),
+          source: 'fallback',
+          confidence: 0.8
+        };
+      } catch (error) {
+        console.error('Fallback price oracle failed:', error);
+      }
+    }
+    
+    // If all sources fail, throw error
+    throw new Error(`Failed to get price for ${symbol}`);
+  }
+  
+  /**
+   * Clear price cache
+   */
+  clearCache(): void {
+    this.priceCache.clear();
+  }
+  
+  /**
+   * Cleanup service and release resources
+   */
+  async cleanup(): Promise<void> {
+    try {
+      this.clearCache();
+      this.isInitialized = false;
+      this.priceOracle = undefined;
+      this.oracleAggregator = undefined;
+      this.omniOracle = undefined;
+    } catch (error) {
+      // Fail silently on cleanup
+    }
+  }
+}
+
+// Export singleton instance
+export const priceFeedService = new PriceFeedService();
