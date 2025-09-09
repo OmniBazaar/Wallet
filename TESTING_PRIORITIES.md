@@ -1,8 +1,8 @@
 # Testing Priorities - OmniBazaar Wallet Module
 
-**Generated Date:** 2025-09-08 18:57 UTC  
-**Current Test Coverage:** ~17% of services tested (7 of 41)  
-**Critical Security Services Tested:** 0 of 8  
+**Generated Date:** 2025-09-08 18:57 UTC
+**Current Test Coverage:** ~17% of services tested (7 of 41)
+**Critical Security Services Tested:** 0 of 8
 **Critical Financial Services Tested:** 0 of 7
 
 ## Executive Summary
@@ -42,25 +42,25 @@ These components handle cryptographic operations, key management, and authentica
 
 ### Security Infrastructure
 
-5. **Account Abstraction** (`src/core/account/AccountAbstraction.ts`)
+1. **Account Abstraction** (`src/core/account/AccountAbstraction.ts`)
    - Smart contract wallet implementation
    - Multi-signature support
    - Social recovery mechanisms
    - **Risk:** Smart contract vulnerabilities
 
-6. **Crypto Utilities** (`src/core/utils/crypto.ts`)
+2. **Crypto Utilities** (`src/core/utils/crypto.ts`)
    - Hashing functions
    - Signature verification
    - Key generation utilities
    - **Risk:** Cryptographic vulnerabilities
 
-7. **Secure Storage** (`src/core/storage/SecureStorage.ts`)
+3. **Secure Storage** (`src/core/storage/SecureStorage.ts`)
    - Encrypted local storage
    - Key-value persistence
    - Memory protection
    - **Risk:** Local data compromise
 
-8. **useTokenApproval Hook** (`src/hooks/useTokenApproval.ts`)
+4. **useTokenApproval Hook** (`src/hooks/useTokenApproval.ts`)
    - ERC-20 approval flows
    - Approval amount validation
    - Infinite approval detection
@@ -92,25 +92,25 @@ These components handle financial transactions, balances, and staking. Bugs coul
 
 ### Financial Operations
 
-4. **StakingService** (`src/services/StakingService.ts`)
+1. **StakingService** (`src/services/StakingService.ts`)
    - XOM token staking
    - Reward calculations
    - Unstaking workflows
    - **Risk:** Loss of staked funds or rewards
 
-5. **XOMFeeProtocolService** (`src/services/XOMFeeProtocolService.ts`)
+2. **XOMFeeProtocolService** (`src/services/XOMFeeProtocolService.ts`)
    - Fee calculation logic
    - Fee distribution mechanisms
    - Protocol fee management
    - **Risk:** Incorrect fee charges
 
-6. **Payment Processing** (`src/core/payment/Payment.ts`)
+3. **Payment Processing** (`src/core/payment/Payment.ts`)
    - Payment request validation
    - Multi-currency payments
    - Payment routing logic
    - **Risk:** Payment failures or double-spending
 
-7. **useStaking Hook** (`src/hooks/useStaking.ts`)
+4. **useStaking Hook** (`src/hooks/useStaking.ts`)
    - Staking UI interactions
    - Real-time APY calculations
    - Staking position management
@@ -142,13 +142,13 @@ These components handle data persistence and migration. Bugs could result in dat
 
 ### Data Migration & Storage
 
-4. **LegacyMigrationService** (`src/services/LegacyMigrationService.ts`)
+1. **LegacyMigrationService** (`src/services/LegacyMigrationService.ts`)
    - V1 wallet migration logic
    - Balance extraction and verification
    - Migration state management
    - **Risk:** Loss of funds during migration
 
-5. **IPFSService** (`src/services/IPFSService.ts`)
+2. **IPFSService** (`src/services/IPFSService.ts`)
    - IPFS node management
    - Content pinning strategies
    - Distributed storage operations
@@ -174,13 +174,13 @@ These components provide core wallet features. While important, they pose less i
 
 ### UI Hooks
 
-3. **useWallet Hook** (`src/hooks/useWallet.ts`)
+1. **useWallet Hook** (`src/hooks/useWallet.ts`)
    - Main wallet state management
    - Account switching logic
    - Connection management
    - **Risk:** UI state inconsistencies
 
-4. **useListings Hook** (`src/hooks/useListings.ts`)
+2. **useListings Hook** (`src/hooks/useListings.ts`)
    - Marketplace listing display
    - Filtering and sorting
    - Real-time updates
@@ -188,19 +188,19 @@ These components provide core wallet features. While important, they pose less i
 
 ### Infrastructure Services
 
-5. **BlockExplorerService** (`src/services/BlockExplorerService.ts`)
+1. **BlockExplorerService** (`src/services/BlockExplorerService.ts`)
    - Transaction lookup
    - Address exploration
    - Network statistics
    - **Risk:** Incorrect blockchain data
 
-6. **BrowserExtensionService** (`src/services/BrowserExtensionService.ts`)
+2. **BrowserExtensionService** (`src/services/BrowserExtensionService.ts`)
    - Extension lifecycle management
    - Content script communication
    - Permission handling
    - **Risk:** Extension malfunction
 
-7. **OmniCoin Integration** (`src/core/blockchain/OmniCoin.ts`)
+3. **OmniCoin Integration** (`src/core/blockchain/OmniCoin.ts`)
    - Native blockchain integration
    - Block synchronization
    - Transaction broadcasting
@@ -215,7 +215,7 @@ These services integrate with external systems and can be tested after core func
    - Network consensus participation
    - **Risk:** Network participation issues
 
-2. **OracleService & OracleNodeService** 
+2. **OracleService & OracleNodeService**
    - Price feed aggregation
    - Data validation logic
    - **Risk:** Incorrect price data
@@ -237,7 +237,7 @@ These services integrate with external systems and can be tested after core func
 
 ## Testing Strategy Guidelines
 
-### For Each Component Test:
+### For Each Component Test
 
 1. **Unit Tests**
    - Test all public methods
@@ -291,10 +291,10 @@ These services integrate with external systems and can be tested after core func
 
 ## Risk Assessment
 
-### Without These Tests:
+### Without These Tests
 
 - **Security Risk:** HIGH - Potential for key compromise, unauthorized access
-- **Financial Risk:** HIGH - Potential for fund loss, incorrect calculations  
+- **Financial Risk:** HIGH - Potential for fund loss, incorrect calculations
 - **Data Risk:** HIGH - Potential for data loss, corruption
 - **Operational Risk:** MEDIUM - Potential for service disruptions
 - **Reputational Risk:** CRITICAL - Any security or financial incident would be catastrophic

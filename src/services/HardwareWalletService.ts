@@ -493,8 +493,7 @@ export class HardwareWalletService {
   async connectLedger(): Promise<{ connected: boolean; deviceId?: string; error?: string }> {
     try {
       const device = await this.connect({ 
-        type: HardwareWalletType.Ledger,
-        derivationPath: "m/44'/60'/0'/0"
+        type: 'ledger'
       });
       
       return {

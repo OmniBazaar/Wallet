@@ -2,19 +2,18 @@
  * Legacy Migration Service
  * 
  * Handles migration of legacy OmniCoin v1 users to the new OmniCoin system.
- * Validates legacy credentials and facilitates balance transfers.
+ * Validates legacy credentials and facilitates access to pre-minted tokens.
  * 
  * Process:
  * 1. User enters legacy username/password
- * 2. Service validates credentials using v1 algorithm
- * 3. Upon validation, gets signature from validator
- * 4. Claims tokens from LegacyMigration contract
+ * 2. Service derives private key using v1 algorithm
+ * 3. Verifies derived public key matches stored legacy public key
+ * 4. Returns wallet with access to pre-minted tokens
  * 
  * @module services/LegacyMigrationService
  */
 
 import { ethers } from 'ethers';
-import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
 
 /**
@@ -31,6 +30,10 @@ export interface LegacyUserData {
   balanceDecimal: string;
   /** Balance type (COMBINED, etc.) */
   balanceType: string;
+  /** Public key from legacy system */
+  publicKey: string;
+  /** Legacy wallet address (derived from public key) */
+  address: string;
 }
 
 /**
@@ -63,19 +66,25 @@ export interface ValidationResult {
   username?: string;
   /** Legacy balance */
   balance?: string;
+  /** Derived wallet if valid */
+  wallet?: ethers.Wallet;
+  /** Legacy address */
+  address?: string;
   /** Error message if invalid */
   error?: string;
 }
 
 /**
- * Claim result
+ * Access result for legacy balance
  */
-export interface ClaimResult {
+export interface AccessResult {
   /** Success status */
   success: boolean;
-  /** Transaction hash if successful */
-  txHash?: string;
-  /** Amount claimed */
+  /** Wallet with access to pre-minted tokens */
+  wallet?: ethers.Wallet;
+  /** Legacy address */
+  address?: string;
+  /** Balance amount */
   amount?: string;
   /** Error message if failed */
   error?: string;
@@ -86,82 +95,75 @@ export interface ClaimResult {
  */
 export class LegacyMigrationService {
   private provider: ethers.Provider;
-  private signer: ethers.Signer | undefined;
-  private omniCoreContract?: ethers.Contract;
-  private validatorEndpoint: string;
   private legacyUsers: Map<string, LegacyUserData>;
-  private passwordCache: Map<string, string>; // For demo purposes only
-  
-  // OmniCore ABI for legacy functions
-  private readonly OMNICORE_LEGACY_ABI = [
-    'function claimLegacyBalance(string username, address claimAddress, bytes32 nonce, bytes signature)',
-    'function getLegacyStatus(string username) view returns (bool reserved, uint256 balance, bool claimed, address claimAddress)',
-    'function isUsernameAvailable(string username) view returns (bool)',
-    'function totalLegacySupply() view returns (uint256)',
-    'function totalLegacyClaimed() view returns (uint256)'
-  ];
+  private keyDerivationAlgorithm: LegacyKeyDerivationAlgorithm;
   
   // Decimal conversion factor (10^12 for 6->18 decimals)
   private readonly DECIMAL_CONVERSION = BigInt(10 ** 12);
+
+/**
+ * Interface for legacy key derivation algorithms
+ */
+export interface LegacyKeyDerivationAlgorithm {
+  /**
+   * Derive private key from username and password using legacy v1 algorithm
+   * @param username Legacy username
+   * @param password Legacy password
+   * @returns Private key as hex string
+   */
+  derivePrivateKey(username: string, password: string): string;
+}
   
   /**
-   * Create a LegacyMigrationService for validating and claiming v1 balances.
-   * @param provider Ethers provider used for contract reads
-   * @param signer Optional signer for sending claim txs
-   * @param omniCoreAddress Optional OmniCore contract address
-   * @param validatorEndpoint Optional validator REST endpoint
+   * Create a LegacyMigrationService for validating v1 users.
+   * @param provider Ethers provider
+   * @param keyDerivationAlgorithm Implementation of v1 key derivation
    */
   constructor(
     provider: ethers.Provider,
-    signer?: ethers.Signer,
-    omniCoreAddress?: string,
-    validatorEndpoint?: string
+    keyDerivationAlgorithm?: LegacyKeyDerivationAlgorithm
   ) {
     this.provider = provider;
-    this.signer = signer;
-    this.validatorEndpoint = validatorEndpoint || 'http://localhost:3001/api/migration';
     this.legacyUsers = new Map();
-    this.passwordCache = new Map();
     
-    if (omniCoreAddress && signer) {
-      this.omniCoreContract = new ethers.Contract(
-        omniCoreAddress,
-        this.OMNICORE_LEGACY_ABI,
-        signer
-      );
-    }
+    // Default implementation - must be replaced with actual v1 algorithm
+    this.keyDerivationAlgorithm = keyDerivationAlgorithm || {
+      derivePrivateKey: (username: string, password: string): string => {
+        // Placeholder - actual v1 algorithm must be implemented
+        throw new Error('Legacy key derivation algorithm not implemented. Please provide the v1 algorithm.');
+      }
+    };
   }
   
   /**
    * Initialize the service and load legacy user data
+   * @param legacyUsersData Optional array of legacy users (for testing)
    */
-  async initialize(): Promise<void> {
-    // Load legacy user data from CSV
-    await this.loadLegacyUsers();
-    
-    // console.log(`Legacy Migration Service initialized with ${this.legacyUsers.size} users`);
+  async initialize(legacyUsersData?: LegacyUserData[]): Promise<void> {
+    if (legacyUsersData) {
+      // Load from provided data (for testing)
+      for (const user of legacyUsersData) {
+        this.legacyUsers.set(user.username.toLowerCase(), user);
+      }
+    } else {
+      // Load from CSV in production
+      await this.loadLegacyUsers();
+    }
   }
   
   /**
    * Load legacy users from CSV file
+   * Note: This should be updated to load from actual CSV file with public keys
    */
   private async loadLegacyUsers(): Promise<void> {
     try {
-      // In production, this would load from the CSV file
-      // For now, we'll fetch from the validator
-      const response = await fetch(`${this.validatorEndpoint}/legacy-users`);
-      if (!response.ok) {
-        console.error('Failed to load legacy users');
-        return;
-      }
-      
-      const users: LegacyUserData[] = await response.json();
-      
-      for (const user of users) {
-        this.legacyUsers.set(user.username.toLowerCase(), user);
-      }
+      // TODO: Implement CSV loading with format:
+      // accountId,username,balance,balanceDecimal,balanceType,publicKey,address
+      // For now, throw error to indicate implementation needed
+      throw new Error('CSV loading not implemented. Use initialize() with data array.');
     } catch (error) {
       console.error('Error loading legacy users:', error);
+      throw error;
     }
   }
   
@@ -175,80 +177,60 @@ export class LegacyMigrationService {
   }
   
   /**
-   * Check if a username is available (not reserved) in OmniCore.
-   * @param username
+   * Get legacy user data by username
+   * @param username Username to look up
+   * @returns Legacy user data or null if not found
    */
-  async isUsernameAvailable(username: string): Promise<boolean> {
-    if (!this.omniCoreContract) {
-      throw new Error('OmniCore contract not initialized');
-    }
-    
-    try {
-      if (!this.omniCoreContract) {
-        throw new Error('Contract not available');
-      }
-      const method = this.omniCoreContract['isUsernameAvailable'];
-      if (!method) {
-        throw new Error('Method not available');
-      }
-      return await method(username);
-    } catch (error) {
-      console.error('Error checking username availability:', error);
-      return false;
-    }
+  getLegacyUser(username: string): LegacyUserData | null {
+    return this.legacyUsers.get(username.toLowerCase()) || null;
   }
   
   /**
-   * Get migration status for a username from OmniCore.
-   * @param username
+   * Get migration status for a username.
+   * @param username Username to check
    */
-  async getMigrationStatus(username: string): Promise<MigrationStatus | null> {
-    if (!this.omniCoreContract) {
-      throw new Error('OmniCore contract not initialized');
-    }
+  async getMigrationStatus(username: string): Promise<MigrationStatus> {
+    const legacyUser = this.legacyUsers.get(username.toLowerCase());
     
-    try {
-      const method = this.omniCoreContract['getLegacyStatus'];
-      if (!method) {
-        throw new Error('getLegacyStatus method not available');
-      }
-      const status = await method(username);
-      
-      if (!status[0]) { // reserved
-        // Check if it's in our legacy list
-        const legacyData = this.legacyUsers.get(username.toLowerCase());
-        if (legacyData) {
-          return {
-            username: legacyData.username,
-            isLegacyUser: true,
-            isClaimed: false,
-            legacyBalance: legacyData.balance,
-            newBalance: (BigInt(legacyData.balance) * this.DECIMAL_CONVERSION).toString(),
-            // Optional properties omitted per exactOptionalPropertyTypes
-          };
-        }
-        return null;
-      }
-      
+    if (!legacyUser) {
       return {
         username: username,
+        isLegacyUser: false,
+        isClaimed: false,
+        legacyBalance: '0',
+        newBalance: '0'
+      };
+    }
+    
+    // Check on-chain balance at the legacy address
+    try {
+      const balance = await this.provider.getBalance(legacyUser.address);
+      const hasBalance = balance > 0n;
+      
+      return {
+        username: legacyUser.username,
         isLegacyUser: true,
-        isClaimed: status[2], // claimed
-        legacyBalance: (BigInt(status[1]) / this.DECIMAL_CONVERSION).toString(), // Convert back to 6 decimals for display - balance
-        newBalance: status[1].toString(), // balance
-        ...(status[3] !== ethers.ZeroAddress && { claimAddress: status[3] }), // claimAddress
-        ...(status[2] && { claimTimestamp: Math.floor(Date.now() / 1000) }) // claimed
+        isClaimed: hasBalance, // If tokens are at address, they've been "claimed" (minted)
+        legacyBalance: legacyUser.balance,
+        newBalance: (BigInt(legacyUser.balance) * this.DECIMAL_CONVERSION).toString(),
+        ...(hasBalance && { claimAddress: legacyUser.address }),
+        ...(hasBalance && { claimTimestamp: Math.floor(Date.now() / 1000) })
       };
     } catch (error) {
-      console.error('Error getting migration status:', error);
-      return null;
+      console.error('Error checking balance:', error);
+      return {
+        username: legacyUser.username,
+        isLegacyUser: true,
+        isClaimed: false,
+        legacyBalance: legacyUser.balance,
+        newBalance: (BigInt(legacyUser.balance) * this.DECIMAL_CONVERSION).toString()
+      };
     }
   }
   
   /**
-   * Validate legacy credentials against the validator service.
-   * In v1, passwords were hashed with a specific algorithm; validation is
-   * delegated to the validator endpoint for correctness and audit logging.
+   * Validate legacy credentials using v1 key derivation.
+   * Derives private key from username/password and verifies it matches stored public key.
    * @param username Legacy username
    * @param password Legacy password
    */
@@ -268,161 +250,93 @@ export class LegacyMigrationService {
     }
     
     try {
-      // Call validator service to check password
-      // In v1, the password validation used a specific algorithm
-      const response = await fetch(`${this.validatorEndpoint}/validate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: legacyUser.username,
-          password,
-          accountId: legacyUser.accountId
-        })
-      });
+      // Derive private key using v1 algorithm
+      const privateKey = this.keyDerivationAlgorithm.derivePrivateKey(
+        legacyUser.username, // Use original case
+        password
+      );
       
-      if (!response.ok) {
-        const error = await response.text();
+      // Create wallet from derived private key
+      const wallet = new ethers.Wallet(privateKey, this.provider);
+      
+      // Get public key and address from wallet
+      const derivedPublicKey = wallet.signingKey.publicKey;
+      const derivedAddress = wallet.address;
+      
+      // Verify derived public key matches stored public key
+      // Note: Compare addresses as a proxy if public keys are in different formats
+      if (derivedAddress.toLowerCase() !== legacyUser.address.toLowerCase() &&
+          derivedPublicKey.toLowerCase() !== legacyUser.publicKey.toLowerCase()) {
         return {
           isValid: false,
-          error: error || 'Invalid credentials'
-        };
-      }
-      
-      const result = await response.json();
-      
-      if (result.isValid) {
-        // Cache for demo/testing (remove in production)
-        this.passwordCache.set(normalizedUsername, password);
-        
-        return {
-          isValid: true,
-          username: legacyUser.username,
-          balance: legacyUser.balance
+          error: 'Invalid password - derived key does not match'
         };
       }
       
       return {
-        isValid: false,
-        error: 'Invalid password'
+        isValid: true,
+        username: legacyUser.username,
+        balance: legacyUser.balance,
+        wallet: wallet,
+        address: legacyUser.address
       };
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error validating credentials:', error);
       return {
         isValid: false,
-        error: 'Validation service unavailable'
+        error: error.message || 'Failed to validate credentials'
       };
     }
   }
   
   /**
-   * Claim legacy balance after validation
-   * @param username
-   * @param password
-   * @param claimAddress
+   * Get access to legacy balance.
+   * Since tokens are pre-minted to legacy addresses, this returns the wallet
+   * that can access those tokens.
+   * @param username Legacy username  
+   * @param password Legacy password
    */
-  async claimLegacyBalance(
+  async accessLegacyBalance(
     username: string,
-    password: string,
-    claimAddress?: string
-  ): Promise<ClaimResult> {
-    if (!this.omniCoreContract || !this.signer) {
-      return {
-        success: false,
-        error: 'OmniCore contract not initialized'
-      };
-    }
-    
+    password: string
+  ): Promise<AccessResult> {
     // Validate credentials first
     const validation = await this.validateLegacyCredentials(username, password);
-    if (!validation.isValid) {
+    if (!validation.isValid || !validation.wallet) {
       return {
         success: false,
         error: validation.error || 'Invalid credentials'
       };
     }
     
-    // Check if already claimed
-    const status = await this.getMigrationStatus(username);
-    if (status?.isClaimed) {
-      return {
-        success: false,
-        error: 'Balance already claimed'
-      };
-    }
-    
     try {
-      // Use signer's address if no claim address specified
-      const recipientAddress = claimAddress || await this.signer.getAddress();
+      // Check balance at the legacy address
+      const balance = await this.provider.getBalance(validation.address!);
       
-      // Get signature from validator
-      const nonce = ethers.hexlify(ethers.randomBytes(32));
-      const signatureResponse = await fetch(`${this.validatorEndpoint}/sign-claim`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: validation.username,
-          claimAddress: recipientAddress,
-          nonce: nonce,
-          password // Validator needs to re-verify
-        })
-      });
-      
-      if (!signatureResponse.ok) {
-        const error = await signatureResponse.text();
+      if (balance === 0n) {
         return {
           success: false,
-          error: error || 'Failed to get claim signature'
+          error: 'No balance found at legacy address. Tokens may not be minted yet.'
         };
       }
       
-      const { signature } = await signatureResponse.json();
-      
-      // Submit claim to contract
-      if (!this.omniCoreContract) {
-        return { success: false, error: 'Contract not available' };
-      }
-      const method = this.omniCoreContract['claimLegacyBalance'];
-      if (!method) {
-        return { success: false, error: 'claimLegacyBalance method not available' };
-      }
-      const tx = await method(
-        validation.username!,
-        recipientAddress,
-        nonce,
-        signature
-      );
-      
-      // Wait for confirmation
-      const receipt = await tx.wait();
-      if (!receipt) {
-        throw new Error('Transaction failed to confirm');
-      }
-      
-      // Calculate claimed amount
+      // Return wallet with access to pre-minted tokens
       const legacyBalance = BigInt(validation.balance || '0');
       const newBalance = legacyBalance * this.DECIMAL_CONVERSION;
       
       return {
         success: true,
-        txHash: receipt.hash,
+        wallet: validation.wallet,
+        address: validation.address,
         amount: ethers.formatEther(newBalance)
       };
       
     } catch (error: any) {
-      console.error('Error claiming balance:', error);
-      
-      // Parse contract errors
-      if (error.reason) {
-        return {
-          success: false,
-          error: error.reason
-        };
-      }
-      
+      console.error('Error accessing balance:', error);
       return {
         success: false,
-        error: error.message || 'Failed to claim balance'
+        error: error.message || 'Failed to access balance'
       };
     }
   }
@@ -433,47 +347,37 @@ export class LegacyMigrationService {
   async getMigrationStats(): Promise<{
     totalUsers: number;
     totalLegacySupply: string;
-    totalClaimed: string;
-    totalUnclaimed: string;
-    claimRate: number;
+    totalAccessed: number;
+    accessRate: number;
   }> {
-    if (!this.omniCoreContract) {
-      return {
-        totalUsers: this.legacyUsers.size,
-        totalLegacySupply: '0',
-        totalClaimed: '0',
-        totalUnclaimed: '0',
-        claimRate: 0
-      };
+    let totalSupply = 0n;
+    let totalAccessed = 0;
+    
+    // Calculate stats from legacy users
+    for (const [_, userData] of this.legacyUsers) {
+      const balance = BigInt(userData.balance) * this.DECIMAL_CONVERSION;
+      totalSupply += balance;
+      
+      // Check if user has accessed their balance (has on-chain balance)
+      try {
+        const onChainBalance = await this.provider.getBalance(userData.address);
+        if (onChainBalance > 0n) {
+          totalAccessed++;
+        }
+      } catch (error) {
+        // Skip users we can't check
+      }
     }
     
-    try {
-      if (!this.omniCoreContract) {
-        throw new Error('Contract not initialized');
-      }
-      
-      const totalSupply = await this.omniCoreContract['totalLegacySupply']();
-      const totalClaimed = await this.omniCoreContract['totalLegacyClaimed']();
-      const totalUnclaimed = totalSupply - totalClaimed;
-      const claimRate = totalSupply > 0 ? (Number(totalClaimed) * 100) / Number(totalSupply) : 0;
-      
-      return {
-        totalUsers: this.legacyUsers.size,
-        totalLegacySupply: ethers.formatEther(totalSupply),
-        totalClaimed: ethers.formatEther(totalClaimed),
-        totalUnclaimed: ethers.formatEther(totalUnclaimed),
-        claimRate: claimRate
-      };
-    } catch (error) {
-      console.error('Error getting migration stats:', error);
-      return {
-        totalUsers: this.legacyUsers.size,
-        totalLegacySupply: '0',
-        totalClaimed: '0',
-        totalUnclaimed: '0',
-        claimRate: 0
-      };
-    }
+    const accessRate = this.legacyUsers.size > 0 ? 
+      (totalAccessed * 100) / this.legacyUsers.size : 0;
+    
+    return {
+      totalUsers: this.legacyUsers.size,
+      totalLegacySupply: ethers.formatEther(totalSupply),
+      totalAccessed: totalAccessed,
+      accessRate: accessRate
+    };
   }
   
   /**
@@ -512,90 +416,97 @@ export class LegacyMigrationService {
   }
   
   /**
-   * Estimate gas for claim transaction
-   * @param username
+   * Estimate gas for a transfer from legacy wallet
+   * @param fromAddress Legacy address
+   * @param toAddress Destination address
+   * @param amount Amount to transfer
    */
-  async estimateClaimGas(username: string): Promise<string> {
-    if (!this.omniCoreContract || !this.signer) {
-      throw new Error('OmniCore contract not initialized');
-    }
-    
+  async estimateTransferGas(
+    fromAddress: string,
+    toAddress: string,
+    amount: string
+  ): Promise<string> {
     try {
-      // Create dummy data for estimation
-      const claimAddress = await this.signer.getAddress();
-      const nonce = ethers.hexlify(ethers.randomBytes(32));
-      const dummySignature = '0x' + '00'.repeat(65);
+      // Standard ETH transfer gas estimate
+      const tx = {
+        from: fromAddress,
+        to: toAddress,
+        value: ethers.parseEther(amount)
+      };
       
-      const method = this.omniCoreContract['claimLegacyBalance'];
-      if (!method) {
-        return '200000'; // Default estimate if method not available
-      }
-      if (!this.omniCoreContract) {
-        throw new Error('Contract not initialized');
-      }
-      
-      const estimateGas = this.omniCoreContract['estimateGas'] as any;
-      const gasEstimate = await estimateGas['claimLegacyBalance'](
-        username,
-        claimAddress,
-        nonce,
-        dummySignature
-      );
-      
+      const gasEstimate = await this.provider.estimateGas(tx);
       return gasEstimate.toString();
     } catch (error) {
       console.error('Error estimating gas:', error);
-      return '200000'; // Default estimate
+      return '21000'; // Default ETH transfer gas
     }
   }
   
   /**
-   * Simulate password hashing as done in v1
-   * Note: This is a simplified version. The actual v1 used a specific algorithm.
-   * @param password
-   * @param username
+   * Set custom key derivation algorithm
+   * @param algorithm Implementation of v1 key derivation
    */
-  // Legacy V1 password hashing - kept for reference but not currently used in production
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  private hashPasswordV1(password: string, username: string): string {
-    // V1 used a combination of username as salt and multiple rounds
-    // This is a simplified simulation
-    const salt = crypto.createHash('sha256').update(username.toLowerCase()).digest('hex');
-    const hash = crypto.pbkdf2Sync(password, salt, 10000, 64, 'sha512');
-    return hash.toString('hex');
+  setKeyDerivationAlgorithm(algorithm: LegacyKeyDerivationAlgorithm): void {
+    this.keyDerivationAlgorithm = algorithm;
   }
   
   /**
-   * Export unclaimed users for reporting
+   * Example implementation of a key derivation algorithm.
+   * This is NOT the actual v1 algorithm - it must be replaced.
    */
-  async exportUnclaimedUsers(): Promise<Array<{
+  static createExampleKeyDerivation(): LegacyKeyDerivationAlgorithm {
+    return {
+      derivePrivateKey: (username: string, password: string): string => {
+        // Example using username as salt - NOT the actual v1 algorithm
+        const salt = crypto.createHash('sha256')
+          .update(username.toLowerCase())
+          .digest('hex');
+        
+        // Example key derivation - NOT the actual v1 algorithm  
+        const key = crypto.pbkdf2Sync(password, salt, 10000, 32, 'sha512');
+        
+        // Ensure it's a valid 32-byte private key
+        return '0x' + key.toString('hex');
+      }
+    };
+  }
+  
+  /**
+   * Export users who haven't accessed their balance
+   */
+  async exportUnaccessedUsers(): Promise<Array<{
     username: string;
     balance: string;
-    balanceUSD?: number;
+    address: string;
   }>> {
-    if (!this.omniCoreContract) {
-      return [];
-    }
-    
-    const unclaimed: Array<{
+    const unaccessed: Array<{
       username: string;
       balance: string;
-      balanceUSD?: number;
+      address: string;
     }> = [];
     
-    for (const [username, userData] of this.legacyUsers) {
-      const status = await this.getMigrationStatus(username);
-      
-      if (status && !status.isClaimed) {
-        unclaimed.push({
+    for (const [_, userData] of this.legacyUsers) {
+      try {
+        const balance = await this.provider.getBalance(userData.address);
+        
+        if (balance === 0n) {
+          unaccessed.push({
+            username: userData.username,
+            balance: userData.balanceDecimal,
+            address: userData.address
+          });
+        }
+      } catch (error) {
+        // Include users we can't check
+        unaccessed.push({
           username: userData.username,
           balance: userData.balanceDecimal,
-          // Could add USD value if we have price feed
+          address: userData.address
         });
       }
     }
     
-    return unclaimed;
+    return unaccessed;
   }
 }
 
