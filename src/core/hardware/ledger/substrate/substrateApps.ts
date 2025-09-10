@@ -7,11 +7,11 @@
 // import type { SubstrateApp } from "@zondax/ledger-substrate";
 
 // Temporary stub for missing imports
-type SubstrateApp = any;
-const newAcalaApp = (transport: any) => ({} as SubstrateApp);
-const newKusamaApp = (transport: any) => ({} as SubstrateApp);
-const newPolkadotApp = (transport: any) => ({} as SubstrateApp);
-const newKaruraApp = (transport: any) => ({} as SubstrateApp);
+type SubstrateApp = Record<string, unknown>;
+const newAcalaApp = (_transport: unknown) => ({} as SubstrateApp);
+const newKusamaApp = (_transport: unknown) => ({} as SubstrateApp);
+const newPolkadotApp = (_transport: unknown) => ({} as SubstrateApp);
+const newKaruraApp = (_transport: unknown) => ({} as SubstrateApp);
 import type Transport from "@ledgerhq/hw-transport";
 import { NetworkNames } from "../../../types/enkrypt-types";
 

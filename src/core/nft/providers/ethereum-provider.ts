@@ -67,7 +67,7 @@ export class EthereumNFTProvider implements ChainProvider {
       }
 
       // Try Alchemy API if available
-      if (this.config.alchemyApiKey) {
+      if (this.config.alchemyApiKey !== undefined && this.config.alchemyApiKey !== null && this.config.alchemyApiKey !== '') {
         return await this.fetchFromAlchemy(address);
       }
 
@@ -92,7 +92,7 @@ export class EthereumNFTProvider implements ChainProvider {
    */
   async getNFTMetadata(contractAddress: string, tokenId: string): Promise<NFTItem | null> {
     try {
-      if (this.config.alchemyApiKey) {
+      if (this.config.alchemyApiKey !== undefined && this.config.alchemyApiKey !== null && this.config.alchemyApiKey !== '') {
         const response = await fetch(
           `${this.alchemyUrl}/${this.config.alchemyApiKey}/getNFTMetadata?contractAddress=${contractAddress}&tokenId=${tokenId}`
         );
@@ -323,7 +323,7 @@ export class EthereumNFTProvider implements ChainProvider {
         const cachedNFTs = await provider.getNFTs(address, 1);
         if (cachedNFTs && cachedNFTs.length > 0) {
           console.log('NFTs served from OmniBazaar validator cache');
-          return cachedNFTs;
+          return cachedNFTs as NFTItem[];
         }
       } catch (error) {
         console.warn('Failed to get cached NFTs, falling back to direct query');
@@ -445,7 +445,7 @@ export class EthereumNFTProvider implements ChainProvider {
   async searchNFTs(query: string, limit = 20): Promise<NFTItem[]> {
     try {
       // If we have Alchemy API, use it for search
-      if (this.config.alchemyApiKey) {
+      if (this.config.alchemyApiKey !== undefined && this.config.alchemyApiKey !== null && this.config.alchemyApiKey !== '') {
         const response = await fetch(
           `${this.alchemyUrl}/${this.config.alchemyApiKey}/getNFTs?contractAddresses[]=${query}&withMetadata=true&pageSize=${limit}`
         );
@@ -532,7 +532,7 @@ export class EthereumNFTProvider implements ChainProvider {
   async testConnection(): Promise<{ connected: boolean; apis: string[] }> {
     const workingApis: string[] = [];
 
-    if (this.config.alchemyApiKey) {
+    if (this.config.alchemyApiKey !== undefined && this.config.alchemyApiKey !== null && this.config.alchemyApiKey !== '') {
       try {
         const response = await fetch(`${this.alchemyUrl}/${this.config.alchemyApiKey}/getNFTs?owner=0x0000000000000000000000000000000000000000&pageSize=1`);
         if (response.ok) workingApis.push('Alchemy');

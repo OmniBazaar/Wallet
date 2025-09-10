@@ -293,7 +293,14 @@ export class SolanaNFTProvider implements ChainProvider {
     try {
       // Import Solana web3.js dynamically
       const { Connection, PublicKey } = await import('@solana/web3.js');
-      const { Metadata } = await import('@metaplex-foundation/mpl-token-metadata');
+      const metaplexModule = await import('@metaplex-foundation/mpl-token-metadata');
+      // Type the Metadata class properly
+      type MetadataClass = {
+        findByMint: (connection: unknown, mint: unknown) => Promise<unknown>;
+        getPDA: (mint: unknown) => Promise<unknown>;
+        deserialize: (data: Buffer) => unknown[];
+      };
+      const Metadata = ((metaplexModule as { Metadata?: MetadataClass }).Metadata ?? metaplexModule.default) as MetadataClass;
       
       const connection = new Connection(this.config.rpcUrl, 'confirmed');
       const publicKey = new PublicKey(address);
@@ -315,11 +322,18 @@ export class SolanaNFTProvider implements ChainProvider {
           
           try {
             // Get metadata account for the mint
-            const metadataPDA = await Metadata.getPDA(new PublicKey(mintAddress));
+            const metadataPDA = await Metadata.getPDA(new PublicKey(mintAddress)) as InstanceType<typeof PublicKey>;
             const metadataAccount = await connection.getAccountInfo(metadataPDA);
             
             if (metadataAccount) {
-              const metadata = Metadata.deserialize(metadataAccount.data)[0];
+              const deserializeResult = Metadata.deserialize(metadataAccount.data);
+              const metadata = deserializeResult[0] as {
+                data: {
+                  name: string;
+                  uri: string;
+                  creators?: Array<{ address: { toString(): string } }>;
+                };
+              };
               
               // Fetch off-chain metadata if URI exists
               let offChainMetadata: any = {};

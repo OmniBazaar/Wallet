@@ -86,7 +86,7 @@ export interface StakeInfo {
 }
 
 /**
- *
+ * Staking statistics interface
  */
 export interface StakingStats {
   /** Total XOM staked across all users */
@@ -96,7 +96,7 @@ export interface StakingStats {
   /** Average APY across tiers */
   averageAPY: number;
   /**
-   *
+   * Current user's stake info
    */
   userStake?: StakeInfo;
   /** Whether staking is currently enabled */
@@ -104,7 +104,7 @@ export interface StakingStats {
 }
 
 /**
- *
+ * Staking tier definition
  */
 export interface StakingTier {
   /** Tier identifier */
@@ -116,7 +116,7 @@ export interface StakingTier {
   /** Maximum stake for this tier */
   maxStake: string;
   /**
-   *
+   * Base APY percentage for this tier
    */
   baseAPY: number;
   /** Total active stakers in this tier */

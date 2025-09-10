@@ -20,7 +20,7 @@ export class NFTService {
    * @param wallet - Wallet instance (optional)
    * @param config - NFT service configuration (optional)
    */
-  constructor(wallet?: any, config?: NFTServiceConfig) {
+  constructor(wallet?: unknown, config?: NFTServiceConfig) {
     this.coreService = new CoreNFTService(wallet, config);
   }
 
@@ -47,6 +47,7 @@ export class NFTService {
 
   /**
    * Initialize the NFT service (alias for init)
+   * @returns Promise that resolves when initialized
    * @throws {Error} When initialization fails
    */
   async initialize(): Promise<void> {
@@ -65,7 +66,7 @@ export class NFTService {
    * Get NFTs for the active account across all chains
    * @returns Array of NFTs
    */
-  async getActiveAccountNFTs(): Promise<any[]> {
+  async getActiveAccountNFTs(): Promise<unknown[]> {
     return await this.coreService.getActiveAccountNFTs();
   }
 
@@ -74,7 +75,7 @@ export class NFTService {
    * @param address - Wallet address
    * @returns Array of NFTs
    */
-  async getNFTs(address: string): Promise<any[]> {
+  async getNFTs(address: string): Promise<unknown[]> {
     return await this.coreService.getNFTs(address);
   }
 
@@ -84,7 +85,7 @@ export class NFTService {
    * @param chainId - Chain ID
    * @returns Array of NFTs
    */
-  async getNFTsForChain(address: string, chainId: number): Promise<any[]> {
+  async getNFTsForChain(address: string, chainId: number): Promise<unknown[]> {
     return await this.coreService.getNFTsForChain(address, chainId);
   }
 

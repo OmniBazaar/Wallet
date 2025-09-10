@@ -206,7 +206,7 @@ class SimpleKeyring {
    */
   getAccounts(chainType?: Account['chainType']): Promise<Account[]> {
     if (this.walletData === null) {
-      return [];
+      return Promise.resolve([]);
     }
 
     return Promise.resolve(
@@ -223,7 +223,7 @@ class SimpleKeyring {
    */
   getAccount(address: string): Promise<Account | null> {
     if (this.walletData === null) {
-      return null;
+      return Promise.resolve(null);
     }
 
     const account = this.walletData.accounts.find(acc => acc.address === address);

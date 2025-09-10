@@ -46,12 +46,12 @@ export class BaseNFTProvider implements ChainProvider {
       console.warn(`Fetching Base NFTs for address: ${address}`);
       
       // Try Alchemy API first if available
-      if (this.config.alchemyApiKey) {
+      if (this.config.alchemyApiKey !== undefined && this.config.alchemyApiKey !== null && this.config.alchemyApiKey !== '') {
         return await this.fetchFromAlchemy(address);
       }
       
       // Try SimpleHash API if available
-      if (this.config.simplehashApiKey) {
+      if (this.config.simplehashApiKey !== undefined && this.config.simplehashApiKey !== null && this.config.simplehashApiKey !== '') {
         return await this.fetchFromSimpleHash(address);
       }
       
@@ -72,7 +72,7 @@ export class BaseNFTProvider implements ChainProvider {
    */
   async getNFTMetadata(contractAddress: string, tokenId: string): Promise<NFTItem | null> {
     try {
-      if (this.config.alchemyApiKey) {
+      if (this.config.alchemyApiKey !== undefined && this.config.alchemyApiKey !== null && this.config.alchemyApiKey !== '') {
         const response = await fetch(
           `${this.alchemyUrl}/${this.config.alchemyApiKey}/getNFTMetadata?contractAddress=${contractAddress}&tokenId=${tokenId}`
         );
@@ -96,13 +96,13 @@ export class BaseNFTProvider implements ChainProvider {
       const contract = new ethers.Contract(contractAddress, erc721Abi, provider);
       
       const [tokenURI, name, owner] = await Promise.all([
-        this.callContract<string>(contract as any, 'tokenURI', tokenId),
-        this.callContract<string>(contract as any, 'name'),
-        this.callContract<string>(contract as any, 'ownerOf', tokenId)
+        this.callContract<string>(contract as unknown, 'tokenURI', tokenId),
+        this.callContract<string>(contract as unknown, 'name'),
+        this.callContract<string>(contract as unknown, 'ownerOf', tokenId)
       ]);
       
       // Parse metadata
-      let metadata: any = { name: `${name} #${tokenId}`, description: '' };
+      let metadata: { name: string; description: string; image?: string; attributes?: Array<{ trait_type: string; value: string | number }> } = { name: `${name} #${tokenId}`, description: '' };
       if (tokenURI) {
         if (tokenURI.startsWith('data:')) {
           const json = tokenURI.split(',')[1] ?? '';
@@ -389,7 +389,7 @@ export class BaseNFTProvider implements ChainProvider {
   async searchNFTs(query: string, limit = 20): Promise<NFTItem[]> {
     try {
       // If we have Alchemy API, use it for search
-      if (this.config.alchemyApiKey) {
+      if (this.config.alchemyApiKey !== undefined && this.config.alchemyApiKey !== null && this.config.alchemyApiKey !== '') {
         const response = await fetch(
           `${this.alchemyUrl}/${this.config.alchemyApiKey}/getNFTs?contractAddresses[]=${query}&withMetadata=true&pageSize=${limit}`
         );
@@ -401,7 +401,7 @@ export class BaseNFTProvider implements ChainProvider {
       }
       
       // If we have SimpleHash API, use it for search
-      if (this.config.simplehashApiKey) {
+      if (this.config.simplehashApiKey !== undefined && this.config.simplehashApiKey !== null && this.config.simplehashApiKey !== '') {
         const response = await fetch(
           `${this.simplehashUrl}/nfts/collection/${query}?chains=base&limit=${limit}`,
           {
@@ -431,7 +431,7 @@ export class BaseNFTProvider implements ChainProvider {
   async getTrendingNFTs(limit = 20): Promise<NFTItem[]> {
     try {
       // Fetch trending NFTs on Base
-      if (this.config.alchemyApiKey) {
+      if (this.config.alchemyApiKey !== undefined && this.config.alchemyApiKey !== null && this.config.alchemyApiKey !== '') {
         // Get NFTs from popular collections
         const popularContracts = [
           '0xd4307e0acd12cf46fd6cf93bc264f5d5d1598792', // Base, Introduced
@@ -464,7 +464,7 @@ export class BaseNFTProvider implements ChainProvider {
       }
       
       // SimpleHash trending
-      if (this.config.simplehashApiKey) {
+      if (this.config.simplehashApiKey !== undefined && this.config.simplehashApiKey !== null && this.config.simplehashApiKey !== '') {
         const response = await fetch(
           `${this.simplehashUrl}/nfts/trending_collections?chains=base&time_period=24h&limit=${limit}`,
           {
@@ -524,7 +524,7 @@ export class BaseNFTProvider implements ChainProvider {
   async testConnection(): Promise<{ connected: boolean; apis: string[] }> {
     const workingApis: string[] = [];
 
-    if (this.config.alchemyApiKey) {
+    if (this.config.alchemyApiKey !== undefined && this.config.alchemyApiKey !== null && this.config.alchemyApiKey !== '') {
       try {
         const response = await fetch(`${this.alchemyUrl}/${this.config.alchemyApiKey}/isHolderOfCollection?wallet=0x0000000000000000000000000000000000000000&contractAddress=0x0000000000000000000000000000000000000000`);
         if (response.ok) workingApis.push('Alchemy');
@@ -533,7 +533,7 @@ export class BaseNFTProvider implements ChainProvider {
       }
     }
 
-    if (this.config.simplehashApiKey) {
+    if (this.config.simplehashApiKey !== undefined && this.config.simplehashApiKey !== null && this.config.simplehashApiKey !== '') {
       try {
         const response = await fetch(`${this.simplehashUrl}/nfts/owners?chains=base&wallet_addresses=0x0000000000000000000000000000000000000000&limit=1`, {
           headers: { 'X-API-KEY': this.config.simplehashApiKey }

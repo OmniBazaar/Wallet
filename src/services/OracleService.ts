@@ -28,8 +28,8 @@ interface PriceSubscription {
 export class OracleService {
   private isInitialized = false;
   private isConnected = false;
-  private walletService: any;
-  private subscriptions: Map<string, any> = new Map();
+  private walletService: unknown;
+  private subscriptions: Map<string, { timer?: NodeJS.Timer }> = new Map();
   private mockPrices: Map<string, number> = new Map([
     ['XOM/USD', 0.15],
     ['ETH/USD', 2500],
@@ -41,7 +41,7 @@ export class OracleService {
    * Create oracle service
    * @param walletService Wallet service instance
    */
-  constructor(walletService?: any) {
+  constructor(walletService?: unknown) {
     this.walletService = walletService;
   }
 
@@ -68,7 +68,7 @@ export class OracleService {
     this.isConnected = false;
     // Clear all subscriptions
     this.subscriptions.forEach((sub) => {
-      if (sub.timer) clearInterval(sub.timer);
+      if (sub.timer !== undefined) clearInterval(sub.timer);
     });
     this.subscriptions.clear();
   }

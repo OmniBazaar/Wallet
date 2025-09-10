@@ -46,12 +46,12 @@ export class OptimismNFTProvider implements ChainProvider {
       console.warn(`Fetching Optimism NFTs for address: ${address}`);
       
       // Try Alchemy API first if available
-      if (this.config.alchemyApiKey) {
+      if (this.config.alchemyApiKey !== undefined && this.config.alchemyApiKey !== null && this.config.alchemyApiKey !== '') {
         return await this.fetchFromAlchemy(address);
       }
       
       // Try SimpleHash API if available
-      if (this.config.simplehashApiKey) {
+      if (this.config.simplehashApiKey !== undefined && this.config.simplehashApiKey !== null && this.config.simplehashApiKey !== '') {
         return await this.fetchFromSimpleHash(address);
       }
       
@@ -72,7 +72,7 @@ export class OptimismNFTProvider implements ChainProvider {
    */
   async getNFTMetadata(contractAddress: string, tokenId: string): Promise<NFTItem | null> {
     try {
-      if (this.config.alchemyApiKey) {
+      if (this.config.alchemyApiKey !== undefined && this.config.alchemyApiKey !== null && this.config.alchemyApiKey !== '') {
         const response = await fetch(
           `${this.alchemyUrl}/${this.config.alchemyApiKey}/getNFTMetadata?contractAddress=${contractAddress}&tokenId=${tokenId}`
         );
@@ -386,7 +386,7 @@ export class OptimismNFTProvider implements ChainProvider {
   async searchNFTs(query: string, limit = 20): Promise<NFTItem[]> {
     try {
       // If we have Alchemy API, use it for search
-      if (this.config.alchemyApiKey) {
+      if (this.config.alchemyApiKey !== undefined && this.config.alchemyApiKey !== null && this.config.alchemyApiKey !== '') {
         const response = await fetch(
           `${this.alchemyUrl}/${this.config.alchemyApiKey}/getNFTs?contractAddresses[]=${query}&withMetadata=true&pageSize=${limit}`
         );
@@ -398,7 +398,7 @@ export class OptimismNFTProvider implements ChainProvider {
       }
       
       // If we have SimpleHash API, use it for search
-      if (this.config.simplehashApiKey) {
+      if (this.config.simplehashApiKey !== undefined && this.config.simplehashApiKey !== null && this.config.simplehashApiKey !== '') {
         const response = await fetch(
           `${this.simplehashUrl}/nfts/collection/${query}?chains=optimism&limit=${limit}`,
           {
@@ -429,7 +429,7 @@ export class OptimismNFTProvider implements ChainProvider {
     try {
       // Fetch from Quixotic or other Optimism NFT marketplaces
       // For now, return NFTs from popular collections
-      if (this.config.alchemyApiKey) {
+      if (this.config.alchemyApiKey !== undefined && this.config.alchemyApiKey !== null && this.config.alchemyApiKey !== '') {
         // Get NFTs from popular collections
         const popularContracts = [
           '0x52782699900dF91b58eCd618E77847C5774dcaBe', // Optimism Quests
@@ -461,7 +461,7 @@ export class OptimismNFTProvider implements ChainProvider {
       }
       
       // SimpleHash trending
-      if (this.config.simplehashApiKey) {
+      if (this.config.simplehashApiKey !== undefined && this.config.simplehashApiKey !== null && this.config.simplehashApiKey !== '') {
         const response = await fetch(
           `${this.simplehashUrl}/nfts/trending_collections?chains=optimism&time_period=24h&limit=${limit}`,
           {
@@ -521,7 +521,7 @@ export class OptimismNFTProvider implements ChainProvider {
   async testConnection(): Promise<{ connected: boolean; apis: string[] }> {
     const workingApis: string[] = [];
 
-    if (this.config.alchemyApiKey) {
+    if (this.config.alchemyApiKey !== undefined && this.config.alchemyApiKey !== null && this.config.alchemyApiKey !== '') {
       try {
         const response = await fetch(`${this.alchemyUrl}/${this.config.alchemyApiKey}/isHolderOfCollection?wallet=0x0000000000000000000000000000000000000000&contractAddress=0x0000000000000000000000000000000000000000`);
         if (response.ok) workingApis.push('Alchemy');
@@ -530,7 +530,7 @@ export class OptimismNFTProvider implements ChainProvider {
       }
     }
 
-    if (this.config.simplehashApiKey) {
+    if (this.config.simplehashApiKey !== undefined && this.config.simplehashApiKey !== null && this.config.simplehashApiKey !== '') {
       try {
         const response = await fetch(`${this.simplehashUrl}/nfts/owners?chains=optimism&wallet_addresses=0x0000000000000000000000000000000000000000&limit=1`, {
           headers: { 'X-API-KEY': this.config.simplehashApiKey }

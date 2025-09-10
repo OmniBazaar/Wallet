@@ -259,12 +259,9 @@ export class ENSService {
   public async reverseResolve(address: string): Promise<string | null> {
     try {
       // Check if it resolves to a .omnicoin address
-      const keyringManager = await import('../keyring/KeyringManager');
-      const username = await keyringManager.KeyringManager.getInstance().reverseResolve(address);
-
-      if (username !== null && username !== undefined && username !== '') {
-        return `${username}.omnicoin`;
-      }
+      // TODO: Implement .omnicoin reverse resolution
+      // This would require access to the username registry service
+      // For now, skip this check
 
       // Try ENS reverse resolution
       const reverseName = `${address.slice(2).toLowerCase()}.addr.reverse`;

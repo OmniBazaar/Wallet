@@ -45,7 +45,7 @@ export class PolygonNFTProvider implements ChainProvider {
       console.warn(`Fetching Polygon NFTs for address: ${address}`);
 
       // Try Alchemy API first if available
-      if (this.config.alchemyApiKey) {
+      if (this.config.alchemyApiKey !== undefined && this.config.alchemyApiKey !== null && this.config.alchemyApiKey !== '') {
         return await this.fetchFromAlchemy(address);
       }
 
@@ -71,7 +71,7 @@ export class PolygonNFTProvider implements ChainProvider {
    */
   async getNFTMetadata(contractAddress: string, tokenId: string): Promise<NFTItem | null> {
     try {
-      if (this.config.alchemyApiKey) {
+      if (this.config.alchemyApiKey !== undefined && this.config.alchemyApiKey !== null && this.config.alchemyApiKey !== '') {
         const response = await fetch(
           `${this.alchemyUrl}/${this.config.alchemyApiKey}/getNFTMetadata?contractAddress=${contractAddress}&tokenId=${tokenId}`
         );
@@ -410,7 +410,7 @@ export class PolygonNFTProvider implements ChainProvider {
   async searchNFTs(query: string, limit = 20): Promise<NFTItem[]> {
     try {
       // If we have Alchemy API, use it for search
-      if (this.config.alchemyApiKey) {
+      if (this.config.alchemyApiKey !== undefined && this.config.alchemyApiKey !== null && this.config.alchemyApiKey !== '') {
         const response = await fetch(
           `${this.alchemyUrl}/${this.config.alchemyApiKey}/searchNFTs?query=${encodeURIComponent(query)}&pageSize=${limit}`
         );
@@ -497,7 +497,7 @@ export class PolygonNFTProvider implements ChainProvider {
   async testConnection(): Promise<{ connected: boolean; apis: string[] }> {
     const workingApis: string[] = [];
 
-    if (this.config.alchemyApiKey) {
+    if (this.config.alchemyApiKey !== undefined && this.config.alchemyApiKey !== null && this.config.alchemyApiKey !== '') {
       try {
         const response = await fetch(`${this.alchemyUrl}/${this.config.alchemyApiKey}/getNFTs?owner=0x0000000000000000000000000000000000000000&pageSize=1`);
         if (response.ok) workingApis.push('Alchemy');

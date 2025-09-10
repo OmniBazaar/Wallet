@@ -1,4 +1,4 @@
-import { bip44Paths } from "../../configs";
+// import { bip44Paths } from "../../configs"; - unused import
 import type { PathType } from "../types";
 
 const supportedPaths: Record<string, PathType[]> = {

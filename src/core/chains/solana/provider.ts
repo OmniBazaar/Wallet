@@ -289,13 +289,15 @@ export class SolanaProvider extends BaseProvider {
 
     // Add SPL tokens
     for (const token of tokenBalances) {
-      balances.push({
-        address: token.address,
-        lamports: parseInt(token.amount),
-        decimals: token.decimals,
-        mint: token.mint,
-        uiAmount: parseInt(token.amount) / Math.pow(10, token.decimals),
-      });
+      if (token.address !== undefined) {
+        balances.push({
+          address: token.address,
+          lamports: parseInt(token.amount),
+          decimals: token.decimals,
+          mint: token.mint,
+          uiAmount: parseInt(token.amount) / Math.pow(10, token.decimals),
+        });
+      }
     }
 
     return balances;
@@ -325,7 +327,15 @@ export class SolanaProvider extends BaseProvider {
     // Add instructions
     if (transaction.instructions !== undefined) {
       transaction.instructions.forEach(instruction => {
-        tx.add(instruction);
+        tx.add({
+          programId: new PublicKey(instruction.programId),
+          keys: instruction.keys.map(key => ({
+            pubkey: new PublicKey(key.pubkey),
+            isSigner: key.isSigner,
+            isWritable: key.isWritable
+          })),
+          data: Buffer.from(bs58.decode(instruction.data))
+        });
       });
     }
 
@@ -682,7 +692,7 @@ export class SolanaProvider extends BaseProvider {
   async estimateFee(): Promise<string> {
     try {
       // Get recent blockhash and fee calculator
-      const { blockhash, _lastValidBlockHeight } = await this.getConnection().getLatestBlockhash();
+      const { blockhash } = await this.getConnection().getLatestBlockhash();
       
       // Create a simple transfer transaction to estimate fees
       const transaction = new Transaction();

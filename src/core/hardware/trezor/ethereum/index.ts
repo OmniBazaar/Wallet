@@ -1,13 +1,13 @@
 import { HWwalletCapabilities, NetworkNames } from "../../../types/enkrypt-types";
 import HDKey from "hdkey";
-// @ts-ignore - Using any for HDKey instance type
+// @ts-expect-error - Using any for HDKey instance type
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type HDKeyInstance = any;
 import { bigIntToHex, bufferToHex, hexToBuffer } from "../../../types/enkrypt-types";
 import { publicToAddress, toRpcSig } from "@ethereumjs/util";
-import type { FeeMarketEIP1559Transaction, LegacyTransaction } from "@ethereumjs/tx";
+// import type { FeeMarketEIP1559Transaction, LegacyTransaction } from "@ethereumjs/tx"; - unused imports
 import type { TrezorConnect } from "@trezor/connect-web";
-// @ts-ignore - transformTypedData type issue
+// @ts-expect-error - transformTypedData type issue
 import transformTypedData from "@trezor/connect-plugin-ethereum";
 
 // Transaction interface to avoid using 'any'
@@ -24,7 +24,7 @@ interface EthereumTransaction {
 }
 import {
   AddressResponse,
-  getAddressRequest,
+  GetAddressRequest,
   HWWalletProvider,
   PathType,
   SignMessageRequest,
@@ -65,7 +65,7 @@ class TrezorEthereum implements HWWalletProvider {
    * @param options Address request options including path and index
    * @returns Promise with address and public key
    */
-  async getAddress(options: getAddressRequest): Promise<AddressResponse> {
+  async getAddress(options: GetAddressRequest): Promise<AddressResponse> {
     if (!supportedPaths[this.network])
       return Promise.reject(new Error("trezor-ethereum: Invalid network name"));
 
@@ -79,7 +79,7 @@ class TrezorEthereum implements HWWalletProvider {
       }
       if (!rootPub.success) throw new Error((rootPub.payload as { error: string }).error);
 
-      // @ts-ignore - HDKey type issue
+      // @ts-expect-error - HDKey type issue
       const hdKey = new HDKey();
       hdKey.publicKey = Buffer.from(rootPub.payload.publicKey, "hex");
       hdKey.chainCode = Buffer.from(rootPub.payload.chainCode, "hex");
@@ -195,7 +195,7 @@ class TrezorEthereum implements HWWalletProvider {
       domain: request.domain,
       message: request.message,
     };
-    // @ts-ignore - transformTypedData type issue
+    // @ts-expect-error - transformTypedData type issue
     const { domain_separator_hash, message_hash } = transformTypedData(
       eip712Data as { domain: Record<string, unknown>; message: Record<string, unknown> },
       true,

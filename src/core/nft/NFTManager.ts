@@ -146,7 +146,7 @@ export class NFTManager {
 
     // Get the correct EVM provider
     if (nft.chain !== 'ethereum') {
-      await providerManager.switchEVMNetwork(nft.chain);
+      providerManager.switchEVMNetwork(nft.chain);
     }
 
     let data: string;

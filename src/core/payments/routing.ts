@@ -645,7 +645,7 @@ export class PaymentRoutingService {
     if (route.blockchain !== 'solana') {
       await providerManager.switchEVMNetwork(route.blockchain);
     } else {
-      await providerManager.setActiveChain('solana');
+      await providerManager.setActiveChain(ChainType.SOLANA);
     }
 
     // Execute each step

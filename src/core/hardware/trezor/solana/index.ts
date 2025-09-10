@@ -1,14 +1,14 @@
 import type { TrezorConnect } from "@trezor/connect-web";
 import { HWwalletCapabilities } from "../../../types/enkrypt-types";
-import HDKey from "hdkey";
-// @ts-ignore - Using any for HDKey instance type
+// import HDKey from "hdkey"; - unused import
+// @ts-expect-error - Using any for HDKey instance type
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type HDKeyInstance = any;
 import base58 from "bs58";
 import { bufferToHex } from "../../../types/enkrypt-types";
 import {
   AddressResponse,
-  getAddressRequest,
+  GetAddressRequest,
   HWWalletProvider,
   PathType,
   SignMessageRequest,
@@ -50,8 +50,8 @@ class TrezorSolana implements HWWalletProvider {
    * @param options Address request options including path and index
    * @returns Promise with address and public key
    */
-  async getAddress(options: getAddressRequest): Promise<AddressResponse> {
-    if (!supportedPaths[this.network])
+  async getAddress(options: GetAddressRequest): Promise<AddressResponse> {
+    if (supportedPaths[this.network] === undefined)
       return Promise.reject(new Error("trezor-solana: Invalid network name"));
     const res = await this.TrezorConnect.solanaGetAddress({
       path: options.pathType.path.replace(`{index}`, options.pathIndex.toString()),

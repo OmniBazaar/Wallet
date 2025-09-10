@@ -310,7 +310,7 @@ export class EmbeddedWalletProvider {
     }
     
     // Update wallet state
-    if (message.event === 'accountsChanged' && message.data) {
+    if (message.event === 'accountsChanged' && message.data !== null && message.data !== undefined) {
       this.walletState.address = (message.data as string[])[0];
       this.walletState.connected = Boolean((message.data as string[])[0]);
     } else if (message.event === 'chainChanged' && message.data !== null && message.data !== undefined) {
@@ -373,7 +373,7 @@ export class EmbeddedWalletProvider {
    * @param args.params - The method parameters
    * @returns Promise resolving to the RPC result
    */
-  async request(args: { method: string; params?: any[] }): Promise<any> {
+  async request(args: { method: string; params?: unknown[] }): Promise<unknown> {
     // Ensure wallet is initialized
     if (this.isReady === false) {
       await this.initialize();
@@ -447,7 +447,7 @@ export class EmbeddedWalletProvider {
       }, 60000); // 60 second timeout for auth
       
       this.pendingRequests.set(id, {
-        resolve,
+        resolve: resolve as (value: unknown) => void,
         reject,
         timeout
       });
@@ -468,7 +468,7 @@ export class EmbeddedWalletProvider {
     this.sendMessage(message);
     
     this.walletState.connected = false;
-    this.walletState.address = undefined;
+    delete this.walletState.address;
     this.walletState.authenticated = false;
     
     this.emit('disconnect');
@@ -575,7 +575,7 @@ export class EmbeddedWalletProvider {
   
   /**
    * Debug logging
-   * @param args - Arguments to log
+   * @param _args - Arguments to log
    */
   private log(..._args: unknown[]): void {
     if (this.debug) {

@@ -147,7 +147,7 @@ export class BitcoinProvider extends BaseProvider {
 
   /**
    * Get balance for an address
-   * @param address - Bitcoin address to check balance for
+   * @param _address - Bitcoin address to check balance for
    * @returns Promise resolving to balance in satoshis as string
    */
   async getBalance(_address: string): Promise<string> {
@@ -232,8 +232,8 @@ export class BitcoinProvider extends BaseProvider {
 
   /**
    * Build and sign a transaction
-   * @param privateKey - Private key for signing
-   * @param transaction - Transaction request to sign
+   * @param _privateKey - Private key for signing
+   * @param _transaction - Transaction request to sign
    * @returns Promise resolving to signed transaction as hex string
    */
   async signTransaction(
@@ -251,7 +251,7 @@ export class BitcoinProvider extends BaseProvider {
 
   /**
    * Send a signed transaction
-   * @param signedTransaction - Signed transaction as hex string
+   * @param _signedTransaction - Signed transaction as hex string
    * @returns Promise resolving to transaction hash
    */
   async sendTransaction(_signedTransaction: string): Promise<string> {
@@ -410,8 +410,8 @@ export class BitcoinProvider extends BaseProvider {
 
   /**
    * Sign a message
-   * @param privateKey - Private key for signing
-   * @param message - Message to sign
+   * @param _privateKey - Private key for signing
+   * @param _message - Message to sign
    * @returns Promise resolving to signature as hex string
    */
   async signMessage(_privateKey: string, _message: string): Promise<string> {

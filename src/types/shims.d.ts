@@ -1,5 +1,11 @@
 // Ambient module declarations for packages without local types.
 
+declare module '*.vue' {
+  import type { DefineComponent } from 'vue';
+  const component: DefineComponent<object, object, unknown>;
+  export default component;
+}
+
 declare module 'styled-components' {
   import type * as React from 'react';
   export const ThemeProvider: React.FC<{ /** Theme object to provide to styled components */

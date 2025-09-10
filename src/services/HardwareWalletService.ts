@@ -113,8 +113,8 @@ export class HardwareWalletService {
   isHardwareWalletSupported(): boolean {
     // Check for WebUSB or WebHID support (browser)
     if (typeof navigator !== 'undefined') {
-      const hasUsb = navigator.usb !== undefined;
-      const hasHid = navigator.hid !== undefined;
+      const hasUsb = (navigator as { usb?: unknown }).usb !== undefined;
+      const hasHid = (navigator as { hid?: unknown }).hid !== undefined;
       const hasWebUsb = (navigator as { webusb?: unknown }).webusb !== undefined;
       return hasUsb || hasHid || hasWebUsb;
     }
@@ -144,7 +144,7 @@ export class HardwareWalletService {
    * Discover available hardware wallet devices
    * @returns Array of discovered devices
    */
-  discoverDevices(): Promise<HardwareDevice[]> {
+  async discoverDevices(): Promise<HardwareDevice[]> {
     if (!this.isInitialized) {
       throw new Error('Hardware wallet service not initialized');
     }

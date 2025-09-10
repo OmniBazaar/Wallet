@@ -167,9 +167,9 @@ export class OmniProvider extends ethers.JsonRpcProvider {
       }, delay);
     } else {
       // Reject all pending requests
-      for (const [_id, pending] of this.pendingRequests) {
+      this.pendingRequests.forEach((pending) => {
         pending.reject(new Error('Connection lost'));
-      }
+      });
       this.pendingRequests.clear();
     }
   }
@@ -283,10 +283,10 @@ export class OmniProvider extends ethers.JsonRpcProvider {
   override async getBalance(address: string, blockTag?: string | number): Promise<bigint> {
     const result = await this.sendRequest('eth_getBalance', [
       address,
-      blockTag || 'latest',
+      (blockTag !== undefined && blockTag !== null) ? blockTag : 'latest',
       this.chainId
     ]);
-    return BigInt(result);
+    return BigInt(result as string | number | bigint | boolean);
   }
 
   /**
@@ -296,11 +296,12 @@ export class OmniProvider extends ethers.JsonRpcProvider {
    * @returns Promise resolving to transaction count
    */
   override async getTransactionCount(address: string, blockTag?: string | number): Promise<number> {
-    return await this.sendRequest('eth_getTransactionCount', [
+    const result = await this.sendRequest('eth_getTransactionCount', [
       address,
-      blockTag || 'latest',
+      (blockTag !== undefined && blockTag !== null) ? blockTag : 'latest',
       this.chainId
     ]);
+    return result as number;
   }
 
   /**
@@ -310,11 +311,12 @@ export class OmniProvider extends ethers.JsonRpcProvider {
    * @returns Promise resolving to call result
    */
   override async call(transaction: unknown, blockTag?: string | number): Promise<string> {
-    return await this.sendRequest('eth_call', [
+    const result = await this.sendRequest('eth_call', [
       transaction,
-      blockTag || 'latest',
+      (blockTag !== undefined && blockTag !== null) ? blockTag : 'latest',
       this.chainId
     ]);
+    return result as string;
   }
 
   /**
@@ -327,7 +329,7 @@ export class OmniProvider extends ethers.JsonRpcProvider {
       transaction,
       this.chainId
     ]);
-    return BigInt(result);
+    return BigInt(result as string | number | bigint | boolean);
   }
 
   /**
@@ -353,7 +355,7 @@ export class OmniProvider extends ethers.JsonRpcProvider {
       address,
       chainId: chainId ?? this.chainId
     });
-    return Array.isArray(result) ? result : [];
+    return Array.isArray(result) ? result as unknown[] : [];
   }
 
   /**
@@ -382,7 +384,7 @@ export class OmniProvider extends ethers.JsonRpcProvider {
       address,
       chainId: chainId ?? this.chainId
     });
-    return Array.isArray(result) ? result : [];
+    return Array.isArray(result) ? result as unknown[] : [];
   }
 
   /**
@@ -392,7 +394,7 @@ export class OmniProvider extends ethers.JsonRpcProvider {
    */
   async getMarketplaceListings(params: unknown): Promise<unknown[]> {
     const result = await this.sendRequest('omni_getMarketplaceListings', params);
-    return Array.isArray(result) ? result : [];
+    return Array.isArray(result) ? result as unknown[] : [];
   }
 
   /**
@@ -422,9 +424,9 @@ export class OmniProvider extends ethers.JsonRpcProvider {
     }
 
     // Clear pending requests
-    for (const [_id, pending] of this.pendingRequests) {
+    this.pendingRequests.forEach((pending) => {
       pending.reject(new Error('Provider disconnected'));
-    }
+    });
     this.pendingRequests.clear();
   }
 }

@@ -365,7 +365,7 @@ export class OmniCoinNFTMinter {
 
       return {
         success: true,
-        transactionHash: typeof txHash === 'string' ? txHash : undefined
+        ...(typeof txHash === 'string' && { transactionHash: txHash })
       };
 
     } catch (error) {

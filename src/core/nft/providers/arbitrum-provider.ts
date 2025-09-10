@@ -46,12 +46,12 @@ export class ArbitrumNFTProvider implements ChainProvider {
       console.warn(`Fetching Arbitrum NFTs for address: ${address}`);
       
       // Try Alchemy API first if available
-      if (this.config.alchemyApiKey) {
+      if (this.config.alchemyApiKey !== undefined && this.config.alchemyApiKey !== null && this.config.alchemyApiKey !== '') {
         return await this.fetchFromAlchemy(address);
       }
       
       // Try Moralis API if available
-      if (this.config.moralisApiKey) {
+      if (this.config.moralisApiKey !== undefined && this.config.moralisApiKey !== null && this.config.moralisApiKey !== '') {
         return await this.fetchFromMoralis(address);
       }
       
@@ -72,7 +72,7 @@ export class ArbitrumNFTProvider implements ChainProvider {
    */
   async getNFTMetadata(contractAddress: string, tokenId: string): Promise<NFTItem | null> {
     try {
-      if (this.config.alchemyApiKey) {
+      if (this.config.alchemyApiKey !== undefined && this.config.alchemyApiKey !== null && this.config.alchemyApiKey !== '') {
         const response = await fetch(
           `${this.alchemyUrl}/${this.config.alchemyApiKey}/getNFTMetadata?contractAddress=${contractAddress}&tokenId=${tokenId}`
         );
@@ -95,7 +95,7 @@ export class ArbitrumNFTProvider implements ChainProvider {
       
       const contract = new ethers.Contract(contractAddress, erc721Abi, provider);
       
-      const c: any = contract;
+      const c = contract as { tokenURI?: (tokenId: string) => Promise<string>; name?: () => Promise<string>; ownerOf?: (tokenId: string) => Promise<string> };
       const [tokenURI, name, owner] = await Promise.all([
         c?.['tokenURI']?.(tokenId).catch(() => ''),
         c?.['name']?.().catch(() => 'Unknown Collection'),
@@ -103,7 +103,7 @@ export class ArbitrumNFTProvider implements ChainProvider {
       ]);
       
       // Parse metadata
-      let metadata: any = { name: `${name} #${tokenId}`, description: '' };
+      let metadata: { name: string; description: string; image?: string; attributes?: Array<{ trait_type: string; value: string | number }> } = { name: `${name} #${tokenId}`, description: '' };
       if (tokenURI) {
         if (tokenURI.startsWith('data:')) {
           const json = tokenURI.split(',')[1];
@@ -399,7 +399,7 @@ export class ArbitrumNFTProvider implements ChainProvider {
   async searchNFTs(query: string, limit = 20): Promise<NFTItem[]> {
     try {
       // If we have Alchemy API, use it for search
-      if (this.config.alchemyApiKey) {
+      if (this.config.alchemyApiKey !== undefined && this.config.alchemyApiKey !== null && this.config.alchemyApiKey !== '') {
         const response = await fetch(
           `${this.alchemyUrl}/${this.config.alchemyApiKey}/getNFTs?contractAddresses[]=${query}&withMetadata=true&pageSize=${limit}`
         );
@@ -411,7 +411,7 @@ export class ArbitrumNFTProvider implements ChainProvider {
       }
       
       // If we have Moralis API, use it for search
-      if (this.config.moralisApiKey) {
+      if (this.config.moralisApiKey !== undefined && this.config.moralisApiKey !== null && this.config.moralisApiKey !== '') {
         const response = await fetch(
           `${this.moralisUrl}/nft/search?chain=arbitrum&q=${encodeURIComponent(query)}&limit=${limit}`,
           {
@@ -442,7 +442,7 @@ export class ArbitrumNFTProvider implements ChainProvider {
     try {
       // Fetch from Treasure Marketplace or other Arbitrum NFT marketplaces
       // For now, return NFTs from popular collections
-      if (this.config.alchemyApiKey) {
+      if (this.config.alchemyApiKey !== undefined && this.config.alchemyApiKey !== null && this.config.alchemyApiKey !== '') {
         // Get NFTs from popular collections
         const popularContracts = [
           '0xfA2FbFc5F8CD91DbC93B6E5BE4E1FA1FA35A4e83', // GMX Blueberry Club
@@ -495,7 +495,7 @@ export class ArbitrumNFTProvider implements ChainProvider {
   async testConnection(): Promise<{ connected: boolean; apis: string[] }> {
     const workingApis: string[] = [];
 
-    if (this.config.alchemyApiKey) {
+    if (this.config.alchemyApiKey !== undefined && this.config.alchemyApiKey !== null && this.config.alchemyApiKey !== '') {
       try {
         const response = await fetch(`${this.alchemyUrl}/${this.config.alchemyApiKey}/isHolderOfCollection?wallet=0x0000000000000000000000000000000000000000&contractAddress=0x0000000000000000000000000000000000000000`);
         if (response.ok) workingApis.push('Alchemy');
@@ -504,7 +504,7 @@ export class ArbitrumNFTProvider implements ChainProvider {
       }
     }
 
-    if (this.config.moralisApiKey) {
+    if (this.config.moralisApiKey !== undefined && this.config.moralisApiKey !== null && this.config.moralisApiKey !== '') {
       try {
         const response = await fetch(`${this.moralisUrl}/nft?chain=arbitrum&limit=1`, {
           headers: { 'X-API-Key': this.config.moralisApiKey }

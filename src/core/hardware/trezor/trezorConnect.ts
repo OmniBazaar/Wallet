@@ -1,13 +1,14 @@
 import type { TrezorConnect as TrezorConnectType } from "@trezor/connect-web";
 
 /**
- *
+ * Get appropriate Trezor Connect instance based on environment
+ * @returns Promise resolving to TrezorConnect instance
  */
 const getTrezorConnect = async (): Promise<TrezorConnectType> => {
-  // @ts-ignore - Chrome runtime availability check
+  // @ts-expect-error - Chrome runtime availability check
   if (typeof chrome !== 'undefined' && chrome?.runtime?.getPlatformInfo) {
     const TrezorConnect = await import("@trezor/connect-webextension");
-    // @ts-ignore - TrezorConnect type issue
+    // @ts-expect-error - TrezorConnect type issue
     await TrezorConnect.default.init({
       manifest: {
         email: "info@enkrypt.com",

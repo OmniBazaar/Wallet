@@ -20,7 +20,6 @@ type FeeMarketEIP1559Transaction = {
   getMessageToSign(): Uint8Array | Buffer;
   common: TransactionCommon;
 };
-// @ts-expect-error - hdkey doesn't have type definitions
 import HDKey from "hdkey";
 
 // HDKey doesn't provide proper TypeScript types, so we need to define our own
@@ -52,7 +51,7 @@ const TypedDataUtils = {
 };
 import {
   AddressResponse,
-  getAddressRequest,
+  GetAddressRequest,
   HWWalletProvider,
   PathType,
   SignMessageRequest,
@@ -113,7 +112,7 @@ class LedgerEthereum implements HWWalletProvider {
    * @returns Promise resolving to address and public key
    * @throws Error if network is not supported
    */
-  async getAddress(options: getAddressRequest): Promise<AddressResponse> {
+  async getAddress(options: GetAddressRequest): Promise<AddressResponse> {
     const paths = supportedPaths[this.network];
     if (paths === undefined)
       return Promise.reject(new Error("ledger-ethereum: Invalid network name"));
@@ -129,7 +128,6 @@ class LedgerEthereum implements HWWalletProvider {
           options.confirmAddress,
           true,
         );
-        // @ts-expect-error - HDKey constructor doesn't match our interface but works at runtime
         const hdKey = new HDKey() as HDKeyInstance;
         hdKey.publicKey = Buffer.from(rootPub.publicKey, "hex");
         hdKey.chainCode = Buffer.from(rootPub.chainCode ?? "", "hex");
@@ -187,7 +185,7 @@ class LedgerEthereum implements HWWalletProvider {
     let msgToSign: string;
     if ((options.transaction as LegacyTransaction).gasPrice !== undefined) {
       tx = options.transaction as LegacyTransaction;
-      msgToSign = bufferToHex(Buffer.from(RLP.encode(tx.getMessageToSign() as Uint8Array[])));
+      msgToSign = bufferToHex(Buffer.from(RLP.encode(tx.getMessageToSign() as unknown as Uint8Array[])));
     } else {
       tx = options.transaction as FeeMarketEIP1559Transaction;
       msgToSign = bufferToHex(Buffer.from(tx.getMessageToSign()));
@@ -208,13 +206,13 @@ class LedgerEthereum implements HWWalletProvider {
           const rv = BigInt(parseInt(result.v, 16));
           const cv = tx.common.chainId() * BigInt(2) + BigInt(35);
           return toRpcSig(
-            rv - cv,
+            Number(rv - cv),
             hexToBuffer(result.r),
             hexToBuffer(result.s),
           );
         }
         return toRpcSig(
-          BigInt(`0x${result.v}`),
+          Number(BigInt(`0x${result.v}`)),
           hexToBuffer(result.r),
           hexToBuffer(result.s),
         );
@@ -251,7 +249,7 @@ class LedgerEthereum implements HWWalletProvider {
       )
       .then((result) => {
         const v = BigInt(result.v - 27);
-        return toRpcSig(v, hexToBuffer(result.r), hexToBuffer(result.s));
+        return toRpcSig(Number(v), hexToBuffer(result.r), hexToBuffer(result.s));
       });
   }
 

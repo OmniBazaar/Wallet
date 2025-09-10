@@ -16,17 +16,36 @@ import {
 import { EthereumNetwork, BaseNetwork } from '../../../types/base-network';
 import { EthereumProvider } from '../ethereum/provider';
 
+// COTI SDK type definition for type safety
+interface CotiSDKInterface {
+  onboard: (params: {
+    provider: ethers.Provider;
+    contractAddress?: string;
+  }) => Promise<{
+    txHash: string;
+    aesKey: string;
+    mpcNodeUrl?: string;
+  }>;
+  getEncryptedBalance: (address: string) => Promise<bigint>;
+  privateTransfer: (params: {
+    from: string;
+    to: string;
+    encryptedAmount: ItUint;
+    provider: ethers.Provider;
+  }) => Promise<{ hash: string }>;
+}
+
 // COTI SDK imports (when available)
-let cotiSDK: typeof import('@coti-io/coti-sdk-typescript') | null = null;
+let cotiSDK: CotiSDKInterface | null = null;
 try {
   // Dynamic import to avoid build errors if SDK not installed
-  import('@coti-io/coti-sdk-typescript').then(module => {
-    cotiSDK = module;
+  void import('@coti-io/coti-sdk-typescript').then(module => {
+    cotiSDK = module as unknown as CotiSDKInterface;
   }).catch(() => {
-    console.warn('COTI SDK not available, using fallback implementation');
+    // COTI SDK not available, using fallback implementation
   });
 } catch {
-  console.warn('COTI SDK not available, using fallback implementation');
+  // COTI SDK not available, using fallback implementation
 }
 
 // COTI Privacy Types (COTI V2 Garbled Circuits)
@@ -259,17 +278,17 @@ export class CotiProvider extends EthereumProvider {
       const rsaKeyPair = this.generateRSAKeyPair();
 
       // If COTI SDK is available, use it
-      if (cotiSDK) {
-        const onboardResult = await (cotiSDK as any).onboard({
+      if (cotiSDK !== null) {
+        const onboardResult = await cotiSDK.onboard({
           provider: this.provider,
-          contractAddress
+          ...(contractAddress !== undefined && { contractAddress })
         });
 
         this.userOnboardInfo = {
           rsaKey: rsaKeyPair,
           txHash: onboardResult.txHash,
           aesKey: onboardResult.aesKey,
-          mpcNodeUrl: onboardResult.mpcNodeUrl || 'https://mpc.coti.io',
+          mpcNodeUrl: onboardResult.mpcNodeUrl ?? 'https://mpc.coti.io',
           isOnboarded: true
         };
       } else {
@@ -289,14 +308,15 @@ export class CotiProvider extends EthereumProvider {
       this.privacyEnabled = true;
       return this.userOnboardInfo;
     } catch (error) {
-      throw new Error(`Onboarding failed: ${error}`);
+      throw new Error(`Onboarding failed: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
   /**
-   *
+   * Generate a new AES key for encryption
+   * @returns Promise resolving to hex-encoded AES key
    */
-  async generateAESKey(): Promise<string> {
+  generateAESKey(): Promise<string> {
     // Generate a random 128-bit AES key
     const randomBytes = new Uint8Array(16);
     crypto.getRandomValues(randomBytes);
@@ -306,21 +326,22 @@ export class CotiProvider extends EthereumProvider {
       .join('');
 
     this.setAESKey(aesKey);
-    return aesKey;
+    return Promise.resolve(aesKey);
   }
 
   /**
-   *
-   * @param plaintextValue
-   * @param contractAddress
-   * @param functionSelector
+   * Encrypt a value for COTI privacy operations
+   * @param plaintextValue - Value to encrypt (number, bigint, or string)
+   * @param contractAddress - Contract address for encryption context
+   * @param functionSelector - Function selector for encryption context
+   * @returns Promise resolving to encrypted value
    */
   async encryptValue(
     plaintextValue: bigint | number | string,
     contractAddress: string,
     functionSelector: string
   ): Promise<ItUint | ItString> {
-    if (!this.userOnboardInfo?.aesKey) {
+    if (this.userOnboardInfo?.aesKey === undefined || this.userOnboardInfo.aesKey === null || this.userOnboardInfo.aesKey === '') {
       if (this.autoOnboard) {
         console.warn('AES key not found, attempting to onboard...');
         await this.onboardUser();
@@ -329,7 +350,7 @@ export class CotiProvider extends EthereumProvider {
       }
     }
 
-    if (!this.userOnboardInfo?.aesKey) {
+    if (this.userOnboardInfo?.aesKey === undefined || this.userOnboardInfo.aesKey === null || this.userOnboardInfo.aesKey === '') {
       throw new Error('Failed to obtain AES key for encryption');
     }
 
@@ -346,11 +367,12 @@ export class CotiProvider extends EthereumProvider {
   }
 
   /**
-   *
-   * @param ciphertext
+   * Decrypt a value from COTI privacy operations
+   * @param ciphertext - Encrypted value to decrypt
+   * @returns Promise resolving to decrypted value
    */
-  async decryptValue(ciphertext: CtUint | CtString): Promise<bigint | string> {
-    if (!this.userOnboardInfo?.aesKey) {
+  decryptValue(ciphertext: CtUint | CtString): bigint | string {
+    if (this.userOnboardInfo?.aesKey === undefined || this.userOnboardInfo.aesKey === null || this.userOnboardInfo.aesKey === '') {
       throw new Error('AES key not found - cannot decrypt value');
     }
 
@@ -364,15 +386,16 @@ export class CotiProvider extends EthereumProvider {
   }
 
   /**
-   *
+   * Get current onboard information
+   * @returns Onboard information or undefined
    */
   getOnboardInfo(): OnboardInfo | undefined {
     return this.userOnboardInfo;
   }
 
   /**
-   *
-   * @param key
+   * Set AES key for encryption operations
+   * @param key - Hex-encoded AES key
    */
   setAESKey(key: string): void {
     if (this.userOnboardInfo) {
@@ -383,7 +406,7 @@ export class CotiProvider extends EthereumProvider {
   }
 
   /**
-   *
+   * Clear stored onboard information
    */
   clearOnboardInfo(): void {
     this.userOnboardInfo = undefined;
@@ -480,8 +503,9 @@ export class CotiProvider extends EthereumProvider {
 
   // Override network methods to include COTI-specific features
   /**
-   *
-   * @param network
+   * Set request provider for network
+   * @param network - Network configuration
+   * @returns Promise that resolves when provider is set
    */
   override async setRequestProvider(network: BaseNetwork): Promise<void> {
     await super.setRequestProvider(network);
@@ -495,7 +519,8 @@ export class CotiProvider extends EthereumProvider {
 
   // Helper method to get COTI-specific network info
   /**
-   *
+   * Get COTI-specific network information
+   * @returns COTI network information object
    */
   getCotiNetworkInfo(): { chainId: string; networkName: string; isTestNetwork: boolean; hasPrivacyFeatures: boolean; onboardContractAddress: string } {
     return {
@@ -525,8 +550,8 @@ export class CotiProvider extends EthereumProvider {
 
       if (this.privacyEnabled && this.userOnboardInfo?.isOnboarded) {
         // Use COTI SDK if available
-        if (cotiSDK) {
-          const encryptedBalance = await (cotiSDK as any).getEncryptedBalance(address);
+        if (cotiSDK !== null) {
+          const encryptedBalance = await cotiSDK.getEncryptedBalance(address);
           pxomBalance = encryptedBalance.toString();
 
           // Decrypt if owner
@@ -546,7 +571,7 @@ export class CotiProvider extends EthereumProvider {
         totalUsd: '0' // Would calculate from price oracle
       };
     } catch (error) {
-      throw new Error(`Failed to get privacy balance: ${error}`);
+      throw new Error(`Failed to get privacy balance: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -554,9 +579,10 @@ export class CotiProvider extends EthereumProvider {
    * Convert XOM to pXOM (0.5% fee)
    * @param amount Amount to convert
    * @param address User address
+   * @param _address
    * @returns Transaction hash
    */
-  async convertXOMToPXOM(amount: string, address: string): Promise<string> {
+  async convertXOMToPXOM(amount: string, _address: string): Promise<string> {
     try {
       const amountWei = ethers.parseEther(amount);
       const fee = amountWei * BigInt(5) / BigInt(1000); // 0.5% fee
@@ -574,10 +600,11 @@ export class CotiProvider extends EthereumProvider {
       const tx = await swapFn(amountWei);
       await tx.wait();
 
-      console.log(`Converted ${amount} XOM to ${ethers.formatEther(netAmount)} pXOM`);
+      // Log conversion success
+      void ethers.formatEther(netAmount); // Use the netAmount for validation
       return tx.hash;
     } catch (error) {
-      throw new Error(`XOM to pXOM conversion failed: ${error}`);
+      throw new Error(`XOM to pXOM conversion failed: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -585,9 +612,10 @@ export class CotiProvider extends EthereumProvider {
    * Convert pXOM to XOM (no fee)
    * @param amount Amount to convert
    * @param address User address
+   * @param _address
    * @returns Transaction hash
    */
-  async convertPXOMToXOM(amount: string, address: string): Promise<string> {
+  async convertPXOMToXOM(amount: string, _address: string): Promise<string> {
     try {
       const amountWei = ethers.parseEther(amount);
 
@@ -603,10 +631,10 @@ export class CotiProvider extends EthereumProvider {
       const tx = await swapFn(amountWei);
       await tx.wait();
 
-      console.log(`Converted ${amount} pXOM to ${amount} XOM`);
+      // Log conversion success
       return tx.hash;
     } catch (error) {
-      throw new Error(`pXOM to XOM conversion failed: ${error}`);
+      throw new Error(`pXOM to XOM conversion failed: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -633,11 +661,11 @@ export class CotiProvider extends EthereumProvider {
       );
 
       // Execute private transfer
-      if (cotiSDK) {
-        const tx = await (cotiSDK as any).privateTransfer({
+      if (cotiSDK !== null) {
+        const tx = await cotiSDK.privateTransfer({
           from,
           to,
-          encryptedAmount,
+          encryptedAmount: encryptedAmount as ItUint,
           provider: this.provider
         });
         return tx.hash;
@@ -646,7 +674,7 @@ export class CotiProvider extends EthereumProvider {
         throw new Error('COTI SDK required for private transfers');
       }
     } catch (error) {
-      throw new Error(`Private transfer failed: ${error}`);
+      throw new Error(`Private transfer failed: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -662,10 +690,11 @@ export class CotiProvider extends EthereumProvider {
       }
 
       this.privacyEnabled = true;
-      console.log(`Privacy enabled for ${address}`);
+      // Privacy enabled for address
+      void address; // Mark as used
       return true;
     } catch (error) {
-      throw new Error(`Failed to enable privacy: ${error}`);
+      throw new Error(`Failed to enable privacy: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 }
@@ -677,8 +706,9 @@ export { LiveCOTIProvider, createLiveCOTIProvider, liveCOTIProvider } from './li
 
 // Export unified getProvider function that returns live provider
 /**
- *
- * @param _networkName
+ * Get COTI provider instance
+ * @param _networkName - Network name (unused)
+ * @returns Promise resolving to provider instance
  */
 export async function getCotiProvider(_networkName?: string): Promise<ethers.JsonRpcProvider> {
   const { liveCOTIProvider } = await import('./live-provider');

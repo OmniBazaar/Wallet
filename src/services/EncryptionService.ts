@@ -141,7 +141,7 @@ export class EncryptionService {
         data: ethers.hexlify(encryptedResult.ciphertext),
         iv: ethers.hexlify(iv),
         salt: ethers.hexlify(salt),
-        tag: encryptedResult.tag !== undefined ? ethers.hexlify(encryptedResult.tag) : undefined,
+        ...(encryptedResult.tag !== undefined && { tag: ethers.hexlify(encryptedResult.tag) }),
         algorithm: opts.algorithm,
         keyDerivation: {
           iterations: opts.iterations,
@@ -255,7 +255,7 @@ export class EncryptionService {
         const passwordBuffer = new TextEncoder().encode(password);
         const importedKey = await crypto.subtle.importKey(
           'raw',
-          passwordBuffer,
+          passwordBuffer as BufferSource,
           { name: 'PBKDF2' },
           false,
           ['deriveBits']
@@ -264,7 +264,7 @@ export class EncryptionService {
         const derivedBits = await crypto.subtle.deriveBits(
           {
             name: 'PBKDF2',
-            salt,
+            salt: salt as BufferSource,
             iterations,
             hash: 'SHA-256'
           },
@@ -314,7 +314,7 @@ export class EncryptionService {
     if (typeof crypto !== 'undefined' && crypto.subtle !== undefined) {
       const importedKey = await crypto.subtle.importKey(
         'raw',
-        key,
+        key as BufferSource,
         { name: 'AES-GCM' },
         false,
         ['encrypt']
@@ -323,11 +323,11 @@ export class EncryptionService {
       const encrypted = await crypto.subtle.encrypt(
         {
           name: 'AES-GCM',
-          iv,
+          iv: iv as BufferSource,
           tagLength: 128
         },
         importedKey,
-        data
+        data as BufferSource
       );
 
       // Split ciphertext and tag
@@ -359,7 +359,7 @@ export class EncryptionService {
     if (typeof crypto !== 'undefined' && crypto.subtle !== undefined) {
       const importedKey = await crypto.subtle.importKey(
         'raw',
-        key,
+        key as BufferSource,
         { name: 'AES-GCM' },
         false,
         ['decrypt']
@@ -373,11 +373,11 @@ export class EncryptionService {
       const decrypted = await crypto.subtle.decrypt(
         {
           name: 'AES-GCM',
-          iv,
+          iv: iv as BufferSource,
           tagLength: 128
         },
         importedKey,
-        combined
+        combined as BufferSource
       );
 
       return new Uint8Array(decrypted);
@@ -397,7 +397,7 @@ export class EncryptionService {
       : data;
 
     if (typeof crypto !== 'undefined' && crypto.subtle !== undefined) {
-      const hashBuffer = await crypto.subtle.digest('SHA-256', dataBytes);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', dataBytes as BufferSource);
       return ethers.hexlify(new Uint8Array(hashBuffer));
     } else {
       // Fallback using ethers

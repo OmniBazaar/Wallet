@@ -820,9 +820,9 @@ export class BlockExplorerService {
       blockNumber: txData.blockNumber,
       timestamp: txData.timestamp,
       status: txData.status === 1 ? 'success' : 'failed',
-      method: txData.method,
-      tokenTransfers: txData.tokenTransfers ?? [],
-      input: txData.input,
+      ...(txData.method !== undefined && txData.method !== null && txData.method !== '' && { method: txData.method }),
+      ...(txData.tokenTransfers !== undefined && txData.tokenTransfers !== null && { tokenTransfers: txData.tokenTransfers }),
+      ...(txData.input !== undefined && txData.input !== null && txData.input !== '' && { input: txData.input }),
       fee: txData.fee ?? (BigInt(txData.gasUsed) * BigInt(txData.gasPrice)).toString(),
       confirmations: txData.confirmations ?? 0
     };
@@ -853,9 +853,8 @@ export class BlockExplorerService {
       blockNumber: parseInt(txData.blockNumber),
       timestamp: parseInt(txData.timeStamp),
       status: txData.isError === '0' ? 'success' : 'failed',
-      method: txData.functionName,
-      tokenTransfers: [],
-      input: txData.input,
+      ...(txData.functionName && { method: txData.functionName }),
+      ...(txData.input && { input: txData.input }),
       fee: (BigInt(txData.gasUsed) * BigInt(txData.gasPrice)).toString(),
       confirmations: txData.confirmations ?? 0
     };
@@ -886,8 +885,8 @@ export class BlockExplorerService {
       transactionCount: blockData.transactionCount ?? blockData.transactions?.length ?? 0,
       gasUsed: blockData.gasUsed,
       gasLimit: blockData.gasLimit,
-      baseFeePerGas: blockData.baseFeePerGas,
-      size: blockData.size,
+      ...(blockData.baseFeePerGas && { baseFeePerGas: blockData.baseFeePerGas }),
+      ...(blockData.size !== undefined && { size: blockData.size }),
       difficulty: blockData.difficulty ?? '0'
     };
   }

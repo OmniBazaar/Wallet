@@ -6,7 +6,7 @@
  */
 
 import { NFTManager } from './NFTManager';
-import { NFT as WalletNFT } from './types';
+import { NFT as WalletNFT, NFTType, NFTStandard } from './types';
 import { createAllNFTProviders } from './providers/provider-factory';
 import type { ChainProvider } from './display/multi-chain-display';
 
@@ -118,7 +118,8 @@ export class NFTService {
       }
 
       // Initialize all providers
-      for (const provider of this.providers.values()) {
+      const providersArray = Array.from(this.providers.values());
+      for (const provider of providersArray) {
         if ('initialize' in provider && typeof provider.initialize === 'function') {
           await provider.initialize();
         }
@@ -201,11 +202,21 @@ export class NFTService {
     // Return mock metadata in test environment when no provider
     if (process.env.NODE_ENV === 'test' && this.providers.size === 0) {
       return {
+        id: `${contractAddress}_${tokenId}`,
+        contract_address: contractAddress,
+        token_id: tokenId,
+        chain: 'ethereum',
+        type: NFTType.ERC721,
+        standard: NFTStandard.ERC721,
+        owner: '0x0000000000000000000000000000000000000000',
         name: `Mock NFT #${tokenId}`,
-        description: 'Mock NFT for testing',
-        image: 'ipfs://mock-image',
-        attributes: []
-      };
+        metadata: {
+          name: `Mock NFT #${tokenId}`,
+          description: 'Mock NFT for testing',
+          image: 'ipfs://mock-image',
+          attributes: []
+        }
+      } as WalletNFT;
     }
 
     const provider = this.providers.get(chainId);
@@ -215,7 +226,30 @@ export class NFTService {
     }
 
     try {
-      return await provider.getNFTMetadata(contractAddress, tokenId);
+      const nftItem = await provider.getNFTMetadata(contractAddress, tokenId);
+      if (nftItem === null) {
+        return null;
+      }
+      // Convert NFTItem to NFT format
+      return {
+        id: `${contractAddress}_${tokenId}`,
+        contract_address: contractAddress,
+        token_id: tokenId,
+        chain: String(chainId),
+        type: NFTType.ERC721,
+        standard: NFTStandard.ERC721,
+        owner: nftItem.owner ?? '0x0000000000000000000000000000000000000000',
+        name: nftItem.name,
+        metadata: {
+          name: nftItem.name,
+          description: nftItem.description,
+          image: nftItem.imageUrl ?? nftItem.image,
+          attributes: nftItem.attributes?.map(attr => ({
+            trait_type: attr.trait_type,
+            value: attr.value
+          })) ?? []
+        }
+      } as WalletNFT;
     } catch (error) {
       // Error fetching NFT metadata
       return null;
@@ -239,7 +273,8 @@ export class NFTService {
 
     // Get collections from all chains
     const allCollections = [];
-    for (const provider of this.providers.values()) {
+    const providersArray = Array.from(this.providers.values());
+    for (const provider of providersArray) {
       try {
         const collections = await provider.getCollections(address);
         allCollections.push(...collections);
@@ -312,7 +347,6 @@ export class NFTService {
       
       // In test environment, return mock transaction
       if (process.env.NODE_ENV === 'test') {
-        // @ts-expect-error - Dynamic require for test environment
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         const { generateSecureMockTxHash } = require('../utils/secure-random') as { generateSecureMockTxHash: () => string };
         const mockHash = generateSecureMockTxHash();
@@ -386,6 +420,10 @@ export class NFTService {
   /**
    * List NFT for sale
    * @param params - Listing parameters with contract address, token ID, price and chain ID
+   * @param params.contractAddress - NFT contract address
+   * @param params.tokenId - Token ID to list
+   * @param params.price - Listing price in wei
+   * @param params.chainId - Chain ID where NFT exists
    * @returns Promise resolving to listing result
    */
   public async listNFT(params: {
@@ -395,24 +433,25 @@ export class NFTService {
     chainId: number;
   }): Promise<{ success: boolean; listingId?: string; error?: string }> {
     // This would integrate with the marketplace
-    // Listing NFT
+    // Listing NFT with params
+    void params; // Mark as used
 
     // For now, return success
-    return {
+    return await Promise.resolve({
       success: true,
       listingId: `listing_${Date.now()}`
-    };
+    });
   }
 
   /**
    * Mint a simple NFT (stub implementation)
-   * @param params
-   * @param params.name
-   * @param params.description
-   * @param params.image
-   * @param params.attributes
-   * @param params.recipient
-   * @param params.chainId
+   * @param params - NFT minting parameters
+   * @param params.name - Name of the NFT
+   * @param params.description - Description of the NFT
+   * @param params.image - Image URL for the NFT
+   * @param params.attributes - Array of attributes
+   * @param params.recipient - Optional recipient address
+   * @param params.chainId - Optional chain ID
    * @returns Object containing tokenId and transactionHash
    */
   public async mintNFT(params: {
@@ -425,19 +464,22 @@ export class NFTService {
   }): Promise<{ success: boolean; tokenId?: string; transactionHash?: string; error?: string }> {
     // Minting NFT (stub)
     // This is a placeholder; real implementation would call provider/contract
+    void params; // Mark as used
     const tokenId = `${Date.now()}`;
-    const { generateSecureMockTxHash } = require('../utils/secure-random');
-    const transactionHash = generateSecureMockTxHash();
-    return { success: true, tokenId, transactionHash };
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const secureRandomModule = require('../utils/secure-random') as { generateSecureMockTxHash: () => string };
+    const transactionHash = secureRandomModule.generateSecureMockTxHash();
+    return await Promise.resolve({ success: true, tokenId, transactionHash });
   }
 
   /**
    * Buy NFT
-   * @param params
-   * @param params.contractAddress
-   * @param params.tokenId
-   * @param params.price
-   * @param params.chainId
+   * @param params - NFT purchase parameters
+   * @param params.contractAddress - NFT contract address
+   * @param params.tokenId - Token ID to buy
+   * @param params.price - Purchase price in wei
+   * @param params.chainId - Chain ID where NFT exists
+   * @returns Promise resolving to purchase result
    */
   public async buyNFT(params: {
     contractAddress: string;
@@ -445,37 +487,41 @@ export class NFTService {
     price: string;
     chainId: number;
   }): Promise<{ success: boolean; txHash?: string; error?: string }> {
-    // Buying NFT
+    // Buying NFT with params
+    void params; // Mark as used
 
     // This would integrate with the marketplace
-    return {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const secureRandomModule = require('../utils/secure-random') as { generateSecureMockTxHash: () => string };
+    return await Promise.resolve({
       success: true,
-      txHash: (() => {
-        const { generateSecureMockTxHash } = require('../utils/secure-random');
-        return generateSecureMockTxHash();
-      })()
-    };
+      txHash: secureRandomModule.generateSecureMockTxHash()
+    });
   }
 
   /**
    * Get trending NFTs
-   * @param chainId
+   * @param chainId - Optional chain ID to filter by
+   * @returns Promise resolving to array of trending NFTs
    */
-  public async getTrendingNFTs(chainId?: number): Promise<any[]> {
+  public async getTrendingNFTs(chainId?: number): Promise<unknown[]> {
     if (chainId !== undefined) {
       const provider = this.providers.get(chainId);
-      if (provider && 'getTrendingNFTs' in provider) {
-        return (provider as any).getTrendingNFTs();
+      if (provider !== null && provider !== undefined && 'getTrendingNFTs' in provider) {
+        const providerWithTrending = provider as { getTrendingNFTs(): Promise<unknown[]> };
+        return providerWithTrending.getTrendingNFTs();
       }
       return [];
     }
 
     // Get trending from all chains
     const allTrending = [];
-    for (const provider of this.providers.values()) {
+    const providersArray = Array.from(this.providers.values());
+    for (const provider of providersArray) {
       if ('getTrendingNFTs' in provider) {
         try {
-          const trending = await (provider as any).getTrendingNFTs();
+          const providerWithTrending = provider as { getTrendingNFTs(): Promise<unknown[]> };
+          const trending = await providerWithTrending.getTrendingNFTs();
           allTrending.push(...trending);
         } catch (error) {
           // Error fetching trending NFTs
@@ -488,6 +534,7 @@ export class NFTService {
 
   /**
    * Check if using OmniProvider
+   * @returns True if using OmniProvider, false otherwise
    */
   public isUsingOmniProvider(): boolean {
     return this.config.useOmniProvider === true;
@@ -495,7 +542,7 @@ export class NFTService {
 
   /**
    * Switch between OmniProvider and external APIs
-   * @param useOmniProvider
+   * @param useOmniProvider - Whether to use OmniProvider
    */
   public async switchProvider(useOmniProvider: boolean): Promise<void> {
     this.config.useOmniProvider = useOmniProvider;
@@ -516,6 +563,7 @@ export class NFTService {
 
   /**
    * Get supported chains
+   * @returns Array of supported blockchain chains
    */
   public getSupportedChains(): Array<{ chainId: number; name: string }> {
     return [
@@ -533,7 +581,7 @@ export class NFTService {
    * Clear cache and reset data
    */
   public async clearCache(): Promise<void> {
-    if (this.nftManager && 'clearCache' in this.nftManager && typeof this.nftManager.clearCache === 'function') {
+    if (this.nftManager !== null && 'clearCache' in this.nftManager && typeof this.nftManager.clearCache === 'function') {
       await this.nftManager.clearCache();
     }
     // NFTService cache cleared
@@ -548,7 +596,8 @@ export class NFTService {
       await this.clearCache();
 
       // Cleanup providers
-      for (const provider of this.providers.values()) {
+      const providersArray = Array.from(this.providers.values());
+      for (const provider of providersArray) {
         if ('cleanup' in provider && typeof provider.cleanup === 'function') {
           await provider.cleanup();
         }
@@ -569,7 +618,8 @@ export class NFTService {
 
   /**
    * Helper to convert chain ID to chain type
-   * @param chainId
+   * @param chainId - Chain ID to convert
+   * @returns Chain type identifier
    */
   private getChainType(chainId: number): 'ethereum' | 'solana' {
     // All EVM chains are 'ethereum' type
@@ -589,7 +639,7 @@ export class NFTService {
    * Get the wallet instance
    * @returns Wallet instance
    */
-  public getWallet(): any {
+  public getWallet(): unknown {
     return this.wallet;
   }
 

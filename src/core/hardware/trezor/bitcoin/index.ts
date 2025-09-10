@@ -1,6 +1,6 @@
 import { HWwalletCapabilities } from "../../../types/enkrypt-types";
 import HDKey from "hdkey";
-// @ts-ignore - Using any for HDKey instance type
+// @ts-expect-error - Using any for HDKey instance type
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type HDKeyInstance = any;
 import { bufferToHex } from "../../../types/enkrypt-types";
@@ -19,7 +19,7 @@ import {
   AddressResponse,
   BitcoinSignMessage,
   BTCSignTransaction,
-  getAddressRequest,
+  GetAddressRequest,
   HWWalletProvider,
   PathType,
   SignTransactionRequest,
@@ -60,11 +60,11 @@ class TrezorBitcoin implements HWWalletProvider {
    * @param options Address request options including path and index
    * @returns Promise with address and public key
    */
-  async getAddress(options: getAddressRequest): Promise<AddressResponse> {
-    if (!supportedPaths[this.network])
+  async getAddress(options: GetAddressRequest): Promise<AddressResponse> {
+    if (supportedPaths[this.network] === undefined)
       return Promise.reject(new Error("trezor-bitcoin: Invalid network name"));
 
-    if (!this.HDNodes[options.pathType.basePath]) {
+    if (this.HDNodes[options.pathType.basePath] === undefined) {
       const rootPub = await this.TrezorConnect.getAddress({
         path: options.pathType.basePath,
         showOnTrezor: options.confirmAddress,

@@ -37,7 +37,7 @@ class MockCacheService implements ICacheService {
 
   async set(key: string, value: string, ttl?: number): Promise<void> {
     const expires = ttl ? Date.now() + (ttl * 1000) : undefined;
-    this.cache.set(key, { value, expires });
+    this.cache.set(key, { value, ...(expires !== undefined && { expires }) });
   }
 
   async get(key: string): Promise<string | null> {
@@ -72,9 +72,9 @@ class MockSecureStorageService implements ISecureStorageService {
 class MockDatabase implements IDatabase {
   private tables = new Map<string, Map<string, Record<string, unknown>>>();
 
-  async query(sql: string, params: unknown[]): Promise<QueryResult> {
+  async query(_sql: string, _params: unknown[]): Promise<QueryResult> {
     // Mock database queries - in production would use actual database
-    console.log('Mock DB Query:', { sql, params });
+    // Suppress unused parameter warnings
     return { rows: [] };
   }
 }
@@ -278,7 +278,7 @@ export class SessionService {
       accessTokenExpiresAt: new Date(tokens.accessTokenExpiresAt * 1000),
       refreshTokenExpiresAt: new Date(tokens.refreshTokenExpiresAt * 1000),
       isActive: true,
-      metadata: options.metadata
+      ...(options.metadata !== undefined && { metadata: options.metadata })
     };
     
     // Store session in database

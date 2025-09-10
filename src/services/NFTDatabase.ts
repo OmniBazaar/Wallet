@@ -54,7 +54,7 @@ export interface NFTData {
     score: number;
   };
   /** Additional metadata */
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   /** Creation timestamp */
   createdAt?: number;
   /** Last update timestamp */
@@ -104,7 +104,7 @@ export interface NFTCollection {
   /** Verification status */
   verified: boolean;
   /** Additional metadata */
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   /** Creation timestamp */
   createdAt?: number;
   /** Last update timestamp */
@@ -121,7 +121,7 @@ export class NFTDatabase {
   private db: IDBDatabase | null = null;
 
   /**
-   *
+   * Creates a new NFTDatabase instance
    */
   constructor() {}
 

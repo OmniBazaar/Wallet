@@ -328,17 +328,17 @@ export class MultiChainNFTDisplay {
    * @param address - Wallet address
    * @returns Promise resolving to mock NFTs
    */
-  private async getMockNFTsForChain(chainId: number, address: string): Promise<NFTItem[]> {
+  private getMockNFTsForChain(chainId: number, address: string): NFTItem[] {
     const chainConfig = this.chains.get(chainId);
     if (chainConfig === undefined) return [];
 
     const mockNFTs: NFTItem[] = [];
-    const { secureRandomInt } = require('../../utils/secure-random');
+    const { secureRandomInt } = require('../../utils/secure-random') as { secureRandomInt: (min: number, max: number) => number };
     const count = secureRandomInt(1, 5); // 1-5 NFTs per chain
 
     for (let i = 0; i < count; i++) {
       const tokenId = (Date.now() + i).toString();
-      const { secureRandom } = require('../../utils/secure-random');
+      const { secureRandom } = require('../../utils/secure-random') as { secureRandom: () => number };
       const isListed = secureRandom() > 0.5;
       const price = isListed ? (secureRandom() * 10).toFixed(3) : undefined;
       const currency = isListed ? (chainId === 8888 ? 'XOM' : ['ETH', 'MATIC', 'BNB', 'AVAX', 'SOL'][secureRandomInt(0, 4)]) : undefined;

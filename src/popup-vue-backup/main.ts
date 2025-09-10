@@ -1,3 +1,4 @@
+/// <reference path="./shims-vue.d.ts" />
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument */
 /**
  * OmniBazaar Wallet Popup Main Entry Point

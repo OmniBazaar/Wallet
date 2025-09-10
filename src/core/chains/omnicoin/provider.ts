@@ -383,7 +383,7 @@ export class OmniCoinProvider extends CotiProvider {
    * @param buyerAddress - The wallet address of the buyer
    * @returns Promise resolving to transaction hash and escrow ID
    */
-  async purchaseItem(listingId: string, buyerAddress: string): Promise<{
+  purchaseItem(listingId: string, buyerAddress: string): {
     /** Transaction hash for the purchase */
     transactionHash: string;
     /** Escrow ID for the purchase protection */
@@ -407,7 +407,7 @@ export class OmniCoinProvider extends CotiProvider {
     });
 
     // Generate secure transaction hash
-    const { generateSecureMockTxHash } = require('../../utils/secure-random');
+    const { generateSecureMockTxHash } = require('../../utils/secure-random') as { generateSecureMockTxHash: () => string };
     const transactionHash = generateSecureMockTxHash();
 
     this.emit('omnicoin_itemPurchased', { listing, buyer: buyerAddress, escrowId: escrowInfo.id });

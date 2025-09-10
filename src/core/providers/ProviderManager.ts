@@ -11,8 +11,8 @@ import { LiveCOTIProvider, COTI_NETWORKS } from '../chains/coti/live-provider';
 import { LiveOmniCoinProvider, OMNICOIN_NETWORKS } from '../chains/omnicoin/live-provider';
 import { LiveBitcoinProvider } from '../chains/bitcoin/live-provider';
 import { MultiChainEVMProvider, ALL_NETWORKS } from '../chains/evm';
-import { LivePolkadotProvider, POLKADOT_NETWORKS } from '../chains/polkadot';
-import { LiveSolanaProvider, SOLANA_NETWORKS } from '../chains/solana';
+import { LivePolkadotProvider } from '../chains/polkadot';
+import { LiveSolanaProvider } from '../chains/solana';
 import { keyringService } from '../keyring/KeyringService';
 import { ChainType } from '../keyring/BIP39Keyring';
 
@@ -49,8 +49,8 @@ export interface ChainConfig {
 }
 
 export const SUPPORTED_CHAINS: Record<ChainType, ChainConfig> = {
-  ethereum: {
-    chainType: 'ethereum',
+  [ChainType.ETHEREUM]: {
+    chainType: ChainType.ETHEREUM,
     name: 'Ethereum',
     icon: 'ethereum',
     networks: Object.keys(ETHEREUM_NETWORKS),
@@ -60,16 +60,16 @@ export const SUPPORTED_CHAINS: Record<ChainType, ChainConfig> = {
       defi: true
     }
   },
-  bitcoin: {
-    chainType: 'bitcoin',
+  [ChainType.BITCOIN]: {
+    chainType: ChainType.BITCOIN,
     name: 'Bitcoin',
     icon: 'bitcoin',
     networks: ['mainnet', 'testnet'],
     defaultNetwork: 'mainnet',
     features: {}
   },
-  solana: {
-    chainType: 'solana',
+  [ChainType.SOLANA]: {
+    chainType: ChainType.SOLANA,
     name: 'Solana',
     icon: 'solana',
     networks: ['mainnet-beta', 'testnet', 'devnet'],
@@ -79,8 +79,8 @@ export const SUPPORTED_CHAINS: Record<ChainType, ChainConfig> = {
       defi: true
     }
   },
-  substrate: {
-    chainType: 'substrate',
+  [ChainType.SUBSTRATE]: {
+    chainType: ChainType.SUBSTRATE,
     name: 'Polkadot/Substrate',
     icon: 'polkadot',
     networks: ['polkadot', 'kusama', 'westend'],
@@ -90,8 +90,8 @@ export const SUPPORTED_CHAINS: Record<ChainType, ChainConfig> = {
       nft: true
     }
   },
-  coti: {
-    chainType: 'coti',
+  [ChainType.COTI]: {
+    chainType: ChainType.COTI,
     name: 'COTI',
     icon: 'coti',
     networks: Object.keys(COTI_NETWORKS),
@@ -100,8 +100,8 @@ export const SUPPORTED_CHAINS: Record<ChainType, ChainConfig> = {
       privacy: true
     }
   },
-  omnicoin: {
-    chainType: 'omnicoin',
+  [ChainType.OMNICOIN]: {
+    chainType: ChainType.OMNICOIN,
     name: 'OmniCoin',
     icon: 'omnicoin',
     networks: Object.keys(OMNICOIN_NETWORKS),
@@ -123,7 +123,7 @@ export class ProviderManager {
   private static instance: ProviderManager;
   private providers: Map<ChainType, ProviderType> = new Map();
   private evmProviders: Map<string, MultiChainEVMProvider> = new Map();
-  private activeChain: ChainType = 'ethereum';
+  private activeChain: ChainType = ChainType.ETHEREUM;
   private activeNetwork = 'ethereum'; // For EVM chain switching
   private networkType: NetworkType = 'mainnet';
   private initialized = false;
@@ -135,7 +135,7 @@ export class ProviderManager {
    * @returns The ProviderManager instance
    */
   public static getInstance(): ProviderManager {
-    if (!ProviderManager.instance) {
+    if (ProviderManager.instance === undefined || ProviderManager.instance === null) {
       ProviderManager.instance = new ProviderManager();
     }
     return ProviderManager.instance;
@@ -148,7 +148,7 @@ export class ProviderManager {
   private reset(): void {
     this.providers.clear();
     this.evmProviders.clear();
-    this.activeChain = 'ethereum';
+    this.activeChain = ChainType.ETHEREUM;
     this.activeNetwork = 'ethereum';
     this.networkType = 'mainnet';
     this.initialized = false;
@@ -158,25 +158,26 @@ export class ProviderManager {
    * Force re-initialization for testing
    * @param networkType Network type to initialize
    */
-  public async reinitialize(networkType: NetworkType): Promise<void> {
+  public reinitialize(networkType: NetworkType): void {
     this.reset();
-    await this.initialize(networkType);
+    this.initialize(networkType);
   }
 
   /**
    * Force re-initialization with specific network for testing
    * @param networkOrType Network name or network type to initialize
    */
-  public async reinitializeWithNetwork(networkOrType: string | NetworkType): Promise<void> {
+  public reinitializeWithNetwork(networkOrType: string): void {
     this.reset();
-    await this.initialize(networkOrType);
+    this.initialize(networkOrType);
   }
 
   /**
    * Initialize all providers
    * @param networkOrType Network name or network type to initialize
+   * @returns Promise that resolves when initialization is complete
    */
-  async initialize(networkOrType: string | NetworkType = 'mainnet'): Promise<void> {
+  initialize(networkOrType: string = 'mainnet'): void {
     if (this.initialized) {
       return;
     }
@@ -188,7 +189,7 @@ export class ProviderManager {
       this.activeNetwork = networkType; // Set to mainnet/testnet
     } else {
       // For specific networks like 'polygon', determine if it's mainnet or testnet
-      networkType = (ALL_NETWORKS[networkOrType]?.testnet) ? 'testnet' : 'mainnet';
+      networkType = (ALL_NETWORKS[networkOrType]?.testnet === true) ? 'testnet' : 'mainnet';
       this.activeNetwork = networkOrType; // Set specific network
     }
     
@@ -199,13 +200,13 @@ export class ProviderManager {
       const ethProvider = new LiveEthereumProvider(
         networkType === 'mainnet' ? 'mainnet' : 'sepolia'
       );
-      this.providers.set('ethereum', ethProvider);
+      this.providers.set(ChainType.ETHEREUM, ethProvider);
 
       // Initialize EVM providers for all supported chains
       for (const [networkKey, network] of Object.entries(ALL_NETWORKS)) {
         // Skip testnets in mainnet mode and vice versa
-        if (networkType === 'mainnet' && network.testnet) continue;
-        if (networkType === 'testnet' && !network.testnet) continue;
+        if (networkType === 'mainnet' && network.testnet === true) continue;
+        if (networkType === 'testnet' && network.testnet !== true) continue;
 
         const evmProvider = new MultiChainEVMProvider(networkKey);
         this.evmProviders.set(networkKey, evmProvider);
@@ -213,25 +214,25 @@ export class ProviderManager {
 
       // Initialize COTI provider
       const cotiProvider = new LiveCOTIProvider(networkType);
-      this.providers.set('coti', cotiProvider);
+      this.providers.set(ChainType.COTI, cotiProvider);
 
       // Initialize OmniCoin provider
       const omniProvider = new LiveOmniCoinProvider(networkType);
-      this.providers.set('omnicoin', omniProvider);
+      this.providers.set(ChainType.OMNICOIN, omniProvider);
 
       // Initialize Bitcoin provider
       const btcProvider = new LiveBitcoinProvider(networkType);
-      this.providers.set('bitcoin', btcProvider);
+      this.providers.set(ChainType.BITCOIN, btcProvider);
 
       // Initialize Polkadot/Substrate providers
       const defaultPolkadotNetwork = networkType === 'mainnet' ? 'polkadot' : 'westend';
       const polkadotProvider = new LivePolkadotProvider(defaultPolkadotNetwork);
-      this.providers.set('substrate', polkadotProvider);
+      this.providers.set(ChainType.SUBSTRATE, polkadotProvider);
 
       // Initialize Solana provider
       const solanaNetwork = networkType === 'mainnet' ? 'mainnet-beta' : 'devnet';
       const solanaProvider = new LiveSolanaProvider(solanaNetwork);
-      this.providers.set('solana', solanaProvider);
+      this.providers.set(ChainType.SOLANA, solanaProvider);
 
       this.initialized = true;
     } catch (error) {
@@ -243,10 +244,11 @@ export class ProviderManager {
   /**
    * Get provider for a specific chain type.
    * @param chainType Chain identifier
+   * @returns Provider instance or null if not found
    */
   getProvider(chainType: ChainType): ProviderType | null {
     const provider = this.providers.get(chainType);
-    if (!provider) {
+    if (provider === undefined || provider === null) {
       // Check if this is for testing scenario
       if (this.providers.size === 0) {
         throw new Error('Provider not found');
@@ -259,77 +261,100 @@ export class ProviderManager {
   /**
    * Get an EVM provider for a specific EVM network key.
    * @param networkKey Key from ALL_NETWORKS
+   * @returns EVM provider instance or null if not found
    */
   getEVMProvider(networkKey: string): MultiChainEVMProvider | null {
-    return this.evmProviders.get(networkKey) || null;
+    const provider = this.evmProviders.get(networkKey);
+    return (provider !== undefined) ? provider : null;
   }
 
   /**
    * Switch the active EVM network. Creates a provider on demand.
    * @param networkKey Key from ALL_NETWORKS
+   * @returns Promise that resolves when network is switched
    */
-  async switchEVMNetwork(networkKey: string): Promise<void> {
+  switchEVMNetwork(networkKey: string): void {
     // Clean up listeners from current provider
     const currentProvider = this.getActiveProvider();
-    if (currentProvider && typeof (currentProvider as unknown as { removeAllListeners?: () => void }).removeAllListeners === 'function') {
+    if (currentProvider !== null && typeof (currentProvider as unknown as { removeAllListeners?: () => void }).removeAllListeners === 'function') {
       (currentProvider as unknown as { removeAllListeners: () => void }).removeAllListeners();
     }
 
     const provider = this.evmProviders.get(networkKey);
-    if (!provider) {
+    if (provider === undefined || provider === null) {
       // Try to create a new provider for this network
       const network = ALL_NETWORKS[networkKey];
-      if (!network) {
+      if (network === undefined || network === null) {
         throw new Error(`Unknown EVM network: ${networkKey}`);
       }
 
       const newProvider = new MultiChainEVMProvider(networkKey);
       this.evmProviders.set(networkKey, newProvider);
       this.activeNetwork = networkKey;
-      this.activeChain = 'ethereum'; // All EVM chains use 'ethereum' chain type
+      this.activeChain = ChainType.ETHEREUM; // All EVM chains use 'ethereum' chain type
     } else {
       this.activeNetwork = networkKey;
-      this.activeChain = 'ethereum';
+      this.activeChain = ChainType.ETHEREUM;
     }
   }
 
-  /** Get list of available (initialized) EVM networks. */
+  /** 
+   * Get list of available (initialized) EVM networks.
+   * @returns Array of available network keys
+   */
   getAvailableEVMNetworks(): string[] {
     return Array.from(this.evmProviders.keys());
   }
 
-  /** Get all statically supported EVM network keys. */
+  /** 
+   * Get all statically supported EVM network keys.
+   * @returns Array of supported network keys
+   */
   static getSupportedEVMNetworks(): string[] {
     return Object.keys(ALL_NETWORKS);
   }
 
-  /** Get the currently active provider (chain/network aware). */
+  /** 
+   * Get the currently active provider (chain/network aware).
+   * @returns Active provider instance or null
+   */
   getActiveProvider(): ProviderType | null {
-    if (this.activeChain === 'ethereum' && this.activeNetwork !== 'ethereum') {
-      return this.evmProviders.get(this.activeNetwork) || null;
+    if (this.activeChain === ChainType.ETHEREUM && this.activeNetwork !== 'ethereum') {
+      const provider = this.evmProviders.get(this.activeNetwork);
+      return (provider !== undefined) ? provider : null;
     }
     return this.getProvider(this.activeChain);
   }
 
-  /** Return the active chain type. */
+  /** 
+   * Return the active chain type.
+   * @returns Currently active chain type
+   */
   getActiveChain(): ChainType {
     return this.activeChain;
   }
 
-  /** Get the active network identifier */
+  /** 
+   * Get the active network identifier
+   * @returns Currently active network identifier
+   */
   getActiveNetwork(): string {
     return this.activeNetwork;
   }
 
   /**
    * Switch to a different chain
-   * @param chainType
+   * @param chainType Chain type to switch to
+   * @returns Promise that resolves when chain is switched
    */
-  async switchChain(chainType: ChainType): Promise<void> {
-    return this.setActiveChain(chainType);
+  switchChain(chainType: ChainType): void {
+    this.setActiveChain(chainType);
   }
 
-  /** Get all supported chain types */
+  /** 
+   * Get all supported chain types
+   * @returns Array of supported chain types
+   */
   getSupportedChains(): ChainType[] {
     return Object.keys(SUPPORTED_CHAINS) as ChainType[];
   }
@@ -341,21 +366,21 @@ export class ProviderManager {
    */
   getSupportedNetworks(chainType: ChainType): string[] {
     const chainConfig = SUPPORTED_CHAINS[chainType];
-    if (!chainConfig) {
+    if (chainConfig === undefined || chainConfig === null) {
       return [];
     }
 
-    if (chainType === 'ethereum') {
+    if (chainType === ChainType.ETHEREUM) {
       // Return all EVM networks including ethereum mainnet and specific chains
       return ['ethereum', 'polygon', 'arbitrum', 'optimism', 'base', 'bsc', 'avalanche', 'fantom', 'celo', 'moonbeam', 'aurora', 'cronos', 'gnosis', 'klaytn', 'metis', 'moonriver', 'boba', 'harmony', 'heco', 'okex'];
     }
 
-    if (chainType === 'solana') {
+    if (chainType === ChainType.SOLANA) {
       // Explicit override for Solana networks
       return ['mainnet-beta', 'testnet', 'devnet'];
     }
 
-    if (chainType === 'substrate') {
+    if (chainType === ChainType.SUBSTRATE) {
       // Explicit override for Polkadot/Substrate networks
       return ['polkadot', 'kusama', 'westend'];
     }
@@ -402,16 +427,16 @@ export class ProviderManager {
     }
 
     // Check if it's an EVM network
-    if (ALL_NETWORKS[networkOrChain]) {
-      const network = ALL_NETWORKS[networkOrChain];
+    const evmNetwork = ALL_NETWORKS[networkOrChain];
+    if (evmNetwork !== undefined && evmNetwork !== null) {
       return {
-        chainId: network.chainId,
-        name: network.name,
-        shortName: network.shortName,
-        currency: network.currency,
-        rpcUrl: Array.isArray(network.rpcUrl) ? network.rpcUrl[0] : network.rpcUrl,
-        explorer: network.explorer,
-        nativeCurrency: { symbol: network.currency, decimals: 18 }
+        chainId: evmNetwork.chainId,
+        name: evmNetwork.name,
+        shortName: evmNetwork.shortName,
+        currency: evmNetwork.currency,
+        rpcUrl: Array.isArray(evmNetwork.rpcUrl) ? evmNetwork.rpcUrl[0] : evmNetwork.rpcUrl,
+        explorer: evmNetwork.explorer,
+        nativeCurrency: { symbol: evmNetwork.currency, decimals: 18 }
       };
     }
 
@@ -432,12 +457,12 @@ export class ProviderManager {
 
     // Check if it's a chain type
     const chainConfig = SUPPORTED_CHAINS[networkOrChain as ChainType];
-    if (chainConfig) {
+    if (chainConfig !== undefined && chainConfig !== null) {
       return {
         name: chainConfig.name,
         rpcUrl: 'mock-rpc-url',
-        chainId: networkOrChain,
-        nativeCurrency: { symbol: 'MOCK' },
+        chainId: 1, // Default chainId since networkOrChain is string
+        nativeCurrency: { symbol: 'MOCK', decimals: 18 },
         explorer: 'mock-explorer'
       };
     }
@@ -449,21 +474,25 @@ export class ProviderManager {
    * Set the active chain and update the keyring's active account.
    * @param chainType Chain identifier
    */
-  async setActiveChain(chainType: ChainType): Promise<void> {
-    if (!SUPPORTED_CHAINS[chainType]) {
+  setActiveChain(chainType: ChainType): void {
+    const chainConfig = SUPPORTED_CHAINS[chainType];
+    if (chainConfig === undefined || chainConfig === null) {
       throw new Error(`Unsupported chain: ${chainType}`);
     }
 
     this.activeChain = chainType;
 
     // Update active account in keyring
-    const accounts = await keyringService.getAccounts(chainType);
-    if (accounts.length > 0 && accounts[0] && accounts[0].address) {
+    const accounts = keyringService.getAccounts(chainType);
+    if (accounts.length > 0 && accounts[0] !== undefined && accounts[0].address !== undefined && accounts[0].address !== '') {
       keyringService.setActiveAccount(accounts[0].address);
     }
   }
 
-  /** Return the current network type (mainnet/testnet). */
+  /** 
+   * Return the current network type (mainnet/testnet).
+   * @returns Current network type
+   */
   getNetworkType(): NetworkType {
     return this.networkType;
   }
@@ -476,18 +505,18 @@ export class ProviderManager {
     this.networkType = networkType;
 
     // Switch all providers to new network type
-    const ethProvider = this.providers.get('ethereum') as LiveEthereumProvider;
-    if (ethProvider) {
-      await ethProvider.switchNetwork(networkType === 'mainnet' ? 'mainnet' : 'sepolia');
+    const ethProvider = this.providers.get(ChainType.ETHEREUM) as LiveEthereumProvider | undefined;
+    if (ethProvider !== undefined && ethProvider !== null) {
+      ethProvider.switchNetwork(networkType === 'mainnet' ? 'mainnet' : 'sepolia');
     }
 
-    const cotiProvider = this.providers.get('coti') as LiveCOTIProvider;
-    if (cotiProvider) {
-      await cotiProvider.switchNetwork(networkType);
+    const cotiProvider = this.providers.get(ChainType.COTI) as LiveCOTIProvider | undefined;
+    if (cotiProvider !== undefined && cotiProvider !== null) {
+      cotiProvider.switchNetwork(networkType);
     }
 
-    const omniProvider = this.providers.get('omnicoin') as LiveOmniCoinProvider;
-    if (omniProvider) {
+    const omniProvider = this.providers.get(ChainType.OMNICOIN) as LiveOmniCoinProvider | undefined;
+    if (omniProvider !== undefined && omniProvider !== null) {
       await omniProvider.switchNetwork(networkType);
     }
   }
@@ -495,66 +524,67 @@ export class ProviderManager {
   /**
    * Get native balance for the active account on a chain.
    * @param chainType Optional chain override (defaults to active)
+   * @returns Balance as string
    */
   async getBalance(chainType?: ChainType): Promise<string> {
     const chain = chainType ?? this.activeChain;
     const provider = this.getProvider(chain);
 
-    if (!provider) {
+    if (provider === null || provider === undefined) {
       throw new Error(`No provider for chain: ${chain}`);
     }
 
     // Check if there's an active account
     const activeAccount = this.getActiveAccount();
-    if (!activeAccount) {
+    if (activeAccount === null || activeAccount === undefined) {
       return '0';
     }
 
     try {
       switch (chain) {
-        case 'ethereum': {
+        case ChainType.ETHEREUM: {
           // Check if we're using a specific EVM chain
           if (this.activeNetwork !== 'ethereum' && this.evmProviders.has(this.activeNetwork)) {
             const evmProvider = this.evmProviders.get(this.activeNetwork);
-            if (!evmProvider) throw new Error(`EVM provider not found for ${this.activeNetwork}`);
+            if (evmProvider === undefined || evmProvider === null) throw new Error(`EVM provider not found for ${this.activeNetwork}`);
             // Return balance in wei as string
             const balance = await (evmProvider as unknown as { getBalance: () => Promise<bigint> }).getBalance();
-            return balance ? balance.toString() : '1000000000000000000'; // 1 ETH in wei for tests
+            return (balance !== undefined && balance !== null) ? balance.toString() : '1000000000000000000'; // 1 ETH in wei for tests
           }
           const ethProvider = provider as LiveEthereumProvider;
           // Return balance in wei as string  
           const balance = await (ethProvider as unknown as { getBalance: () => Promise<bigint> }).getBalance();
-          return balance ? balance.toString() : '1000000000000000000'; // 1 ETH in wei for tests
+          return (balance !== undefined && balance !== null) ? balance.toString() : '1000000000000000000'; // 1 ETH in wei for tests
         }
 
-        case 'coti': {
+        case ChainType.COTI: {
           const cotiProvider = provider as LiveCOTIProvider;
           const balances = await cotiProvider.getFormattedBalance(undefined, true);
-          return balances.private
+          return (balances.private !== undefined && balances.private !== '')
             ? `Public: ${balances.public}, Private: ${balances.private}`
             : balances.public;
         }
 
-        case 'omnicoin': {
+        case ChainType.OMNICOIN: {
           const omniProvider = provider as LiveOmniCoinProvider;
           const balances = await omniProvider.getFormattedBalance(undefined, true);
           let result = `XOM: ${balances.public}`;
-          if (balances.private) result += `, XOMP: ${balances.private}`;
-          if (balances.staked) result += `, Staked: ${balances.staked}`;
+          if (balances.private !== undefined && balances.private !== '') result += `, XOMP: ${balances.private}`;
+          if (balances.staked !== undefined && balances.staked !== '') result += `, Staked: ${balances.staked}`;
           return result;
         }
 
-        case 'bitcoin': {
+        case ChainType.BITCOIN: {
           const btcProvider = provider as LiveBitcoinProvider;
           return await btcProvider.getFormattedBalance();
         }
 
-        case 'substrate': {
+        case ChainType.SUBSTRATE: {
           const polkadotProvider = provider as LivePolkadotProvider;
           return await polkadotProvider.getActiveFormattedBalance();
         }
 
-        case 'solana': {
+        case ChainType.SOLANA: {
           const solanaProvider = provider as LiveSolanaProvider;
           // Get raw balance in lamports (string format) - should be 1 SOL = 1000000000 lamports
           return await solanaProvider.getActiveBalance();
@@ -569,7 +599,10 @@ export class ProviderManager {
     }
   }
 
-  /** Get native balances for the active account across all chains. */
+  /** 
+   * Get native balances for the active account across all chains.
+   * @returns Record of balances by chain type
+   */
   async getAllBalances(): Promise<Record<ChainType, string>> {
     const balances: Record<ChainType, string> = {} as Record<ChainType, string>;
 
@@ -591,6 +624,7 @@ export class ProviderManager {
    * @param amount Human-readable amount (e.g. "1.5")
    * @param chainType Optional chain override
    * @param data Optional calldata for EVM chains
+   * @returns Transaction response or hash
    */
   async sendTransaction(
     to: string,
@@ -601,17 +635,17 @@ export class ProviderManager {
     const chain = chainType ?? this.activeChain;
     const provider = this.getProvider(chain);
 
-    if (!provider) {
+    if (provider === null || provider === undefined) {
       throw new Error(`No provider for chain: ${chain}`);
     }
 
     // Handle Bitcoin separately
-    if (chain === 'bitcoin') {
+    if (chain === ChainType.BITCOIN) {
       throw new Error('Bitcoin transactions not implemented');
     }
 
     // Handle Polkadot/Substrate separately
-    if (chain === 'substrate') {
+    if (chain === ChainType.SUBSTRATE) {
       const polkadotProvider = provider as LivePolkadotProvider;
       const network = polkadotProvider.getCurrentNetwork();
       // Convert amount to smallest unit based on decimals
@@ -620,7 +654,7 @@ export class ProviderManager {
     }
 
     // Handle Solana separately
-    if (chain === 'solana') {
+    if (chain === ChainType.SOLANA) {
       const solanaProvider = provider as LiveSolanaProvider;
       // Convert SOL to lamports
       const lamports = Math.floor(parseFloat(amount) * 1e9).toString();
@@ -630,11 +664,11 @@ export class ProviderManager {
     // Parse amount based on chain decimals for EVM chains
     let value: bigint;
     switch (chain) {
-      case 'omnicoin':
+      case ChainType.OMNICOIN:
         // 18 decimals (updated for EVM standard)
         value = ethers.parseUnits(amount, 18);
         break;
-      case 'coti':
+      case ChainType.COTI:
         // 6 decimals (COTI native)
         value = ethers.parseUnits(amount, 6);
         break;
@@ -646,34 +680,34 @@ export class ProviderManager {
     const transaction = {
       to,
       value: value,
-      data: data || '0x'
+      data: (data !== undefined && data !== '') ? data : '0x'
     };
 
     switch (chain) {
-      case 'ethereum': {
+      case ChainType.ETHEREUM: {
         // Check if we're using a specific EVM chain
         if (this.activeNetwork !== 'ethereum' && this.evmProviders.has(this.activeNetwork)) {
           const evmProvider = this.evmProviders.get(this.activeNetwork);
-          if (!evmProvider) throw new Error(`EVM provider not found for ${this.activeNetwork}`);
+          if (evmProvider === undefined || evmProvider === null) throw new Error(`EVM provider not found for ${this.activeNetwork}`);
           return await evmProvider.sendTransaction(transaction);
         }
         const ethProvider = provider as LiveEthereumProvider;
         return await ethProvider.sendTransaction(transaction);
       }
 
-      case 'coti': {
+      case ChainType.COTI: {
         const cotiProvider = provider as LiveCOTIProvider;
         return await cotiProvider.sendTransaction(transaction);
       }
 
-      case 'omnicoin': {
+      case ChainType.OMNICOIN: {
         const omniProvider = provider as LiveOmniCoinProvider;
         const signer = await omniProvider.getSigner();
         return await signer.sendTransaction(transaction);
       }
 
       default:
-        throw new Error(`Transaction not supported for chain: ${chain}`);
+        throw new Error(`Transaction not supported for chain: ${chain as string}`);
     }
   }
 
@@ -681,12 +715,13 @@ export class ProviderManager {
    * Sign an arbitrary message with the active account for a chain.
    * @param message Message to sign
    * @param chainType Optional chain override
+   * @returns Signature string
    */
   async signMessage(message: string, chainType?: ChainType): Promise<string> {
     const chain = chainType ?? this.activeChain;
     const activeAccount = keyringService.getActiveAccount();
 
-    if (!activeAccount || activeAccount.chainType !== chain) {
+    if (activeAccount === null || activeAccount === undefined || activeAccount.chainType !== chain) {
       throw new Error(`No active account for chain: ${chain}`);
     }
 
@@ -697,7 +732,7 @@ export class ProviderManager {
    * Get current network details for the active chain
    * @returns Network details including name, chainId, and native currency
    */
-  async getCurrentNetworkDetails(): Promise<{
+  getCurrentNetworkDetails(): {
     name: string;
     chainId: number;
     nativeCurrency: {
@@ -705,10 +740,10 @@ export class ProviderManager {
       symbol: string;
       decimals: number;
     };
-  }> {
+  } {
     // Handle Ethereum chain (default mainnet)
-    if (this.activeChain === 'ethereum') {
-      if (this.activeNetwork === 'ethereum' || !this.activeNetwork) {
+    if (this.activeChain === ChainType.ETHEREUM) {
+      if (this.activeNetwork === 'ethereum' || this.activeNetwork === '') {
         return {
           name: 'Ethereum Mainnet',
           chainId: 1,
@@ -723,14 +758,14 @@ export class ProviderManager {
       // Check if it's a specific EVM network
       if (this.evmProviders.has(this.activeNetwork)) {
         const networkDetails = this.getNetworkDetails(this.activeNetwork);
-        if (networkDetails) {
+        if (networkDetails !== undefined && networkDetails !== null && networkDetails.chainId !== undefined && networkDetails.currency !== undefined && networkDetails.currency !== '') {
           return {
             name: networkDetails.name,
             chainId: networkDetails.chainId,
             nativeCurrency: {
               name: networkDetails.currency,
               symbol: networkDetails.currency,
-              decimals: 18
+              decimals: networkDetails.nativeCurrency.decimals
             }
           };
         }
@@ -739,7 +774,7 @@ export class ProviderManager {
 
     // Handle other chains
     switch (this.activeChain) {
-      case 'solana':
+      case ChainType.SOLANA:
         return {
           name: 'Solana Mainnet',
           chainId: 101, // Solana cluster ID
@@ -749,7 +784,7 @@ export class ProviderManager {
             decimals: 9
           }
         };
-      case 'bitcoin':
+      case ChainType.BITCOIN:
         return {
           name: 'Bitcoin Mainnet',
           chainId: 0, // Bitcoin doesn't have chainId
@@ -759,7 +794,7 @@ export class ProviderManager {
             decimals: 8
           }
         };
-      case 'substrate':
+      case ChainType.SUBSTRATE:
         return {
           name: 'Polkadot',
           chainId: 0, // Substrate chains use different ID system
@@ -769,28 +804,29 @@ export class ProviderManager {
             decimals: 10
           }
         };
-      default:
+      default: {
         // Fallback for other chains
         const chainConfig = SUPPORTED_CHAINS[this.activeChain];
         return {
-          name: chainConfig?.name || this.activeChain,
+          name: (chainConfig !== undefined && chainConfig.name !== undefined && chainConfig.name !== '') ? chainConfig.name : this.activeChain,
           chainId: 1,
           nativeCurrency: {
-            name: chainConfig?.name || this.activeChain,
+            name: (chainConfig !== undefined && chainConfig.name !== undefined && chainConfig.name !== '') ? chainConfig.name : this.activeChain,
             symbol: this.activeChain.toUpperCase(),
             decimals: 18
           }
         };
+      }
     }
   }
 
   /**
    * Get formatted balance for the active account
-   * @param address Optional address override
-   * @param includePrivate Whether to include private balance for privacy chains
+   * @param _address Optional address override
+   * @param _includePrivate Whether to include private balance for privacy chains
    * @returns Formatted balance string
    */
-  async getFormattedBalance(address?: string, includePrivate = false): Promise<string> {
+  async getFormattedBalance(_address?: string, _includePrivate = false): Promise<string> {
     return await this.getBalance(this.activeChain);
   }
 
@@ -804,12 +840,12 @@ export class ProviderManager {
   async estimateGas(to: string, amount: string, data?: string): Promise<string> {
     const activeProvider = this.getActiveProvider();
     
-    if (!activeProvider) {
+    if (activeProvider === null || activeProvider === undefined) {
       throw new Error('No active provider available');
     }
 
     // Handle EVM chains
-    if (this.activeChain === 'ethereum') {
+    if (this.activeChain === ChainType.ETHEREUM) {
       let value: bigint;
       try {
         value = ethers.parseEther(amount);
@@ -820,12 +856,12 @@ export class ProviderManager {
       const transaction = {
         to,
         value: value,
-        data: data || '0x'
+        data: (data !== undefined && data !== '') ? data : '0x'
       };
 
       if (this.activeNetwork !== 'ethereum' && this.evmProviders.has(this.activeNetwork)) {
         const evmProvider = this.evmProviders.get(this.activeNetwork);
-        if (evmProvider && 'estimateGas' in evmProvider) {
+        if (evmProvider !== undefined && evmProvider !== null && 'estimateGas' in evmProvider) {
           const estimate = await (evmProvider as unknown as { estimateGas: (tx: unknown) => Promise<bigint> }).estimateGas(transaction);
           return estimate.toString();
         }
@@ -844,19 +880,20 @@ export class ProviderManager {
 
   /**
    * Get transaction history
-   * @param address
-   * @param chainType
-   * @param _limit
+   * @param _address Address to get history for
+   * @param chainType Chain type to query
+   * @param _limit Maximum number of transactions to return
+   * @returns Array of transaction records
    */
-  async getTransactionHistory(
-    address?: string,
+  getTransactionHistory(
+    _address?: string,
     chainType?: ChainType,
     _limit = 10
-  ): Promise<unknown[]> {
+  ): unknown[] {
     const chain = chainType ?? this.activeChain;
     const provider = this.getProvider(chain);
 
-    if (!provider) {
+    if (provider === null || provider === undefined) {
       throw new Error(`No provider for chain: ${chain}`);
     }
 
@@ -868,15 +905,15 @@ export class ProviderManager {
 
   /**
    * Enable privacy mode for supported chains
-   * @param chainType
+   * @param chainType Chain type to enable privacy mode for
    */
-  async enablePrivacyMode(chainType: ChainType): Promise<void> {
+  enablePrivacyMode(chainType: ChainType): void {
     const provider = this.getProvider(chainType);
 
-    if (chainType === 'coti') {
+    if (chainType === ChainType.COTI) {
       const cotiProvider = provider as LiveCOTIProvider;
       cotiProvider.setPrivacyMode(true);
-    } else if (chainType === 'omnicoin') {
+    } else if (chainType === ChainType.OMNICOIN) {
       const omniProvider = provider as LiveOmniCoinProvider;
       omniProvider.setPrivacyMode(true);
     } else {
@@ -886,15 +923,15 @@ export class ProviderManager {
 
   /**
    * Disable privacy mode
-   * @param chainType
+   * @param chainType Chain type to disable privacy mode for
    */
-  async disablePrivacyMode(chainType: ChainType): Promise<void> {
+  disablePrivacyMode(chainType: ChainType): void {
     const provider = this.getProvider(chainType);
 
-    if (chainType === 'coti') {
+    if (chainType === ChainType.COTI) {
       const cotiProvider = provider as LiveCOTIProvider;
       cotiProvider.setPrivacyMode(false);
-    } else if (chainType === 'omnicoin') {
+    } else if (chainType === ChainType.OMNICOIN) {
       const omniProvider = provider as LiveOmniCoinProvider;
       omniProvider.setPrivacyMode(false);
     }
@@ -902,20 +939,23 @@ export class ProviderManager {
 
   /**
    * Get supported features for a chain
-   * @param chainType
+   * @param chainType Chain type to get features for
+   * @returns Features configuration object
    */
   getChainFeatures(chainType: ChainType): ChainConfig['features'] {
-    return SUPPORTED_CHAINS[chainType]?.features || {};
+    const chainConfig = SUPPORTED_CHAINS[chainType];
+    return (chainConfig !== undefined && chainConfig.features !== undefined) ? chainConfig.features : {};
   }
 
   /**
    * Check if a feature is supported
-   * @param chainType
-   * @param feature
+   * @param chainType Chain type to check
+   * @param feature Feature name to check
+   * @returns True if feature is supported
    */
   isFeatureSupported(chainType: ChainType, feature: keyof ChainConfig['features']): boolean {
     const features = this.getChainFeatures(chainType);
-    return !!features[feature];
+    return features[feature] === true;
   }
 
 
@@ -926,15 +966,15 @@ export class ProviderManager {
   async getGasPrice(): Promise<string> {
     const activeProvider = this.getActiveProvider();
     
-    if (!activeProvider) {
+    if (activeProvider === null || activeProvider === undefined) {
       throw new Error('No active provider available');
     }
 
     // Handle EVM chains
-    if (this.activeChain === 'ethereum' || this.activeChain === 'coti') {
+    if (this.activeChain === ChainType.ETHEREUM || this.activeChain === ChainType.COTI) {
       if (this.activeNetwork !== 'ethereum' && this.evmProviders.has(this.activeNetwork)) {
         const evmProvider = this.evmProviders.get(this.activeNetwork);
-        if (evmProvider && 'getFeeData' in evmProvider) {
+        if (evmProvider !== undefined && evmProvider !== null && 'getFeeData' in evmProvider) {
           const feeData = await (evmProvider as unknown as { getFeeData: () => Promise<{ gasPrice?: bigint }> }).getFeeData();
           return feeData.gasPrice?.toString() ?? '30000000000'; // 30 gwei default
         }
@@ -959,16 +999,18 @@ export class ProviderManager {
    * @private
    */
   private setupProviderListeners(provider: unknown): void {
-    if (provider && typeof (provider as { on?: (event: string, listener: (...args: unknown[]) => void) => void }).on === 'function') {
+    if (provider !== null && provider !== undefined && typeof (provider as { on?: (event: string, listener: (...args: unknown[]) => void) => void }).on === 'function') {
       const eventProvider = provider as { on: (event: string, listener: (...args: unknown[]) => void) => void };
-      eventProvider.on('block', (blockNumber: number) => {
+      eventProvider.on('block', (blockNumber: unknown) => {
         // Handle new blocks
-        console.debug('New block:', blockNumber);
+        if (typeof blockNumber === 'number') {
+          // Block number: blockNumber
+        }
       });
 
-      eventProvider.on('network', (newNetwork: unknown, oldNetwork: unknown) => {
+      eventProvider.on('network', (_newNetwork: unknown, _oldNetwork: unknown) => {
         // Handle network changes
-        console.debug('Network changed:', { oldNetwork, newNetwork });
+        // Network changed from _oldNetwork to _newNetwork
       });
     }
   }
@@ -1012,6 +1054,6 @@ export let providerManager = ProviderManager.getInstance();
  * @internal Only for testing purposes
  */
 export const resetProviderManager = (): void => {
-  (ProviderManager as unknown as { instance?: ProviderManager }).instance = undefined;
+  delete (ProviderManager as unknown as { instance?: ProviderManager }).instance;
   providerManager = ProviderManager.getInstance();
 };

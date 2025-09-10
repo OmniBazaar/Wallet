@@ -210,7 +210,7 @@ export class MPCKeyManager {
     const address = this.generateAddress(publicKey);
 
     // Split private key into shards using Shamir's Secret Sharing
-    const shards = this.splitSecret(privateKey);
+    const shards = this.splitSecret(Buffer.from(privateKey));
 
     // Create key shards with checksums
     const deviceShard: KeyShard = {
@@ -274,7 +274,7 @@ export class MPCKeyManager {
         request.userId,
         request.shard1,
         request.recoveryPassphrase
-      );
+      ) as Buffer<ArrayBuffer>;
     }
 
     if (request.shard2.type === ShardType.RECOVERY && request.recoveryPassphrase !== null && request.recoveryPassphrase !== undefined && request.recoveryPassphrase !== '') {
@@ -282,16 +282,16 @@ export class MPCKeyManager {
         request.userId,
         request.shard2,
         request.recoveryPassphrase
-      );
+      ) as Buffer<ArrayBuffer>;
     }
 
     // If using server shard, retrieve and decrypt it
     if (request.shard1.type === ShardType.SERVER) {
-      shard1Data = await this.retrieveServerShard(request.userId);
+      shard1Data = await this.retrieveServerShard(request.userId) as Buffer<ArrayBuffer>;
     }
 
     if (request.shard2.type === ShardType.SERVER) {
-      shard2Data = await this.retrieveServerShard(request.userId);
+      shard2Data = await this.retrieveServerShard(request.userId) as Buffer<ArrayBuffer>;
     }
 
     // Reconstruct secret from shards
@@ -341,14 +341,14 @@ export class MPCKeyManager {
       userId,
       shard1: existingShards.shard1,
       shard2: existingShards.shard2,
-      recoveryPassphrase: existingShards.recoveryPassphrase
+      ...(existingShards.recoveryPassphrase !== undefined && existingShards.recoveryPassphrase !== null && existingShards.recoveryPassphrase !== '' && { recoveryPassphrase: existingShards.recoveryPassphrase })
     });
 
     // Convert private key back to buffer
     const privateKey = Buffer.from(recovered.privateKey, 'hex');
 
     // Generate new shards
-    const shards = this.splitSecret(privateKey);
+    const shards = this.splitSecret(Buffer.from(privateKey));
 
     // Create new key shards
     const deviceShard: KeyShard = {
@@ -749,7 +749,7 @@ export class MPCKeyManager {
       userId,
       shard1: shards.shard1,
       shard2: shards.shard2,
-      recoveryPassphrase: shards.recoveryPassphrase
+      ...(shards.recoveryPassphrase !== undefined && shards.recoveryPassphrase !== null && shards.recoveryPassphrase !== '' && { recoveryPassphrase: shards.recoveryPassphrase })
     });
 
     // Convert private key to buffer

@@ -337,7 +337,7 @@ export class OAuthService {
       throw new Error(`Failed to exchange code for token: ${response.statusText}`);
     }
 
-    const data = await response.json();
+    const data = await response.json() as unknown;
     return data.access_token;
   }
 
@@ -364,7 +364,7 @@ export class OAuthService {
       throw new Error(`Failed to get user info: ${response.statusText}`);
     }
 
-    const data = await response.json();
+    const data = await response.json() as unknown;
     
     // Normalize user info across providers
     let userInfo: OAuthUserInfo;

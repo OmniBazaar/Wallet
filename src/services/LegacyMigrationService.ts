@@ -127,8 +127,8 @@ export class LegacyMigrationService {
     this.legacyUsers = new Map();
     
     // Default implementation - must be replaced with actual v1 algorithm
-    this.keyDerivationAlgorithm = keyDerivationAlgorithm || {
-      derivePrivateKey: (username: string, password: string): string => {
+    this.keyDerivationAlgorithm = keyDerivationAlgorithm ?? {
+      derivePrivateKey: (_username: string, _password: string): string => {
         // Placeholder - actual v1 algorithm must be implemented
         throw new Error('Legacy key derivation algorithm not implemented. Please provide the v1 algorithm.');
       }
@@ -328,7 +328,7 @@ export class LegacyMigrationService {
       return {
         success: true,
         wallet: validation.wallet,
-        address: validation.address,
+        ...(validation.address && { address: validation.address }),
         amount: ethers.formatEther(newBalance)
       };
       

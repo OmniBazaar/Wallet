@@ -12,13 +12,25 @@ import { ListingService } from '../services/ListingService';
  * Connection result interface
  */
 export interface ConnectionResult {
+  /**
+   * Whether the connection was successful
+   */
   success: boolean;
+  /**
+   * Connected wallet address
+   */
   walletAddress: string;
+  /**
+   * Associated Bazaar account details
+   */
   bazaarAccount?: {
     id: string;
     username?: string;
     reputation?: number;
   };
+  /**
+   * Error message if connection failed
+   */
   error?: string;
 }
 
@@ -26,9 +38,21 @@ export interface ConnectionResult {
  * Authentication result interface
  */
 export interface AuthResult {
+  /**
+   * Whether authentication was successful
+   */
   authenticated: boolean;
+  /**
+   * Authentication token
+   */
   token?: string;
+  /**
+   * Token expiration timestamp
+   */
   expiresAt?: number;
+  /**
+   * Error message if authentication failed
+   */
   error?: string;
 }
 
@@ -36,9 +60,21 @@ export interface AuthResult {
  * Session information interface
  */
 export interface SessionInfo {
+  /**
+   * Wallet address for this session
+   */
   walletAddress: string;
+  /**
+   * Whether the session is currently active
+   */
   isActive: boolean;
+  /**
+   * Session authentication token
+   */
   token?: string;
+  /**
+   * Session expiration timestamp
+   */
   expiresAt?: number;
 }
 
@@ -46,11 +82,29 @@ export interface SessionInfo {
  * Listing data interface
  */
 export interface ListingData {
+  /**
+   * Title of the listing
+   */
   title: string;
+  /**
+   * Description of the item being listed
+   */
   description?: string;
+  /**
+   * Price of the item
+   */
   price: string;
+  /**
+   * Currency code (e.g., XOM, ETH)
+   */
   currency: string;
+  /**
+   * Array of image URLs
+   */
   images?: string[];
+  /**
+   * Category of the listing
+   */
   category?: string;
 }
 
@@ -58,14 +112,41 @@ export interface ListingData {
  * Listing interface
  */
 export interface Listing {
+  /**
+   * Unique listing identifier
+   */
   id: string;
+  /**
+   * Seller wallet address
+   */
   seller: string;
+  /**
+   * Title of the listing
+   */
   title: string;
+  /**
+   * Description of the item
+   */
   description?: string;
+  /**
+   * Price of the item
+   */
   price: string;
+  /**
+   * Currency code
+   */
   currency: string;
+  /**
+   * Current status of the listing
+   */
   status: 'active' | 'sold' | 'cancelled';
+  /**
+   * Timestamp when listing was created
+   */
   createdAt: number;
+  /**
+   * Associated NFT token ID if minted
+   */
   nftTokenId?: string;
 }
 
@@ -90,13 +171,14 @@ export class BazaarIntegration {
   /**
    * Connect to Bazaar marketplace
    */
-  async connect(): Promise<void> {
-    await this.listingService.init();
+  connect(): void {
+    this.listingService.init();
     this.connected = true;
   }
 
   /**
    * Disconnect from Bazaar marketplace
+   * @returns Promise that resolves when disconnected
    */
   async disconnect(): Promise<void> {
     this.reset();
@@ -113,11 +195,13 @@ export class BazaarIntegration {
 
   /**
    * Connect wallet to Bazaar
+   * @param address - Wallet address to connect
+   * @returns Connection result with wallet and account info
    */
-  async connectWallet(address: string): Promise<ConnectionResult> {
+  connectWallet(address: string): ConnectionResult {
     try {
       // Add address validation
-      if (address === '' || address.match(/^0x[a-fA-F0-9]{40}$/) === null) {
+      if (address === '' || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
         throw new Error('Invalid wallet address');
       }
 
@@ -152,11 +236,14 @@ export class BazaarIntegration {
 
   /**
    * Authenticate user with wallet signature
+   * @param address - Wallet address
+   * @param signature - Wallet signature for authentication
+   * @returns Authentication result
    */
-  async authenticate(address: string, signature: string): Promise<AuthResult> {
+  authenticate(address: string, signature: string): AuthResult {
     try {
       // In real implementation, verify signature on backend
-      if (!signature || signature.length < 10) {
+      if (signature === '' || signature.length < 10) {
         throw new Error('Invalid signature');
       }
 
@@ -186,9 +273,10 @@ export class BazaarIntegration {
 
   /**
    * Get current session
+   * @returns Current session info or null if no active session
    */
-  async getSession(): Promise<SessionInfo | null> {
-    if (this.session && this.session.expiresAt && this.session.expiresAt < Date.now()) {
+  getSession(): SessionInfo | null {
+    if (this.session !== null && this.session.expiresAt !== undefined && this.session.expiresAt < Date.now()) {
       // Session expired
       this.session = null;
     }
@@ -197,6 +285,7 @@ export class BazaarIntegration {
 
   /**
    * Restore session (e.g., after page refresh)
+   * @returns Promise that resolves when session is restored
    */
   async restoreSession(): Promise<void> {
     // In real implementation, restore from secure storage
@@ -205,6 +294,7 @@ export class BazaarIntegration {
 
   /**
    * Check if wallet is connected
+   * @returns True if wallet is connected and session is active
    */
   isConnected(): boolean {
     return this.session !== null && this.session.isActive;
@@ -212,77 +302,85 @@ export class BazaarIntegration {
 
   /**
    * Disconnect wallet
+   * @returns Promise that resolves when disconnected
    */
-  async disconnectWallet(): Promise<void> {
+  disconnectWallet(): void {
     this.session = null;
   }
 
   /**
    * Create listing with wallet signature
+   * @param listingData - Data for the new listing
+   * @param sellerAddress - Address of the seller
+   * @returns Created listing
    */
-  async createListing(listingData: ListingData, sellerAddress: string): Promise<Listing> {
+  createListing(listingData: ListingData, sellerAddress: string): Listing {
     if (!this.isConnected()) {
       throw new Error('Wallet not connected');
     }
 
     // In real implementation, sign listing data
-    const listing = await this.listingService.createListing({
-      ...listingData,
+    const listing = this.listingService.createListing({
+      title: listingData.title,
+      description: listingData.description ?? '',
+      price: listingData.price,
       seller: sellerAddress,
-      status: 'active',
-      createdAt: Date.now()
+      category: listingData.category ?? 'general',
+      images: listingData.images ?? []
     });
 
     return {
-      id: listing.id,
+      id: listing.id ?? `listing-${Date.now()}`,
       seller: sellerAddress,
-      title: listingData.title,
-      description: listingData.description,
-      price: listingData.price,
+      title: listing.title,
+      ...(listing.description && listing.description !== '' && { description: listing.description }),
+      price: listing.price,
       currency: listingData.currency,
-      status: 'active',
-      createdAt: Date.now()
+      status: listing.status ?? 'active',
+      createdAt: listing.createdAt ?? Date.now()
     };
   }
 
   /**
    * Mint listing as NFT
+   * @param listingData - Listing data to mint as NFT
+   * @param owner - Owner address for the NFT
+   * @returns Minted NFT details
    */
-  async mintListingNFT(listingData: any, owner: string): Promise<any> {
-    try {
-      // In real implementation, mint NFT on blockchain
-      const tokenId = `nft-${Date.now()}`;
-      const contractAddress = '0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D';
-      const txHash = `0x${Math.random().toString(16).substr(2, 64)}`;
+  mintListingNFT(listingData: ListingData, owner: string): { tokenId: string; contractAddress: string; owner: string; metadata: { listing: ListingData }; txHash: string } {
+    // In real implementation, mint NFT on blockchain
+    const tokenId = `nft-${Date.now()}`;
+    const contractAddress = '0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D';
+    const txHash = `0x${Math.random().toString(16).substring(2, 64)}`;
 
-      return {
-        tokenId,
-        contractAddress,
-        owner,
-        metadata: {
-          listing: listingData
-        },
-        txHash
-      };
-    } catch (error) {
-      throw error;
-    }
+    return {
+      tokenId,
+      contractAddress,
+      owner,
+      metadata: {
+        listing: listingData
+      },
+      txHash
+    };
   }
 
   /**
    * Purchase listing
+   * @param _listingId - ID of the listing to purchase
+   * @param _buyerAddress - Address of the buyer
+   * @returns Purchase result with transaction hash
    */
-  async purchaseListing(
-    listingId: string,
-    buyerAddress: string
-  ): Promise<{ success: boolean; txHash?: string; error?: string }> {
+  purchaseListing(
+    _listingId: string,
+    _buyerAddress: string
+  ): { success: boolean; txHash?: string; error?: string } {
     try {
       if (!this.isConnected()) {
         throw new Error('Wallet not connected');
       }
 
       // In real implementation, execute purchase transaction
-      const txHash = `0x${Math.random().toString(16).substr(2, 64)}`;
+      const txHash = `0x${Math.random().toString(16).substring(2, 64)}`;
 
       return {
         success: true,
@@ -298,37 +396,38 @@ export class BazaarIntegration {
 
   /**
    * Update listing status
+   * @param _listingId - ID of the listing to update
+   * @param _status - New status for the listing
+   * @returns Update result
    */
-  async updateListingStatus(
-    listingId: string,
-    status: 'active' | 'sold' | 'cancelled'
-  ): Promise<{ success: boolean; error?: string }> {
-    try {
-      // In real implementation, update on blockchain/backend
-      return { success: true };
-    } catch (error) {
-      return {
-        success: false,
-        error: (error as Error).message
-      };
-    }
+  updateListingStatus(
+    _listingId: string,
+    _status: 'active' | 'sold' | 'cancelled'
+  ): { success: boolean; error?: string } {
+    // In real implementation, update on blockchain/backend
+    return { success: true };
   }
 
   /**
    * Generate mock token for testing
+   * @returns Mock token string
    */
   private generateMockToken(): string {
-    return `mock-token-${Math.random().toString(36).substr(2, 9)}`;
+    return `mock-token-${Math.random().toString(36).substring(2, 9)}`;
   }
 
   /**
    * Update listing
+   * @param listingId - ID of the listing to update
+   * @param updates - Partial listing data to update
+   * @param sellerAddress - Address of the seller
+   * @returns Updated listing with last modified timestamp
    */
-  async updateListing(
+  updateListing(
     listingId: string,
     updates: Partial<ListingData>,
     sellerAddress: string
-  ): Promise<Listing & { lastModified: number }> {
+  ): Listing & { lastModified: number } {
     if (!this.isConnected()) {
       throw new Error('Wallet not connected');
     }
@@ -340,10 +439,10 @@ export class BazaarIntegration {
     return {
       id: listingId,
       seller: sellerAddress,
-      title: updates.title || 'Updated Title',
-      description: updates.description,
-      price: updates.price || '100',
-      currency: updates.currency || 'XOM',
+      title: updates.title !== undefined && updates.title.length > 0 ? updates.title : 'Updated Title',
+      ...(updates.description && { description: updates.description }),
+      price: updates.price !== undefined && updates.price.length > 0 ? updates.price : '100',
+      currency: updates.currency !== undefined && updates.currency.length > 0 ? updates.currency : 'XOM',
       status: 'active',
       createdAt: createdAt,
       lastModified: Date.now()
@@ -352,8 +451,11 @@ export class BazaarIntegration {
 
   /**
    * Delete listing
+   * @param _listingId - ID of the listing to delete
+   * @param _sellerAddress - Address of the seller
+   * @returns Deletion result
    */
-  async deleteListing(listingId: string, sellerAddress: string): Promise<{ success: boolean }> {
+  deleteListing(_listingId: string, _sellerAddress: string): { success: boolean } {
     if (!this.isConnected()) {
       throw new Error('Wallet not connected');
     }
@@ -364,23 +466,28 @@ export class BazaarIntegration {
 
   /**
    * Get listing by ID
+   * @param _listingId - ID of the listing to retrieve
+   * @returns Listing or null if not found
    */
-  async getListing(listingId: string): Promise<Listing | null> {
+  getListing(_listingId: string): Listing | null {
     // In real implementation, fetch from backend/blockchain
     return null; // Simulate deleted listing
   }
 
   /**
    * Initiate purchase
+   * @param listingId - ID of the listing to purchase
+   * @param buyerAddress - Address of the buyer
+   * @returns Promise resolving to transaction details
    */
-  async initiatePurchase(
+  initiatePurchase(
     listingId: string,
     buyerAddress: string
-  ): Promise<{
+  ): {
     transactionId: string;
     buyer: string;
     status: string;
-  }> {
+  } {
     if (!this.isConnected()) {
       throw new Error('Wallet not connected');
     }
@@ -399,18 +506,25 @@ export class BazaarIntegration {
 
   /**
    * Create escrow
+   * @param _params - Escrow parameters
+   * @param _params.listingId - ID of the listing
+   * @param _params.buyer - Buyer address
+   * @param _params.seller - Seller address
+   * @param _params.amount - Transaction amount
+   * @param _params.currency - Currency for the transaction
+   * @returns Promise resolving to escrow details
    */
-  async createEscrow(params: {
+  createEscrow(_params: {
     listingId: string;
     buyer: string;
     seller: string;
     amount: string;
     currency: string;
-  }): Promise<{
+  }): {
     escrowId: string;
     status: string;
-    releaseConditions: any;
-  }> {
+    releaseConditions: { confirmations: number; requiresConfirmation: boolean };
+  } {
     if (!this.isConnected()) {
       throw new Error('Wallet not connected');
     }
@@ -420,24 +534,30 @@ export class BazaarIntegration {
       status: 'funded',
       releaseConditions: {
         confirmations: 2,
-        timeout: 86400 // 24 hours
+        requiresConfirmation: true
       }
     };
   }
 
   /**
    * Confirm payment
+   * @param _payment - Payment details
+   * @param _payment.transactionHash - Transaction hash to confirm
+   * @param _payment.from - Sender address
+   * @param _payment.to - Recipient address
+   * @param _payment.amount - Payment amount
+   * @returns Promise resolving to confirmation details
    */
-  async confirmPayment(payment: {
+  confirmPayment(_payment: {
     transactionHash: string;
     from: string;
     to: string;
     amount: string;
-  }): Promise<{
+  }): {
     confirmed: boolean;
     blockNumber: number;
     timestamp: number;
-  }> {
+  } {
     return {
       confirmed: true,
       blockNumber: 12345678,
@@ -447,12 +567,17 @@ export class BazaarIntegration {
 
   /**
    * Create order
+   * @param _params - Order parameters
+   * @param _params.listingId - ID of the listing
+   * @param _params.buyer - Buyer address
+   * @param _params.status - Initial order status
+   * @returns Promise resolving to order ID
    */
-  async createOrder(params: {
+  createOrder(_params: {
     listingId: string;
     buyer: string;
     status: string;
-  }): Promise<{ orderId: string }> {
+  }): { orderId: string } {
     return {
       orderId: 'order-123'
     };
@@ -460,21 +585,26 @@ export class BazaarIntegration {
 
   /**
    * Update order status
+   * @param orderId - ID of the order to update
+   * @param status - New status value
+   * @returns Promise resolving to updated status
    */
-  async updateOrderStatus(
+  updateOrderStatus(
     orderId: string,
     status: string
-  ): Promise<{ status: string }> {
+  ): { status: string } {
     return { status };
   }
 
   /**
    * Complete order
+   * @param _orderId - ID of the order to complete
+   * @returns Promise resolving to completion details
    */
-  async completeOrder(orderId: string): Promise<{
+  completeOrder(_orderId: string): {
     status: string;
     completedAt: number;
-  }> {
+  } {
     return {
       status: 'completed',
       completedAt: Date.now()
@@ -483,15 +613,19 @@ export class BazaarIntegration {
 
   /**
    * Render wallet button
+   * @param config - Configuration for wallet button
+   * @param config.containerId - ID of container element
+   * @param config.theme - Theme to apply to button
+   * @returns Promise resolving to render result
    */
-  async renderWalletButton(config: {
+  renderWalletButton(config: {
     containerId: string;
     theme: string;
-  }): Promise<{
+  }): {
     rendered: boolean;
-    element: any;
+    element: { id: string };
     onClick: () => void;
-  }> {
+  } {
     return {
       rendered: true,
       element: { id: config.containerId },
@@ -501,8 +635,9 @@ export class BazaarIntegration {
 
   /**
    * Get wallet balance
+   * @returns Balance by currency
    */
-  async getWalletBalance(): Promise<Record<string, string>> {
+  getWalletBalance(): Record<string, string> {
     if (!this.isConnected()) {
       throw new Error('Wallet not connected');
     }
@@ -515,13 +650,15 @@ export class BazaarIntegration {
 
   /**
    * Get transaction history
+   * @param address - Wallet address
+   * @returns Array of transactions
    */
-  async getTransactionHistory(address: string): Promise<any[]> {
+  getTransactionHistory(address: string): Array<{ hash: string; from: string; to: string; value: string; timestamp: number }> {
     return [
       {
-        hash: '0x' + Math.random().toString(16).substr(2, 64),
+        hash: '0x' + Math.random().toString(16).substring(2, 66),
         from: address,
-        to: '0x' + Math.random().toString(16).substr(2, 40),
+        to: '0x' + Math.random().toString(16).substring(2, 42),
         value: '100',
         timestamp: Date.now() - 3600000
       }
@@ -530,18 +667,21 @@ export class BazaarIntegration {
 
   /**
    * Get available networks
+   * @returns Array of available network names
    */
-  async getAvailableNetworks(): Promise<string[]> {
+  getAvailableNetworks(): string[] {
     return ['ethereum', 'avalanche', 'polygon', 'arbitrum'];
   }
 
   /**
    * Switch network
+   * @param network - Network name to switch to
+   * @returns Network switch result
    */
-  async switchNetwork(network: string): Promise<{
+  switchNetwork(network: string): {
     success: boolean;
     currentNetwork: string;
-  }> {
+  } {
     return {
       success: true,
       currentNetwork: network
@@ -550,14 +690,16 @@ export class BazaarIntegration {
 
   /**
    * Sync wallet with user profile
+   * @param address - Wallet address to sync
+   * @returns User profile data
    */
-  async syncUserProfile(address: string): Promise<{
+  syncUserProfile(address: string): {
     walletAddress: string;
     username: string;
     reputation: number;
     joinedDate: number;
     synced?: boolean;
-  }> {
+  } {
     return {
       walletAddress: address,
       username: `user-${address.slice(-4)}`,
@@ -569,8 +711,11 @@ export class BazaarIntegration {
 
   /**
    * Update profile settings
+   * @param address - User wallet address
+   * @param settings - Profile settings to update
+   * @returns Updated profile
    */
-  async updateProfile(address: string, settings: any): Promise<any> {
+  updateProfile(address: string, settings: Record<string, unknown>): Record<string, unknown> {
     return {
       ...settings,
       walletAddress: address,
@@ -580,8 +725,10 @@ export class BazaarIntegration {
 
   /**
    * Get user listings
+   * @param address - User wallet address
+   * @returns Array of user's listings
    */
-  async getUserListings(address: string): Promise<Listing[]> {
+  getUserListings(address: string): Listing[] {
     // Return some mock listings for testing
     return [
       {
@@ -607,13 +754,15 @@ export class BazaarIntegration {
 
   /**
    * Get purchase history
+   * @param address - User wallet address
+   * @returns Array of user's purchases
    */
-  async getUserPurchases(address: string): Promise<any[]> {
+  getUserPurchases(address: string): Array<{ buyer: string; listingId: string; transactionHash: string; price: string; currency: string; purchaseDate: number }> {
     return [
       {
         buyer: address,
         listingId: 'listing-123',
-        transactionHash: '0x' + Math.random().toString(16).substr(2, 64),
+        transactionHash: '0x' + Math.random().toString(16).substring(2, 64),
         price: '150',
         currency: 'XOM',
         purchaseDate: Date.now() - 86400000 // 1 day ago
@@ -623,13 +772,15 @@ export class BazaarIntegration {
 
   /**
    * Search listings with filters
+   * @param _params - Search parameters
+   * @returns Array of matching listings
    */
-  async searchListings(params: any): Promise<Listing[]> {
+  searchListings(_params: Record<string, unknown>): Listing[] {
     // Return mock filtered results
     return [
       {
         id: 'search-result-1',
-        seller: '0x' + Math.random().toString(16).substr(2, 40),
+        seller: '0x' + Math.random().toString(16).substring(2, 40),
         title: 'Electronics Product',
         price: '100',
         currency: 'XOM',
@@ -641,27 +792,34 @@ export class BazaarIntegration {
 
   /**
    * Add favorite listing
+   * @param _listingId - ID of listing to favorite
+   * @param _address - User address
+   * @returns Promise that resolves when favorite is added
    */
-  async addFavorite(listingId: string, address: string): Promise<void> {
+  async addFavorite(_listingId: string, _address: string): Promise<void> {
     // In real implementation, store favorite
   }
 
   /**
    * Get user favorites
+   * @param _address - User address
+   * @returns Array of favorite listing IDs
    */
-  async getUserFavorites(address: string): Promise<string[]> {
+  getUserFavorites(_address: string): string[] {
     // Return mock favorite listing IDs
     return ['listing-1', 'listing-2'];
   }
 
   /**
    * Get recommended listings
+   * @param _address - User address  
+   * @returns Array of recommended listings
    */
-  async getRecommendations(address: string): Promise<any[]> {
+  getRecommendations(_address: string): Array<Listing & { relevanceScore: number }> {
     return [
       {
         id: 'rec-1',
-        seller: '0x' + Math.random().toString(16).substr(2, 40),
+        seller: '0x' + Math.random().toString(16).substring(2, 40),
         title: 'Recommended Product',
         price: '200',
         currency: 'XOM',
@@ -674,11 +832,14 @@ export class BazaarIntegration {
 
   /**
    * Send notification
+   * @param _address - User address
+   * @param _notification - Notification data
+   * @returns Notification send result
    */
-  async sendNotification(
-    address: string,
-    notification: any
-  ): Promise<{ success: boolean; notificationId?: string }> {
+  sendNotification(
+    _address: string,
+    _notification: Record<string, unknown>
+  ): { success: boolean; notificationId?: string } {
     return { 
       success: true,
       notificationId: `notif-${Date.now()}`
@@ -687,8 +848,10 @@ export class BazaarIntegration {
 
   /**
    * Get notifications
+   * @param _address - User address
+   * @returns Array of notifications
    */
-  async getNotifications(address: string): Promise<any[]> {
+  getNotifications(_address: string): Array<{ id: string; type: string; title: string; message: string; timestamp: number; read: boolean }> {
     return [
       {
         id: 'notif-1',
@@ -711,11 +874,14 @@ export class BazaarIntegration {
 
   /**
    * Mark notifications as read
+   * @param notificationIds - IDs of notifications to mark as read
+   * @param _address - User address
+   * @returns Result with number of notifications updated
    */
-  async markNotificationsRead(
+  markNotificationsRead(
     notificationIds: string[],
-    address: string
-  ): Promise<{ success: boolean; updated: number }> {
+    _address: string
+  ): { success: boolean; updated: number } {
     return { 
       success: true,
       updated: notificationIds.length
@@ -724,8 +890,9 @@ export class BazaarIntegration {
 
   /**
    * Get listings
+   * @returns Array of listings
    */
-  async getListings(): Promise<Listing[]> {
+  getListings(): Listing[] {
     if (this.networkError) {
       throw new Error('Network error: Unable to fetch listings');
     }
@@ -737,18 +904,28 @@ export class BazaarIntegration {
    */
   private networkError = false;
   
-  async simulateNetworkError(enable: boolean): Promise<void> {
+  /**
+   * Simulate network error for testing
+   * @param enable - Whether to enable network error simulation
+   */
+  simulateNetworkError(enable: boolean): void {
     this.networkError = enable;
   }
 
   /**
    * Send transaction with retry
+   * @param _transaction - Transaction to send
+   * @param _address - Sender address
+   * @param _options - Retry options
+   * @param _options.maxRetries - Maximum number of retries
+   * @param _options.retryDelay - Delay between retries in ms
+   * @returns Result with success status and number of attempts
    */
-  async sendTransactionWithRetry(
-    transaction: any,
-    address: string,
-    options: { maxRetries: number; retryDelay: number }
-  ): Promise<{ success: boolean; attempts: number }> {
+  sendTransactionWithRetry(
+    _transaction: Record<string, unknown>,
+    _address: string,
+    _options: { maxRetries: number; retryDelay: number }
+  ): { success: boolean; attempts: number } {
     // Simulate retry logic
     return {
       success: true,

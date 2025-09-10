@@ -1,12 +1,11 @@
 import type Transport from "@ledgerhq/hw-transport";
 import webUsbTransport from "@ledgerhq/hw-transport-webusb";
 import { HWwalletCapabilities, NetworkNames } from "../../../types/enkrypt-types";
-// @ts-expect-error - SolApp doesn't have type definitions
 import SolApp from "@ledgerhq/hw-app-solana";
 import { bufferToHex } from "../../../types/enkrypt-types";
 import {
   AddressResponse,
-  getAddressRequest,
+  GetAddressRequest,
   HWWalletProvider,
   PathType,
   SignMessageRequest,
@@ -73,7 +72,7 @@ class LedgerSolana implements HWWalletProvider {
    * @param options - Address request options including path and index
    * @returns Promise resolving to address and public key
    */
-  async getAddress(options: getAddressRequest): Promise<AddressResponse> {
+  async getAddress(options: GetAddressRequest): Promise<AddressResponse> {
     const paths = supportedPaths[this.network as keyof typeof supportedPaths];
     if (paths === undefined)
       return Promise.reject(new Error("ledger-solana: Invalid network name"));

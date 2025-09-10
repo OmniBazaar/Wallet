@@ -190,7 +190,7 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
       case 'eth_sendTransaction': {
         const tx = params[0];
         if (tx !== null && tx !== undefined && typeof tx === 'object') {
-          return await this.prepareTransaction(tx as { to: string; value?: string; data?: string; gas?: string; gasPrice?: string });
+          return this.prepareTransaction(tx as { to: string; value?: string; data?: string; gas?: string; gasPrice?: string });
         }
         throw new Error('Missing transaction parameter');
       }
@@ -293,7 +293,7 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
 
       default:
         // Forward unknown methods to the provider
-        return await this.provider.send(method, params as string[]);
+        return this.provider.send(method, params as string[]);
     }
   }
 
@@ -318,7 +318,7 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
       // For now, we'll prepare the transaction for signing
       // Convert TransactionRequest to compatible format
       const txData: ethers.TransactionLike<string> = {
-        to: transactionRequest.to?.toString() || '',
+        to: transactionRequest.to?.toString() ?? '',
         value: transactionRequest.value?.toString() ?? '0',
         data: transactionRequest.data ?? '0x'
       };
@@ -378,9 +378,9 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
       // Serialize the transaction for signing
       // Convert TransactionRequest to compatible format
       const txData: ethers.TransactionLike<string> = {
-        to: transactionRequest.to?.toString() || '',
-        value: transactionRequest.value?.toString() || '0',
-        data: transactionRequest.data || '0x'
+        to: transactionRequest.to?.toString() ?? '',
+        value: transactionRequest.value?.toString() ?? '0',
+        data: transactionRequest.data ?? '0x'
       };
 
       // Add optional properties only if they exist

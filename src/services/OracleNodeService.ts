@@ -115,7 +115,7 @@ export class OracleNodeService extends EventEmitter {
    * Ensure providers are initialized
    */
   private ensureInitialized(): void {
-    if (!this.cotiProvider || !this.ethereumProvider || !this.signer || !this.registryContract || !this.oracleContract) {
+    if (this.cotiProvider === undefined || this.ethereumProvider === undefined || this.signer === undefined || this.registryContract === undefined || this.oracleContract === undefined) {
       throw new Error('Oracle node service not properly initialized');
     }
   }

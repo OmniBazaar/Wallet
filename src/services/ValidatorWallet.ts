@@ -151,8 +151,8 @@ export class ValidatorWalletService {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
     this.client = createAvalancheValidatorClient({
       validatorEndpoint: config.validatorEndpoint,
-      wsEndpoint: config.wsEndpoint,
-      apiKey: config.apiKey
+      ...(config.wsEndpoint !== undefined && { wsEndpoint: config.wsEndpoint }),
+      ...(config.apiKey !== undefined && { apiKey: config.apiKey })
     });
   }
 
@@ -264,7 +264,7 @@ export class ValidatorWalletService {
         type,
         chainId,
         balance: '0',
-        derivationPath,
+        ...(derivationPath !== undefined && { derivationPath }),
         publicKey: wallet instanceof ethers.HDNodeWallet ? wallet.publicKey : ethers.SigningKey.computePublicKey(wallet.privateKey),
         metadata: {
           createdAt: Date.now(),
@@ -458,10 +458,10 @@ export class ValidatorWalletService {
         value: ethers.parseEther(request.value),
         data: request.data || '0x',
         chainId: BigInt(request.chainId),
-        nonce: request.nonce,
-        gasLimit: request.gasLimit ? BigInt(request.gasLimit) : undefined,
-        gasPrice: request.gasPrice ? BigInt(request.gasPrice) : undefined,
-        type: request.type
+        ...(request.nonce !== undefined && { nonce: request.nonce }),
+        ...(request.gasLimit !== undefined && { gasLimit: BigInt(request.gasLimit) }),
+        ...(request.gasPrice !== undefined && { gasPrice: BigInt(request.gasPrice) }),
+        ...(request.type !== undefined && { type: request.type })
       };
 
       // Sign transaction
@@ -1304,10 +1304,12 @@ export class ValidatorWalletService {
 }
 
 // Export configured instance for easy use
+const apiKey = (typeof process !== 'undefined' && process.env?.['VITE_VALIDATOR_API_KEY']) || undefined;
+
 export const validatorWallet = new ValidatorWalletService({
   validatorEndpoint: (typeof process !== 'undefined' && process.env?.['VITE_VALIDATOR_ENDPOINT']) || 'http://localhost:4000',
   wsEndpoint: (typeof process !== 'undefined' && process.env?.['VITE_VALIDATOR_WS_ENDPOINT']) || 'ws://localhost:4000/graphql',
-  apiKey: (typeof process !== 'undefined' && process.env?.['VITE_VALIDATOR_API_KEY']) || undefined,
+  ...(apiKey !== undefined && { apiKey }),
   networkId: (typeof process !== 'undefined' && process.env?.['VITE_NETWORK_ID']) || 'omnibazaar-mainnet',
   userId: '', // Will be set when user logs in
   enableSecureStorage: true,

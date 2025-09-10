@@ -17,6 +17,68 @@ import {
   SPECIAL_NFT_CONTRACTS,
 } from './types';
 
+/** SimpleHash NFT type */
+type SimpleHashNFT = {
+  contract_address: string;
+  token_id: string;
+  name?: string;
+  description?: string;
+  image_url?: string;
+  video_url?: string;
+  audio_url?: string;
+  model_url?: string;
+  contract?: { type?: string };
+  owners?: Array<{ owner_address?: string }>;
+  previews?: { image_medium_url?: string };
+  external_url?: string;
+  extra_metadata?: { attributes?: Array<{ trait_type: string; value: unknown }> };
+  background_color?: string;
+  collection?: {
+    collection_id?: string;
+    name?: string;
+    description?: string;
+    image_url?: string;
+    external_url?: string;
+    twitter_username?: string;
+    discord_url?: string;
+    marketplace_pages?: Array<{ verified?: boolean }>;
+    spam_score?: number;
+    floor_prices?: Array<{ value: number; marketplace_id?: string; payment_token?: { symbol?: string } }>;
+  };
+  last_sale?: {
+    unit_price?: number | string;
+    payment_token?: { symbol?: string };
+    timestamp?: string;
+    from_address?: string;
+    to_address?: string;
+  };
+};
+
+/** Helius NFT type */
+type HeliusNFT = {
+  id: string;
+  ownership: { owner: string };
+  interface?: string;
+  content?: {
+    metadata?: {
+      name?: string;
+      description?: string;
+      image?: string;
+      animation_url?: string;
+      external_url?: string;
+      attributes?: Array<{ trait_type: string; value: string | number }>;
+      token_standard?: string;
+    };
+    files?: Array<{ uri?: string }>;
+  };
+  compression?: { compressed?: boolean };
+  token_info?: { supply?: number; decimals?: number };
+  creators?: Array<{ address: string; verified: boolean; share: number }>;
+  grouping?: Array<{ group_value: string; verified?: boolean }>;
+  authorities?: Array<{ address: string }>;
+  royalty?: { primary_sale_happened?: boolean; basis_points?: number };
+};
+
 /** Multi-chain NFT discovery service */
 export class NFTDiscoveryService {
   private apiKeys: Record<string, string> = {};
@@ -118,17 +180,17 @@ export class NFTDiscoveryService {
       });
 
       if (!response.ok) {
-        console.warn(`Failed to fetch NFTs for ${chain}:`, response.statusText);
+        // Failed to fetch NFTs for chain
         return [];
       }
 
-      const data = await response.json() as { nfts?: unknown };
+      const data = await response.json() as unknown as { nfts?: unknown };
       if (!Array.isArray(data.nfts)) {
         return [];
       }
-      return this.parseSimpleHashNFTs(data.nfts, chain);
+      return this.parseSimpleHashNFTs(data.nfts as SimpleHashNFT[], chain);
     } catch (error) {
-      console.warn(`Error discovering EVM NFTs on ${chain}:`, error);
+      // Error discovering EVM NFTs on chain
       return [];
     }
   }
@@ -157,13 +219,13 @@ export class NFTDiscoveryService {
         return [];
       }
 
-      const data = await response.json() as { items?: unknown };
+      const data = await response.json() as unknown as { items?: unknown };
       if (!Array.isArray(data.items)) {
         return [];
       }
-      return this.parseHeliusNFTs(data.items);
+      return this.parseHeliusNFTs(data.items as HeliusNFT[]);
     } catch (error) {
-      console.warn('Error discovering Solana NFTs:', error);
+      // Error discovering Solana NFTs
       return [];
     }
   }
@@ -174,7 +236,7 @@ export class NFTDiscoveryService {
    * @param _options - Discovery options (unused)
    * @returns Promise resolving to empty array (not yet implemented)
    */
-  private async discoverSubstrateNFTs(
+  private discoverSubstrateNFTs(
     _address: string,
     _options: NFTDiscoveryOptions
   ): Promise<NFT[]> {
@@ -189,76 +251,7 @@ export class NFTDiscoveryService {
    * @param chain - Chain name
    * @returns Parsed NFT array
    */
-  private parseSimpleHashNFTs(nfts: Array<{
-    /**
-     *
-     */
-    contract_address: string;
-    /**
-     *
-     */
-    token_id: string;
-    /**
-     *
-     */
-    name?: string;
-    /**
-     *
-     */
-    description?: string;
-    /**
-     *
-     */
-    image_url?: string;
-    /**
-     *
-     */
-    video_url?: string;
-    /**
-     *
-     */
-    audio_url?: string;
-    /**
-     *
-     */
-    model_url?: string;
-    /**
-     *
-     */
-    // collection field defined below with expanded shape
-    /**
-     *
-     */
-    contract?: { /**
-                  *
-                  */
-      type?: string
-    };
-    owners?: Array<{ owner_address?: string }>;
-    previews?: { image_medium_url?: string };
-    external_url?: string;
-    extra_metadata?: { attributes?: Array<{ trait_type: string; value: unknown }> };
-    background_color?: string;
-    collection?: {
-      collection_id?: string;
-      name?: string;
-      description?: string;
-      image_url?: string;
-      external_url?: string;
-      twitter_username?: string;
-      discord_url?: string;
-      marketplace_pages?: Array<{ verified?: boolean }>;
-      spam_score?: number;
-      floor_prices?: Array<{ value: number; marketplace_id?: string; payment_token?: { symbol?: string } }>;
-    };
-    last_sale?: {
-      unit_price?: number | string;
-      payment_token?: { symbol?: string };
-      timestamp?: string;
-      from_address?: string;
-      to_address?: string;
-    };
-  }>, chain: string): NFT[] {
+  private parseSimpleHashNFTs(nfts: SimpleHashNFT[], chain: string): NFT[] {
     return nfts.map(nft => ({
       id: `${chain}_${nft.contract_address}_${nft.token_id}`,
       contract_address: nft.contract_address,
@@ -269,11 +262,11 @@ export class NFTDiscoveryService {
       owner: nft.owners?.[0]?.owner_address ?? '',
       metadata: {
         name: nft.name ?? 'Unnamed NFT',
-        ...(nft.description ? { description: nft.description } : {}),
-        ...((nft.image_url ?? nft.previews?.image_medium_url) ? { image: nft.image_url ?? nft.previews?.image_medium_url } : {}),
-        ...((nft.video_url ?? nft.audio_url ?? nft.model_url) ? { animation_url: nft.video_url ?? nft.audio_url ?? nft.model_url } : {}),
-        ...(nft.external_url ? { external_url: nft.external_url } : {}),
-        ...(nft.extra_metadata?.attributes ? { 
+        ...(nft.description !== undefined && nft.description !== null && nft.description !== '' ? { description: nft.description } : {}),
+        ...((nft.image_url ?? nft.previews?.image_medium_url) !== undefined && (nft.image_url ?? nft.previews?.image_medium_url) !== null ? { image: nft.image_url ?? nft.previews?.image_medium_url } : {}),
+        ...((nft.video_url ?? nft.audio_url ?? nft.model_url) !== undefined && (nft.video_url ?? nft.audio_url ?? nft.model_url) !== null ? { animation_url: nft.video_url ?? nft.audio_url ?? nft.model_url } : {}),
+        ...(nft.external_url !== undefined && nft.external_url !== null && nft.external_url !== '' ? { external_url: nft.external_url } : {}),
+        ...(nft.extra_metadata?.attributes !== undefined && nft.extra_metadata.attributes !== null ? { 
           attributes: nft.extra_metadata.attributes.map((attr: { trait_type: string; value: unknown }) => ({
             trait_type: attr.trait_type,
             value: typeof attr.value === 'string' || typeof attr.value === 'number' 
@@ -281,29 +274,29 @@ export class NFTDiscoveryService {
               : String(attr.value)
           }))
         } : {}),
-        ...(nft.background_color ? { background_color: nft.background_color } : {}),
+        ...(nft.background_color !== undefined && nft.background_color !== null && nft.background_color !== '' ? { background_color: nft.background_color } : {}),
       } as NFTMetadata,
-      collection: nft.collection?.collection_id ? {
+      collection: nft.collection?.collection_id !== undefined && nft.collection.collection_id !== null && nft.collection.collection_id !== '' ? {
         id: nft.collection.collection_id,
         name: nft.collection.name ?? 'Unknown Collection',
-        ...(nft.collection.description ? { description: nft.collection.description } : {}),
-        ...(nft.collection.image_url ? { image: nft.collection.image_url } : {}),
-        ...(nft.collection.external_url ? { external_url: nft.collection.external_url } : {}),
-        ...(nft.collection.twitter_username ? { twitter: nft.collection.twitter_username } : {}),
-        ...(nft.collection.discord_url ? { discord: nft.collection.discord_url } : {}),
-        ...(nft.collection.marketplace_pages ? { 
+        ...(nft.collection.description !== undefined && nft.collection.description !== null && nft.collection.description !== '' ? { description: nft.collection.description } : {}),
+        ...(nft.collection.image_url !== undefined && nft.collection.image_url !== null && nft.collection.image_url !== '' ? { image: nft.collection.image_url } : {}),
+        ...(nft.collection.external_url !== undefined && nft.collection.external_url !== null && nft.collection.external_url !== '' ? { external_url: nft.collection.external_url } : {}),
+        ...(nft.collection.twitter_username !== undefined && nft.collection.twitter_username !== null && nft.collection.twitter_username !== '' ? { twitter: nft.collection.twitter_username } : {}),
+        ...(nft.collection.discord_url !== undefined && nft.collection.discord_url !== null && nft.collection.discord_url !== '' ? { discord: nft.collection.discord_url } : {}),
+        ...(nft.collection.marketplace_pages !== undefined && nft.collection.marketplace_pages !== null ? { 
           verified: nft.collection.marketplace_pages.some((m: { verified?: boolean }) => m.verified) 
         } : {}),
         ...(nft.collection.spam_score !== undefined ? { spam_score: nft.collection.spam_score } : {}),
-        ...(nft.collection.floor_prices?.[0] ? {
+        ...(nft.collection.floor_prices?.[0] !== undefined && nft.collection.floor_prices[0] !== null ? {
           floor_price: {
             value: nft.collection.floor_prices[0].value,
             currency: nft.collection.floor_prices[0].payment_token?.symbol ?? 'ETH',
-            ...(nft.collection.floor_prices[0].marketplace_id ? { marketplace: nft.collection.floor_prices[0].marketplace_id } : {}),
+            ...(nft.collection.floor_prices[0].marketplace_id !== undefined && nft.collection.floor_prices[0].marketplace_id !== null && nft.collection.floor_prices[0].marketplace_id !== '' ? { marketplace: nft.collection.floor_prices[0].marketplace_id } : {}),
           }
         } : {}),
       } : undefined,
-      marketplace_data: nft.last_sale ? {
+      marketplace_data: nft.last_sale !== undefined && nft.last_sale !== null ? {
         last_sale: {
           price: nft.last_sale.unit_price?.toString() ?? '0',
           currency: nft.last_sale.payment_token?.symbol ?? 'ETH',
@@ -324,170 +317,31 @@ export class NFTDiscoveryService {
    * @param items - Array of NFT items from Helius API
    * @returns Array of parsed Solana NFTs
    */
-  private parseHeliusNFTs(items: Array<{
-    /**
-     *
-     */
-    id: string;
-    /**
-     *
-     */
-    ownership: { /**
-                  *
-                  */
-      owner: string
-    };
-    /**
-     *
-     */
-    interface?: string;
-    /**
-     *
-     */
-    content?: {
-      /**
-       *
-       */
-      metadata?: {
-        /**
-         *
-         */
-        name?: string;
-        /**
-         *
-         */
-        description?: string;
-        /**
-         *
-         */
-        image?: string;
-        /**
-         *
-         */
-        animation_url?: string;
-        /**
-         *
-         */
-        external_url?: string;
-        /**
-         *
-         */
-        attributes?: Array<{ /**
-                              *
-                              */
-          trait_type: string; /**
-                               *
-                               */
-          value: string | number
-        }>;
-        /**
-         *
-         */
-        token_standard?: string;
-      };
-      /**
-       *
-       */
-      files?: Array<{ uri?: string }>;
-    };
-    /**
-     *
-     */
-    compression?: {
-      /**
-       *
-       */
-      compressed?: boolean;
-    };
-    /**
-     *
-     */
-    token_info?: {
-      /**
-       *
-       */
-      supply?: number;
-      /**
-       *
-       */
-      decimals?: number;
-    };
-    /**
-     *
-     */
-    creators?: Array<{ /**
-                        *
-                        */
-      address: string; /**
-                        *
-                        */
-      verified: boolean; /**
-                          *
-                          */
-      share: number
-    }>;
-    /**
-     *
-     */
-    grouping?: Array<{
-      /**
-       *
-       */
-      group_value: string;
-      /**
-       *
-       */
-      verified?: boolean;
-    }>;
-    /**
-     *
-     */
-    authorities?: Array<{ address: string }>;
-    /**
-     *
-     */
-    royalty?: {
-      /**
-       *
-       */
-      primary_sale_happened?: boolean;
-      /**
-       *
-       */
-      basis_points?: number;
-    };
-  }>): SolanaNFT[] {
+  private parseHeliusNFTs(items: HeliusNFT[]): SolanaNFT[] {
     return items.map(nft => ({
       id: `solana_${nft.id}`,
       contract_address: nft.id,
       token_id: nft.id,
       chain: 'solana',
-      type: nft.compression?.compressed ? NFTType.SolanaBGUM : NFTType.SOLANA_TOKEN,
+      type: nft.compression?.compressed === true ? NFTType.SOLANA_BGUM : NFTType.SOLANA_TOKEN,
       standard: NFTStandard.METAPLEX,
       owner: nft.ownership?.owner ?? '',
       mint: nft.id,
       contract: {
         address: nft.id,
-        type: nft.compression?.compressed ? NFTType.SolanaBGUM : NFTType.SOLANA_TOKEN,
+        type: nft.compression?.compressed === true ? NFTType.SOLANA_BGUM : NFTType.SOLANA_TOKEN,
       },
       metadata: {
         name: nft.content?.metadata?.name ?? 'Unnamed NFT',
-        ...(nft.content?.metadata?.description ? { description: nft.content.metadata.description } : {}),
-        ...((nft.content?.files?.[0]?.uri ?? nft.content?.metadata?.image) ? { image: nft.content?.files?.[0]?.uri ?? nft.content?.metadata?.image } : {}),
-        ...(nft.content?.metadata?.external_url ? { external_url: nft.content.metadata.external_url } : {}),
-        ...(nft.content?.metadata?.attributes ? { attributes: nft.content.metadata.attributes.map((attr: { /**
-                                                                                                            *
-                                                                                                            */
-          trait_type: string; /**
-                               *
-                               */
-          value: string | number
-        }) => ({
+        ...(nft.content?.metadata?.description !== undefined && nft.content.metadata.description !== null && nft.content.metadata.description !== '' ? { description: nft.content.metadata.description } : {}),
+        ...((nft.content?.files?.[0]?.uri ?? nft.content?.metadata?.image) !== undefined && (nft.content?.files?.[0]?.uri ?? nft.content?.metadata?.image) !== null ? { image: nft.content?.files?.[0]?.uri ?? nft.content?.metadata?.image } : {}),
+        ...(nft.content?.metadata?.external_url !== undefined && nft.content.metadata.external_url !== null && nft.content.metadata.external_url !== '' ? { external_url: nft.content.metadata.external_url } : {}),
+        ...(nft.content?.metadata?.attributes !== undefined && nft.content.metadata.attributes !== null ? { attributes: nft.content.metadata.attributes.map((attr) => ({
           trait_type: attr.trait_type,
           value: attr.value,
         })) } : {}),
       } as NFTMetadata,
-      collection: nft.grouping?.[0] ? {
+      collection: nft.grouping?.[0] !== undefined && nft.grouping[0] !== null ? {
         id: nft.grouping[0].group_value,
         name: nft.grouping[0].group_value,
         ...(nft.grouping[0].verified !== undefined ? { verified: nft.grouping[0].verified } : {}),
@@ -495,17 +349,7 @@ export class NFTDiscoveryService {
       update_authority: nft.authorities?.[0]?.address,
       primary_sale_happened: nft.royalty?.primary_sale_happened,
       seller_fee_basis_points: nft.royalty?.basis_points,
-      creators: nft.creators?.map((creator: { /**
-                                               *
-                                               */
-        address: string; /**
-                          *
-                          */
-        verified: boolean; /**
-                            *
-                            */
-        share: number
-      }) => ({
+      creators: nft.creators?.map((creator) => ({
         address: creator.address,
         verified: creator.verified,
         share: creator.share,
@@ -559,15 +403,15 @@ export class NFTDiscoveryService {
    */
   private isSpamNFT(nft: NFT): boolean {
     // Check collection spam score
-    if (nft.collection?.spam_score && nft.collection.spam_score > 80) {
+    if (nft.collection?.spam_score !== undefined && nft.collection.spam_score > 80) {
       return true;
     }
 
     // Check for common spam indicators
-    const name = nft.metadata.name?.toLowerCase() || '';
+    const name = nft.metadata.name?.toLowerCase() ?? '';
     const spamKeywords = ['airdrop', 'claim', 'voucher', 'test', '$'];
 
-    return spamKeywords.some(keyword => name.includes(keyword));
+    return name !== '' && spamKeywords.some(keyword => name.includes(keyword));
   }
 
   /**
@@ -596,13 +440,14 @@ export class NFTDiscoveryService {
       }
 
       const data = await response.json() as unknown;
-      if (typeof data !== 'object' || data === null) {
+      if (typeof data !== 'object' || data === null || !('contract_address' in data) || !('token_id' in data)) {
         return null;
       }
-      const parsed = this.parseSimpleHashNFTs([data], chain);
+      const nftData = data as { contract_address: string; token_id: string };
+      const parsed = this.parseSimpleHashNFTs([nftData], chain);
       return parsed[0] ?? null;
     } catch (error) {
-      console.warn('Error fetching NFT:', error);
+      // Error fetching NFT
       return null;
     }
   }
@@ -632,13 +477,13 @@ export class NFTDiscoveryService {
         return [];
       }
 
-      const data = await response.json() as { nfts?: unknown };
+      const data = await response.json() as unknown as { nfts?: unknown };
       if (!Array.isArray(data.nfts)) {
         return [];
       }
-      return this.parseSimpleHashNFTs(data.nfts, chain);
+      return this.parseSimpleHashNFTs(data.nfts as SimpleHashNFT[], chain);
     } catch (error) {
-      console.warn('Error fetching collection NFTs:', error);
+      // Error fetching collection NFTs
       return [];
     }
   }

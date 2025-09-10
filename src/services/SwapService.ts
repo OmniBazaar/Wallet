@@ -146,7 +146,7 @@ export class SwapService {
     } else {
       this.provider = providerOrWalletService;
     }
-    this.config = config || {
+    this.config = config ?? {
       routers: {
         1: '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D', // Uniswap V2 Router
         137: '0xa5E0829CaCEd8fFDD4De3c43696c57F7D7A678ff', // QuickSwap
@@ -186,7 +186,7 @@ export class SwapService {
       }
 
       // Ensure wallet service is initialized if available
-      if (this.walletService && !this.walletService.isServiceInitialized()) {
+      if (this.walletService !== undefined && !this.walletService.isServiceInitialized()) {
         await this.walletService.init();
       }
 
@@ -204,7 +204,7 @@ export class SwapService {
    * @returns Array of supported tokens
    */
   getSupportedTokens(chainId: number): Token[] {
-    return this.config.supportedTokens[chainId] || [];
+    return this.config.supportedTokens[chainId] ?? [];
   }
 
   /**
@@ -446,19 +446,38 @@ export class SwapService {
         throw new Error('No provider available');
       }
 
+      // Initialize services for routing
+      const poolStorage = await import('../../../Validator/src/services/dex/amm/storage/PoolStorage');
+      const storage = new poolStorage.PoolStorage();
+      const { LiquidityPoolManager } = await import('../../../Validator/src/services/dex/amm/LiquidityPoolManager');
+      const poolManager = new LiquidityPoolManager(storage);
+      
+      const orderBookConfig = {
+        maxOrdersPerUser: 100,
+        maxOrderBookDepth: 1000,
+        tickSize: '0.01',
+        minOrderSize: '0.001',
+        maxOrderSize: '1000000',
+        enableAutoMatching: true,
+        feeRate: 0.003
+      };
+      const orderBook = new DecentralizedOrderBook(orderBookConfig);
+      
       // Initialize HybridRouter for optimal routing
-      const hybridRouter = new HybridRouter();
-      await hybridRouter.init();
+      const hybridRouter = new HybridRouter(orderBook, poolManager);
 
       // Find optimal route through order book and AMM pools
-      const route = await hybridRouter.findOptimalRoute(
-        params.tokenPath[0],
-        params.tokenPath[params.tokenPath.length - 1],
-        params.amountIn,
-        params.tokenPath
-      );
+      const swapRequest = {
+        tokenIn: params.tokenPath[0],
+        tokenOut: params.tokenPath[params.tokenPath.length - 1],
+        amountIn: params.amountIn,
+        maxSlippage: params.slippage || this.config.defaultSlippage,
+        deadline: params.deadline || Math.floor(Date.now() / 1000) + this.config.defaultDeadline,
+        recipient: params.recipient
+      };
+      const route = await hybridRouter.getBestRoute(swapRequest);
 
-      if (!route || route.outputAmount < params.amountOutMin) {
+      if (!route || route.totalAmountOut < params.amountOutMin) {
         throw new Error('No route found with sufficient output');
       }
 
@@ -475,8 +494,8 @@ export class SwapService {
       const result: SwapResult = {
         success: true,
         txHash,
-        amountOut: route.outputAmount,
-        gasUsed: route.estimatedGas
+        amountOut: route.totalAmountOut,
+        gasUsed: route.gasEstimate
       };
 
       return result;
@@ -510,15 +529,27 @@ export class SwapService {
 
     try {
       // Initialize services
-      const dexService = new DEXService();
-      const orderBook = new DecentralizedOrderBook();
-      const hybridRouter = new HybridRouter();
+      const { MasterMerkleEngine } = await import('../../../Validator/src/engines/MasterMerkleEngine');
+      const merkleEngine = new MasterMerkleEngine();
+      const dexService = new DEXService(merkleEngine);
       
-      await Promise.all([
-        dexService.init(),
-        orderBook.init(),
-        hybridRouter.init()
-      ]);
+      const orderBookConfig = {
+        maxOrdersPerUser: 100,
+        maxOrderBookDepth: 1000,
+        tickSize: '0.01',
+        minOrderSize: '0.001',
+        maxOrderSize: '1000000',
+        enableAutoMatching: true,
+        feeRate: 0.003
+      };
+      const orderBook = new DecentralizedOrderBook(orderBookConfig);
+      
+      const poolStorage = await import('../../../Validator/src/services/dex/amm/storage/PoolStorage');
+      const storage = new poolStorage.PoolStorage();
+      const { LiquidityPoolManager } = await import('../../../Validator/src/services/dex/amm/LiquidityPoolManager');
+      const poolManager = new LiquidityPoolManager(storage);
+      
+      const hybridRouter = new HybridRouter(orderBook, poolManager);
 
       // Get chain ID
       let chainId: number;
@@ -532,14 +563,19 @@ export class SwapService {
       }
 
       // Query order book for direct orders
-      const directOrders = await orderBook.getOrdersForPair(tokenIn, tokenOut);
+      const pair = `${tokenIn}/${tokenOut}`;
+      const orderBookData = orderBook.getOrderBook(pair);
       
       // Find optimal route through hybrid router
-      const optimalRoute = await hybridRouter.findOptimalRoute(
+      const swapRequest = {
         tokenIn,
         tokenOut,
-        amountIn
-      );
+        amountIn,
+        maxSlippage: 50, // 0.5%
+        deadline: Math.floor(Date.now() / 1000) + this.config.defaultDeadline,
+        recipient: '' // Will be filled by caller
+      };
+      const optimalRoute = await hybridRouter.getBestRoute(swapRequest);
 
       if (!optimalRoute) {
         throw new Error('No route found');
@@ -553,23 +589,17 @@ export class SwapService {
         throw new Error('Token not supported');
       }
 
-      // Calculate price impact
-      const priceImpact = await this.calculatePriceImpact(
-        tokenIn,
-        tokenOut,
-        amountIn,
-        optimalRoute.outputAmount
-      );
+      // Price impact is already calculated in the route
 
       const route: SwapRoute = {
         tokenIn: tokenInInfo,
         tokenOut: tokenOutInfo,
-        path: optimalRoute.path,
-        amountOut: optimalRoute.outputAmount,
-        amountOutMin: optimalRoute.outputAmount - (optimalRoute.outputAmount * BigInt(50)) / BigInt(10000), // 0.5% slippage
-        priceImpact,
-        gasEstimate: optimalRoute.estimatedGas,
-        exchange: optimalRoute.protocol
+        path: optimalRoute.routes.length > 0 && optimalRoute.routes[0].path ? optimalRoute.routes[0].path : [tokenIn, tokenOut],
+        amountOut: optimalRoute.totalAmountOut,
+        amountOutMin: optimalRoute.totalAmountOut - (optimalRoute.totalAmountOut * BigInt(50)) / BigInt(10000), // 0.5% slippage
+        priceImpact: optimalRoute.priceImpact,
+        gasEstimate: optimalRoute.gasEstimate,
+        exchange: optimalRoute.routes.length > 0 ? optimalRoute.routes[0].type : 'HybridRouter'
       };
 
       return route;
@@ -599,25 +629,45 @@ export class SwapService {
     }
 
     try {
-      // Initialize SwapCalculator
-      const swapCalculator = new SwapCalculator();
-      await swapCalculator.init();
-
       // Get spot price (price for minimal amount)
       const spotAmountIn = BigInt(10) ** BigInt(18); // 1 token normalized
-      const spotQuote = await swapCalculator.calculateSwap(
-        tokenIn,
-        tokenOut,
-        spotAmountIn,
-        0 // No slippage for spot price
+      
+      // For spot price calculation, we need a pool - create a mock one for now
+      const poolStorage = await import('../../../Validator/src/services/dex/amm/storage/PoolStorage');
+      const storage = new poolStorage.PoolStorage();
+      const { LiquidityPoolManager } = await import('../../../Validator/src/services/dex/amm/LiquidityPoolManager');
+      const poolManager = new LiquidityPoolManager(storage);
+      
+      // Try to find an existing pool for each fee tier
+      let pool = null;
+      for (const fee of [0.0005, 0.003, 0.01]) { // Common fee tiers
+        pool = poolManager.getPoolByTokens(tokenIn, tokenOut, fee);
+        if (pool) break;
+      }
+      
+      if (!pool) {
+        // No pool found, return 0 impact
+        return 0;
+      }
+      const zeroForOne = tokenIn.toLowerCase() < tokenOut.toLowerCase();
+      
+      const spotQuote = await SwapCalculator.calculateSwap(
+        pool,
+        zeroForOne,
+        spotAmountIn
       );
 
-      if (!spotQuote || spotQuote.outputAmount === BigInt(0)) {
+      if (!spotQuote) {
         throw new Error('Unable to get spot price');
       }
 
-      // Calculate spot rate
-      const spotRate = (spotQuote.outputAmount * BigInt(10) ** BigInt(18)) / spotAmountIn;
+      // Calculate spot rate based on swap direction
+      const amountOut = zeroForOne ? -spotQuote.amount1 : -spotQuote.amount0;
+      if (amountOut <= BigInt(0)) {
+        return 0; // No valid output
+      }
+      
+      const spotRate = (amountOut * BigInt(10) ** BigInt(18)) / spotAmountIn;
 
       // Calculate execution rate
       const executionRate = (expectedAmountOut * BigInt(10) ** BigInt(18)) / amountIn;
@@ -731,7 +781,7 @@ export class SwapService {
       };
 
       // Sign the permit
-      const signature = await signer._signTypedData(domain, types, values);
+      const signature = await signer.signTypedData(domain, types, values);
       const sig = ethers.Signature.from(signature);
 
       return {

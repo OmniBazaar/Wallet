@@ -239,8 +239,8 @@ export class OTPService {
         return {
           success: false,
           error: 'Too many OTP requests. Please try again later.',
-          retryAfter: rateLimitCheck.retryAfter
-        };
+          ...(rateLimitCheck.retryAfter !== undefined && { retryAfter: rateLimitCheck.retryAfter })
+        } as OTPResponse;
       }
 
       // Generate OTP code
@@ -261,8 +261,8 @@ export class OTPService {
         createdAt: new Date(),
         expiresAt,
         verified: false,
-        ipAddress: request.ipAddress
-      });
+        ...(request.ipAddress !== undefined && { ipAddress: request.ipAddress })
+      } as OTPSession);
 
       // Send OTP based on delivery method
       const sent = await this.sendOTPCode(request, otpCode);
@@ -286,7 +286,7 @@ export class OTPService {
       };
 
     } catch (error) {
-      console.error('OTP generation failed:', error);
+      logger.error('OTP generation failed:', error);
       return {
         success: false,
         error: 'Failed to generate OTP. Please try again.'
@@ -374,7 +374,7 @@ export class OTPService {
       }
 
     } catch (error) {
-      console.error('OTP verification failed:', error);
+      logger.error('OTP verification failed:', error);
       return {
         valid: false,
         error: 'Verification failed. Please try again.'
@@ -516,7 +516,7 @@ export class OTPService {
       return { allowed: true };
     }
     
-    const rateLimit = result.rows[0] as RateLimitData;
+    const rateLimit = result.rows[0] as unknown as RateLimitData;
     
     // Check if locked out
     if (rateLimit.lockedUntil && new Date() < rateLimit.lockedUntil) {
@@ -623,7 +623,7 @@ export class OTPService {
       return null;
     }
     
-    return result.rows[0] as OTPSession;
+    return result.rows[0] as unknown as OTPSession;
   }
 
   /**

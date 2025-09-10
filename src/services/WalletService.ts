@@ -689,7 +689,7 @@ export class WalletService {
    */
   async clearCache(): Promise<void> {
     // Clear transaction service cache
-    if (this.transactionService !== null) {
+    if (this.transactionService !== null && 'clearCache' in this.transactionService && typeof this.transactionService.clearCache === 'function') {
       await this.transactionService.clearCache();
     }
 

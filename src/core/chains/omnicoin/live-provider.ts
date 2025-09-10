@@ -131,15 +131,15 @@ export class LiveOmniCoinProvider {
   /**
    * Initialize validator client for off-chain operations
    */
-  private async initializeValidatorClient(): Promise<void> {
+  private initializeValidatorClient(): void {
     try {
       // Mock validator client for now - would create actual AvalancheValidatorClient
       this.validatorClient = {
-        getAccount: async () => null,
-        resolveUsername: async () => null,
-        getUserListings: async () => [],
-        getUserReputation: async () => ({ score: 0 }),
-        sendPrivateTransaction: async () => null
+        getAccount: () => Promise.resolve(null),
+        resolveUsername: () => Promise.resolve(null),
+        getUserListings: () => Promise.resolve([]),
+        getUserReputation: () => Promise.resolve({ score: 0 }),
+        sendPrivateTransaction: () => Promise.resolve(null)
       };
     } catch (error) {
       console.warn('Validator client not available:', error);

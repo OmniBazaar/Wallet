@@ -117,7 +117,9 @@ export class TransactionService {
     this.keyringManager = KeyringManager.getInstance();
     this.transactionDb = new TransactionDatabase();
     this.wallet = wallet ?? null;
-    this.provider = wallet?.provider;
+    if (wallet?.provider) {
+      this.provider = wallet.provider;
+    }
   }
 
   /**
@@ -367,13 +369,12 @@ export class TransactionService {
           amount: transaction.value ?? '0',
           tokenSymbol: 'ETH',
           tokenDecimals: 18,
-          gasUsed: transaction.gasLimit?.toString(),
-          gasPrice: transaction.gasPrice?.toString(),
+          gasUsed: transaction.gasLimit?.toString() ?? undefined,
+          gasPrice: transaction.gasPrice?.toString() ?? undefined,
           status: 'pending',
-          timestamp: Date.now(),
-          txType: 'send',
-          networkId: request.chainType
-        } as TransactionRecord);
+          createdAt: new Date(),
+          txType: 'send'
+        });
       } catch (dbError) {
         // Database storage failed - log to service logger if available
         // Continue even if database storage fails
@@ -443,8 +444,7 @@ export class TransactionService {
       );
       return result ?? { transactions: [], total: 0 };
     } catch (error) {
-      // Return empty result instead of logging to console
-      console.warn('Error fetching transaction history:', error);
+      // Return empty result on error
       return { transactions: [], total: 0 };
     }
   }
@@ -546,7 +546,7 @@ export class TransactionService {
     if (process.env.NODE_ENV === 'test') {
       const baseGas = BigInt(21000); // Basic transfer
       const dataGas = request.data !== undefined && request.data !== '' ? BigInt((request.data.length - 2) / 2 * 68) : BigInt(0); // Data cost
-      return baseGas + dataGas;
+      return Promise.resolve(baseGas + dataGas);
     }
     
     // Resolve destination address
@@ -595,8 +595,8 @@ export class TransactionService {
         const feeData = await this.provider.getFeeData();
         return {
           gasPrice: feeData.gasPrice ?? BigInt(20000000000), // 20 gwei default
-          maxFeePerGas: feeData.maxFeePerGas ?? undefined,
-          maxPriorityFeePerGas: feeData.maxPriorityFeePerGas ?? undefined
+          ...(feeData.maxFeePerGas && { maxFeePerGas: feeData.maxFeePerGas }),
+          ...(feeData.maxPriorityFeePerGas && { maxPriorityFeePerGas: feeData.maxPriorityFeePerGas })
         };
       }
       
@@ -668,8 +668,8 @@ export class TransactionService {
       data: txToSign.data,
       gasLimit: txToSign.gasLimit,
       gasPrice: txToSign.gasPrice,
-      nonce: transaction.nonce,
-      chainId: transaction.chainId
+      ...(transaction.nonce !== undefined && { nonce: transaction.nonce }),
+      ...(transaction.chainId !== undefined && { chainId: transaction.chainId })
     });
     
     return signedTx;

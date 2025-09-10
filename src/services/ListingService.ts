@@ -77,7 +77,7 @@ export class ListingService {
    * Clean up resources and reset service
    * @returns Promise that resolves when cleanup is complete
    */
-  async cleanup(): Promise<void> {
+  cleanup(): void {
     this.isInitialized = false;
     // console.log('ListingService cleanup completed');
   }

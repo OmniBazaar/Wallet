@@ -100,15 +100,15 @@ export class TokenService {
   private balanceCache: Map<string, TokenBalance> = new Map();
 
   /**
-   *
-   * @param walletService
+   * Creates a new TokenService instance
+   * @param walletService - WalletService instance
    */
   constructor(walletService: WalletService) {
     this.walletService = walletService;
   }
 
   /**
-   *
+   * Initialize the token service
    */
   async init(): Promise<void> {
     if (this.isInitialized) return;
@@ -146,9 +146,15 @@ export class TokenService {
     }
     
     try {
-      const contract = new Contract(tokenAddress, ERC20_ABI, provider);
-      const balance = await contract.balanceOf(address);
-      return balance;
+      // Check if provider is EVM-compatible
+      if ('getProvider' in provider && typeof provider.getProvider === 'function') {
+        const ethersProvider = provider.getProvider();
+        const contract = new Contract(tokenAddress, ERC20_ABI, ethersProvider);
+        const balance = await contract.balanceOf(address);
+        return balance;
+      } else {
+        throw new Error('Provider does not support ERC20 operations');
+      }
     } catch (error) {
       // If contract call fails, return 0
       return BigInt(0);
@@ -200,7 +206,7 @@ export class TokenService {
             token: { ...token, chain },
             balance,
             balanceFormatted: formatted,
-            valueUSD,
+            ...(valueUSD !== undefined && { valueUSD }),
             lastUpdated: Date.now()
           });
         }
@@ -237,6 +243,10 @@ export class TokenService {
     const provider = await providerManager.getActiveProvider();
     if (!provider) throw new Error('No active provider');
     
+    // Check if provider has getSigner method
+    if (!('getSigner' in provider) || typeof provider.getSigner !== 'function') {
+      throw new Error('Provider does not support signing transactions');
+    }
     const signer = await provider.getSigner();
     const contract = new Contract(tokenAddress, ERC20_ABI, signer);
     
@@ -267,6 +277,10 @@ export class TokenService {
     const provider = await providerManager.getActiveProvider();
     if (!provider) throw new Error('No active provider');
     
+    // Check if provider has getSigner method
+    if (!('getSigner' in provider) || typeof provider.getSigner !== 'function') {
+      throw new Error('Provider does not support signing transactions');
+    }
     const signer = await provider.getSigner();
     const contract = new Contract(tokenAddress, ERC20_ABI, signer);
     
@@ -297,7 +311,15 @@ export class TokenService {
     const provider = await providerManager.getActiveProvider();
     if (!provider) throw new Error('No active provider');
     
-    const contract = new Contract(tokenAddress, ERC20_ABI, provider);
+    // Get appropriate provider for contract calls
+    let contractRunner: ethers.ContractRunner;
+    if ('getProvider' in provider && typeof provider.getProvider === 'function') {
+      contractRunner = provider.getProvider();
+    } else {
+      throw new Error('Provider does not support contract calls');
+    }
+    
+    const contract = new Contract(tokenAddress, ERC20_ABI, contractRunner);
     const allowance = await contract.allowance(owner, spender);
     
     return allowance;
@@ -315,7 +337,15 @@ export class TokenService {
     const provider = await providerManager.getActiveProvider();
     if (!provider) throw new Error('No active provider');
     
-    const contract = new Contract(token.address, ERC20_ABI, provider);
+    // Get appropriate provider for contract calls
+    let contractRunner: ethers.ContractRunner;
+    if ('getProvider' in provider && typeof provider.getProvider === 'function') {
+      contractRunner = provider.getProvider();
+    } else {
+      throw new Error('Provider does not support contract calls');
+    }
+    
+    const contract = new Contract(token.address, ERC20_ABI, contractRunner);
     
     // Fetch token metadata from chain if not provided
     const [symbol, name, decimals, totalSupply] = await Promise.all([
@@ -325,7 +355,14 @@ export class TokenService {
       contract.totalSupply()
     ]);
     
-    const network = await provider.getNetwork();
+    // Get network from provider
+    let network;
+    if ('getProvider' in provider && typeof provider.getProvider === 'function') {
+      const ethersProvider = provider.getProvider();
+      network = await ethersProvider.getNetwork();
+    } else {
+      throw new Error('Provider does not support network detection');
+    }
     
     const tokenInfo: TokenInfo = {
       address: token.address,
@@ -336,7 +373,7 @@ export class TokenService {
       chain: network.name,
       totalSupply,
       isCustom: true,
-      logoURI: token.logoURI
+      ...(token.logoURI !== undefined && { logoURI: token.logoURI })
     };
     
     this.supportedTokens.set(token.address.toLowerCase(), tokenInfo);
@@ -625,13 +662,11 @@ export class TokenService {
     const allTokens: TokenInfo[] = [];
     const lowerQuery = query.toLowerCase();
     
-    // Search through default tokens
-    for (const [chainTokens] of this.defaultTokens) {
-      for (const token of chainTokens) {
-        if (token.symbol.toLowerCase().includes(lowerQuery) || 
-            token.name.toLowerCase().includes(lowerQuery)) {
-          allTokens.push(token);
-        }
+    // Search through supported tokens
+    for (const token of this.supportedTokens.values()) {
+      if (token.symbol.toLowerCase().includes(lowerQuery) || 
+          token.name.toLowerCase().includes(lowerQuery)) {
+        allTokens.push(token);
       }
     }
     
@@ -676,7 +711,8 @@ export class TokenService {
       name: info.name,
       symbol: info.symbol,
       decimals: info.decimals,
-      logoUri: info.logoUri
+      ...(info.totalSupply !== undefined && { totalSupply: info.totalSupply }),
+      ...(info.logoURI !== undefined && { logoUri: info.logoURI })
     };
   }
 

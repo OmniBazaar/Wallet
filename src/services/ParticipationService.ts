@@ -149,7 +149,7 @@ export class ParticipationService {
    */
   constructor(provider: ethers.Provider, validatorEndpoint?: string) {
     this.provider = provider;
-    this.validatorEndpoint = validatorEndpoint || 'http://localhost:3001/api/participation';
+    this.validatorEndpoint = validatorEndpoint ?? 'http://localhost:3001/api/participation';
   }
   
   /** Initialize any resources (currently a no-op). */
@@ -161,11 +161,12 @@ export class ParticipationService {
    * Get or compute the participation score for an address.
    * Uses a 5-minute cache to reduce load.
    * @param address Wallet address
+   * @returns Promise that resolves to participation score
    */
   async getScore(address: string): Promise<ParticipationScore> {
     // Check cache
     const cached = this.scoreCache.get(address);
-    if (cached && Date.now() - cached.lastCalculated < 300000) { // 5 minute cache
+    if (cached !== undefined && Date.now() - cached.lastCalculated < 300000) { // 5 minute cache
       return cached;
     }
     

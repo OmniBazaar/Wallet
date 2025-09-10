@@ -4,49 +4,29 @@
 
 declare module "@trezor/connect-web" {
   /**
-   *
+   * Trezor Connect interface for web applications
    */
   export interface TrezorConnect {
-    /**
-     *
-     */
-    init(config: any): Promise<void>;
-    /**
-     *
-     */
-    ethereumGetPublicKey(params: any): Promise<any>;
-    /**
-     *
-     */
-    ethereumSignMessage(params: any): Promise<any>;
-    /**
-     *
-     */
-    ethereumSignTransaction(params: any): Promise<any>;
-    /**
-     *
-     */
-    ethereumSignTypedData(params: any): Promise<any>;
-    /**
-     *
-     */
-    getAddress(params: any): Promise<any>;
-    /**
-     *
-     */
-    signMessage(params: any): Promise<any>;
-    /**
-     *
-     */
-    signTransaction(params: any): Promise<any>;
-    /**
-     *
-     */
-    solanaGetAddress(params: any): Promise<any>;
-    /**
-     *
-     */
-    solanaSignTransaction(params: any): Promise<any>;
+    /** Initialize Trezor Connect with configuration */
+    init(config: unknown): Promise<void>;
+    /** Get Ethereum public key from device */
+    ethereumGetPublicKey(params: unknown): Promise<unknown>;
+    /** Sign Ethereum message */
+    ethereumSignMessage(params: unknown): Promise<unknown>;
+    /** Sign Ethereum transaction */
+    ethereumSignTransaction(params: unknown): Promise<unknown>;
+    /** Sign Ethereum typed data (EIP-712) */
+    ethereumSignTypedData(params: unknown): Promise<unknown>;
+    /** Get address for various cryptocurrencies */
+    getAddress(params: unknown): Promise<unknown>;
+    /** Sign message for various cryptocurrencies */
+    signMessage(params: unknown): Promise<unknown>;
+    /** Sign transaction for various cryptocurrencies */
+    signTransaction(params: unknown): Promise<unknown>;
+    /** Get Solana address from device */
+    solanaGetAddress(params: unknown): Promise<unknown>;
+    /** Sign Solana transaction */
+    solanaSignTransaction(params: unknown): Promise<unknown>;
   }
   
   const TrezorConnect: TrezorConnect;
@@ -64,60 +44,42 @@ declare module "@trezor/connect/lib/utils/pathUtils" {
 }
 
 declare module "@trezor/connect-plugin-ethereum" {
-  function transformTypedData(params: any): any;
+  function transformTypedData(params: unknown): unknown;
   export default transformTypedData;
 }
 
 declare module "@ethereumjs/tx" {
   /**
-   *
+   * EIP-1559 transaction with fee market
    */
   export class FeeMarketEIP1559Transaction {
-    /**
-     *
-     */
-    constructor(txData: any, opts?: any);
-    /**
-     *
-     */
+    /** Create new EIP-1559 transaction */
+    constructor(txData: unknown, opts?: unknown);
+    /** Serialize transaction to buffer */
     serialize(): Buffer;
-    /**
-     *
-     */
+    /** Get message to sign */
     getMessageToSign(): Buffer;
-    /**
-     *
-     */
-    raw(): any[];
+    /** Get raw transaction data */
+    raw(): unknown[];
   }
   
   /**
-   *
+   * Legacy transaction format
    */
   export class LegacyTransaction {
-    /**
-     *
-     */
-    constructor(txData: any, opts?: any);
-    /**
-     *
-     */
+    /** Create new legacy transaction */
+    constructor(txData: unknown, opts?: unknown);
+    /** Serialize transaction to buffer */
     serialize(): Buffer;
-    /**
-     *
-     */
+    /** Get message to sign */
     getMessageToSign(): Buffer;
-    /**
-     *
-     */
-    raw(): any[];
+    /** Get raw transaction data */
+    raw(): unknown[];
   }
   
   export const TransactionFactory: {
-    /**
-     *
-     */
-    fromTxData(txData: any, opts?: any): LegacyTransaction | FeeMarketEIP1559Transaction;
+    /** Create transaction from data */
+    fromTxData(txData: unknown, opts?: unknown): LegacyTransaction | FeeMarketEIP1559Transaction;
   };
 }
 

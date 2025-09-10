@@ -43,7 +43,7 @@ export class BSCNFTProvider implements ChainProvider {
       console.warn(`Fetching BSC NFTs for address: ${address}`);
       
       // Try Moralis API first if available
-      if (this.config.moralisApiKey) {
+      if (this.config.moralisApiKey !== undefined && this.config.moralisApiKey !== null && this.config.moralisApiKey !== '') {
         return await this.fetchFromMoralis(address);
       }
       
@@ -64,7 +64,7 @@ export class BSCNFTProvider implements ChainProvider {
    */
   async getNFTMetadata(contractAddress: string, tokenId: string): Promise<NFTItem | null> {
     try {
-      if (this.config.moralisApiKey) {
+      if (this.config.moralisApiKey !== undefined && this.config.moralisApiKey !== null && this.config.moralisApiKey !== '') {
         const response = await fetch(
           `${this.moralisUrl}/${contractAddress}/${tokenId}?chain=bsc`,
           {
@@ -339,7 +339,7 @@ export class BSCNFTProvider implements ChainProvider {
   async searchNFTs(query: string, limit = 20): Promise<NFTItem[]> {
     try {
       // If we have Moralis API, use it for search
-      if (this.config.moralisApiKey) {
+      if (this.config.moralisApiKey !== undefined && this.config.moralisApiKey !== null && this.config.moralisApiKey !== '') {
         const response = await fetch(
           `${this.moralisUrl}/nft/search?chain=bsc&q=${encodeURIComponent(query)}&limit=${limit}`,
           {
@@ -370,7 +370,7 @@ export class BSCNFTProvider implements ChainProvider {
     try {
       // Fetch from NFTrade or other BSC NFT marketplaces
       // For now, return popular collections
-      if (this.config.moralisApiKey) {
+      if (this.config.moralisApiKey !== undefined && this.config.moralisApiKey !== null && this.config.moralisApiKey !== '') {
         // Get NFTs from popular collections
         const popularContracts = [
           '0x5e74094cd416f55179dbd0e45b1a8ed030e396a1', // PancakeSquad
@@ -421,7 +421,7 @@ export class BSCNFTProvider implements ChainProvider {
   async testConnection(): Promise<{ connected: boolean; apis: string[] }> {
     const workingApis: string[] = [];
 
-    if (this.config.moralisApiKey) {
+    if (this.config.moralisApiKey !== undefined && this.config.moralisApiKey !== null && this.config.moralisApiKey !== '') {
       try {
         const response = await fetch(`${this.moralisUrl}/nft?chain=bsc&limit=1`, {
           headers: { 'X-API-Key': this.config.moralisApiKey }

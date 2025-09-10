@@ -6,7 +6,7 @@ import { u8aToBuffer } from "@polkadot/util";
 import { LedgerApps } from "./substrateApps";
 import {
   AddressResponse,
-  getAddressRequest,
+  GetAddressRequest,
   HWWalletProvider,
   PathType,
   SignTransactionRequest,
@@ -49,7 +49,7 @@ class LedgerSubstrate implements HWWalletProvider {
    * Validates the derivation path and network configuration
    * @param options - Request options containing path and network info
    */
-  validatePathAndNetwork(options: getAddressRequest | SignTransactionRequest): void {
+  validatePathAndNetwork(options: GetAddressRequest | SignTransactionRequest): void {
     const app = LedgerApps[this.network];
     if (app === undefined)
       throw new Error("ledger-substrate: Invalid network name");
@@ -83,7 +83,7 @@ class LedgerSubstrate implements HWWalletProvider {
    * @param options - Address request options including path and index
    * @returns Promise resolving to address response
    */
-  async getAddress(options: getAddressRequest): Promise<AddressResponse> {
+  async getAddress(options: GetAddressRequest): Promise<AddressResponse> {
     this.validatePathAndNetwork(options);
     const app = LedgerApps[this.network];
     if (app === undefined) {

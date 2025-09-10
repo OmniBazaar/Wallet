@@ -324,7 +324,7 @@ export class ValidatorTransactionService {
         from: tx.from,
         to: tx.to,
         value: tx.value,
-        data: tx.data,
+        ...(tx.data !== undefined && { data: tx.data }),
         gasLimit: tx.gasLimit,
         gasPrice: tx.gasPrice,
         nonce: tx.nonce
@@ -526,8 +526,8 @@ export class ValidatorTransactionService {
       const estimate: GasEstimate = {
         gasLimit: gasLimit.toString(),
         gasPrice: gasPrice.toString(),
-        maxFeePerGas: feeData.maxFeePerGas?.toString(),
-        maxPriorityFeePerGas: feeData.maxPriorityFeePerGas?.toString(),
+        ...(feeData.maxFeePerGas !== undefined && { maxFeePerGas: feeData.maxFeePerGas.toString() }),
+        ...(feeData.maxPriorityFeePerGas !== undefined && { maxPriorityFeePerGas: feeData.maxPriorityFeePerGas.toString() }),
         totalCost
       };
 
@@ -970,7 +970,7 @@ export class ValidatorTransactionService {
       gasLimit: blockchainTx.gasLimit?.toString() || '0',
       gasPrice: blockchainTx.gasPrice?.toString() || '0',
       status: 'confirmed',
-      blockNumber: blockchainTx.blockNumber,
+      ...(blockchainTx.blockNumber !== undefined && { blockNumber: blockchainTx.blockNumber }),
       confirmations: blockchainTx.confirmations || 0,
       timestamp: Date.now(), // Use current timestamp since blockchainTx doesn't include timestamp
       fee: ethers.formatEther(

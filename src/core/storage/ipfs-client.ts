@@ -350,7 +350,7 @@ export class IPFSClient {
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
-        return await response.json() as NFTMetadata | MarketplaceListing;
+        return await response.json() as unknown as NFTMetadata | MarketplaceListing;
       }
     } catch (error) {
       console.error('❌ Failed to fetch content from IPFS:', error);

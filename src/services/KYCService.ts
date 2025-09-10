@@ -221,13 +221,14 @@ export class KYCService {
   }
   
   /**
-   * Get the user’s current KYC status with caching.
+   * Get the user's current KYC status with caching.
    * @param address User wallet address
+   * @returns Promise that resolves to user KYC data
    */
   async getUserKYCStatus(address: string): Promise<UserKYCData> {
     // Check cache
     const cached = this.userCache.get(address);
-    if (cached && Date.now() - cached.lastUpdated < 60000) {
+    if (cached !== undefined && Date.now() - cached.lastUpdated < 60000) {
       return cached;
     }
     
@@ -238,7 +239,7 @@ export class KYCService {
         return this.getDefaultKYCData(address);
       }
       
-      const data = await response.json();
+      const data = await response.json() as unknown;
       const kycData = this.processKYCData(address, data);
       
       // Update cache

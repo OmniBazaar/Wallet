@@ -114,7 +114,7 @@ export class BrowserExtensionService extends EventEmitter {
         const hasPermission = await this.checkPermission(origin, method);
         if (!hasPermission) {
           return {
-            id,
+            ...(id !== undefined && { id }),
             error: 'Unauthorized',
             jsonrpc: '2.0'
           };
@@ -148,7 +148,7 @@ export class BrowserExtensionService extends EventEmitter {
           // Forward to wallet service for other methods
           const result = await this.walletService.request({ method, params }) as unknown;
           return {
-            id,
+            ...(id !== undefined && { id }),
             result,
             jsonrpc: '2.0'
           };
@@ -156,7 +156,7 @@ export class BrowserExtensionService extends EventEmitter {
       }
     } catch (error) {
       return {
-        id,
+        ...(id !== undefined && { id }),
         error: error instanceof Error ? error.message : 'Unknown error',
         jsonrpc: '2.0'
       };
@@ -211,7 +211,7 @@ export class BrowserExtensionService extends EventEmitter {
     
     if (trustedSites.includes(origin)) {
       this.permissionedSites.set(origin, ['*']);
-      return true;
+      return Promise.resolve(true);
     }
     
     return Promise.resolve(false);
@@ -234,7 +234,7 @@ export class BrowserExtensionService extends EventEmitter {
     }
     
     return {
-      id,
+      ...(id !== undefined && { id }),
       result: addresses,
       jsonrpc: '2.0'
     };
@@ -249,7 +249,7 @@ export class BrowserExtensionService extends EventEmitter {
   private async handleGetAccounts(origin: string, id?: number | string): Promise<ProviderResponse> {
     if (this.connectedSites.get(origin) !== true) {
       return {
-        id,
+        ...(id !== undefined && { id }),
         result: [],
         jsonrpc: '2.0'
       };
@@ -258,7 +258,7 @@ export class BrowserExtensionService extends EventEmitter {
     const keyringAccounts = await this.walletService.getAccounts();
     const addresses = keyringAccounts.map(account => account.address);
     return {
-      id,
+      ...(id !== undefined && { id }),
       result: addresses,
       jsonrpc: '2.0'
     };
@@ -273,7 +273,7 @@ export class BrowserExtensionService extends EventEmitter {
   private async handleSendTransaction(params: unknown[], id?: number | string): Promise<ProviderResponse> {
     if (params.length === 0) {
       return {
-        id,
+        ...(id !== undefined && { id }),
         error: 'Missing transaction parameters',
         jsonrpc: '2.0'
       };
@@ -281,9 +281,17 @@ export class BrowserExtensionService extends EventEmitter {
     
     const tx = params[0] as TransactionParams;
     
+    if (!tx.to || tx.to === '') {
+      return {
+        ...(id !== undefined && { id }),
+        error: 'Missing to address',
+        jsonrpc: '2.0'
+      };
+    }
+    
     // Send transaction through wallet service
     const txResponse = await this.walletService.sendTransaction({
-      ...(tx.to !== undefined && { to: tx.to }),
+      to: tx.to,
       ...(tx.value !== undefined && { value: BigInt(tx.value) }),
       ...(tx.data !== undefined && { data: tx.data }),
       ...(tx.gas !== undefined && { gasLimit: BigInt(tx.gas) }),
@@ -291,7 +299,7 @@ export class BrowserExtensionService extends EventEmitter {
     });
     
     return {
-      id,
+      ...(id !== undefined && { id }),
       result: txResponse.hash,
       jsonrpc: '2.0'
     };
@@ -306,7 +314,7 @@ export class BrowserExtensionService extends EventEmitter {
   private async handlePersonalSign(params: unknown[], id?: number | string): Promise<ProviderResponse> {
     if (params.length < 2) {
       return {
-        id,
+        ...(id !== undefined && { id }),
         error: 'Missing parameters for personal_sign',
         jsonrpc: '2.0'
       };
@@ -319,7 +327,7 @@ export class BrowserExtensionService extends EventEmitter {
     const signature = await this.walletService.signMessage(message);
     
     return {
-      id,
+      ...(id !== undefined && { id }),
       result: signature,
       jsonrpc: '2.0'
     };
@@ -334,7 +342,7 @@ export class BrowserExtensionService extends EventEmitter {
   private async handleSwitchChain(params: unknown[], id?: number | string): Promise<ProviderResponse> {
     if (params.length === 0) {
       return {
-        id,
+        ...(id !== undefined && { id }),
         error: 'Missing chain switch parameters',
         jsonrpc: '2.0'
       };
@@ -348,25 +356,25 @@ export class BrowserExtensionService extends EventEmitter {
       this.emit('networkChanged', chainIdNumber);
       
       return {
-        id,
+        ...(id !== undefined && { id }),
         result: null,
         jsonrpc: '2.0'
       };
     } catch (error) {
       // For testing purposes, if switchChain fails due to provider limitations,
       // we can still emit the event and return success if the chain is configured
-      const walletServiceConfig = (this.walletService as { config?: { providers?: Record<number, unknown> } }).config;
+      const walletServiceConfig = (this.walletService as unknown as { config?: { providers?: Record<number, unknown> } }).config;
       if (walletServiceConfig?.providers !== undefined && walletServiceConfig.providers[chainIdNumber] !== undefined) {
         this.emit('networkChanged', chainIdNumber);
         return {
-          id,
+          ...(id !== undefined && { id }),
           result: JSON.stringify(null),
           jsonrpc: '2.0'
         };
       }
       
       return {
-        id,
+        ...(id !== undefined && { id }),
         error: `Failed to switch chain: ${error instanceof Error ? error.message : 'Unknown error'}`,
         jsonrpc: '2.0'
       };
@@ -381,10 +389,10 @@ export class BrowserExtensionService extends EventEmitter {
   private async handleGetChainId(id?: number | string): Promise<ProviderResponse> {
     const chainId = await this.walletService.getChainId();
     return {
-      id,
+      ...(id !== undefined && { id }),
       result: `0x${chainId.toString(16)}`,
       jsonrpc: '2.0'
-    };
+    } as ProviderResponse;
   }
 
   /**
@@ -395,7 +403,7 @@ export class BrowserExtensionService extends EventEmitter {
   private async handleGetNetVersion(id?: number | string): Promise<ProviderResponse> {
     const chainId = await this.walletService.getChainId();
     return {
-      id,
+      ...(id !== undefined && { id }),
       result: chainId.toString(),
       jsonrpc: '2.0'
     };
@@ -417,7 +425,7 @@ export class BrowserExtensionService extends EventEmitter {
             })
             .catch(error => {
               sendResponse({
-                id: providerRequest.id,
+                ...(providerRequest.id !== undefined && { id: providerRequest.id }),
                 error: error instanceof Error ? error.message : 'Unknown error',
                 jsonrpc: '2.0'
               });
@@ -476,7 +484,7 @@ export class BrowserExtensionService extends EventEmitter {
    * Clear all permissions and connections
    * @returns Promise that resolves when cleared
    */
-  clearAll(): Promise<void> {
+  clearAll(): void {
     this.connectedSites.clear();
     this.permissionedSites.clear();
     this.emit('connectionChanged', false);

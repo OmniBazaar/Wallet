@@ -24,7 +24,7 @@ import {
   AddressResponse,
   BitcoinSignMessage,
   BTCSignTransaction,
-  getAddressRequest,
+  GetAddressRequest,
   HWWalletProvider,
   PathType,
   SignTransactionRequest,
@@ -86,7 +86,7 @@ class LedgerBitcoin implements HWWalletProvider {
    * @param options - Request options including path type and index
    * @returns Promise resolving to address response with address and public key
    */
-  async getAddress(options: getAddressRequest): Promise<AddressResponse> {
+  async getAddress(options: GetAddressRequest): Promise<AddressResponse> {
     if (supportedPaths[this.network] === undefined)
       return Promise.reject(new Error("ledger-bitcoin: Invalid network name"));
     const isHardened = options.pathType.basePath.split("/").length - 1 === 2;
@@ -96,7 +96,6 @@ class LedgerBitcoin implements HWWalletProvider {
     }
     
     const connection = new BtcApp({ transport: this.transport });
-    // @ts-expect-error - HDKey module doesn't have type definitions
     const hdKey = new HDKey() as HDKeyInstance;
     if (!isHardened) {
       if (this.HDNodes[options.pathType.basePath] === undefined) {
@@ -272,6 +271,10 @@ class LedgerBitcoin implements HWWalletProvider {
     const { psbtTx } = transactionOptions;
     const { txInputs } = psbtTx;
     
+    if (txInputs === undefined) {
+      throw new Error('ledger-bitcoin: txInputs is undefined');
+    }
+    
     interface PsbtInput {
       witnessScript?: Buffer;
     }
@@ -280,9 +283,9 @@ class LedgerBitcoin implements HWWalletProvider {
       inputs: PsbtInput[];
     }
     
-    interface TxInput {
-      index: number;
-    }
+    // interface TxInput {
+    //   index: number;
+    // }
     
     const data = psbtTx.data as PsbtData;
     
@@ -296,7 +299,7 @@ class LedgerBitcoin implements HWWalletProvider {
         }
         return [
           connection.splitTransaction(rTx.replace("0x", ""), true),
-          txInput.index,
+          (txInput as { index: number }).index,
           witnessScriptHex,
           undefined,
         ];

@@ -12,8 +12,7 @@
 import * as bip39 from 'bip39';
 import { HDNodeWallet, Mnemonic, TransactionRequest } from 'ethers';
 import * as crypto from 'crypto';
-// @ts-expect-error - elliptic module has no type definitions
-import elliptic from 'elliptic';
+import * as elliptic from 'elliptic';
 interface EllipticEC {
   keyFromPrivate(privateKey: Uint8Array): {
     sign(hash: Uint8Array): {
@@ -23,7 +22,7 @@ interface EllipticEC {
     };
   };
 }
-const EC = elliptic.ec as unknown as new (curve: string) => EllipticEC;
+const EC = (elliptic as { ec: new (curve: string) => EllipticEC }).ec;
 import { Keypair } from '@solana/web3.js';
 import * as bitcoin from 'bitcoinjs-lib';
 import { ECPairFactory } from 'ecpair';

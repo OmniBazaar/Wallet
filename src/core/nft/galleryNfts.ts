@@ -7,7 +7,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { NFTManager, type MockNFT } from './mocks/NFTManager';
 import { NFTService, type MockNFTCollection, type MockNFTMetadata } from './mocks/NFTService';
 import { MarketplaceService, type MockListing } from './mocks/MarketplaceService';
-import type { NFT, NFTCollection } from './types';
+import type { NFT, NFTCollection, NFTAttribute } from './types';
 import type { ChainType } from '../keyring/BIP39Keyring';
 import { keyringService } from '../keyring/KeyringService';
 import { validateNFTMetadata } from '../../utils/nft';
@@ -167,17 +167,20 @@ export const useGalleryNFTs = (options: GalleryNFTsOptions = {}): GalleryNFTsRes
             await marketplaceService.getListings() : [];
           const listing = listings.find((l: MockListing) => l.nftId === nft.id);
           
-          enhancedNFTs.push({
+          const galleryNft: GalleryNFT = {
             ...nft,
-            collection: collection !== undefined ? {
-              id: collection.address,
-              name: collection.name,
-              floor_price: { value: 0, currency: 'ETH' }
-            } as NFTCollection : undefined,
+            ...(collection !== null && collection !== undefined && {
+              collection: {
+                id: collection.address,
+                name: collection.name,
+                floor_price: { value: 0, currency: 'ETH' }
+              } as NFTCollection
+            }),
             floorPrice: BigInt(0),
             isListed: listing !== undefined,
-            listingPrice: listing !== undefined ? BigInt(listing.price) : undefined
-          });
+            ...(listing && { listingPrice: BigInt(listing.price) })
+          };
+          enhancedNFTs.push(galleryNft);
         } catch {
           // If enhancement fails, add basic NFT
           enhancedNFTs.push(nft);
@@ -356,15 +359,18 @@ export const getGalleryNFTs = async (
               c.address === nft.contract_address
             );
             
-            allNFTs.push({
+            const galleryNft: GalleryNFT = {
               ...nft,
-              collection: collection !== undefined ? {
-                id: collection.address,
-                name: collection.name,
-                floor_price: { value: 0, currency: 'ETH' }
-              } as NFTCollection : undefined,
+              ...(collection !== null && collection !== undefined && {
+                collection: {
+                  id: collection.address,
+                  name: collection.name,
+                  floor_price: { value: 0, currency: 'ETH' }
+                } as NFTCollection
+              }),
               floorPrice: BigInt(0)
-            });
+            };
+            allNFTs.push(galleryNft);
           } catch {
             allNFTs.push(nft);
           }
@@ -421,9 +427,16 @@ export const getNFTMetadata = async (
       name: metadata.name,
       metadata: {
         name: metadata.name,
-        description: metadata.description,
-        image: metadata.image,
-        attributes: metadata.attributes as NFT['metadata']['attributes']
+        ...(metadata.description && { description: metadata.description }),
+        ...(metadata.image && { image: metadata.image }),
+        ...(metadata.attributes && Array.isArray(metadata.attributes) && { 
+          attributes: metadata.attributes.filter((attr): attr is NFTAttribute => 
+            attr !== null && 
+            typeof attr === 'object' && 
+            'trait_type' in attr && 
+            'value' in attr
+          )
+        })
       },
       isSpam: false,
       isListed: false,
