@@ -113,7 +113,7 @@ export class KeyringManager {
     this.validateCredentials(credentials);
 
     // Check username uniqueness (to be implemented with backend)
-    const isUnique = this.isUsernameUnique(credentials.username);
+    const isUnique = await this.isUsernameUnique(credentials.username);
     if (!isUnique) {
       throw new Error('Username already exists. Please choose a different username.');
     }
@@ -128,7 +128,7 @@ export class KeyringManager {
     const session = this.createSession(credentials.username, accounts);
 
     // Register username on blockchain
-    void this.registerUsernameOnChain(credentials.username, accounts.omnicoin.address);
+    await this.registerUsernameOnChain(credentials.username, accounts.omnicoin.address);
 
     this.currentSession = session;
     return session;
@@ -290,7 +290,8 @@ export class KeyringManager {
 
   /**
    * Check if username is unique
-   * @param _username Username to check (unused in current implementation)
+   * @param username Username to check
+   * @param _username
    * @returns True if username is available, false if taken
    */
   private isUsernameUnique(_username: string): boolean {
@@ -309,8 +310,10 @@ export class KeyringManager {
 
   /**
    * Register username on blockchain
-   * @param _username Username to register (unused in current implementation)
-   * @param _address Blockchain address to associate (unused in current implementation)
+   * @param username Username to register
+   * @param address Blockchain address to associate
+   * @param _username
+   * @param _address
    * @returns Transaction hash or empty string if failed
    */
   private registerUsernameOnChain(_username: string, _address: string): string {

@@ -2,6 +2,7 @@ import { ethers } from 'ethers';
 import type { NFTItem, NFTCollection } from '../../../types/nft';
 import type { ChainProvider } from '../display/multi-chain-display';
 import { OmniProvider } from '../../providers/OmniProvider';
+import { logger } from '../../../utils/logger';
 
 /** Configuration for Ethereum NFT provider */
 export interface EthereumNFTConfig {
@@ -37,10 +38,10 @@ export class EthereumNFTProvider implements ChainProvider {
    */
   constructor(config: EthereumNFTConfig) {
     this.config = config;
-    this.isConnected = config.rpcUrl != null;
+    this.isConnected = Boolean(config.rpcUrl);
 
     // Initialize OmniProvider if configured
-    if (config.useOmniProvider) {
+    if (config.useOmniProvider === true) {
       this.omniProvider = new OmniProvider('ethereum-nft-provider');
     }
   }
@@ -52,17 +53,17 @@ export class EthereumNFTProvider implements ChainProvider {
    */
   async getNFTs(address: string): Promise<NFTItem[]> {
     try {
-      console.warn(`Fetching Ethereum NFTs for address: ${address}`);
+      logger.debug(`Fetching Ethereum NFTs for address: ${address}`);
 
       // Try OmniProvider first if available
-      if (this.omniProvider) {
+      if (this.omniProvider !== undefined) {
         try {
           const nfts = await this.omniProvider.send('omni_getNFTs', [address]);
-          if (nfts != null && Array.isArray(nfts) && nfts.length > 0) {
+          if (nfts !== null && Array.isArray(nfts) && nfts.length > 0) {
             return nfts as NFTItem[];
           }
         } catch (error) {
-          console.warn('OmniProvider failed, falling back to external APIs:', error);
+          logger.warn('OmniProvider failed, falling back to external APIs:', error);
         }
       }
 
@@ -72,7 +73,7 @@ export class EthereumNFTProvider implements ChainProvider {
       }
 
       // Fallback to OpenSea API
-      if (this.config.openseaApiKey) {
+      if (this.config.openseaApiKey !== undefined && this.config.openseaApiKey !== '') {
         return await this.fetchFromOpenSea(address);
       }
 
@@ -80,15 +81,16 @@ export class EthereumNFTProvider implements ChainProvider {
       return await this.fetchFromBlockchain(address);
 
     } catch (error) {
-      console.warn('Error fetching Ethereum NFTs:', error);
+      logger.error('Error fetching Ethereum NFTs:', error);
       return [];
     }
   }
 
   /**
    * Get specific NFT metadata
-   * @param contractAddress
-   * @param tokenId
+   * @param contractAddress The contract address of the NFT
+   * @param tokenId The token ID of the NFT
+   * @returns Promise resolving to NFT item or null if not found
    */
   async getNFTMetadata(contractAddress: string, tokenId: string): Promise<NFTItem | null> {
     try {
@@ -98,25 +100,38 @@ export class EthereumNFTProvider implements ChainProvider {
         );
 
         if (response.ok) {
-          const data = await response.json();
+          const data = await response.json() as {
+            contract: { address: string };
+            id: { tokenId: string; tokenMetadata?: { tokenType?: string } };
+            metadata?: {
+              name?: string;
+              description?: string;
+              image?: string;
+              attributes?: Array<{ trait_type: string; value: string | number }>;
+              creator?: string;
+            };
+            media?: Array<{ gateway?: string }>;
+          };
           return this.transformAlchemyNFT(data);
         }
       }
 
       return null;
     } catch (error) {
-      console.warn('Error fetching NFT metadata:', error);
+      logger.warn('Error fetching NFT metadata:', error);
       return null;
     }
   }
 
   /**
    * Get NFT collections for an address
-   * @param address
+   * @param address The wallet address to fetch collections for
+   * @returns Promise resolving to array of NFT collections
    */
   async getCollections(address: string): Promise<NFTCollection[]> {
     try {
       // This would integrate with collection APIs
+      await Promise.resolve(); // Satisfy async requirement
       return [{
         id: 'ethereum_collection_1',
         name: 'Ethereum NFT Collection',
@@ -130,14 +145,15 @@ export class EthereumNFTProvider implements ChainProvider {
         items: []
       }];
     } catch (error) {
-      console.warn('Error fetching Ethereum collections:', error);
+      logger.warn('Error fetching Ethereum collections:', error);
       return [];
     }
   }
 
   /**
    * Fetch NFTs from Alchemy API
-   * @param address
+   * @param address The wallet address to fetch NFTs for
+   * @returns Promise resolving to array of NFT items
    */
   private async fetchFromAlchemy(address: string): Promise<NFTItem[]> {
     const response = await fetch(
@@ -148,8 +164,8 @@ export class EthereumNFTProvider implements ChainProvider {
       throw new Error(`Alchemy API error: ${response.status}`);
     }
 
-    const data = await response.json();
-    return data.ownedNfts.map((nft: {
+    interface AlchemyNFTResponse {
+      ownedNfts: Array<{
       contract: { address: string };
       id: { tokenId: string; tokenMetadata?: { tokenType?: string } };
       metadata?: {
@@ -160,19 +176,23 @@ export class EthereumNFTProvider implements ChainProvider {
         creator?: string;
       };
       media?: Array<{ gateway?: string }>;
-    }) => this.transformAlchemyNFT(nft));
+      }>;
+    }
+    const data = await response.json() as AlchemyNFTResponse;
+    return data.ownedNfts.map((nft) => this.transformAlchemyNFT(nft));
   }
 
   /**
    * Fetch NFTs from OpenSea API
-   * @param address
+   * @param address The wallet address to fetch NFTs for
+   * @returns Promise resolving to array of NFT items
    */
   private async fetchFromOpenSea(address: string): Promise<NFTItem[]> {
     const headers: HeadersInit = {
       'Accept': 'application/json'
     };
 
-    if (this.config.openseaApiKey) {
+    if (this.config.openseaApiKey !== undefined && this.config.openseaApiKey !== '') {
       headers['X-API-KEY'] = this.config.openseaApiKey;
     }
 
@@ -185,8 +205,8 @@ export class EthereumNFTProvider implements ChainProvider {
       throw new Error(`OpenSea API error: ${response.status}`);
     }
 
-    const data = await response.json();
-    return data.assets.map((asset: {
+    interface OpenSeaNFTResponse {
+      assets: Array<{
       asset_contract: { address: string; schema_name?: string };
       token_id: string;
       name?: string;
@@ -199,25 +219,29 @@ export class EthereumNFTProvider implements ChainProvider {
       last_sale?: { total_price: string };
       sell_orders?: Array<Record<string, unknown>>;
       permalink?: string;
-    }) => this.transformOpenSeaNFT(asset));
+      }>;
+    }
+    const data = await response.json() as OpenSeaNFTResponse;
+    return data.assets.map((asset) => this.transformOpenSeaNFT(asset));
   }
 
   /**
    * Transform Alchemy NFT data to our format
-   * @param nft
-   * @param nft.contract
-   * @param nft.contract.address
-   * @param nft.id
-   * @param nft.id.tokenId
-   * @param nft.id.tokenMetadata
-   * @param nft.id.tokenMetadata.tokenType
-   * @param nft.metadata
-   * @param nft.metadata.name
-   * @param nft.metadata.description
-   * @param nft.metadata.image
-   * @param nft.metadata.attributes
-   * @param nft.metadata.creator
-   * @param nft.media
+   * @param nft The NFT data from Alchemy API
+   * @param nft.contract The NFT contract information
+   * @param nft.contract.address The contract address
+   * @param nft.id The NFT ID information
+   * @param nft.id.tokenId The token ID
+   * @param nft.id.tokenMetadata Optional token metadata
+   * @param nft.id.tokenMetadata.tokenType The token type (ERC721 or ERC1155)
+   * @param nft.metadata Optional NFT metadata
+   * @param nft.metadata.name The NFT name
+   * @param nft.metadata.description The NFT description
+   * @param nft.metadata.image The image URL
+   * @param nft.metadata.attributes The NFT attributes
+   * @param nft.metadata.creator The creator address
+   * @param nft.media Optional media array
+   * @returns Transformed NFT item
    */
   private transformAlchemyNFT(nft: {
     contract: { address: string };
@@ -231,46 +255,48 @@ export class EthereumNFTProvider implements ChainProvider {
     };
     media?: Array<{ gateway?: string }>;
   }): NFTItem {
-    const metadata = nft.metadata || {};
+    const metadata = nft.metadata ?? {};
+    const tokenType = nft.id.tokenMetadata?.tokenType ?? 'ERC721';
 
     return {
       id: `ethereum_${nft.contract.address}_${nft.id.tokenId}`,
       tokenId: nft.id.tokenId,
-      name: metadata.name || `Token #${nft.id.tokenId}`,
-      description: metadata.description || '',
-      image: metadata.image || nft.media?.[0]?.gateway || '',
-      imageUrl: metadata.image || nft.media?.[0]?.gateway || '',
-      attributes: metadata.attributes || [],
+      name: metadata.name ?? `Token #${nft.id.tokenId}`,
+      description: metadata.description ?? '',
+      image: metadata.image ?? nft.media?.[0]?.gateway ?? '',
+      imageUrl: metadata.image ?? nft.media?.[0]?.gateway ?? '',
+      attributes: metadata.attributes ?? [],
       contract: nft.contract.address,
       contractAddress: nft.contract.address,
-      tokenStandard: ((nft.id.tokenMetadata?.tokenType || 'ERC721')).toUpperCase() === 'ERC1155' ? 'ERC1155' : 'ERC721',
+      tokenStandard: tokenType.toUpperCase() === 'ERC1155' ? 'ERC1155' : 'ERC721',
       blockchain: 'ethereum',
       owner: 'unknown',
-      creator: metadata.creator || 'unknown',
+      creator: metadata.creator ?? 'unknown',
       isListed: false
     };
   }
 
   /**
    * Transform OpenSea NFT data to our format
-   * @param asset
-   * @param asset.asset_contract
-   * @param asset.asset_contract.address
-   * @param asset.asset_contract.schema_name
-   * @param asset.token_id
-   * @param asset.name
-   * @param asset.description
-   * @param asset.image_url
-   * @param asset.image_preview_url
-   * @param asset.traits
-   * @param asset.owner
-   * @param asset.owner.address
-   * @param asset.creator
-   * @param asset.creator.address
-   * @param asset.last_sale
-   * @param asset.last_sale.total_price
-   * @param asset.sell_orders
-   * @param asset.permalink
+   * @param asset The asset data from OpenSea API
+   * @param asset.asset_contract The contract information
+   * @param asset.asset_contract.address The contract address
+   * @param asset.asset_contract.schema_name The token standard
+   * @param asset.token_id The token ID
+   * @param asset.name The NFT name
+   * @param asset.description The NFT description
+   * @param asset.image_url The full image URL
+   * @param asset.image_preview_url The preview image URL
+   * @param asset.traits The NFT traits/attributes
+   * @param asset.owner The owner information
+   * @param asset.owner.address The owner address
+   * @param asset.creator The creator information
+   * @param asset.creator.address The creator address
+   * @param asset.last_sale The last sale information
+   * @param asset.last_sale.total_price The last sale price
+   * @param asset.sell_orders Active sell orders
+   * @param asset.permalink The OpenSea permalink
+   * @returns Transformed NFT item
    */
   private transformOpenSeaNFT(asset: {
     asset_contract: { address: string; schema_name?: string };
@@ -286,31 +312,33 @@ export class EthereumNFTProvider implements ChainProvider {
     sell_orders?: Array<Record<string, unknown>>;
     permalink?: string;
   }): NFTItem {
+    const schemaName = asset.asset_contract.schema_name ?? 'ERC721';
     return {
       id: `ethereum_${asset.asset_contract.address}_${asset.token_id}`,
       tokenId: asset.token_id,
-      name: asset.name || `Token #${asset.token_id}`,
-      description: asset.description || '',
-      image: asset.image_url || asset.image_preview_url || '',
-      imageUrl: asset.image_url || asset.image_preview_url || '',
-      attributes: asset.traits || [],
+      name: asset.name ?? `Token #${asset.token_id}`,
+      description: asset.description ?? '',
+      image: asset.image_url ?? asset.image_preview_url ?? '',
+      imageUrl: asset.image_url ?? asset.image_preview_url ?? '',
+      attributes: asset.traits ?? [],
       contract: asset.asset_contract.address,
       contractAddress: asset.asset_contract.address,
-      tokenStandard: ((asset.asset_contract.schema_name || 'ERC721')).toUpperCase() === 'ERC1155' ? 'ERC1155' : 'ERC721',
+      tokenStandard: schemaName.toUpperCase() === 'ERC1155' ? 'ERC1155' : 'ERC721',
       blockchain: 'ethereum',
-      owner: asset.owner?.address || 'unknown',
-      creator: asset.creator?.address || 'unknown',
-      price: asset.last_sale?.total_price ?
+      owner: asset.owner?.address ?? 'unknown',
+      creator: asset.creator?.address ?? 'unknown',
+      price: asset.last_sale?.total_price !== undefined ?
         (parseInt(asset.last_sale.total_price) / 1e18).toString() : '0',
       currency: 'ETH',
       isListed: Boolean(asset.sell_orders?.length),
-      marketplaceUrl: asset.permalink || ''
+      ...(asset.permalink !== undefined && asset.permalink !== '' && { marketplaceUrl: asset.permalink })
     };
   }
 
   /**
    * Fetch NFTs directly from blockchain using ethers
-   * @param address
+   * @param address The wallet address to fetch NFTs for
+   * @returns Promise resolving to array of NFT items
    */
   private async fetchFromBlockchain(address: string): Promise<NFTItem[]> {
     try {
@@ -321,12 +349,12 @@ export class EthereumNFTProvider implements ChainProvider {
       // Try OmniBazaar's cached NFT data first
       try {
         const cachedNFTs = await provider.getNFTs(address, 1);
-        if (cachedNFTs && cachedNFTs.length > 0) {
-          console.log('NFTs served from OmniBazaar validator cache');
+        if (cachedNFTs !== undefined && cachedNFTs.length > 0) {
+          logger.info('NFTs served from OmniBazaar validator cache');
           return cachedNFTs as NFTItem[];
         }
       } catch (error) {
-        console.warn('Failed to get cached NFTs, falling back to direct query');
+        logger.warn('Failed to get cached NFTs, falling back to direct query');
       }
 
       // Common NFT contracts to check
@@ -355,40 +383,46 @@ export class EthereumNFTProvider implements ChainProvider {
           const contract = new ethers.Contract(contractAddress, erc721Abi, provider);
 
           // Get balance
-          const balanceOfMethod = contract['balanceOf'];
-          if (!balanceOfMethod) continue;
+          const balanceOfMethod = contract['balanceOf'] as ((address: string) => Promise<bigint>) | undefined;
+          if (balanceOfMethod === undefined) continue;
           const balance = await balanceOfMethod(address);
-          if (balance === 0n) continue;
+          if (balance === BigInt(0)) continue;
 
           // Get collection name
-          const nameMethod = contract['name'];
-          const collectionName = nameMethod ? await nameMethod().catch(() => 'Unknown Collection') : 'Unknown Collection';
+          const nameMethod = contract['name'] as (() => Promise<string>) | undefined;
+          const collectionName = nameMethod !== undefined ? await nameMethod().catch(() => 'Unknown Collection') : 'Unknown Collection';
 
           // Get up to 10 NFTs from this collection
           const limit = Math.min(Number(balance), 10);
 
           for (let i = 0; i < limit; i++) {
             try {
-              const tokenOfOwnerByIndexMethod = contract['tokenOfOwnerByIndex'];
-              const tokenURIMethod = contract['tokenURI'];
-              if (!tokenOfOwnerByIndexMethod || !tokenURIMethod) continue;
+              const tokenOfOwnerByIndexMethod = contract['tokenOfOwnerByIndex'] as ((owner: string, index: number) => Promise<bigint>) | undefined;
+              const tokenURIMethod = contract['tokenURI'] as ((tokenId: bigint) => Promise<string>) | undefined;
+              if (tokenOfOwnerByIndexMethod === undefined || tokenURIMethod === undefined) continue;
               
               const tokenId = await tokenOfOwnerByIndexMethod(address, i);
               const tokenURI = await tokenURIMethod(tokenId).catch(() => '');
 
               // Parse metadata if available
-              let metadata: any = {};
+              interface NFTMetadata {
+                name?: string;
+                description?: string;
+                image?: string;
+                attributes?: Array<{ trait_type: string; value: string | number }>;
+              }
+              let metadata: NFTMetadata = {};
               if (tokenURI.startsWith('data:')) {
                 // On-chain metadata
                 const json = tokenURI.split(',')[1];
-                metadata = JSON.parse(atob(json));
+                metadata = JSON.parse(atob(json)) as NFTMetadata;
               } else if (tokenURI.startsWith('ipfs://')) {
                 // IPFS metadata - fetch if gateway available
                 const ipfsGateway = 'https://ipfs.io/ipfs/';
                 const ipfsHash = tokenURI.replace('ipfs://', '');
                 try {
                   const response = await fetch(ipfsGateway + ipfsHash);
-                  metadata = await response.json();
+                  metadata = await response.json() as NFTMetadata;
                 } catch {
                   metadata = { name: `${collectionName} #${tokenId}`, description: '' };
                 }
@@ -396,7 +430,7 @@ export class EthereumNFTProvider implements ChainProvider {
                 // HTTP metadata
                 try {
                   const response = await fetch(tokenURI);
-                  metadata = await response.json();
+                  metadata = await response.json() as NFTMetadata;
                 } catch {
                   metadata = { name: `${collectionName} #${tokenId}`, description: '' };
                 }
@@ -405,33 +439,31 @@ export class EthereumNFTProvider implements ChainProvider {
               nfts.push({
                 id: `ethereum_${contractAddress}_${tokenId}`,
                 tokenId: tokenId.toString(),
-                name: metadata.name || `${collectionName} #${tokenId}`,
-                description: metadata.description || '',
-                image: metadata.image || '',
-                imageUrl: metadata.image || '',
-                attributes: metadata.attributes || [],
+                name: metadata.name ?? `${collectionName} #${tokenId}`,
+                description: metadata.description ?? '',
+                image: metadata.image ?? '',
+                imageUrl: metadata.image ?? '',
+                attributes: metadata.attributes ?? [],
                 contract: contractAddress,
                 contractAddress,
                 tokenStandard: 'ERC721',
                 blockchain: 'ethereum',
                 owner: address,
                 creator: '',
-                price: '0',
-                currency: 'ETH',
                 isListed: false
               });
             } catch (error) {
-              console.warn(`Failed to fetch NFT ${i} from ${contractAddress}:`, error);
+              logger.warn(`Failed to fetch NFT ${i} from ${contractAddress}:`, error);
             }
           }
         } catch (error) {
-          console.warn(`Failed to query contract ${contractAddress}:`, error);
+          logger.warn(`Failed to query contract ${contractAddress}:`, error);
         }
       }
 
       return nfts;
     } catch (error) {
-      console.error('Failed to fetch NFTs from blockchain:', error);
+      logger.error('Failed to fetch NFTs from blockchain:', error);
       return [];
     }
   }
@@ -439,8 +471,9 @@ export class EthereumNFTProvider implements ChainProvider {
 
   /**
    * Search NFTs (basic implementation)
-   * @param query
-   * @param limit
+   * @param query The search query (contract address or other search term)
+   * @param limit Maximum number of results to return
+   * @returns Promise resolving to array of NFT items
    */
   async searchNFTs(query: string, limit = 20): Promise<NFTItem[]> {
     try {
@@ -451,27 +484,41 @@ export class EthereumNFTProvider implements ChainProvider {
         );
 
         if (response.ok) {
-          const data = await response.json();
-          return data.ownedNfts?.map((nft: any) => this.transformAlchemyNFT(nft)) || [];
+          const data = await response.json() as {
+            ownedNfts?: Array<{
+              contract: { address: string };
+              id: { tokenId: string; tokenMetadata?: { tokenType?: string } };
+              metadata?: {
+                name?: string;
+                description?: string;
+                image?: string;
+                attributes?: Array<{ trait_type: string; value: string | number }>;
+                creator?: string;
+              };
+              media?: Array<{ gateway?: string }>;
+            }>;
+          };
+          return data.ownedNfts?.map((nft) => this.transformAlchemyNFT(nft)) ?? [];
         }
       }
 
       // Return empty array if no search API available
       return [];
     } catch (error) {
-      console.warn('Error searching Ethereum NFTs:', error);
+      logger.warn('Error searching Ethereum NFTs:', error);
       return [];
     }
   }
 
   /**
    * Get popular/trending NFTs
-   * @param _limit
+   * @param _limit Maximum number of trending NFTs to return
+   * @returns Promise resolving to array of trending NFT items
    */
   async getTrendingNFTs(_limit = 20): Promise<NFTItem[]> {
     try {
       // Fetch trending NFTs from OpenSea API if available
-      if (this.config.openseaApiKey) {
+      if (this.config.openseaApiKey !== undefined && this.config.openseaApiKey !== '') {
         const response = await fetch(`${this.baseUrl}/events?event_type=sale&limit=20`, {
           headers: {
             'X-API-KEY': this.config.openseaApiKey
@@ -479,26 +526,44 @@ export class EthereumNFTProvider implements ChainProvider {
         });
 
         if (response.ok) {
-          const data = await response.json();
+          interface OpenSeaEventResponse {
+            asset_events?: Array<{
+              asset?: {
+                asset_contract: { address: string; schema_name?: string };
+                token_id: string;
+                name?: string;
+                description?: string;
+                image_url?: string;
+                collection: { name: string };
+                traits?: Array<{ trait_type: string; value: string | number }>;
+                owner?: { address: string };
+                creator?: { address: string };
+              };
+              total_price?: string;
+            }>;
+          }
+          const data = await response.json() as OpenSeaEventResponse;
           const nfts: NFTItem[] = [];
 
-          for (const event of data.asset_events || []) {
-            if (event.asset) {
+          for (const event of data.asset_events ?? []) {
+            if (event.asset !== undefined) {
               nfts.push({
                 id: `ethereum_${event.asset.asset_contract.address}_${event.asset.token_id}`,
                 tokenId: event.asset.token_id,
-                name: event.asset.name || `${event.asset.collection.name} #${event.asset.token_id}`,
-                description: event.asset.description || '',
-                image: event.asset.image_url || '',
-                imageUrl: event.asset.image_url || '',
-                attributes: event.asset.traits || [],
+                name: event.asset.name ?? `${event.asset.collection.name} #${event.asset.token_id}`,
+                description: event.asset.description ?? '',
+                image: event.asset.image_url ?? '',
+                imageUrl: event.asset.image_url ?? '',
+                attributes: event.asset.traits ?? [],
                 contract: event.asset.asset_contract.address,
                 contractAddress: event.asset.asset_contract.address,
-                tokenStandard: event.asset.asset_contract.schema_name || 'ERC721',
+                tokenStandard: (event.asset.asset_contract.schema_name?.toUpperCase() === 'ERC1155' ? 'ERC1155' : 'ERC721') as 'ERC721' | 'ERC1155',
                 blockchain: 'ethereum',
-                owner: event.asset.owner?.address || '',
-                creator: event.asset.creator?.address || '',
-                price: event.total_price ? (Number(event.total_price) / 1e18).toString() : '0',
+                owner: event.asset.owner?.address ?? '',
+                creator: event.asset.creator?.address ?? '',
+                ...(event.total_price !== undefined && {
+                  price: (Number(event.total_price) / 1e18).toString()
+                }),
                 currency: 'ETH',
                 isListed: true
               });
@@ -512,14 +577,14 @@ export class EthereumNFTProvider implements ChainProvider {
       // Fallback to empty array if no API available
       return [];
     } catch (error) {
-      console.warn('Error fetching trending NFTs:', error);
+      logger.warn('Error fetching trending NFTs:', error);
       return [];
     }
   }
 
   /**
    * Update configuration
-   * @param newConfig
+   * @param newConfig Partial configuration to update
    */
   updateConfig(newConfig: Partial<EthereumNFTConfig>): void {
     this.config = { ...this.config, ...newConfig };
@@ -528,6 +593,7 @@ export class EthereumNFTProvider implements ChainProvider {
 
   /**
    * Test connection to APIs
+   * @returns Promise resolving to connection status and available APIs
    */
   async testConnection(): Promise<{ connected: boolean; apis: string[] }> {
     const workingApis: string[] = [];
@@ -537,18 +603,18 @@ export class EthereumNFTProvider implements ChainProvider {
         const response = await fetch(`${this.alchemyUrl}/${this.config.alchemyApiKey}/getNFTs?owner=0x0000000000000000000000000000000000000000&pageSize=1`);
         if (response.ok) workingApis.push('Alchemy');
       } catch (error) {
-        console.warn('Alchemy connection test failed:', error);
+        logger.warn('Alchemy connection test failed:', error);
       }
     }
 
-    if (this.config.openseaApiKey) {
+    if (this.config.openseaApiKey !== undefined && this.config.openseaApiKey !== '') {
       try {
         const response = await fetch(`${this.baseUrl}/assets?limit=1`, {
           headers: { 'X-API-KEY': this.config.openseaApiKey }
         });
         if (response.ok) workingApis.push('OpenSea');
       } catch (error) {
-        console.warn('OpenSea connection test failed:', error);
+        logger.warn('OpenSea connection test failed:', error);
       }
     }
 

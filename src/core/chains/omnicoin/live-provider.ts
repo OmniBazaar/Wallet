@@ -341,14 +341,18 @@ export class LiveOmniCoinProvider {
       '0x0000000000000000000000000000000000000002', // OmniCoin staking contract
       ['function stake(uint256 amount, uint256 duration) payable']
     );
-    const tx = await (stakingContract.connect(signer) as any).stake(amount, duration, { value: amount });
+    const connectedContract = stakingContract.connect(signer) as ethers.Contract & {
+      stake: (amount: bigint, duration: number, options: { value: bigint }) => Promise<ethers.TransactionResponse>;
+    };
+    const tx = await connectedContract.stake(amount, duration, { value: amount });
     
     return tx;
   }
 
   /**
    * Unstake OmniCoin
-   * @param amount
+   * @param amount - Amount to unstake in wei
+   * @returns Transaction response
    */
   async unstakeOmniCoin(amount: bigint): Promise<ethers.TransactionResponse> {
     if (!this.network.features.staking) {
@@ -362,14 +366,18 @@ export class LiveOmniCoinProvider {
       '0x0000000000000000000000000000000000000002', // OmniCoin staking contract
       ['function unstake(uint256 amount)']
     );
-    const tx = await (stakingContract.connect(signer) as any).unstake(amount);
+    const connectedContract = stakingContract.connect(signer) as ethers.Contract & {
+      unstake: (amount: bigint) => Promise<ethers.TransactionResponse>;
+    };
+    const tx = await connectedContract.unstake(amount);
     
     return tx;
   }
 
   /**
    * Convert XOM to XOMP (private)
-   * @param amount
+   * @param amount - Amount to convert in wei
+   * @returns Transaction response
    */
   async convertToPrivate(amount: bigint): Promise<ethers.TransactionResponse> {
     if (!this.network.features.privacy) {
@@ -383,16 +391,20 @@ export class LiveOmniCoinProvider {
       '0x0000000000000000000000000000000000000003', // OmniCoin privacy contract
       ['function convertToPrivate() payable']
     );
-    const tx = await (privacyContract.connect(signer) as any).convertToPrivate({ value: amount });
+    const connectedContract = privacyContract.connect(signer) as ethers.Contract & {
+      convertToPrivate: (options: { value: bigint }) => Promise<ethers.TransactionResponse>;
+    };
+    const tx = await connectedContract.convertToPrivate({ value: amount });
     
     return tx;
   }
 
   /**
    * Convert XOMP to XOM (public)
-   * @param amount
+   * @param _amount - Amount to convert (unused in current implementation)
+   * @returns Transaction response
    */
-  async convertToPublic(amount: bigint): Promise<ethers.TransactionResponse> {
+  async convertToPublic(_amount: bigint): Promise<ethers.TransactionResponse> {
     if (!this.network.features.privacy) {
       throw new Error('Privacy features not supported on this network');
     }
@@ -411,10 +423,11 @@ export class LiveOmniCoinProvider {
 
   /**
    * Resolve OmniCoin username (e.g., "johndoe.omnicoin")
-   * @param username
+   * @param username - Username to resolve
+   * @returns Resolved address or null
    */
   async resolveUsername(username: string): Promise<string | null> {
-    if (!this.validatorClient) {
+    if (this.validatorClient === null) {
       // Fallback to on-chain resolution
       return await keyringService.resolveUsername(username);
     }
@@ -425,15 +438,16 @@ export class LiveOmniCoinProvider {
 
   /**
    * Get user's marketplace listings
-   * @param address
+   * @param address - User address (optional, defaults to active account)
+   * @returns Array of listings
    */
   async getUserListings(address?: string): Promise<unknown[]> {
-    if (!this.validatorClient) {
+    if (this.validatorClient === null) {
       throw new Error('Validator client not available');
     }
     
-    const targetAddress = address || keyringService.getActiveAccount()?.address;
-    if (!targetAddress) {
+    const targetAddress = address ?? keyringService.getActiveAccount()?.address;
+    if (targetAddress === undefined || targetAddress === '') {
       throw new Error('No address provided');
     }
     
@@ -442,26 +456,28 @@ export class LiveOmniCoinProvider {
 
   /**
    * Get user's reputation score
-   * @param address
+   * @param address - User address (optional, defaults to active account)
+   * @returns Reputation score
    */
   async getReputationScore(address?: string): Promise<number> {
-    if (!this.validatorClient) {
+    if (this.validatorClient === null) {
       throw new Error('Validator client not available');
     }
     
-    const targetAddress = address || keyringService.getActiveAccount()?.address;
-    if (!targetAddress) {
+    const targetAddress = address ?? keyringService.getActiveAccount()?.address;
+    if (targetAddress === undefined || targetAddress === '') {
       throw new Error('No address provided');
     }
     
     const reputation = await this.validatorClient.getUserReputation(targetAddress);
-    return reputation?.score || 0;
+    return reputation?.score ?? 0;
   }
 
   /**
    * Create contract instance
-   * @param address
-   * @param abi
+   * @param address - Contract address
+   * @param abi - Contract ABI
+   * @returns Contract instance
    */
   getContract(address: string, abi: InterfaceAbi): ethers.Contract {
     return new ethers.Contract(address, abi, this.provider);
@@ -469,10 +485,11 @@ export class LiveOmniCoinProvider {
 
   /**
    * Create contract instance with signer
-   * @param address
-   * @param abi
+   * @param address - Contract address
+   * @param abi - Contract ABI
+   * @returns Contract instance with signer
    */
-  async getContractWithSigner(address: string, abi: InterfaceAbi): Promise<ethers.Contract> {
+  getContractWithSigner(address: string, abi: InterfaceAbi): ethers.Contract {
     const signer = this.getSigner();
     return new ethers.Contract(address, abi, signer);
   }
@@ -499,8 +516,8 @@ class OmniCoinKeyringSigner extends ethers.AbstractSigner {
     Object.defineProperty(this, 'provider', { value: provider, enumerable: true });
   }
 
-  override async getAddress(): Promise<string> {
-    return this.address;
+  override getAddress(): Promise<string> {
+    return Promise.resolve(this.address);
   }
 
   override async signMessage(message: string | Uint8Array): Promise<string> {
@@ -509,15 +526,34 @@ class OmniCoinKeyringSigner extends ethers.AbstractSigner {
   }
 
   override async signTransaction(transaction: ethers.TransactionRequest): Promise<string> {
-    // Populate transaction
-    const tx: any = { ...(transaction as any) };
-    
-    // Remove from field for signing
-    if ('from' in tx) {
-      delete tx.from;
+    // Resolve the to address if it's a promise or addressable
+    let toAddress = '';
+    if (transaction.to !== null && transaction.to !== undefined) {
+      if (typeof transaction.to === 'string') {
+        toAddress = transaction.to;
+      } else if ('getAddress' in transaction.to) {
+        // Addressable interface
+        toAddress = await transaction.to.getAddress();
+      } else {
+        // Promise<string>
+        toAddress = await transaction.to;
+      }
     }
     
-    return await keyringService.signTransaction(this.address, tx);
+    // Convert ethers transaction to keyring transaction format
+    const keyringTx: Parameters<typeof keyringService.signTransaction>[1] = {
+      to: toAddress,
+      ...(transaction.value !== null && transaction.value !== undefined && { value: transaction.value.toString() }),
+      ...(transaction.data !== null && transaction.data !== undefined && { data: transaction.data }),
+      ...(transaction.gasLimit !== null && transaction.gasLimit !== undefined && { gasLimit: transaction.gasLimit.toString() }),
+      ...(transaction.gasPrice !== null && transaction.gasPrice !== undefined && { gasPrice: transaction.gasPrice.toString() }),
+      ...(transaction.maxFeePerGas !== null && transaction.maxFeePerGas !== undefined && { maxFeePerGas: transaction.maxFeePerGas.toString() }),
+      ...(transaction.maxPriorityFeePerGas !== null && transaction.maxPriorityFeePerGas !== undefined && { maxPriorityFeePerGas: transaction.maxPriorityFeePerGas.toString() }),
+      ...(transaction.nonce !== null && transaction.nonce !== undefined && { nonce: transaction.nonce }),
+      ...(transaction.chainId !== null && transaction.chainId !== undefined && { chainId: Number(transaction.chainId) })
+    };
+    
+    return await keyringService.signTransaction(this.address, keyringTx);
   }
 
   override async sendTransaction(transaction: ethers.TransactionRequest): Promise<ethers.TransactionResponse> {
@@ -525,46 +561,53 @@ class OmniCoinKeyringSigner extends ethers.AbstractSigner {
     const signedTx = await this.signTransaction(transaction);
     
     // Send to network
-    if (!this.provider) {
+    if (this.provider === null || this.provider === undefined) {
       throw new Error('Provider not available');
     }
     return await (this.provider as ethers.JsonRpcProvider).broadcastTransaction(signedTx);
   }
 
   async sendPrivateTransaction(transaction: { to: string; data: string; private: boolean }): Promise<ethers.TransactionResponse> {
+    // Convert to ethers transaction format for signing
+    const ethersTransaction: ethers.TransactionRequest = {
+      to: transaction.to,
+      data: transaction.data
+    };
+    
     // Sign private transaction with OmniCoin-specific handling
-    const signedTx = await this.signTransaction(transaction);
+    const signedTx = await this.signTransaction(ethersTransaction);
     
     // Send as private transaction through validator
-    if (this.validatorClient) {
+    if (this.validatorClient !== null) {
       const res = await this.validatorClient.sendPrivateTransaction(signedTx);
-      if (res) return res;
+      if (res !== null) return res;
     }
     
     // Fallback to direct RPC
-    if (!this.provider) {
+    if (this.provider === null || this.provider === undefined) {
       throw new Error('Provider not available');
     }
-    return await (this.provider as ethers.JsonRpcProvider).send('omni_sendPrivateTransaction', [signedTx]);
+    const response = await (this.provider as ethers.JsonRpcProvider).send('omni_sendPrivateTransaction', [signedTx]) as unknown;
+    return response as ethers.TransactionResponse;
   }
 
   override connect(provider: ethers.Provider): OmniCoinKeyringSigner {
     return new OmniCoinKeyringSigner(this.address, provider, this.privacyMode, this.validatorClient);
   }
 
-  override async signTypedData(
+  override signTypedData(
     _domain: ethers.TypedDataDomain,
     _types: Record<string, ethers.TypedDataField[]>,
-    _value: Record<string, any>
+    _value: Record<string, unknown>
   ): Promise<string> {
-    throw new Error('signTypedData not supported for OmniCoinKeyringSigner');
+    return Promise.reject(new Error('signTypedData not supported for OmniCoinKeyringSigner'));
   }
 }
 
-// Factory function to create provider
 /**
- *
- * @param networkName
+ * Factory function to create provider
+ * @param networkName - Network name to use
+ * @returns Live OmniCoin provider instance
  */
 export function createLiveOmniCoinProvider(networkName?: keyof typeof OMNICOIN_NETWORKS): LiveOmniCoinProvider {
   return new LiveOmniCoinProvider(networkName as keyof typeof OMNICOIN_NETWORKS | undefined);

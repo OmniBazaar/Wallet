@@ -8,10 +8,10 @@
 
 // Temporary stub for missing imports
 type SubstrateApp = Record<string, unknown>;
-const newAcalaApp = (_transport: unknown) => ({} as SubstrateApp);
-const newKusamaApp = (_transport: unknown) => ({} as SubstrateApp);
-const newPolkadotApp = (_transport: unknown) => ({} as SubstrateApp);
-const newKaruraApp = (_transport: unknown) => ({} as SubstrateApp);
+const newAcalaApp = (_transport: unknown): SubstrateApp => ({} as SubstrateApp);
+const newKusamaApp = (_transport: unknown): SubstrateApp => ({} as SubstrateApp);
+const newPolkadotApp = (_transport: unknown): SubstrateApp => ({} as SubstrateApp);
+const newKaruraApp = (_transport: unknown): SubstrateApp => ({} as SubstrateApp);
 import type Transport from "@ledgerhq/hw-transport";
 import { NetworkNames } from "../../../types/enkrypt-types";
 

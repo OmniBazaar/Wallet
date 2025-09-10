@@ -1,7 +1,12 @@
 import { HWwalletCapabilities } from "../../../types/enkrypt-types";
 import HDKey from "hdkey";
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type HDKeyInstance = any;
+
+interface HDKeyInstance {
+  publicKey: Buffer;
+  chainCode: Buffer;
+  derive(path: string): HDKeyInstance;
+}
+
 import { bufferToHex } from "../../../types/enkrypt-types";
 import type { TrezorConnect } from "@trezor/connect-web";
 
@@ -75,21 +80,22 @@ class TrezorBitcoin implements HWWalletProvider {
           error?: string;
         };
       };
-      if (!rootPub.payload) {
+      if (rootPub.payload === undefined || rootPub.payload === null) {
         throw new Error("popup failed to open");
       }
       if (!rootPub.success)
-        throw new Error(rootPub.payload.error || "Unknown error");
+        throw new Error(rootPub.payload.error ?? "Unknown error");
 
-      // @ts-ignore - HDKey type issue
-      const hdKey = new HDKey();
+      const hdKey = new HDKey() as unknown as HDKeyInstance;
       hdKey.publicKey = Buffer.from(rootPub.payload.publicKey, "hex");
       hdKey.chainCode = Buffer.from(rootPub.payload.chainCode, "hex");
       this.HDNodes[options.pathType.basePath] = hdKey;
     }
-    const pubkey = this.HDNodes[options.pathType.basePath].derive(
+    const hdNode = this.HDNodes[options.pathType.basePath];
+    const derivedNode = hdNode.derive(
       `m/${options.pathIndex}`,
-    ).publicKey;
+    );
+    const pubkey = derivedNode.publicKey;
     return {
       address: bufferToHex(pubkey),
       publicKey: bufferToHex(pubkey),
@@ -98,9 +104,10 @@ class TrezorBitcoin implements HWWalletProvider {
 
   /**
    * Get supported derivation paths for the current network
+   * @returns Array of supported path types
    */
   getSupportedPaths(): PathType[] {
-    return supportedPaths[this.network] || [];
+    return supportedPaths[this.network] ?? [];
   }
 
   /**
@@ -140,8 +147,8 @@ class TrezorBitcoin implements HWWalletProvider {
         signature?: string;
       };
     };
-    if (!result.success || !result.payload.signature)
-      throw new Error(result.payload.error || "Failed to sign message");
+    if (!result.success || result.payload.signature === undefined || result.payload.signature === '')
+      throw new Error(result.payload.error ?? "Failed to sign message");
     return bufferToHex(Buffer.from(result.payload.signature, "base64"));
   }
 
@@ -156,7 +163,7 @@ class TrezorBitcoin implements HWWalletProvider {
       options.pathType.path.replace(`{index}`, options.pathIndex.toString()),
     );
     return this.TrezorConnect.signTransaction({
-      coin: TrezorNetworkConfigs[this.network as keyof typeof TrezorNetworkConfigs]?.symbol || "btc",
+      coin: TrezorNetworkConfigs[this.network as keyof typeof TrezorNetworkConfigs]?.symbol ?? "btc",
       inputs: transactionOptions.psbtTx.txInputs.map((tx) => ({
         address_n: addressN,
         prev_hash: tx.hash.reverse().toString("hex"),
@@ -176,8 +183,11 @@ class TrezorBitcoin implements HWWalletProvider {
       ),
     }).then((res: unknown) => {
       const result = res as { success: boolean; payload: { error?: string; serializedTx?: string } };
-      if (!result.success) throw new Error(result.payload.error || 'Transaction failed');
-      return result.payload.serializedTx || '';
+      if (!result.success) throw new Error(result.payload.error ?? 'Transaction failed');
+      if (result.payload.serializedTx === undefined || result.payload.serializedTx === '') {
+        throw new Error('No serialized transaction received');
+      }
+      return result.payload.serializedTx;
     });
   }
 

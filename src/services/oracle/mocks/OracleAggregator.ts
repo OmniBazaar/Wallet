@@ -51,9 +51,11 @@ export interface HistoricalPricePoint {
 export class OracleAggregator {
   /**
    * Initialize the oracle aggregator
+   * @returns Promise that resolves when initialization is complete
    */
-  async init(): Promise<void> {
+  init(): Promise<void> {
     // Mock initialization
+    return Promise.resolve();
   }
 
   /**
@@ -64,7 +66,7 @@ export class OracleAggregator {
    * @param params.sources - Array of source names
    * @returns Promise resolving to aggregated price data
    */
-  async getAggregatedPrice(params: {
+  getAggregatedPrice(params: {
     /** Token symbol */
     token: string;
     /** Chain identifier */
@@ -74,13 +76,13 @@ export class OracleAggregator {
   }): Promise<AggregatedPriceData> {
     // Mock aggregated price
     const basePrice = this.getMockPrice(params.token);
-    return {
+    return Promise.resolve({
       price: basePrice,
       change24h: (Math.random() - 0.5) * 10,
       timestamp: Date.now(),
       sources: params.sources ?? ['mock'],
       confidence: 0.95
-    };
+    });
   }
 
   /**
@@ -93,7 +95,7 @@ export class OracleAggregator {
    * @param params.chain - Chain identifier
    * @returns Promise resolving to historical price points
    */
-  async getHistoricalPrices(params: {
+  getHistoricalPrices(params: {
     /** Token symbol */
     token: string;
     /** Start timestamp */
@@ -117,7 +119,7 @@ export class OracleAggregator {
       });
     }
     
-    return points;
+    return Promise.resolve(points);
   }
 
   /**
@@ -125,11 +127,11 @@ export class OracleAggregator {
    * @param params - Pool liquidity query parameters
    * @returns Promise resolving to liquidity data
    */
-  async getPoolLiquidity(params: PoolLiquidityData): Promise<PoolLiquidityData> {
-    return {
+  getPoolLiquidity(params: PoolLiquidityData): Promise<PoolLiquidityData> {
+    return Promise.resolve({
       ...params,
       liquidityUSD: Math.random() * 10000000 // Random liquidity up to $10M
-    };
+    });
   }
 
   /**

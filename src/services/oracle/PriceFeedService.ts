@@ -97,11 +97,12 @@ export class PriceFeedService {
   
   /**
    * Initialize the price feed service
+   * @returns Promise that resolves when initialization is complete
    * @throws {Error} When initialization fails
    */
-  async init(): Promise<void> {
+  init(): Promise<void> {
     if (this.isInitialized) {
-      return;
+      return Promise.resolve();
     }
     
     try {
@@ -112,9 +113,10 @@ export class PriceFeedService {
       // Services are ready to use (no init needed for mock implementations)
       
       this.isInitialized = true;
+      return Promise.resolve();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      throw new Error(`Failed to initialize price feed service: ${errorMessage}`);
+      return Promise.reject(new Error(`Failed to initialize price feed service: ${errorMessage}`));
     }
   }
   
@@ -249,7 +251,7 @@ export class PriceFeedService {
     
     // Get liquidity data if available
     let liquidityUSD = 0;
-    if (this.oracleAggregator) {
+    if (this.oracleAggregator !== undefined) {
       try {
         // Mock pool liquidity for development
         liquidityUSD = 1000000; // $1M mock liquidity
@@ -278,7 +280,7 @@ export class PriceFeedService {
     callback: (prices: Map<string, PriceData>) => void
   ): () => void {
     // Poll for price updates
-    const updatePrices = async () => {
+    const updatePrices = async (): Promise<void> => {
       const prices = new Map<string, PriceData>();
       
       for (const symbol of symbols) {
@@ -294,10 +296,12 @@ export class PriceFeedService {
     };
     
     // Initial update
-    updatePrices();
+    void updatePrices();
     
     // Set up polling interval (every 30 seconds)
-    const interval = setInterval(updatePrices, 30000);
+    const interval = setInterval(() => {
+      void updatePrices();
+    }, 30000);
     
     // Return unsubscribe function
     return () => clearInterval(interval);
@@ -306,11 +310,11 @@ export class PriceFeedService {
   /**
    * Get aggregated price from multiple oracles
    * @param symbol - Token symbol
-   * @param chain - Optional chain ID or name
-   * @param _chain
+   * @param _chain - Optional chain ID or name
+   * @returns Promise resolving to price data
    * @private
    */
-  private async getAggregatedPrice(symbol: string, _chain?: string): Promise<PriceData> {
+  private getAggregatedPrice(symbol: string, _chain?: string): Promise<PriceData> {
     if (this.oracleAggregator === undefined) {
       throw new Error('Oracle aggregator not initialized');
     }
@@ -323,19 +327,20 @@ export class PriceFeedService {
       sources: ['mock-oracle']
     };
     
-    return {
+    return Promise.resolve({
       symbol,
       priceUSD: aggregatedData.price,
-      change24h: aggregatedData.change24h || 0,
+      change24h: aggregatedData.change24h !== 0 ? aggregatedData.change24h : 0,
       timestamp: aggregatedData.timestamp,
       source: aggregatedData.sources.join(','),
       confidence: 0.95
-    };
+    });
   }
   
   /**
    * Get price specifically for XOM or pXOM
    * @param symbol - 'XOM' or 'pXOM'
+   * @returns Promise resolving to price data for OmniCoin
    * @private
    */
   private getOmniPrice(symbol: string): Promise<PriceData> {
@@ -359,8 +364,8 @@ export class PriceFeedService {
   /**
    * Get price from fallback sources
    * @param symbol - Token symbol
-   * @param chain - Optional chain ID or name
-   * @param _chain
+   * @param _chain - Optional chain ID or name
+   * @returns Promise resolving to price data from fallback source
    * @private
    */
   private getFallbackPrice(symbol: string, _chain?: string): Promise<PriceData> {
@@ -395,10 +400,10 @@ export class PriceFeedService {
   
   /**
    * Generate mock historical prices for development
-   * @param token
-   * @param _token
-   * @param from
-   * @param to
+   * @param _token - Token symbol (unused in mock)
+   * @param from - Start timestamp
+   * @param to - End timestamp
+   * @returns Array of historical price points
    */
   private generateMockHistoricalPrices(_token: string, from: number, to: number): Array<{ timestamp: number; price: number; volume: number }> {
     const data = [];
@@ -423,6 +428,7 @@ export class PriceFeedService {
 
   /**
    * Cleanup service and release resources
+   * @returns Promise that resolves when cleanup is complete
    */
   cleanup(): Promise<void> {
     try {

@@ -161,8 +161,9 @@ export class SecureIndexedDB {
     const encrypted = await this.encryptData(serialized);
 
     // Store in IndexedDB
+    const db = this.db;
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([this.STORE_NAME], 'readwrite');
+      const transaction = db.transaction([this.STORE_NAME], 'readwrite');
       const store = transaction.objectStore(this.STORE_NAME);
 
       const record: StorageRecord = {
@@ -189,8 +190,9 @@ export class SecureIndexedDB {
       throw new Error('Database not initialized');
     }
 
+    const db = this.db;
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([this.STORE_NAME], 'readonly');
+      const transaction = db.transaction([this.STORE_NAME], 'readonly');
       const store = transaction.objectStore(this.STORE_NAME);
       const request = store.get(key);
 
@@ -231,8 +233,9 @@ export class SecureIndexedDB {
       throw new Error('Database not initialized');
     }
 
+    const db = this.db;
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([this.STORE_NAME], 'readwrite');
+      const transaction = db.transaction([this.STORE_NAME], 'readwrite');
       const store = transaction.objectStore(this.STORE_NAME);
       const request = store.delete(key);
 
@@ -250,8 +253,9 @@ export class SecureIndexedDB {
       throw new Error('Database not initialized');
     }
 
+    const db = this.db;
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([this.STORE_NAME], 'readwrite');
+      const transaction = db.transaction([this.STORE_NAME], 'readwrite');
       const store = transaction.objectStore(this.STORE_NAME);
       const request = store.clear();
 
@@ -358,8 +362,9 @@ export class SecureIndexedDB {
       throw new Error('Database not initialized');
     }
 
+    const db = this.db;
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([this.STORE_NAME], 'readonly');
+      const transaction = db.transaction([this.STORE_NAME], 'readonly');
       const store = transaction.objectStore(this.STORE_NAME);
       const index = store.index('type');
       const request = index.getAllKeys(type);
@@ -378,8 +383,9 @@ export class SecureIndexedDB {
       throw new Error('Database not initialized');
     }
 
+    const db = this.db;
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([this.STORE_NAME], 'readonly');
+      const transaction = db.transaction([this.STORE_NAME], 'readonly');
       const store = transaction.objectStore(this.STORE_NAME);
       const request = store.getAll();
 
@@ -404,8 +410,9 @@ export class SecureIndexedDB {
 
     const data = JSON.parse(encryptedData) as StorageRecord[];
 
+    const db = this.db;
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([this.STORE_NAME], 'readwrite');
+      const transaction = db.transaction([this.STORE_NAME], 'readwrite');
       const store = transaction.objectStore(this.STORE_NAME);
 
       // Clear existing data

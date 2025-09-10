@@ -23,9 +23,11 @@ export class PriceOracleService {
 
   /**
    * Initialize the mock price oracle service
+   * @returns Promise that resolves when initialization is complete
    */
-  async init(): Promise<void> {
+  init(): Promise<void> {
     // Mock initialization
+    return Promise.resolve();
   }
 
   /**
@@ -34,13 +36,13 @@ export class PriceOracleService {
    * @param _chain - Chain identifier (unused in mock)
    * @returns Promise resolving to token price in USD
    */
-  async getTokenPrice(symbol: string, _chain?: string): Promise<number> {
+  getTokenPrice(symbol: string, _chain?: string): Promise<number> {
     const basePrice = this.prices.get(symbol);
     if (basePrice === undefined) {
-      return 0;
+      return Promise.resolve(0);
     }
     // Add slight variation
-    return basePrice * (0.95 + Math.random() * 0.1);
+    return Promise.resolve(basePrice * (0.95 + Math.random() * 0.1));
   }
 
   /**

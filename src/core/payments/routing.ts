@@ -8,6 +8,7 @@ import { formatUnits, parseUnits, ZeroAddress, isAddress } from 'ethers';
 import { ChainType } from '../keyring/BIP39Keyring';
 import { providerManager } from '../providers/ProviderManager';
 import { bridgeService } from '../bridge';
+import type { BridgeRoute } from '../bridge/types';
 
 /** Payment route with cross-chain and exchange details */
 export interface PaymentRoute {
@@ -267,8 +268,9 @@ export class PaymentRoutingService {
    * @param from - Sender address
    * @param to - Recipient address
    * @param amount - Amount to send
-   * @param token
-   * @param accept
+   * @param token - Token symbol
+   * @param accept - Accepted payment configurations
+   * @returns Promise resolving to array of payment routes
    */
   private async findRoutesForBlockchain(
     blockchain: string,
@@ -282,16 +284,16 @@ export class PaymentRoutingService {
 
     // Check if we have a valid from address for this blockchain
     const fromAddress = from.find(addr => this.isValidAddress(addr, blockchain));
-    if (!fromAddress) return routes;
+    if (fromAddress === undefined) return routes;
 
     // Get accepted tokens for this blockchain
-    const acceptedTokens = accept?.filter(a => a.blockchain === blockchain) || [];
-    if (acceptedTokens.length === 0 && token) {
+    const acceptedTokens = accept?.filter(a => a.blockchain === blockchain) ?? [];
+    if (acceptedTokens.length === 0 && token !== null && token !== undefined && token !== '') {
       // If no specific acceptance criteria, create one from the token
       acceptedTokens.push({
         blockchain,
         token,
-        ...(amount && { amount }),
+        ...(amount !== null && amount !== undefined && amount !== '' && { amount }),
         receiver: to,
       });
     }
@@ -301,12 +303,12 @@ export class PaymentRoutingService {
       const route = await this.findSingleRoute(
         blockchain,
         fromAddress,
-        accepted.receiver || to,
-        accepted.amount || amount,
+        accepted.receiver ?? to,
+        accepted.amount ?? amount,
         accepted.token
       );
 
-      if (route) {
+      if (route !== null) {
         routes.push(route);
       }
     }
@@ -316,11 +318,12 @@ export class PaymentRoutingService {
 
   /**
    * Find a single route
-   * @param blockchain
-   * @param from
-   * @param to
-   * @param amount
-   * @param tokenAddress
+   * @param blockchain - Target blockchain
+   * @param from - Sender address
+   * @param to - Recipient address
+   * @param amount - Amount to send
+   * @param tokenAddress - Token contract address
+   * @returns Promise resolving to payment route or null
    */
   private async findSingleRoute(
     blockchain: string,
@@ -330,24 +333,24 @@ export class PaymentRoutingService {
     tokenAddress?: string
   ): Promise<PaymentRoute | null> {
     try {
-      const token = tokenAddress
-        ? await this.getTokenInfo(blockchain, tokenAddress)
+      const token = (tokenAddress !== null && tokenAddress !== undefined && tokenAddress !== '')
+        ? this.getTokenInfo(blockchain, tokenAddress)
         : this.nativeTokens[blockchain];
 
-      if (!token) return null;
+      if (token === null || token === undefined) return null;
 
       // Check if direct transfer is possible
       const balance = await this.getTokenBalance(blockchain, from, token.address);
-      if (!amount || parseFloat(balance) >= parseFloat(amount)) {
+      if (amount === null || amount === undefined || amount === '' || parseFloat(balance) >= parseFloat(amount)) {
         // Direct transfer route
         return {
           blockchain,
           fromAddress: from,
           fromToken: token,
-          fromAmount: amount || balance,
+          fromAmount: amount ?? balance,
           fromDecimals: token.decimals,
           toToken: token,
-          toAmount: amount || balance,
+          toAmount: amount ?? balance,
           toDecimals: token.decimals,
           toAddress: to,
           exchangeRoutes: [],
@@ -361,7 +364,7 @@ export class PaymentRoutingService {
       }
 
       // Try to find swap routes using DEX aggregators
-      const swapRoute = await this.findSwapRoute(
+      const swapRoute = this.findSwapRoute(
         blockchain,
         from,
         to,
@@ -369,7 +372,7 @@ export class PaymentRoutingService {
         token.address
       );
 
-      if (swapRoute) {
+      if (swapRoute !== null) {
         return swapRoute;
       }
 
@@ -391,10 +394,11 @@ export class PaymentRoutingService {
 
   /**
    * Get token information
-   * @param blockchain
-   * @param tokenAddress
+   * @param blockchain - Target blockchain
+   * @param tokenAddress - Token contract address
+   * @returns Token info or null
    */
-  private async getTokenInfo(blockchain: string, tokenAddress: string): Promise<TokenInfo | null> {
+  private getTokenInfo(blockchain: string, tokenAddress: string): TokenInfo | null {
     // Check if it's native token
     if (tokenAddress.toLowerCase() === this.nativeTokens[blockchain]?.address.toLowerCase()) {
       return this.nativeTokens[blockchain];
@@ -413,9 +417,10 @@ export class PaymentRoutingService {
 
   /**
    * Get token balance
-   * @param blockchain
-   * @param address
-   * @param tokenAddress
+   * @param blockchain - Target blockchain
+   * @param address - Wallet address
+   * @param tokenAddress - Token contract address
+   * @returns Promise resolving to balance as string
    */
   private async getTokenBalance(
     blockchain: string,
@@ -426,7 +431,7 @@ export class PaymentRoutingService {
       // Native token balance
       if (tokenAddress.toLowerCase() === this.nativeTokens[blockchain]?.address.toLowerCase()) {
         const provider = providerManager.getProvider(blockchain as ChainType);
-        if (provider) {
+        if (provider !== null && provider !== undefined) {
           const balance = await provider.getBalance(address);
           // Handle different balance formats (simple bigint vs privacy-enabled complex object)
           const balanceValue = typeof balance === 'object' && balance !== null && 'public' in balance 
@@ -447,8 +452,9 @@ export class PaymentRoutingService {
 
   /**
    * Validate address for blockchain
-   * @param address
-   * @param blockchain
+   * @param address - Address to validate
+   * @param blockchain - Target blockchain
+   * @returns True if address is valid
    */
   private isValidAddress(address: string, blockchain: string): boolean {
     try {
@@ -466,7 +472,8 @@ export class PaymentRoutingService {
 
   /**
    * Get chain ID for blockchain
-   * @param blockchain
+   * @param blockchain - Target blockchain
+   * @returns Chain ID as number or string
    */
   private getChainId(blockchain: string): number | string {
     const chainIds: Record<string, number | string> = {
@@ -480,41 +487,42 @@ export class PaymentRoutingService {
       solana: 'solana',
     };
 
-    return chainIds[blockchain] || 1;
+    return chainIds[blockchain] ?? 1;
   }
 
   /**
    * Find swap route using DEX aggregators
-   * @param blockchain
-   * @param from
-   * @param to
-   * @param amount
-   * @param tokenAddress
+   * @param blockchain - Target blockchain
+   * @param from - Sender address
+   * @param to - Recipient address
+   * @param amount - Amount to send
+   * @param tokenAddress - Token contract address
+   * @returns Payment route or null
    */
-  private async findSwapRoute(
+  private findSwapRoute(
     blockchain: string,
     from: string,
     to: string,
     amount?: string,
     tokenAddress?: string
-  ): Promise<PaymentRoute | null> {
+  ): PaymentRoute | null {
     try {
       // Get available DEXes for this blockchain
       const exchanges = this.supportedExchanges[blockchain as keyof typeof this.supportedExchanges];
-      if (!exchanges || exchanges.length === 0) return null;
+      if (exchanges === undefined || exchanges.length === 0) return null;
 
       // Integration point for DEX aggregators (1inch, 0x, etc.)
       // This implementation returns a mock swap route for testing
       const nativeToken = this.nativeTokens[blockchain];
-      const targetToken = tokenAddress
-        ? await this.getTokenInfo(blockchain, tokenAddress)
+      const targetToken = (tokenAddress !== null && tokenAddress !== undefined && tokenAddress !== '')
+        ? this.getTokenInfo(blockchain, tokenAddress)
         : nativeToken;
 
-      if (!targetToken || !nativeToken || nativeToken.address === targetToken.address) return null;
+      if (targetToken === null || targetToken === undefined || nativeToken === null || nativeToken === undefined || nativeToken.address === targetToken.address) return null;
 
       // Mock swap calculation (would use 1inch, 0x API, etc.)
       const swapRate = 1500; // Mock: 1 ETH = 1500 USDC
-      const inputAmount = parseUnits(amount || '1', nativeToken.decimals);
+      const inputAmount = parseUnits(amount ?? '1', nativeToken.decimals);
       const outputAmount = inputAmount * BigInt(Math.floor(swapRate * 1000)) / BigInt(1000);
 
       return {
@@ -526,9 +534,9 @@ export class PaymentRoutingService {
         toToken: targetToken,
         toAmount: outputAmount.toString(),
         toDecimals: targetToken.decimals,
-        toAddress: to || '0x0000000000000000000000000000000000000000',
+        toAddress: to ?? '0x0000000000000000000000000000000000000000',
         exchangeRoutes: [{
-          exchange: exchanges[0] || 'Unknown',
+          exchange: exchanges[0] ?? 'Unknown',
           path: [nativeToken.address, targetToken.address],
           expectedOutput: outputAmount.toString(),
           minimumOutput: (outputAmount * BigInt(99) / BigInt(100)).toString(), // 1% slippage
@@ -558,11 +566,12 @@ export class PaymentRoutingService {
 
   /**
    * Find bridge route for cross-chain transfers
-   * @param blockchain
-   * @param from
-   * @param to
-   * @param amount
-   * @param tokenAddress
+   * @param blockchain - Target blockchain
+   * @param from - Sender address
+   * @param to - Recipient address
+   * @param amount - Amount to send
+   * @param tokenAddress - Token contract address
+   * @returns Promise resolving to payment route or null
    */
   private async findBridgeRoute(
     blockchain: string,
@@ -580,12 +589,12 @@ export class PaymentRoutingService {
 
         // Check balance on other chain
         const nativeTokenForOtherChain = this.nativeTokens[otherChain];
-        if (!nativeTokenForOtherChain) continue;
+        if (nativeTokenForOtherChain === null || nativeTokenForOtherChain === undefined) continue;
         
         const otherBalance = await this.getTokenBalance(
           otherChain,
           from,
-          tokenAddress || nativeTokenForOtherChain.address
+          tokenAddress ?? nativeTokenForOtherChain.address
         );
 
         if (parseFloat(otherBalance) > 0) {
@@ -593,16 +602,16 @@ export class PaymentRoutingService {
           const bridgeQuote = await bridgeService.getQuotes({
             fromChain: otherChain,
             toChain: blockchain,
-            fromToken: tokenAddress || nativeTokenForOtherChain.symbol,
+            fromToken: tokenAddress ?? nativeTokenForOtherChain.symbol,
             amount: parseUnits(
-              amount || otherBalance,
+              amount ?? otherBalance,
               nativeTokenForOtherChain.decimals
             ).toString(),
             fromAddress: from,
             toAddress: to
           });
 
-          if (bridgeQuote.bestRoute) {
+          if (bridgeQuote.bestRoute !== null && bridgeQuote.bestRoute !== undefined) {
             const route = bridgeQuote.bestRoute;
 
             return {
@@ -638,14 +647,15 @@ export class PaymentRoutingService {
 
   /**
    * Execute payment route
-   * @param route
+   * @param route - Payment route to execute
+   * @returns Promise resolving to transaction hash
    */
   async executeRoute(route: PaymentRoute): Promise<string> {
     // Switch to the correct chain
     if (route.blockchain !== 'solana') {
-      await providerManager.switchEVMNetwork(route.blockchain);
+      void providerManager.switchEVMNetwork(route.blockchain);
     } else {
-      await providerManager.setActiveChain(ChainType.SOLANA);
+      void providerManager.setActiveChain(ChainType.SOLANA);
     }
 
     // Execute each step
@@ -654,7 +664,8 @@ export class PaymentRoutingService {
         case 'approve':
           // Token approval implementation would call ERC20 approve method
           // This is handled by the provider's approveToken method
-          console.log('Token approval required for:', route.fromToken.symbol);
+          // Token approval required for: route.fromToken.symbol
+          // Implementation would call ERC20 approve method
           break;
 
         case 'transfer':
@@ -668,14 +679,18 @@ export class PaymentRoutingService {
         case 'swap':
           // Swap execution would integrate with DEX protocols
           // This would call the appropriate DEX router contract
-          console.log('Executing swap via:', step.data?.['dex']);
+          // Executing swap via: step.data?.['dex']
+          // This would call the appropriate DEX router contract
           break;
 
         case 'bridge':
           // Execute bridge transfer
-          if (step.data?.['bridgeRoute']) {
-            const bridgeId = await bridgeService.executeBridge(step.data['bridgeRoute'] as any);
-            return bridgeId; // Return bridge transfer ID
+          if (step.data !== null && step.data !== undefined && 'bridgeRoute' in step.data && step.data.bridgeRoute !== null && step.data.bridgeRoute !== undefined) {
+            const bridgeRoute = step.data.bridgeRoute;
+            if (typeof bridgeRoute === 'object' && 'fromChain' in bridgeRoute && 'toChain' in bridgeRoute) {
+              const bridgeId = await bridgeService.executeBridge(bridgeRoute as BridgeRoute);
+              return bridgeId; // Return bridge transfer ID
+            }
           }
           break;
       }

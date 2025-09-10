@@ -5,10 +5,28 @@ import type { TrezorConnect as TrezorConnectType } from "@trezor/connect-web";
  * @returns Promise resolving to TrezorConnect instance
  */
 const getTrezorConnect = async (): Promise<TrezorConnectType> => {
-  // @ts-expect-error - Chrome runtime availability check
-  if (typeof chrome !== 'undefined' && chrome?.runtime?.getPlatformInfo) {
-    const TrezorConnect = await import("@trezor/connect-webextension");
-    // @ts-expect-error - TrezorConnect type issue
+  // Check if running in Chrome extension environment
+  const isExtension = typeof chrome !== 'undefined' && 
+    chrome !== null && 
+    typeof chrome === 'object' && 
+    'runtime' in chrome &&
+    chrome.runtime !== null &&
+    typeof chrome.runtime === 'object' &&
+    'getPlatformInfo' in chrome.runtime;
+
+  if (isExtension) {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const TrezorConnect = require("@trezor/connect-webextension") as {
+      default: TrezorConnectType & {
+        init(config: {
+          manifest: { email: string; appUrl: string };
+          transports: string[];
+          connectSrc: string;
+          _extendWebextensionLifetime: boolean;
+        }): Promise<void>;
+      };
+    };
+    
     await TrezorConnect.default.init({
       manifest: {
         email: "info@enkrypt.com",
@@ -18,9 +36,19 @@ const getTrezorConnect = async (): Promise<TrezorConnectType> => {
       connectSrc: "https://connect.trezor.io/9/",
       _extendWebextensionLifetime: true,
     });
-    return TrezorConnect.default as TrezorConnectType;
+    return TrezorConnect.default;
   } else {
-    const TrezorConnect = (await import("@trezor/connect-web") as { default: { default: TrezorConnectType; init: (config: { lazyLoad: boolean; manifest: { email: string; appUrl: string } }) => Promise<void> } }).default;
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const TrezorConnect = require("@trezor/connect-web") as {
+      default: {
+        default: TrezorConnectType;
+        init(config: {
+          lazyLoad: boolean;
+          manifest: { email: string; appUrl: string };
+        }): Promise<void>;
+      };
+    };
+    
     await TrezorConnect.default.init({
       lazyLoad: true,
       manifest: {
@@ -28,7 +56,7 @@ const getTrezorConnect = async (): Promise<TrezorConnectType> => {
         appUrl: "http://www.myetherwallet.com",
       },
     });
-    return TrezorConnect.default;
+    return TrezorConnect.default.default;
   }
 };
 

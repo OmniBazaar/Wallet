@@ -501,7 +501,7 @@ export class ProviderManager {
    * Switch the network type across initialized providers.
    * @param networkType New network type
    */
-  async switchNetworkType(networkType: NetworkType): Promise<void> {
+  switchNetworkType(networkType: NetworkType): void {
     this.networkType = networkType;
 
     // Switch all providers to new network type
@@ -517,7 +517,7 @@ export class ProviderManager {
 
     const omniProvider = this.providers.get(ChainType.OMNICOIN) as LiveOmniCoinProvider | undefined;
     if (omniProvider !== undefined && omniProvider !== null) {
-      await omniProvider.switchNetwork(networkType);
+      omniProvider.switchNetwork(networkType);
     }
   }
 
@@ -702,7 +702,7 @@ export class ProviderManager {
 
       case ChainType.OMNICOIN: {
         const omniProvider = provider as LiveOmniCoinProvider;
-        const signer = await omniProvider.getSigner();
+        const signer = omniProvider.getSigner();
         return await signer.sendTransaction(transaction);
       }
 

@@ -427,7 +427,7 @@ export class OmniProvider extends ethers.JsonRpcProvider {
       return await this.sendRequest(method, params);
     }
     // For standard Ethereum methods, delegate to parent class
-    return await super.send(method, params);
+    return await super.send(method, params) as unknown;
   }
 
   /**

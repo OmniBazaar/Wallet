@@ -4,14 +4,16 @@ import webUsbTransport from "@ledgerhq/hw-transport-webusb";
 // import { AppClient, DefaultWalletPolicy } from "ledger-bitcoin";
 import { HWwalletCapabilities, NetworkNames } from "../../../types/enkrypt-types";
 import BtcApp from "@ledgerhq/hw-app-btc";
-import HDKey from "hdkey";
-
 // HDKey doesn't provide proper TypeScript types, so we need to define our own
 interface HDKeyInstance {
   publicKey: Buffer;
   chainCode: Buffer;
   derive(path: string): HDKeyInstance;
 }
+
+// Use require for hdkey to avoid type declaration issues
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const HDKey = require("hdkey") as new () => HDKeyInstance;
 import type { CreateTransactionArg } from "@ledgerhq/hw-app-btc/lib/createTransaction";
 import { serializeTransactionOutputs } from "@ledgerhq/hw-app-btc/lib/serializeTransaction";
 import { bufferToHex } from "../../../types/enkrypt-types";

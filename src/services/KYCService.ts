@@ -59,6 +59,28 @@ export enum DocumentType {
 type TierLimit = { daily: string; monthly: string; perTransaction: string };
 
 /**
+ * User data for KYC verification
+ */
+export interface KYCUserData {
+  /** User's email address */
+  email?: string;
+  /** User's phone number */
+  phone?: string;
+  /** User's first name */
+  firstName?: string;
+  /** User's last name */
+  lastName?: string;
+  /** User's date of birth */
+  dateOfBirth?: string;
+  /** User's country code */
+  country?: string;
+  /** Company name (for institutional accounts) */
+  companyName?: string;
+  /** Company registration number */
+  companyNumber?: string;
+}
+
+/**
  * User KYC data
  */
 export interface UserKYCData {
@@ -134,6 +156,18 @@ interface SumsubWebhookEvent {
   applicantType?: string;
   createdAt?: string;
 }
+
+/**
+ * Raw KYC data from validator
+ */
+interface RawKYCData {
+  currentTier?: number;
+  status?: VerificationStatus;
+  applicantId?: string;
+  tierStatus?: UserKYCData['tierStatus'];
+  expiryDate?: number;
+}
+
 
 /**
  * KYC Service configuration
@@ -239,7 +273,7 @@ export class KYCService {
         return this.getDefaultKYCData(address);
       }
       
-      const data = await response.json() as unknown;
+      const data = await response.json() as RawKYCData;
       const kycData = this.processKYCData(address, data);
       
       // Update cache
@@ -254,27 +288,21 @@ export class KYCService {
   
   /**
    * Start KYC verification for a tier
-   * @param address
-   * @param targetTier
-   * @param userData
-   * @param userData.email
-   * @param userData.phone
-   * @param userData.firstName
-   * @param userData.lastName
-   * @param userData.dateOfBirth
-   * @param userData.country
+   * @param address - User wallet address
+   * @param targetTier - Target KYC tier to achieve
+   * @param userData - Optional user data for verification
+   * @param userData.email - User's email address
+   * @param userData.phone - User's phone number
+   * @param userData.firstName - User's first name
+   * @param userData.lastName - User's last name
+   * @param userData.dateOfBirth - User's date of birth (YYYY-MM-DD)
+   * @param userData.country - User's country code (ISO 3166-1 alpha-2)
+   * @returns KYC submission result with success status and optional verification URL
    */
   async startVerification(
     address: string,
     targetTier: KYCTier,
-    userData?: {
-      email?: string;
-      phone?: string;
-      firstName?: string;
-      lastName?: string;
-      dateOfBirth?: string;
-      country?: string;
-    }
+    userData?: KYCUserData
   ): Promise<{ success: boolean; verificationUrl?: string; error?: string }> {
     try {
       const currentStatus = await this.getUserKYCStatus(address);
@@ -313,16 +341,20 @@ export class KYCService {
   
   /**
    * Start Tier 1 verification (email + phone)
-   * @param address
-   * @param userData
-   * @param userData.email
-   * @param userData.phone
+   * @param address - User's wallet address
+   * @param userData - User data containing email and phone
+   * @param userData.email - User's email address
+   * @param userData.phone - User's phone number
+   * @returns Success status with optional error message
    */
   private async startTier1Verification(
     address: string,
     userData?: { email?: string; phone?: string }
   ): Promise<{ success: boolean; error?: string }> {
-    if (!userData?.email || !userData?.phone) {
+    const email = userData?.email;
+    const phone = userData?.phone;
+    
+    if (email === undefined || email === null || email.length === 0 || phone === undefined || phone === null || phone.length === 0) {
       return {
         success: false,
         error: 'Email and phone required for Tier 1'
@@ -335,8 +367,8 @@ export class KYCService {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         address,
-        email: userData.email,
-        phone: userData.phone
+        email,
+        phone
       })
     });
     
@@ -352,9 +384,10 @@ export class KYCService {
   
   /**
    * Verify Tier 1 codes
-   * @param address
-   * @param emailCode
-   * @param phoneCode
+   * @param address - User's wallet address
+   * @param emailCode - Verification code sent to email
+   * @param phoneCode - Verification code sent to phone
+   * @returns Success status with optional error message
    */
   async verifyTier1Codes(
     address: string,
@@ -395,14 +428,15 @@ export class KYCService {
   
   /**
    * Start Sumsub verification for Tier 2+
-   * @param address
-   * @param targetTier
-   * @param userData
+   * @param address - User's wallet address
+   * @param targetTier - Target KYC tier
+   * @param userData - User data for creating applicant
+   * @returns Success status with verification URL and optional error
    */
   private async startSumsubVerification(
     address: string,
     targetTier: KYCTier,
-    userData?: any
+    userData?: KYCUserData
   ): Promise<{ success: boolean; verificationUrl?: string; error?: string }> {
     try {
       // Ensure we have access token
@@ -411,7 +445,7 @@ export class KYCService {
       // Create or get applicant
       let applicantId = await this.getApplicantId(address);
       
-      if (!applicantId) {
+      if (applicantId === null || applicantId.length === 0) {
         // Create new applicant
         applicantId = await this.createApplicant(address, userData);
       }
@@ -447,10 +481,11 @@ export class KYCService {
   
   /**
    * Create Sumsub applicant
-   * @param address
-   * @param userData
+   * @param address - User's wallet address
+   * @param userData - User data for creating applicant
+   * @returns Applicant ID
    */
-  private async createApplicant(address: string, userData?: any): Promise<string> {
+  private async createApplicant(address: string, userData?: KYCUserData): Promise<string> {
     const response = await fetch(`${this.config.apiUrl}/resources/applicants`, {
       method: 'POST',
       headers: {
@@ -459,7 +494,7 @@ export class KYCService {
       },
       body: JSON.stringify({
         externalUserId: address,
-        type: userData?.companyName ? 'company' : 'individual',
+        type: (userData?.companyName !== undefined && userData.companyName !== null && userData.companyName.length > 0) ? 'company' : 'individual',
         email: userData?.email,
         phone: userData?.phone,
         fixedInfo: {
@@ -480,14 +515,15 @@ export class KYCService {
       throw new Error('Failed to create applicant');
     }
     
-    const data = await response.json();
+    const data = await response.json() as { id: string };
     return data.id;
   }
   
   /**
    * Generate verification URL
-   * @param applicantId
-   * @param targetTier
+   * @param applicantId - Sumsub applicant ID
+   * @param targetTier - Target KYC tier for verification
+   * @returns Verification URL for WebSDK
    */
   private async generateVerificationUrl(
     applicantId: string,
@@ -508,7 +544,7 @@ export class KYCService {
       throw new Error('Failed to generate access token');
     }
     
-    const data = await response.json();
+    const data = await response.json() as { token: string };
     
     // In production, would use WebSDK URL
     // For testnet, return a mock URL
@@ -521,8 +557,8 @@ export class KYCService {
   
   /**
    * Handle Sumsub webhook
-   * @param event
-   * @param signature
+   * @param event - Webhook event from Sumsub
+   * @param signature - HMAC signature for verification
    */
   async handleWebhook(
     event: SumsubWebhookEvent,
@@ -548,14 +584,14 @@ export class KYCService {
   
   /**
    * Handle applicant reviewed webhook
-   * @param event
+   * @param event - Sumsub webhook event for reviewed applicant
    */
   private async handleApplicantReviewed(event: SumsubWebhookEvent): Promise<void> {
     const { applicantId, reviewResult } = event;
     
     // Get user address from applicant ID
     const address = await this.getAddressFromApplicantId(applicantId);
-    if (!address) return;
+    if (address === null || address.length === 0) return;
     
     // Update KYC status based on review result
     const status = reviewResult?.reviewAnswer === 'GREEN' 
@@ -581,13 +617,13 @@ export class KYCService {
   
   /**
    * Handle applicant pending webhook
-   * @param event
+   * @param event - Sumsub webhook event for pending applicant
    */
   private async handleApplicantPending(event: SumsubWebhookEvent): Promise<void> {
     const { applicantId } = event;
     
     const address = await this.getAddressFromApplicantId(applicantId);
-    if (!address) return;
+    if (address === null || address.length === 0) return;
     
     // Update status to pending
     await fetch(`${this.config.validatorEndpoint}/webhook/update`, {
@@ -607,10 +643,11 @@ export class KYCService {
   
   /**
    * Check if user meets tier requirements for transaction
-   * @param address
-   * @param amount
-   * @param daily
-   * @param monthly
+   * @param address - User's wallet address
+   * @param amount - Transaction amount in XOM
+   * @param daily - Current daily spending in XOM
+   * @param monthly - Current monthly spending in XOM
+   * @returns Allowed status with optional reason if not allowed
    */
   async checkTransactionAllowed(
     address: string,
@@ -650,7 +687,8 @@ export class KYCService {
   
   /**
    * Get KYC tier display information
-   * @param tier
+   * @param tier - KYC tier level
+   * @returns Tier information with name, description and requirements
    */
   getTierInfo(tier: KYCTier): {
     name: string;
@@ -722,7 +760,7 @@ export class KYCService {
       throw new Error('Failed to get access token');
     }
     
-    const data = await response.json();
+    const data = await response.json() as { token: string; expiresIn: number };
     this.accessToken = data.token;
     this.tokenExpiry = Date.now() + (data.expiresIn * 1000);
   }
@@ -731,14 +769,15 @@ export class KYCService {
    * Ensure access token is valid
    */
   private async ensureAccessToken(): Promise<void> {
-    if (!this.accessToken || !this.tokenExpiry || Date.now() >= this.tokenExpiry) {
+    if (this.accessToken === undefined || this.accessToken.length === 0 || this.tokenExpiry === undefined || this.tokenExpiry === 0 || Date.now() >= this.tokenExpiry) {
       await this.refreshAccessToken();
     }
   }
   
   /**
    * Generate signature for Sumsub API
-   * @param timestamp
+   * @param timestamp - Unix timestamp for the request
+   * @returns HMAC signature
    */
   private generateSignature(timestamp: number): string {
     const data = timestamp + this.config.appToken;
@@ -750,10 +789,11 @@ export class KYCService {
   
   /**
    * Verify webhook signature
-   * @param event
-   * @param signature
+   * @param event - Webhook event to verify
+   * @param signature - HMAC signature to check
+   * @returns True if signature is valid
    */
-  private verifyWebhookSignature(event: any, signature: string): boolean {
+  private verifyWebhookSignature(event: SumsubWebhookEvent, signature: string): boolean {
     const payload = JSON.stringify(event);
     const expectedSignature = crypto
       .createHmac('sha256', this.config.webhookSecret)
@@ -765,7 +805,8 @@ export class KYCService {
   
   /**
    * Get applicant ID for address
-   * @param address
+   * @param address - User's wallet address
+   * @returns Applicant ID or null if not found
    */
   private async getApplicantId(address: string): Promise<string | null> {
     try {
@@ -775,8 +816,8 @@ export class KYCService {
       
       if (!response.ok) return null;
       
-      const data = await response.json();
-      return data.applicantId;
+      const data = await response.json() as { applicantId?: string };
+      return data.applicantId ?? null;
     } catch {
       return null;
     }
@@ -784,7 +825,8 @@ export class KYCService {
   
   /**
    * Get address from applicant ID
-   * @param applicantId
+   * @param applicantId - Sumsub applicant ID
+   * @returns Wallet address or null if not found
    */
   private async getAddressFromApplicantId(applicantId: string): Promise<string | null> {
     try {
@@ -794,8 +836,8 @@ export class KYCService {
       
       if (!response.ok) return null;
       
-      const data = await response.json();
-      return data.address;
+      const data = await response.json() as { address?: string };
+      return data.address ?? null;
     } catch {
       return null;
     }
@@ -803,7 +845,8 @@ export class KYCService {
   
   /**
    * Get Sumsub level name for tier
-   * @param tier
+   * @param tier - KYC tier
+   * @returns Sumsub level name
    */
   private getLevelName(tier: KYCTier): string {
     switch (tier) {
@@ -824,25 +867,27 @@ export class KYCService {
   
   /**
    * Process KYC data from validator
-   * @param address
-   * @param data
+   * @param address - User's wallet address
+   * @param data - Raw KYC data from validator
+   * @returns Processed user KYC data
    */
-  private processKYCData(address: string, data: any): UserKYCData {
+  private processKYCData(address: string, data: RawKYCData): UserKYCData {
     return {
       address,
-      currentTier: data.currentTier || KYCTier.TIER_0,
-      status: data.status || VerificationStatus.NOT_STARTED,
-      applicantId: data.applicantId,
-      tierStatus: data.tierStatus || this.getDefaultTierStatus(),
-      limits: this.TIER_LIMITS[(Number(data.currentTier) as KYCTier) || KYCTier.TIER_0],
+      currentTier: (data.currentTier as KYCTier) ?? KYCTier.TIER_0,
+      status: data.status ?? VerificationStatus.NOT_STARTED,
+      ...(data.applicantId !== undefined && { applicantId: data.applicantId }),
+      tierStatus: data.tierStatus ?? this.getDefaultTierStatus(),
+      limits: this.TIER_LIMITS[(data.currentTier as KYCTier) ?? KYCTier.TIER_0],
       lastUpdated: Date.now(),
-      expiryDate: data.expiryDate
+      ...(data.expiryDate !== undefined && { expiryDate: data.expiryDate })
     };
   }
   
   /**
    * Get default KYC data
-   * @param address
+   * @param address - User's wallet address
+   * @returns Default KYC data for new users
    */
   private getDefaultKYCData(address: string): UserKYCData {
     return {
@@ -857,6 +902,7 @@ export class KYCService {
   
   /**
    * Get default tier status
+   * @returns Default tier status object
    */
   private getDefaultTierStatus(): UserKYCData['tierStatus'] {
     return {

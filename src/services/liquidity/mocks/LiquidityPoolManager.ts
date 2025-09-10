@@ -11,9 +11,11 @@ export class LiquidityPoolManager {
 
   /**
    * Initialize the liquidity pool manager
+   * @returns Promise that resolves when initialization is complete
    */
-  async init(): Promise<void> {
+  init(): Promise<void> {
     this.initialized = true;
+    return Promise.resolve();
   }
 
   /**
@@ -23,7 +25,7 @@ export class LiquidityPoolManager {
    * @param fee - Pool fee tier
    * @returns Promise resolving to pool info or null
    */
-  async getPool(tokenA: string, tokenB: string, fee?: number): Promise<{
+  getPool(tokenA: string, tokenB: string, fee?: number): Promise<{
     /** Pool contract address */
     address: string;
     /** First token (sorted) */
@@ -40,7 +42,7 @@ export class LiquidityPoolManager {
     tick: number;
   } | null> {
     // Return mock pool
-    return {
+    return Promise.resolve({
       address: '0x' + Math.random().toString(16).substring(2, 42),
       token0: tokenA < tokenB ? tokenA : tokenB,
       token1: tokenA < tokenB ? tokenB : tokenA,
@@ -48,7 +50,7 @@ export class LiquidityPoolManager {
       liquidity: BigInt(1000000),
       sqrtPriceX96: BigInt('1461446703485210103287273052203988822378723970342'),
       tick: 0
-    };
+    });
   }
 
   /**
@@ -67,7 +69,7 @@ export class LiquidityPoolManager {
    * @param params.deadline - Transaction deadline
    * @returns Promise resolving to position info
    */
-  async createPosition(params: {
+  createPosition(params: {
     /** First token symbol */
     token0: string;
     /** Second token symbol */
@@ -100,12 +102,12 @@ export class LiquidityPoolManager {
     /** Actual amount of token1 */
     amount1: bigint;
   }> {
-    return {
+    return Promise.resolve({
       tokenId: BigInt(Math.floor(Math.random() * 1000000)),
       liquidity: BigInt(1000000),
       amount0: params.amount0Desired,
       amount1: params.amount1Desired
-    };
+    });
   }
 
   /**
@@ -118,7 +120,7 @@ export class LiquidityPoolManager {
    * @param params.deadline - Transaction deadline
    * @returns Promise resolving to removed amounts
    */
-  async removePosition(params: {
+  removePosition(params: {
     /** Position token ID */
     tokenId: bigint;
     /** Amount of liquidity to remove */
@@ -135,27 +137,27 @@ export class LiquidityPoolManager {
     /** Amount of token1 received */
     amount1: bigint;
   }> {
-    return {
+    return Promise.resolve({
       amount0: params.amount0Min,
       amount1: params.amount1Min
-    };
+    });
   }
 
   /**
    * Collect accumulated fees from position
-   * @param tokenId - Position token ID
+   * @param _tokenId - Position token ID (unused in mock)
    * @returns Promise resolving to collected fees
    */
-  async collectFees(tokenId: bigint): Promise<{
+  collectFees(_tokenId: bigint): Promise<{
     /** Amount of token0 fees collected */
     amount0: bigint;
     /** Amount of token1 fees collected */
     amount1: bigint;
   }> {
-    return {
+    return Promise.resolve({
       amount0: BigInt(Math.floor(Math.random() * 1000)),
       amount1: BigInt(Math.floor(Math.random() * 1000))
-    };
+    });
   }
 
   /**
@@ -163,7 +165,7 @@ export class LiquidityPoolManager {
    * @param _owner - Owner address (unused in mock)
    * @returns Promise resolving to array of positions
    */
-  async getPositions(_owner: string): Promise<Array<{
+  getPositions(_owner: string): Promise<Array<{
     /** Position token ID */
     tokenId: bigint;
     /** First token symbol */
@@ -183,6 +185,6 @@ export class LiquidityPoolManager {
     /** Uncollected fees in token1 */
     fees1: bigint;
   }>> {
-    return [];
+    return Promise.resolve([]);
   }
 }

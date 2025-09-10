@@ -117,7 +117,7 @@ export class TransactionService {
     this.keyringManager = KeyringManager.getInstance();
     this.transactionDb = new TransactionDatabase();
     this.wallet = wallet ?? null;
-    if (wallet?.provider) {
+    if (wallet?.provider !== undefined) {
       this.provider = wallet.provider;
     }
   }
@@ -595,8 +595,8 @@ export class TransactionService {
         const feeData = await this.provider.getFeeData();
         return {
           gasPrice: feeData.gasPrice ?? BigInt(20000000000), // 20 gwei default
-          ...(feeData.maxFeePerGas && { maxFeePerGas: feeData.maxFeePerGas }),
-          ...(feeData.maxPriorityFeePerGas && { maxPriorityFeePerGas: feeData.maxPriorityFeePerGas })
+          ...(feeData.maxFeePerGas !== null && { maxFeePerGas: feeData.maxFeePerGas }),
+          ...(feeData.maxPriorityFeePerGas !== null && { maxPriorityFeePerGas: feeData.maxPriorityFeePerGas })
         };
       }
       

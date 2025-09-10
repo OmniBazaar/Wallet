@@ -7,6 +7,7 @@
  */
 
 import { KeyringService as CoreKeyringService, KeyringAccount, AuthMethod } from '../core/keyring/KeyringService';
+import type { TransactionRequest } from '../core/keyring/KeyringService';
 
 /**
  * Main keyring service wrapper
@@ -19,7 +20,7 @@ export class KeyringService {
   /**
    * Creates a new KeyringService instance
    * @param encryptionService - Optional encryption service for testing
-   * @param encryptionService.init
+   * @param encryptionService.init - Initialization method for encryption service
    */
   public constructor(encryptionService?: { init: () => Promise<void> }) {
     this.coreService = CoreKeyringService.getInstance();
@@ -66,8 +67,8 @@ export class KeyringService {
    * Get keyring state
    * @returns Current keyring state
    */
-  async getState() {
-    return await this.coreService.getState();
+  getState(): { accounts: KeyringAccount[]; isUnlocked: boolean } {
+    return this.coreService.getState();
   }
 
   /**
@@ -76,26 +77,27 @@ export class KeyringService {
    * @param authMethod - Authentication method
    * @returns Success status
    */
-  async createKeyring(password: string, authMethod?: AuthMethod): Promise<any>;
+  async createKeyring(password: string, authMethod?: AuthMethod): Promise<{ id: string; type: string; accounts: string[] }>;
   /**
    * Create new keyring (test interface)
    * @param options - Keyring options
    */
-  async createKeyring(options: { type: string; mnemonic: string; password: string }): Promise<any>;
+  async createKeyring(options: { type: string; mnemonic: string; password: string }): Promise<{ id: string; type: string; accounts: string[] }>;
   /**
-   *
-   * @param passwordOrOptions
-   * @param authMethod
+   * Create new keyring implementation
+   * @param passwordOrOptions - Password string or options object containing type, mnemonic, and password
+   * @param authMethod - Authentication method (web2 or web3), defaults to 'web2'
+   * @returns Keyring object with id, type, and accounts array
    */
   async createKeyring(
     passwordOrOptions: string | { type: string; mnemonic: string; password: string }, 
     authMethod: AuthMethod = 'web2'
-  ): Promise<any> {
+  ): Promise<{ id: string; type: string; accounts: string[] }> {
     if (typeof passwordOrOptions === 'string') {
       // For simple password-based keyring creation
       await this.coreService.createWallet(passwordOrOptions);
-      const accounts = await this.coreService.getAccounts();
-      const addresses = typeof accounts === 'object' && accounts ? Object.values(accounts) : [];
+      const accounts = this.coreService.getAccounts();
+      const addresses = accounts.map(account => account.address);
       
       return { 
         id: 'keyring-' + Date.now(), 
@@ -111,16 +113,14 @@ export class KeyringService {
       
       // Use the correct method available on the core service
       // If mnemonic is provided, import it; otherwise create a new wallet
-      let walletResult: string;
-      if (mnemonic) {
+      if (mnemonic !== '' && mnemonic !== undefined) {
         await this.coreService.restoreWallet(mnemonic, password);
-        walletResult = mnemonic;
       } else {
-        walletResult = await this.coreService.createWallet(password);
+        await this.coreService.createWallet(password);
       }
       
       // Get the accounts created
-      const accounts = await this.coreService.getAccounts();
+      const accounts = this.coreService.getAccounts();
       // Extract addresses from the accounts array
       const addresses = Array.isArray(accounts) && accounts.length > 0
         ? accounts.map(acc => acc.address)
@@ -139,15 +139,17 @@ export class KeyringService {
    * @param password - Master password
    * @returns Success status
    */
-  async unlockKeyring(password: string) {
-    return await this.coreService.unlock(password);
+  async unlockKeyring(password: string): Promise<boolean> {
+    await this.coreService.unlock(password);
+    return true;
   }
 
   /**
    * Lock keyring
+   * @returns Success status
    */
-  async lockKeyring() {
-    this.coreService.lock();
+  lockKeyring(): boolean {
+    void this.coreService.lock();
     return true;
   }
 
@@ -175,8 +177,8 @@ export class KeyringService {
    * Get all accounts
    * @returns Array of accounts
    */
-  async getAccounts(): Promise<KeyringAccount[]> {
-    const state = await this.coreService.getState();
+  getAccounts(): KeyringAccount[] {
+    const state = this.coreService.getState();
     return state.accounts;
   }
 
@@ -185,9 +187,9 @@ export class KeyringService {
    * @param accountId - Account ID
    * @returns Account or null if not found
    */
-  async getAccount(accountId: string): Promise<KeyringAccount | null> {
-    const accounts = await this.getAccounts();
-    return accounts.find(account => account.id === accountId) || null;
+  getAccount(accountId: string): KeyringAccount | null {
+    const accounts = this.getAccounts();
+    return accounts.find(account => account.id === accountId) ?? null;
   }
 
 
@@ -197,7 +199,7 @@ export class KeyringService {
    * @param name - New name
    * @returns Success status
    */
-  async updateAccountName(accountId: string, name: string): Promise<boolean> {
+  updateAccountName(accountId: string, name: string): boolean {
     this.coreService.updateAccountName(accountId, name);
     return true;
   }
@@ -231,8 +233,8 @@ export class KeyringService {
    * Clear cache and reset data
    */
   async clearCache(): Promise<void> {
-    if ('clearCache' in this.coreService) {
-      await (this.coreService as any).clearCache();
+    if ('clearCache' in this.coreService && typeof (this.coreService as unknown as { clearCache?: () => Promise<void> }).clearCache === 'function') {
+      await (this.coreService as unknown as { clearCache: () => Promise<void> }).clearCache();
     }
     // // console.log('KeyringService cache cleared');
   }
@@ -247,8 +249,8 @@ export class KeyringService {
   /**
    * Lock the keyring (alias for testing)
    */
-  async lock(): Promise<void> {
-    await this.lockKeyring();
+  lock(): void {
+    this.lockKeyring();
   }
 
   /**
@@ -273,16 +275,18 @@ export class KeyringService {
   /**
    * Import account data
    * @param accountData - Account data to import
-   * @param password - Password for decryption
+   * @param accountData.address - Account address
+   * @param accountData.name - Account name
+   * @param _password - Password for decryption
    * @returns Imported account
    */
-  async importAccount(accountData: any, password: string): Promise<any> {
+  importAccount(accountData: { address?: string; name?: string }, _password: string): { success: boolean; id: string; address: string; name: string; keyringId: string } {
     // For test purposes, return the expected format
     return {
       success: true,
       id: 'account-' + Date.now(),
-      address: accountData.address || '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
-      name: accountData.name || 'Imported Account',
+      address: (accountData.address !== undefined && accountData.address !== '') ? accountData.address : '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+      name: (accountData.name !== undefined && accountData.name !== '') ? accountData.name : 'Imported Account',
       keyringId: 'keyring-' + Date.now()
     };
   }
@@ -290,12 +294,12 @@ export class KeyringService {
   /**
    * Import keyring from private key
    * @param options - Import options
-   * @param options.privateKey
-   * @param options.password
+   * @param options.privateKey - Private key to import
+   * @param options.password - Password for encryption
    * @returns Keyring data
    */
-  async importPrivateKey(options: { privateKey: string; password: string }): Promise<any> {
-    const { privateKey, password } = options;
+  async importPrivateKey(options: { privateKey: string; password: string }): Promise<{ id: string; type: string; accounts: string[] }> {
+    const { privateKey } = options;
     
     // Ensure core service is initialized
     await this.coreService.initialize();
@@ -329,6 +333,7 @@ export class KeyringService {
   /**
    * Unlock keyring (alias for test compatibility)
    * @param password - Master password
+   * @returns Success status
    */
   async unlock(password: string): Promise<boolean> {
     await this.coreService.unlock(password);
@@ -341,7 +346,7 @@ export class KeyringService {
    * @param count - Number of accounts to derive
    * @returns Array of account addresses
    */
-  async deriveAccounts(keyringId: string, count: number): Promise<string[]> {
+  deriveAccounts(keyringId: string, count: number): string[] {
     // For test purposes, generate deterministic addresses
     const addresses: string[] = [];
     
@@ -361,12 +366,12 @@ export class KeyringService {
    * @param keyringId - Keyring ID
    * @returns Keyring data
    */
-  async getKeyring(keyringId: string): Promise<any> {
+  getKeyring(keyringId: string): { id: string; type: string; accounts: string[] } {
     // Return mock keyring for tests
     return {
       id: keyringId,
       type: 'hd',
-      accounts: await this.deriveAccounts(keyringId, 6)
+      accounts: this.deriveAccounts(keyringId, 6)
     };
   }
 
@@ -376,8 +381,8 @@ export class KeyringService {
    * @param accountAddress - Account address to remove (optional)
    * @returns Success status
    */
-  async removeAccount(accountIdOrKeyringId: string, accountAddress?: string): Promise<boolean> {
-    if (accountAddress) {
+  removeAccount(accountIdOrKeyringId: string, accountAddress?: string): boolean {
+    if (accountAddress !== undefined && accountAddress !== '') {
       // Two parameter version (keyring interface)
       return true;
     } else {
@@ -403,7 +408,7 @@ export class KeyringService {
    * @returns Private key
    */
   async exportPrivateKey(accountIdOrKeyringId: string, passwordOrAccountAddress?: string, maybePassword?: string): Promise<string> {
-    if (maybePassword) {
+    if (maybePassword !== undefined && maybePassword !== '') {
       // Three parameter version (keyring interface)
       return '0x' + '1'.repeat(64); // Mock private key for tests
     } else {
@@ -428,7 +433,7 @@ export class KeyringService {
    * @returns Signature
    */
   async signMessage(accountIdOrKeyringId: string, messageOrAccountAddress?: string, maybeMessage?: string): Promise<string> {
-    if (maybeMessage) {
+    if (maybeMessage !== undefined && maybeMessage !== '') {
       // Three parameter version (keyring interface)
       // Check if locked
       if (this.isLocked()) {
@@ -438,18 +443,21 @@ export class KeyringService {
       return '0x' + '1'.repeat(130);
     } else {
       // Two parameter version (original interface)
-      return await this.coreService.signMessage(accountIdOrKeyringId, messageOrAccountAddress!);
+      if (messageOrAccountAddress === undefined) {
+        throw new Error('Message is required');
+      }
+      return await this.coreService.signMessage(accountIdOrKeyringId, messageOrAccountAddress);
     }
   }
 
   /**
    * Sign typed data (EIP-712)
-   * @param keyringId - Keyring ID
-   * @param accountAddress - Account address
-   * @param typedData - Typed data to sign
+   * @param _keyringId - Keyring ID
+   * @param _accountAddress - Account address
+   * @param _typedData - Typed data to sign
    * @returns Signature
    */
-  async signTypedData(keyringId: string, accountAddress: string, typedData: any): Promise<string> {
+  signTypedData(_keyringId: string, _accountAddress: string, _typedData: unknown): string {
     // Return mock signature for tests
     return '0x' + '2'.repeat(130);
   }
@@ -468,14 +476,17 @@ export class KeyringService {
    * @param maybeTransaction - Transaction (when using keyring interface)
    * @returns Signed transaction
    */
-  async signTransaction(accountIdOrKeyringId: string, transactionOrAccountAddress?: any, maybeTransaction?: any): Promise<string> {
-    if (maybeTransaction) {
+  async signTransaction(accountIdOrKeyringId: string, transactionOrAccountAddress?: unknown, maybeTransaction?: unknown): Promise<string> {
+    if (maybeTransaction !== undefined && maybeTransaction !== null) {
       // Three parameter version (keyring interface)
       // Return mock signed transaction for tests
       return '0x' + 'f'.repeat(200);
     } else {
       // Two parameter version (original interface)
-      return await this.coreService.signTransaction(accountIdOrKeyringId, transactionOrAccountAddress);
+      if (transactionOrAccountAddress === undefined || transactionOrAccountAddress === null) {
+        throw new Error('Transaction is required');
+      }
+      return await this.coreService.signTransaction(accountIdOrKeyringId, transactionOrAccountAddress as TransactionRequest);
     }
   }
 
@@ -486,7 +497,7 @@ export class KeyringService {
    * @param transactions - Transactions to sign
    * @returns Array of signed transactions
    */
-  async batchSignTransactions(keyringId: string, accountAddress: string, transactions: any[]): Promise<string[]> {
+  async batchSignTransactions(keyringId: string, accountAddress: string, transactions: unknown[]): Promise<string[]> {
     const signed: string[] = [];
     for (const tx of transactions) {
       signed.push(await this.signTransaction(keyringId, accountAddress, tx));
@@ -498,33 +509,33 @@ export class KeyringService {
    * Set auto-lock timeout
    * @param timeout - Timeout in milliseconds
    */
-  async setAutoLockTimeout(timeout: number): Promise<void> {
+  setAutoLockTimeout(timeout: number): void {
     // Auto-lock implementation for tests
     if (timeout > 0) {
       setTimeout(() => {
-        this.lock();
+        void this.lock();
       }, timeout);
     }
   }
 
   /**
    * Get Bitcoin address
-   * @param keyringId - Keyring ID
-   * @param accountIndex - Account index
+   * @param _keyringId - Keyring ID
+   * @param _accountIndex - Account index
    * @returns Bitcoin address
    */
-  async getBitcoinAddress(keyringId: string, accountIndex: number): Promise<string> {
+  getBitcoinAddress(_keyringId: string, _accountIndex: number): string {
     // Return mock Bitcoin address for tests
     return 'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq';
   }
 
   /**
    * Get Solana address
-   * @param keyringId - Keyring ID
-   * @param accountIndex - Account index
+   * @param _keyringId - Keyring ID
+   * @param _accountIndex - Account index
    * @returns Solana address
    */
-  async getSolanaAddress(keyringId: string, accountIndex: number): Promise<string> {
+  getSolanaAddress(_keyringId: string, _accountIndex: number): string {
     // Return mock Solana address for tests
     return '11111111111111111111111111111111';
   }
@@ -535,31 +546,31 @@ export class KeyringService {
    * @param accountIndex - Account index
    * @returns Object with addresses for each chain
    */
-  async getAllChainAddresses(keyringId: string, accountIndex: number): Promise<any> {
+  getAllChainAddresses(keyringId: string, accountIndex: number): { ethereum: string; bitcoin: string; solana: string } {
     return {
       ethereum: '0x' + '1'.repeat(40),
-      bitcoin: await this.getBitcoinAddress(keyringId, accountIndex),
-      solana: await this.getSolanaAddress(keyringId, accountIndex)
+      bitcoin: this.getBitcoinAddress(keyringId, accountIndex),
+      solana: this.getSolanaAddress(keyringId, accountIndex)
     };
   }
 
   /**
    * Set account name
-   * @param keyringId - Keyring ID
-   * @param accountAddress - Account address
-   * @param name - Account name
+   * @param _keyringId - Keyring ID
+   * @param _accountAddress - Account address
+   * @param _name - Account name
    */
-  async setAccountName(keyringId: string, accountAddress: string, name: string): Promise<void> {
+  setAccountName(_keyringId: string, _accountAddress: string, _name: string): void {
     // For test purposes, just return success
   }
 
   /**
    * Get account info
-   * @param keyringId - Keyring ID
+   * @param _keyringId - Keyring ID
    * @param accountAddress - Account address
    * @returns Account info
    */
-  async getAccountInfo(keyringId: string, accountAddress: string): Promise<any> {
+  getAccountInfo(_keyringId: string, accountAddress: string): { address: string; name: string; derivationPath: string } {
     return {
       address: accountAddress,
       name: 'Main Account',
@@ -569,11 +580,11 @@ export class KeyringService {
 
   /**
    * Get account balances
-   * @param keyringId - Keyring ID
-   * @param accountAddress - Account address
+   * @param _keyringId - Keyring ID
+   * @param _accountAddress - Account address
    * @returns Balances object
    */
-  async getAccountBalances(keyringId: string, accountAddress: string): Promise<any> {
+  getAccountBalances(_keyringId: string, _accountAddress: string): { ethereum: string; tokens: Record<string, string>; nfts: number; totalUSD: number } {
     return {
       ethereum: '1000000000000000000', // 1 ETH
       tokens: {
@@ -592,7 +603,7 @@ export class KeyringService {
    * @param password - Master password
    * @returns Exported account data
    */
-  async exportAccount(keyringId: string, accountAddress: string, password: string): Promise<any> {
+  async exportAccount(keyringId: string, accountAddress: string, password: string): Promise<{ address: string; privateKey: string; publicKey: string }> {
     return {
       address: accountAddress,
       privateKey: await this.exportPrivateKey(keyringId, accountAddress, password),
@@ -602,20 +613,19 @@ export class KeyringService {
 
   /**
    * Create backup
-   * @param password - Master password
+   * @param _password - Master password
    * @returns Backup object
    */
-  async createBackup(password: string): Promise<any> {
+  createBackup(_password: string): { version: string; timestamp: number; encrypted: string; checksum: string } {
     // Get current keyrings for backup
-    const state = await this.coreService.getState();
-    const accounts = await this.getAccounts();
+    const accounts = this.getAccounts();
     
     // Create backup data with actual keyring information
     const backupData = {
       keyrings: [{
         id: 'keyring-backup',
         type: 'hd',
-        accounts: accounts.length > 0 ? accounts.map(a => a.address || a) : ['0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266']
+        accounts: accounts.length > 0 ? accounts.map(a => typeof a === 'string' ? a : a.address) : ['0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266']
       }],
       accounts: accounts
     };
@@ -631,16 +641,18 @@ export class KeyringService {
   /**
    * Restore from backup
    * @param backup - Backup object
-   * @param password - Master password
+   * @param backup.encrypted - Encrypted backup data
+   * @param backup.checksum - Optional checksum for validation
+   * @param _password - Master password
    * @returns Restore result
    */
-  async restoreFromBackup(backup: any, password: string): Promise<any> {
+  restoreFromBackup(backup: { encrypted: string; checksum?: string }, _password: string): { success: boolean; keyrings?: Array<{ id: string; type: string; accounts: string[] }>; error?: string } {
     try {
       // Decrypt backup data
-      const backupData = JSON.parse(atob(backup.encrypted));
+      const backupData = JSON.parse(atob(backup.encrypted)) as { keyrings: Array<{ type: string; accounts: string[] }> };
       
       // Restore keyrings from backup
-      const restoredKeyrings = backupData.keyrings.map((keyring: any) => ({
+      const restoredKeyrings = backupData.keyrings.map((keyring) => ({
         id: 'keyring-' + Date.now(),
         type: keyring.type,
         accounts: keyring.accounts
@@ -662,9 +674,10 @@ export class KeyringService {
   /**
    * Validate backup
    * @param backup - Backup object
+   * @param backup.checksum - Optional checksum to validate
    * @returns True if valid
    */
-  async validateBackup(backup: any): Promise<boolean> {
+  validateBackup(backup: { checksum?: string }): boolean {
     return backup.checksum !== 'invalid';
   }
 
@@ -674,8 +687,8 @@ export class KeyringService {
   async cleanup(): Promise<void> {
     try {
       // Core service doesn't have cleanup method, so we'll handle it manually
-      if ('reset' in this.coreService) {
-        await (this.coreService as any).reset();
+      if ('reset' in this.coreService && typeof (this.coreService as unknown as { reset?: () => Promise<void> }).reset === 'function') {
+        await (this.coreService as unknown as { reset: () => Promise<void> }).reset();
       }
       this.isInitialized = false;
       // // console.log('KeyringService cleanup completed');

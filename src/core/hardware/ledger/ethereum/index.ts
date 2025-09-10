@@ -20,14 +20,16 @@ type FeeMarketEIP1559Transaction = {
   getMessageToSign(): Uint8Array | Buffer;
   common: TransactionCommon;
 };
-import HDKey from "hdkey";
-
 // HDKey doesn't provide proper TypeScript types, so we need to define our own
 interface HDKeyInstance {
   publicKey: Buffer;
   chainCode: Buffer;
   derive(path: string): HDKeyInstance;
 }
+
+// Use require for hdkey to avoid type declaration issues
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const HDKey = require("hdkey") as new () => HDKeyInstance;
 import { bufferToHex, hexToBuffer } from "../../../types/enkrypt-types";
 import { RLP } from "@ethereumjs/rlp";
 import { toRpcSig, publicToAddress } from "@ethereumjs/util";
@@ -248,8 +250,8 @@ class LedgerEthereum implements HWWalletProvider {
         bufferToHex(messageHash),
       )
       .then((result) => {
-        const v = BigInt(result.v - 27);
-        return toRpcSig(Number(v), hexToBuffer(result.r), hexToBuffer(result.s));
+        const v = result.v - 27;
+        return toRpcSig(v, hexToBuffer(result.r), hexToBuffer(result.s));
       });
   }
 

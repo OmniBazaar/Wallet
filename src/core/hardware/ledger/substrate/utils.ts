@@ -23,7 +23,7 @@ const bip32ToAddressNList = (path: string): number[] => {
   const ret = new Array(segments.length);
   for (let i = 0; i < segments.length; i++) {
     const segment = segments[i];
-    if (!segment) {
+    if (segment === '') {
       throw new Error("Invalid segment");
     }
     const tmp = /(\d+)([hH']?)/.exec(segment);
@@ -31,7 +31,7 @@ const bip32ToAddressNList = (path: string): number[] => {
       throw new Error("Invalid input");
     }
     const childIndex = tmp[1];
-    if (!childIndex) {
+    if (childIndex === undefined || childIndex === '') {
       throw new Error("Invalid child index format");
     }
     ret[i] = parseInt(childIndex, 10);
@@ -41,11 +41,11 @@ const bip32ToAddressNList = (path: string): number[] => {
     const modifier = tmp[2];
     if (modifier === "h" || modifier === "H" || modifier === "'") {
       ret[i] += HARDENED;
-    } else if (modifier && modifier.length !== 0) {
+    } else if (modifier !== undefined && modifier !== '') {
       throw new Error("Invalid modifier");
     }
   }
-  return ret;
+  return ret as number[];
 };
 
 export { bip32ToAddressNList };

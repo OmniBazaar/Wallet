@@ -144,7 +144,7 @@ export class HardwareWalletService {
    * Discover available hardware wallet devices
    * @returns Array of discovered devices
    */
-  async discoverDevices(): Promise<HardwareDevice[]> {
+  discoverDevices(): HardwareDevice[] {
     if (!this.isInitialized) {
       throw new Error('Hardware wallet service not initialized');
     }
@@ -179,8 +179,8 @@ export class HardwareWalletService {
    * Detect available hardware wallet devices (alias for discoverDevices)
    * @returns Array of detected devices with id and label fields
    */
-  async detectDevices(): Promise<Array<{ type: string; id: string; label: string }>> {
-    const devices = await this.discoverDevices();
+  detectDevices(): Array<{ type: string; id: string; label: string }> {
+    const devices = this.discoverDevices();
     
     // Map to expected format for tests
     return devices.map(device => ({

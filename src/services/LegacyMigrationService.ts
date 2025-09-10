@@ -139,15 +139,15 @@ export class LegacyMigrationService {
    * Initialize the service and load legacy user data
    * @param legacyUsersData Optional array of legacy users (for testing)
    */
-  async initialize(legacyUsersData?: LegacyUserData[]): Promise<void> {
-    if (legacyUsersData) {
+  initialize(legacyUsersData?: LegacyUserData[]): void {
+    if (legacyUsersData !== undefined) {
       // Load from provided data (for testing)
       for (const user of legacyUsersData) {
         this.legacyUsers.set(user.username.toLowerCase(), user);
       }
     } else {
       // Load from CSV in production
-      await this.loadLegacyUsers();
+      this.loadLegacyUsers();
     }
   }
   
@@ -155,7 +155,7 @@ export class LegacyMigrationService {
    * Load legacy users from CSV file
    * Note: This should be updated to load from actual CSV file with public keys
    */
-  private async loadLegacyUsers(): Promise<void> {
+  private loadLegacyUsers(): void {
     try {
       // TODO: Implement CSV loading with format:
       // accountId,username,balance,balanceDecimal,balanceType,publicKey,address
@@ -169,9 +169,10 @@ export class LegacyMigrationService {
   
   /**
    * Return true if a username exists in the legacy list.
-   * @param username
+   * @param username - Username to check
+   * @returns True if username exists in legacy list
    */
-  async isLegacyUser(username: string): Promise<boolean> {
+  isLegacyUser(username: string): boolean {
     const normalizedUsername = username.toLowerCase();
     return this.legacyUsers.has(normalizedUsername);
   }
@@ -182,17 +183,18 @@ export class LegacyMigrationService {
    * @returns Legacy user data or null if not found
    */
   getLegacyUser(username: string): LegacyUserData | null {
-    return this.legacyUsers.get(username.toLowerCase()) || null;
+    return this.legacyUsers.get(username.toLowerCase()) ?? null;
   }
   
   /**
    * Get migration status for a username.
    * @param username Username to check
+   * @returns Migration status with balance information
    */
   async getMigrationStatus(username: string): Promise<MigrationStatus> {
     const legacyUser = this.legacyUsers.get(username.toLowerCase());
     
-    if (!legacyUser) {
+    if (legacyUser === undefined) {
       return {
         username: username,
         isLegacyUser: false,
@@ -233,16 +235,17 @@ export class LegacyMigrationService {
    * Derives private key from username/password and verifies it matches stored public key.
    * @param username Legacy username
    * @param password Legacy password
+   * @returns Validation result with wallet if successful
    */
-  async validateLegacyCredentials(
+  validateLegacyCredentials(
     username: string,
     password: string
-  ): Promise<ValidationResult> {
+  ): ValidationResult {
     const normalizedUsername = username.toLowerCase();
     
     // Check if user exists
     const legacyUser = this.legacyUsers.get(normalizedUsername);
-    if (!legacyUser) {
+    if (legacyUser === undefined) {
       return {
         isValid: false,
         error: 'Username not found in legacy records'
@@ -281,11 +284,11 @@ export class LegacyMigrationService {
         address: legacyUser.address
       };
       
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error validating credentials:', error);
       return {
         isValid: false,
-        error: error.message || 'Failed to validate credentials'
+        error: error instanceof Error ? error.message : 'Failed to validate credentials'
       };
     }
   }
@@ -296,23 +299,24 @@ export class LegacyMigrationService {
    * that can access those tokens.
    * @param username Legacy username  
    * @param password Legacy password
+   * @returns Access result with wallet if successful
    */
   async accessLegacyBalance(
     username: string,
     password: string
   ): Promise<AccessResult> {
     // Validate credentials first
-    const validation = await this.validateLegacyCredentials(username, password);
-    if (!validation.isValid || !validation.wallet) {
+    const validation = this.validateLegacyCredentials(username, password);
+    if (!validation.isValid || validation.wallet === undefined) {
       return {
         success: false,
-        error: validation.error || 'Invalid credentials'
+        error: validation.error ?? 'Invalid credentials'
       };
     }
     
     try {
       // Check balance at the legacy address
-      const balance = await this.provider.getBalance(validation.address!);
+      const balance = await this.provider.getBalance(validation.address ?? '');
       
       if (balance === BigInt(0)) {
         return {
@@ -322,27 +326,28 @@ export class LegacyMigrationService {
       }
       
       // Return wallet with access to pre-minted tokens
-      const legacyBalance = BigInt(validation.balance || '0');
+      const legacyBalance = BigInt(validation.balance ?? '0');
       const newBalance = legacyBalance * this.DECIMAL_CONVERSION;
       
       return {
         success: true,
         wallet: validation.wallet,
-        ...(validation.address && { address: validation.address }),
+        ...(validation.address !== undefined && { address: validation.address }),
         amount: ethers.formatEther(newBalance)
       };
       
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error accessing balance:', error);
       return {
         success: false,
-        error: error.message || 'Failed to access balance'
+        error: error instanceof Error ? error.message : 'Failed to access balance'
       };
     }
   }
   
   /**
    * Get overall migration statistics
+   * @returns Migration statistics including total users and access rate
    */
   async getMigrationStats(): Promise<{
     totalUsers: number;
@@ -382,9 +387,10 @@ export class LegacyMigrationService {
   
   /**
    * Search legacy users (for admin/support)
-   * @param query
+   * @param query - Search term for username or account ID
+   * @returns Array of matching legacy users (max 20 results)
    */
-  async searchLegacyUsers(query: string): Promise<LegacyUserData[]> {
+  searchLegacyUsers(query: string): LegacyUserData[] {
     const results: LegacyUserData[] = [];
     const searchTerm = query.toLowerCase();
     
@@ -401,7 +407,8 @@ export class LegacyMigrationService {
   
   /**
    * Get top balance holders (for statistics)
-   * @param limit
+   * @param limit - Maximum number of users to return
+   * @returns Array of top balance holders
    */
   getTopBalanceHolders(limit = 10): LegacyUserData[] {
     const users = Array.from(this.legacyUsers.values());
@@ -420,6 +427,7 @@ export class LegacyMigrationService {
    * @param fromAddress Legacy address
    * @param toAddress Destination address
    * @param amount Amount to transfer
+   * @returns Gas estimate as string
    */
   async estimateTransferGas(
     fromAddress: string,
@@ -453,6 +461,7 @@ export class LegacyMigrationService {
   /**
    * Example implementation of a key derivation algorithm.
    * This is NOT the actual v1 algorithm - it must be replaced.
+   * @returns Example key derivation algorithm
    */
   static createExampleKeyDerivation(): LegacyKeyDerivationAlgorithm {
     return {
@@ -473,6 +482,7 @@ export class LegacyMigrationService {
   
   /**
    * Export users who haven't accessed their balance
+   * @returns Array of unaccessed users with username, balance and address
    */
   async exportUnaccessedUsers(): Promise<Array<{
     username: string;

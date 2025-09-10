@@ -11,10 +11,11 @@ export class AMMIntegration {
 
   /**
    * Initialize the AMM integration
+   * @returns Promise that resolves when initialization is complete
    */
-  // eslint-disable-next-line @typescript-eslint/require-await
-  async init(): Promise<void> {
+  init(): Promise<void> {
     this.initialized = true;
+    return Promise.resolve();
   }
 
   /**
@@ -26,7 +27,7 @@ export class AMMIntegration {
    * @param params.slippage - Slippage tolerance
    * @returns Promise resolving to swap quote
    */
-  async getSwapQuote(params: {
+  getSwapQuote(params: {
     /** Input token symbol */
     tokenIn: string;
     /** Output token symbol */
@@ -48,12 +49,12 @@ export class AMMIntegration {
     // Mock quote calculation
     const amountOut = (params.amountIn * BigInt(95)) / BigInt(100); // 5% slippage
     
-    return {
+    return Promise.resolve({
       amountOut,
       priceImpact: 0.05,
       route: [params.tokenIn, params.tokenOut],
       estimatedGas: BigInt(150000)
-    };
+    });
   }
 
   /**
@@ -67,7 +68,7 @@ export class AMMIntegration {
    * @param params.deadline - Transaction deadline
    * @returns Promise resolving to swap result
    */
-  async executeSwap(params: {
+  executeSwap(params: {
     /** Input token symbol */
     tokenIn: string;
     /** Output token symbol */
@@ -88,20 +89,20 @@ export class AMMIntegration {
     /** Actual output amount */
     amountOut: bigint;
   }> {
-    return {
+    return Promise.resolve({
       txHash: '0x' + Math.random().toString(16).substring(2, 66),
       amountIn: params.amountIn,
       amountOut: params.amountOutMin
-    };
+    });
   }
 
   /**
    * Get liquidity pool information
-   * @param tokenA - First token symbol
-   * @param tokenB - Second token symbol
+   * @param _tokenA - First token symbol (unused in mock)
+   * @param _tokenB - Second token symbol (unused in mock)
    * @returns Promise resolving to pool info
    */
-  async getPoolInfo(tokenA: string, tokenB: string): Promise<{
+  getPoolInfo(_tokenA: string, _tokenB: string): Promise<{
     /** Pool contract address */
     address: string;
     /** Reserve of first token */
@@ -111,12 +112,12 @@ export class AMMIntegration {
     /** Total LP token supply */
     totalSupply: bigint;
   }> {
-    return {
+    return Promise.resolve({
       address: '0x' + Math.random().toString(16).substring(2, 42),
       reserve0: BigInt(1000000),
       reserve1: BigInt(1000000),
       totalSupply: BigInt(1000000)
-    };
+    });
   }
 
   /**

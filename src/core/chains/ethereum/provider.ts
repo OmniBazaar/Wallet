@@ -13,10 +13,10 @@ import {
   OnMessageResponse,
   EthereumProviderInterface,
   MiddlewareFunction
-} from '@/types/provider';
-import { EthereumNetwork, BaseNetwork } from '@/types/base-network';
+} from '../../../types/provider';
+import { EthereumNetwork, BaseNetwork } from '../../../types/base-network';
 import EventEmitter from 'eventemitter3';
-import { generateSecureSubscriptionId } from '@/core/utils/secure-random';
+import { generateSecureSubscriptionId } from '../../utils/secure-random';
 
 /**
  * Configuration for supported Ethereum networks
@@ -615,7 +615,7 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
    * @param transaction - Transaction to sign
    * @returns Signed transaction as hex string
    */
-  async signTransaction(privateKey: string, transaction: import('@/types').TransactionRequest): Promise<string> {
+  async signTransaction(privateKey: string, transaction: import('../../../types').TransactionRequest): Promise<string> {
     // Create ethers transaction request
     const ethersRequest: { to: string; value?: string; data?: string; gas?: string; gasPrice?: string } = {
       to: transaction.to
@@ -657,7 +657,7 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
    * @param txHash - Transaction hash
    * @returns Transaction details
    */
-  async getTransaction(txHash: string): Promise<import('@/types').Transaction> {
+  async getTransaction(txHash: string): Promise<import('../../../types').Transaction> {
     try {
       const tx = await this.provider.getTransaction(txHash);
       const receipt = await this.provider.getTransactionReceipt(txHash);
@@ -666,7 +666,7 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
         throw new Error('Transaction not found');
       }
 
-      const transaction: import('@/types').Transaction = {
+      const transaction: import('../../../types').Transaction = {
         hash: tx.hash,
         from: tx.from,
         to: tx.to ?? '',
@@ -710,12 +710,12 @@ export class EthereumProvider extends EventEmitter implements EthereumProviderIn
    * @param limit - Maximum number of transactions to return
    * @returns Array of transactions
    */
-  async getTransactionHistory(address: string, limit = 20): Promise<import('@/types').Transaction[]> {
+  async getTransactionHistory(address: string, limit = 20): Promise<import('../../../types').Transaction[]> {
     try {
       // Note: This is a simplified implementation
       // In production, you'd use an indexing service like Etherscan API
       const currentBlock = await this.provider.getBlockNumber();
-      const transactions: import('@/types').Transaction[] = [];
+      const transactions: import('../../../types').Transaction[] = [];
       
       // Scan recent blocks (limited approach)
       const blocksToScan = Math.min(limit * 5, 100); // Estimate blocks to scan
