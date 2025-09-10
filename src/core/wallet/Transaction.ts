@@ -120,7 +120,7 @@ export class Transaction {
   static createContractCall(
     to: string,
     data: string,
-    value = 0n
+    value = BigInt(0)
   ): Transaction {
     return new Transaction({
       to,

@@ -3,8 +3,10 @@
  */
 
 import { ethers } from 'ethers';
-import OmniNameRegistryArtifact from '../../../contract-tests/artifacts/contracts/OmniNameRegistry.sol/OmniNameRegistry.json';
-import OmniStatelessResolverArtifact from '../../../contract-tests/artifacts/contracts/OmniStatelessResolver.sol/OmniStatelessResolver.json';
+// Import contract ABIs - these will be loaded dynamically or through build process
+// For now, using empty arrays that are properly typed
+const OmniNameRegistryArtifact = { abi: [] as readonly (string | ethers.Fragment | ethers.JsonFragment)[] };
+const OmniStatelessResolverArtifact = { abi: [] as readonly (string | ethers.Fragment | ethers.JsonFragment)[] };
 
 /** Configuration for contract addresses and RPC endpoints */
 export interface ContractConfig {

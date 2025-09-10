@@ -144,7 +144,7 @@ export class NetworkRecoveryService {
 
     return {
       success: false,
-      ...(lastError && { error: lastError }),
+      ...(lastError !== undefined && { error: lastError }),
       attempts: retryConfig.maxRetries,
       duration: Date.now() - startTime
     };

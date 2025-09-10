@@ -853,8 +853,8 @@ export class BlockExplorerService {
       blockNumber: parseInt(txData.blockNumber),
       timestamp: parseInt(txData.timeStamp),
       status: txData.isError === '0' ? 'success' : 'failed',
-      ...(txData.functionName && { method: txData.functionName }),
-      ...(txData.input && { input: txData.input }),
+      ...((txData.functionName !== undefined && txData.functionName !== '') ? { method: txData.functionName } : {}),
+      ...((txData.input !== undefined && txData.input !== '') ? { input: txData.input } : {}),
       fee: (BigInt(txData.gasUsed) * BigInt(txData.gasPrice)).toString(),
       confirmations: txData.confirmations ?? 0
     };
@@ -885,7 +885,7 @@ export class BlockExplorerService {
       transactionCount: blockData.transactionCount ?? blockData.transactions?.length ?? 0,
       gasUsed: blockData.gasUsed,
       gasLimit: blockData.gasLimit,
-      ...(blockData.baseFeePerGas && { baseFeePerGas: blockData.baseFeePerGas }),
+      ...((blockData.baseFeePerGas !== undefined && blockData.baseFeePerGas !== '') ? { baseFeePerGas: blockData.baseFeePerGas } : {}),
       ...(blockData.size !== undefined && { size: blockData.size }),
       difficulty: blockData.difficulty ?? '0'
     };

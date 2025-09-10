@@ -515,7 +515,7 @@ export class PaymentRoutingService {
       // Mock swap calculation (would use 1inch, 0x API, etc.)
       const swapRate = 1500; // Mock: 1 ETH = 1500 USDC
       const inputAmount = parseUnits(amount || '1', nativeToken.decimals);
-      const outputAmount = inputAmount * BigInt(Math.floor(swapRate * 1000)) / 1000n;
+      const outputAmount = inputAmount * BigInt(Math.floor(swapRate * 1000)) / BigInt(1000);
 
       return {
         blockchain,
@@ -531,7 +531,7 @@ export class PaymentRoutingService {
           exchange: exchanges[0] || 'Unknown',
           path: [nativeToken.address, targetToken.address],
           expectedOutput: outputAmount.toString(),
-          minimumOutput: (outputAmount * 99n / 100n).toString(), // 1% slippage
+          minimumOutput: (outputAmount * BigInt(99) / BigInt(100)).toString(), // 1% slippage
           priceImpact: 0.1
         }],
         approvalRequired: false, // Native token doesn't need approval

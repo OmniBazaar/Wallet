@@ -106,7 +106,7 @@ export const LegacyLoginModal: React.FC<LegacyLoginModalProps> = ({
       void service.initialize().then(() => {
         setMigrationService(service);
       }).catch((error: unknown) => {
-        console.error('Failed to initialize migration service:', error);
+        setError(`Failed to initialize migration service: ${error instanceof Error ? error.message : 'Unknown error'}`);
       });
     }
   }, [open, provider, signer, migrationContractAddress]);

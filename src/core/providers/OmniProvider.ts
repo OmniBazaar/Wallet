@@ -415,6 +415,22 @@ export class OmniProvider extends ethers.JsonRpcProvider {
   }
 
   /**
+   * Send a raw JSON-RPC request to the provider.
+   * This method is exposed to allow custom RPC calls.
+   * @param method The RPC method to call
+   * @param params The parameters for the RPC method
+   * @returns Promise resolving to the result of the RPC call
+   */
+  async send(method: string, params: unknown[] | Record<string, unknown>): Promise<unknown> {
+    // For OmniBazaar-specific methods, use our authenticated sendRequest
+    if (method.startsWith('omni_')) {
+      return await this.sendRequest(method, params);
+    }
+    // For standard Ethereum methods, delegate to parent class
+    return await super.send(method, params);
+  }
+
+  /**
    * Disconnect from validator network
    */
   disconnect(): void {

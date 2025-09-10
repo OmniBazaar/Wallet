@@ -37,15 +37,22 @@ interface ISecureStorageService {
 
 /** Mock email provider implementation */
 class MockEmailProvider implements IEmailProvider {
-  async sendEmail(options: { to: string; subject: string; html: string }): Promise<void> {
-    console.log('Mock Email:', { to: options.to, subject: options.subject });
+  sendEmail(options: { to: string; subject: string; html: string }): Promise<void> {
+    // Remove console.log per linting rules
+    // In production, this would send actual email
+    void options; // Acknowledge parameter
+    return Promise.resolve();
   }
 }
 
 /** Mock SMS provider implementation */
 class MockSMSProvider implements ISMSProvider {
-  async sendSMS(to: string, message: string): Promise<void> {
-    console.log('Mock SMS:', { to, message });
+  sendSMS(to: string, message: string): Promise<void> {
+    // Remove console.log per linting rules
+    // In production, this would send actual SMS
+    void to; // Acknowledge parameter
+    void message; // Acknowledge parameter
+    return Promise.resolve();
   }
 }
 
@@ -54,44 +61,47 @@ class MockUserRegistryDatabase implements IUserRegistryDatabase {
   private users = new Map<string, Record<string, unknown>>();
   private sessions = new Map<string, Record<string, unknown>>();
 
-  async getUserByOAuth(provider: string, oauthId: string): Promise<{ id: string; email?: string } | null> {
+  getUserByOAuth(_provider: string, _oauthId: string): Promise<{ id: string; email?: string } | null> {
     // Mock implementation - in production would query actual database
-    return null;
+    return Promise.resolve(null);
   }
 
-  async updateUser(userId: string, updates: Record<string, unknown>): Promise<void> {
+  updateUser(userId: string, updates: Record<string, unknown>): Promise<void> {
     const user = this.users.get(userId);
-    if (user) {
+    if (user != null) {
       Object.assign(user, updates);
     }
+    return Promise.resolve();
   }
 
-  async createUser(userData: Record<string, unknown>): Promise<string> {
+  createUser(userData: Record<string, unknown>): Promise<string> {
     const userId = `user_${Date.now()}`;
     this.users.set(userId, userData);
-    return userId;
+    return Promise.resolve(userId);
   }
 
-  async getUser(userId: string): Promise<{ email?: string } | null> {
+  getUser(userId: string): Promise<{ email?: string } | null> {
     const user = this.users.get(userId);
-    return user ? { email: user.email as string } : null;
+    return Promise.resolve(user != null ? { email: user.email as string } : null);
   }
 
-  async createSession(sessionData: Record<string, unknown>): Promise<void> {
+  createSession(sessionData: Record<string, unknown>): Promise<void> {
     const sessionId = sessionData.tokenId as string;
     this.sessions.set(sessionId, sessionData);
+    return Promise.resolve();
   }
 
-  async getSession(sessionId: string): Promise<{ refreshToken: string; provider: string } | null> {
+  getSession(sessionId: string): Promise<{ refreshToken: string; provider: string } | null> {
     const session = this.sessions.get(sessionId);
-    return session ? { 
+    return Promise.resolve(session != null ? { 
       refreshToken: session.refreshToken as string, 
       provider: session.provider as string 
-    } : null;
+    } : null);
   }
 
-  async deleteSession(sessionId: string): Promise<void> {
+  deleteSession(sessionId: string): Promise<void> {
     this.sessions.delete(sessionId);
+    return Promise.resolve();
   }
 }
 
@@ -99,18 +109,20 @@ class MockUserRegistryDatabase implements IUserRegistryDatabase {
 class MockSecureStorageService implements ISecureStorageService {
   private storage = new Map<string, string>();
 
-  async storeEncrypted(key: string, value: string): Promise<void> {
+  storeEncrypted(key: string, value: string): Promise<void> {
     // Mock encryption - in production would use proper encryption
     this.storage.set(key, `encrypted_${value}`);
+    return Promise.resolve();
   }
 
-  async storeEncryptedWithKey(key: string, value: string, encryptionKey: string): Promise<void> {
+  storeEncryptedWithKey(key: string, value: string, encryptionKey: string): Promise<void> {
     // Mock encryption with key - in production would use proper encryption
     this.storage.set(key, `encrypted_${encryptionKey}_${value}`);
+    return Promise.resolve();
   }
 }
 import { createHmac, randomBytes } from 'crypto';
-import jwt from 'jsonwebtoken';
+import * as jwt from 'jsonwebtoken';
 
 /**
  * OAuth provider types supported by the system
@@ -214,7 +226,7 @@ export class OAuthService {
     this.secureStorage = new MockSecureStorageService();
     this.emailProvider = new MockEmailProvider();
     this.smsProvider = new MockSMSProvider();
-    this.jwtSecret = process.env.JWT_SECRET || this.generateSecureSecret();
+    this.jwtSecret = process.env.JWT_SECRET ?? this.generateSecureSecret();
     this.configs = this.initializeConfigs();
   }
 
@@ -226,9 +238,9 @@ export class OAuthService {
     const configs = new Map<OAuthProvider, OAuthConfig>();
 
     configs.set(OAuthProvider.GOOGLE, {
-      clientId: process.env.GOOGLE_CLIENT_ID || '',
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
-      redirectUri: process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3000/auth/google/callback',
+      clientId: process.env.GOOGLE_CLIENT_ID ?? '',
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? '',
+      redirectUri: process.env.GOOGLE_REDIRECT_URI ?? 'http://localhost:3000/auth/google/callback',
       authorizationUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
       tokenUrl: 'https://oauth2.googleapis.com/token',
       userInfoUrl: 'https://www.googleapis.com/oauth2/v2/userinfo',
@@ -236,9 +248,9 @@ export class OAuthService {
     });
 
     configs.set(OAuthProvider.TWITTER, {
-      clientId: process.env.TWITTER_CLIENT_ID || '',
-      clientSecret: process.env.TWITTER_CLIENT_SECRET || '',
-      redirectUri: process.env.TWITTER_REDIRECT_URI || 'http://localhost:3000/auth/twitter/callback',
+      clientId: process.env.TWITTER_CLIENT_ID ?? '',
+      clientSecret: process.env.TWITTER_CLIENT_SECRET ?? '',
+      redirectUri: process.env.TWITTER_REDIRECT_URI ?? 'http://localhost:3000/auth/twitter/callback',
       authorizationUrl: 'https://twitter.com/i/oauth2/authorize',
       tokenUrl: 'https://api.twitter.com/2/oauth2/token',
       userInfoUrl: 'https://api.twitter.com/2/users/me',
@@ -246,9 +258,9 @@ export class OAuthService {
     });
 
     configs.set(OAuthProvider.GITHUB, {
-      clientId: process.env.GITHUB_CLIENT_ID || '',
-      clientSecret: process.env.GITHUB_CLIENT_SECRET || '',
-      redirectUri: process.env.GITHUB_REDIRECT_URI || 'http://localhost:3000/auth/github/callback',
+      clientId: process.env.GITHUB_CLIENT_ID ?? '',
+      clientSecret: process.env.GITHUB_CLIENT_SECRET ?? '',
+      redirectUri: process.env.GITHUB_REDIRECT_URI ?? 'http://localhost:3000/auth/github/callback',
       authorizationUrl: 'https://github.com/login/oauth/authorize',
       tokenUrl: 'https://github.com/login/oauth/access_token',
       userInfoUrl: 'https://api.github.com/user',
@@ -274,7 +286,7 @@ export class OAuthService {
    */
   public getAuthorizationUrl(provider: OAuthProvider, state: string): string {
     const config = this.configs.get(provider);
-    if (!config) {
+    if (config == null) {
       throw new Error(`Unsupported OAuth provider: ${provider}`);
     }
 
@@ -308,7 +320,7 @@ export class OAuthService {
     codeVerifier?: string
   ): Promise<string> {
     const config = this.configs.get(provider);
-    if (!config) {
+    if (config == null) {
       throw new Error(`Unsupported OAuth provider: ${provider}`);
     }
 
@@ -320,7 +332,7 @@ export class OAuthService {
       client_secret: config.clientSecret
     };
 
-    if (provider === OAuthProvider.TWITTER && codeVerifier) {
+    if (provider === OAuthProvider.TWITTER && codeVerifier !== undefined && codeVerifier !== '') {
       params.code_verifier = codeVerifier;
     }
 
@@ -337,7 +349,7 @@ export class OAuthService {
       throw new Error(`Failed to exchange code for token: ${response.statusText}`);
     }
 
-    const data = await response.json() as unknown;
+    const data = await response.json() as unknown as { access_token: string };
     return data.access_token;
   }
 
@@ -349,7 +361,7 @@ export class OAuthService {
    */
   public async getUserInfo(provider: OAuthProvider, accessToken: string): Promise<OAuthUserInfo> {
     const config = this.configs.get(provider);
-    if (!config) {
+    if (config == null) {
       throw new Error(`Unsupported OAuth provider: ${provider}`);
     }
 
@@ -370,38 +382,44 @@ export class OAuthService {
     let userInfo: OAuthUserInfo;
     
     switch (provider) {
-      case OAuthProvider.GOOGLE:
+      case OAuthProvider.GOOGLE: {
+        const googleData = data as { id: string; email: string; name: string; picture: string };
         userInfo = {
-          id: data.id,
-          email: data.email,
-          name: data.name,
-          picture: data.picture,
+          id: googleData.id,
+          email: googleData.email,
+          name: googleData.name,
+          picture: googleData.picture,
           provider
         };
+      }
         break;
       
-      case OAuthProvider.TWITTER:
+      case OAuthProvider.TWITTER: {
+        const twitterData = data as { data: { id: string; email?: string; username: string; name: string; profile_image_url: string } };
         userInfo = {
-          id: data.data.id,
-          email: data.data.email || `${data.data.username}@twitter.local`,
-          name: data.data.name,
-          picture: data.data.profile_image_url,
+          id: twitterData.data.id,
+          email: twitterData.data.email ?? `${twitterData.data.username}@twitter.local`,
+          name: twitterData.data.name,
+          picture: twitterData.data.profile_image_url,
           provider
         };
+      }
         break;
       
-      case OAuthProvider.GITHUB:
+      case OAuthProvider.GITHUB: {
+        const githubData = data as { id: number; email?: string; login: string; name?: string; avatar_url: string };
         userInfo = {
-          id: data.id.toString(),
-          email: data.email || `${data.login}@github.local`,
-          name: data.name || data.login,
-          picture: data.avatar_url,
+          id: githubData.id.toString(),
+          email: githubData.email ?? `${githubData.login}@github.local`,
+          name: githubData.name ?? githubData.login,
+          picture: githubData.avatar_url,
           provider
         };
+      }
         break;
       
       default:
-        throw new Error(`Unsupported OAuth provider: ${provider}`);
+        throw new Error(`Unsupported OAuth provider: ${provider as string}`);
     }
 
     return userInfo;
@@ -419,7 +437,7 @@ export class OAuthService {
       userInfo.id
     );
 
-    if (existingUser) {
+    if (existingUser != null) {
       // Update user information
       await this.userRegistry.updateUser(existingUser.id, {
         email: userInfo.email,
@@ -494,7 +512,7 @@ export class OAuthService {
 
     // Send recovery code to user via email
     const user = await this.userRegistry.getUser(userId);
-    if (user?.email) {
+    if (user?.email !== undefined && user.email !== '') {
       await this.emailProvider.sendEmail({
         to: user.email,
         subject: 'Your OmniBazaar Recovery Code',
@@ -591,7 +609,7 @@ export class OAuthService {
 
       // Check if session exists and is valid
       const session = await this.userRegistry.getSession(decoded.sid);
-      if (!session || session.refreshToken !== refreshToken) {
+      if (session == null || session.refreshToken !== refreshToken) {
         throw new Error('Invalid session');
       }
 
@@ -662,10 +680,10 @@ export class OAuthService {
    * In production, use a proper threshold cryptography library
    * @param secret The secret to split
    * @param totalShares Total number of shares to create
-   * @param threshold Minimum shares needed to reconstruct secret
+   * @param _threshold Minimum shares needed to reconstruct secret (unused in this simplified version)
    * @returns Array of secret shares as buffers
    */
-  private splitSecret(secret: Buffer, totalShares: number, threshold: number): Buffer[] {
+  private splitSecret(secret: Buffer, totalShares: number, _threshold: number): Buffer[] {
     // This is a simplified implementation for demonstration
     // In production, use proper Shamir's Secret Sharing
     const shares: Buffer[] = [];
@@ -708,6 +726,6 @@ export class OAuthService {
   private generateRecoveryCode(): string {
     const code = randomBytes(16).toString('hex');
     // Format as XXXX-XXXX-XXXX-XXXX
-    return code.match(/.{4}/g)?.join('-') || code;
+    return code.match(/.{4}/g)?.join('-') ?? code;
   }
 }

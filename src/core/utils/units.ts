@@ -13,7 +13,10 @@
  */
 export function fromBase(weiInput: string, decimals: number, options?: { pad?: boolean; commify?: boolean }): string {
   const v = BigInt(weiInput !== '' ? weiInput : '0');
-  const base = BigInt(10) ** BigInt(decimals);
+  let base = BigInt(1);
+  for (let i = 0; i < decimals; i++) {
+    base = base * BigInt(10);
+  }
   const whole = v / base;
   let frac = (v % base).toString().padStart(decimals, '0');
   if (options?.pad !== true) {
@@ -40,7 +43,10 @@ export function toBase(etherInput: string, decimals: number): string {
   const negative = ether.startsWith('-');
   if (negative) ether = ether.slice(1);
   const [wholePart = '0', fracRaw = '0'] = ether.split('.');
-  const base = BigInt(10) ** BigInt(decimals);
+  let base = BigInt(1);
+  for (let i = 0; i < decimals; i++) {
+    base = base * BigInt(10);
+  }
   if (fracRaw.length > decimals) {
     throw new Error(`Too many decimal places for ${decimals}`);
   }

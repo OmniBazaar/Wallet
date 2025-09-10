@@ -29,7 +29,7 @@ export class OracleService {
   private isInitialized = false;
   private isConnected = false;
   private walletService: unknown;
-  private subscriptions: Map<string, { timer?: NodeJS.Timer }> = new Map();
+  private subscriptions: Map<string, { timer?: NodeJS.Timeout; callback?: (update: any) => void }> = new Map();
   private mockPrices: Map<string, number> = new Map([
     ['XOM/USD', 0.15],
     ['ETH/USD', 2500],

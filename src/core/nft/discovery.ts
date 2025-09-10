@@ -242,7 +242,7 @@ export class NFTDiscoveryService {
   ): Promise<NFT[]> {
     // This would integrate with Subscan or similar APIs
     // For now, return empty array
-    return [];
+    return Promise.resolve([]);
   }
 
   /**

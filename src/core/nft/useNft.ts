@@ -56,7 +56,7 @@ export function useNft(
   // TODO: Implement using NFTService and proper state management
   // This is a placeholder implementation
   return {
-    ...(options.initialData && { data: options.initialData }),
+    ...(options.initialData !== undefined && { data: options.initialData }),
     isLoading: false,
     error: null,
     refetch: async () => {

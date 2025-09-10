@@ -281,7 +281,7 @@ export class BrowserExtensionService extends EventEmitter {
     
     const tx = params[0] as TransactionParams;
     
-    if (!tx.to || tx.to === '') {
+    if (tx.to === undefined || tx.to === '') {
       return {
         ...(id !== undefined && { id }),
         error: 'Missing to address',

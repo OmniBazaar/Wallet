@@ -437,7 +437,7 @@ export class ValidatorTransactionService {
   async getTransaction(txHash: string): Promise<Transaction | null> {
     try {
       // Check pending transactions first
-      for (const tx of this.pendingTransactions.values()) {
+      for (const tx of Array.from(this.pendingTransactions.values())) {
         if (tx.hash === txHash) {
           return tx;
         }
@@ -800,7 +800,7 @@ export class ValidatorTransactionService {
   async disconnect(): Promise<void> {
     try {
       // Stop all watchers
-      for (const watcher of this.transactionWatchers.values()) {
+      for (const watcher of Array.from(this.transactionWatchers.values())) {
         clearInterval(watcher.interval);
       }
       this.transactionWatchers.clear();
@@ -995,8 +995,8 @@ export class ValidatorTransactionService {
 
 // Export configured instance
 export const validatorTransaction = new ValidatorTransactionService({
-  validatorEndpoint: import.meta.env.VITE_VALIDATOR_ENDPOINT || 'localhost:3000',
-  networkId: import.meta.env.VITE_NETWORK_ID || 'omnibazaar-mainnet',
+  validatorEndpoint: process.env.VITE_VALIDATOR_ENDPOINT || 'localhost:3000',
+  networkId: process.env.VITE_NETWORK_ID || 'omnibazaar-mainnet',
   userId: '', // Will be set when user logs in
   enableFeeDistribution: true,
   maxRetries: 60 // 5 minutes with 5-second intervals

@@ -322,7 +322,7 @@ export class KeyringManager {
       // TODO: Implement registerUsername in ENSService
       // const txHash = await this.ensService.registerUsername(username, address) as string;
       const txHash = '0x' + '0'.repeat(64); // Mock transaction hash
-      void this.logger.info('Username registered on-chain', { username, txHash });
+      void this.logger.info('Username registered on-chain', { username: _username, txHash });
       return txHash;
     } catch (error) {
       void this.logger.warn('Failed to register username on-chain', error);

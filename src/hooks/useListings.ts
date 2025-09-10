@@ -59,7 +59,7 @@ export const useListings = (contractAddress: string): UseListingsReturn => {
                     const result = await omniProvider.send('omni_searchListings', [{
                         contractAddress,
                         ...filters
-                    }]) as unknown;
+                    }]);
                     
                     const resultData = result as {
                         listings?: ListingMetadata[];
@@ -112,7 +112,7 @@ export const useListings = (contractAddress: string): UseListingsReturn => {
             // Try OmniProvider first
             if (omniProvider !== null) {
                 try {
-                    const result = await omniProvider.send('omni_getListing', [contractAddress, tokenId]) as unknown;
+                    const result = await omniProvider.send('omni_getListing', [contractAddress, tokenId]);
                     const resultData = result as {
                         listing?: ListingMetadata;
                     } | null;
@@ -149,7 +149,7 @@ export const useListings = (contractAddress: string): UseListingsReturn => {
             // Try OmniProvider first
             if (omniProvider !== null) {
                 try {
-                    const result = await omniProvider.send('omni_refreshListings', [contractAddress]) as unknown;
+                    const result = await omniProvider.send('omni_refreshListings', [contractAddress]);
                     const resultData = result as {
                         listings?: ListingMetadata[];
                         total?: number;

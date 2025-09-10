@@ -58,8 +58,8 @@ export class EthereumNFTProvider implements ChainProvider {
       if (this.omniProvider) {
         try {
           const nfts = await this.omniProvider.send('omni_getNFTs', [address]);
-          if (nfts != null && nfts.length > 0) {
-            return nfts;
+          if (nfts != null && Array.isArray(nfts) && nfts.length > 0) {
+            return nfts as NFTItem[];
           }
         } catch (error) {
           console.warn('OmniProvider failed, falling back to external APIs:', error);

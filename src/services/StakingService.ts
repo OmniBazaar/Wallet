@@ -440,8 +440,8 @@ export class StakingService {
       if (this.omniProvider) {
         try {
           const info = await this.omniProvider.send('omni_getStakeInfo', [address]);
-          if (info) {
-            return info;
+          if (info && typeof info === 'object' && 'tier' in info) {
+            return info as StakeInfo;
           }
         } catch (error) {
           console.warn('OmniProvider failed, using contract:', error);
@@ -504,8 +504,8 @@ export class StakingService {
       if (this.omniProvider) {
         try {
           const stats = await this.omniProvider.send('omni_getStakingStats', [userAddress]);
-          if (stats) {
-            return stats;
+          if (stats && typeof stats === 'object' && 'totalStaked' in stats) {
+            return stats as StakingStats;
           }
         } catch (error) {
           console.warn('OmniProvider failed for stats:', error);

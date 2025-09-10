@@ -3,12 +3,12 @@
  * Main coordination point for wallet functionality
  */
 
-import EthereumProvider from '@/core/chains/ethereum/provider';
-import { ProviderName, ProviderRPCRequest, OnMessageResponse } from '@/types/provider';
-import { EthereumNetworks } from '@/core/chains/ethereum/provider';
-import { KeyringService } from '@/core/keyring/KeyringService';
-import { NFTService } from '@/core/nft/NFTService';
-import { secureStorage, SecureIndexedDB } from '@/core/storage/SecureIndexedDB';
+import EthereumProvider from '../core/chains/ethereum/provider';
+import { ProviderName, ProviderRPCRequest, OnMessageResponse } from '../types/provider';
+import { EthereumNetworks } from '../core/chains/ethereum/provider';
+import { KeyringService } from '../core/keyring/KeyringService';
+import { NFTService } from '../core/nft/NFTService';
+import { secureStorage, SecureIndexedDB } from '../core/storage/SecureIndexedDB';
 
 /**
  * Logger instance for consistent logging across background script
@@ -85,7 +85,7 @@ async function initializeServices(): Promise<void> {
 
     // Initialize validator wallet if available (optional dependency)
     try {
-      const mod = await import('@/services');
+      const mod = await import('../services');
       validatorWallet = mod.validatorWallet;
     } catch {
       validatorWallet = null;

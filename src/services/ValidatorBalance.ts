@@ -280,7 +280,7 @@ export class ValidatorBalanceService {
         try {
           const balance = await this.blockchain.getTokenBalance(address, token.address);
           
-          if (BigInt(balance) > 0n) {
+          if (BigInt(balance) > BigInt(0)) {
             const balanceFormatted = ethers.formatUnits(balance, token.decimals);
             
             // Get price data
@@ -430,9 +430,9 @@ export class ValidatorBalanceService {
       }
     } else {
       // Stop all updates
-      for (const intervalId of this.updateIntervals.values()) {
+      Array.from(this.updateIntervals.values()).forEach(intervalId => {
         clearInterval(intervalId);
-      }
+      });
       this.updateIntervals.clear();
     }
   }
@@ -726,8 +726,8 @@ export class ValidatorBalanceService {
 
 // Export configured instance
 export const validatorBalance = new ValidatorBalanceService({
-  validatorEndpoint: import.meta.env.VITE_VALIDATOR_ENDPOINT || 'localhost:3000',
-  networkId: import.meta.env.VITE_NETWORK_ID || 'omnibazaar-mainnet',
+  validatorEndpoint: process.env.VITE_VALIDATOR_ENDPOINT || 'localhost:3000',
+  networkId: process.env.VITE_NETWORK_ID || 'omnibazaar-mainnet',
   userId: '', // Will be set when user logs in
   enableCaching: true,
   cacheTimeout: 30000, // 30 seconds

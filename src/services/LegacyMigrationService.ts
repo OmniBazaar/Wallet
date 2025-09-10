@@ -205,7 +205,7 @@ export class LegacyMigrationService {
     // Check on-chain balance at the legacy address
     try {
       const balance = await this.provider.getBalance(legacyUser.address);
-      const hasBalance = balance > 0n;
+      const hasBalance = balance > BigInt(0);
       
       return {
         username: legacyUser.username,
@@ -314,7 +314,7 @@ export class LegacyMigrationService {
       // Check balance at the legacy address
       const balance = await this.provider.getBalance(validation.address!);
       
-      if (balance === 0n) {
+      if (balance === BigInt(0)) {
         return {
           success: false,
           error: 'No balance found at legacy address. Tokens may not be minted yet.'
@@ -350,18 +350,18 @@ export class LegacyMigrationService {
     totalAccessed: number;
     accessRate: number;
   }> {
-    let totalSupply = 0n;
+    let totalSupply = BigInt(0);
     let totalAccessed = 0;
     
     // Calculate stats from legacy users
-    for (const [_, userData] of this.legacyUsers) {
+    for (const [_, userData] of Array.from(this.legacyUsers)) {
       const balance = BigInt(userData.balance) * this.DECIMAL_CONVERSION;
       totalSupply += balance;
       
       // Check if user has accessed their balance (has on-chain balance)
       try {
         const onChainBalance = await this.provider.getBalance(userData.address);
-        if (onChainBalance > 0n) {
+        if (onChainBalance > BigInt(0)) {
           totalAccessed++;
         }
       } catch (error) {
@@ -388,7 +388,7 @@ export class LegacyMigrationService {
     const results: LegacyUserData[] = [];
     const searchTerm = query.toLowerCase();
     
-    for (const [username, userData] of this.legacyUsers) {
+    for (const [username, userData] of Array.from(this.legacyUsers)) {
       if (username.includes(searchTerm) || userData.accountId.includes(searchTerm)) {
         results.push(userData);
         
@@ -485,11 +485,11 @@ export class LegacyMigrationService {
       address: string;
     }> = [];
     
-    for (const [_, userData] of this.legacyUsers) {
+    for (const [_, userData] of Array.from(this.legacyUsers)) {
       try {
         const balance = await this.provider.getBalance(userData.address);
         
-        if (balance === 0n) {
+        if (balance === BigInt(0)) {
           unaccessed.push({
             username: userData.username,
             balance: userData.balanceDecimal,

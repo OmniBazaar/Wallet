@@ -218,7 +218,7 @@ export class CotiProvider extends EthereumProvider {
             );
             break;
           case 'coti_decryptValue':
-            result = await this.decryptValue(params[0] as CtUint | CtString);
+            result = this.decryptValue(params[0] as CtUint | CtString);
             break;
           case 'coti_getOnboardInfo':
             result = this.getOnboardInfo();
@@ -293,7 +293,7 @@ export class CotiProvider extends EthereumProvider {
         };
       } else {
         // Fallback implementation
-        const onboardTx = await this.createOnboardTransaction(rsaKeyPair.publicKey, contractAddress);
+        const onboardTx = this.createOnboardTransaction(rsaKeyPair.publicKey, contractAddress);
 
         this.userOnboardInfo = {
           rsaKey: rsaKeyPair,
@@ -302,7 +302,7 @@ export class CotiProvider extends EthereumProvider {
           isOnboarded: true
         };
 
-        await this.recoverAESFromTransaction(onboardTx.hash);
+        this.recoverAESFromTransaction(onboardTx.hash);
       }
 
       this.privacyEnabled = true;
@@ -377,7 +377,7 @@ export class CotiProvider extends EthereumProvider {
     }
 
     // Check if it's a CtString (has value property)
-    if (ciphertext && typeof ciphertext === 'object' && 'value' in ciphertext) {
+    if (typeof ciphertext === 'object' && ciphertext !== null && 'value' in ciphertext) {
       return this.decryptString(ciphertext);
     } else {
       // Treat as CtUint (bigint)
@@ -398,7 +398,7 @@ export class CotiProvider extends EthereumProvider {
    * @param key - Hex-encoded AES key
    */
   setAESKey(key: string): void {
-    if (this.userOnboardInfo) {
+    if (this.userOnboardInfo !== undefined) {
       this.userOnboardInfo.aesKey = key;
     } else {
       this.userOnboardInfo = { aesKey: key, isOnboarded: false } as OnboardInfo;
@@ -425,20 +425,19 @@ export class CotiProvider extends EthereumProvider {
     return { publicKey, privateKey };
   }
 
-  private async createOnboardTransaction(publicKey: Uint8Array, contractAddress?: string): Promise<{ hash: string; to: string; data: string }> {
+  private createOnboardTransaction(publicKey: Uint8Array, contractAddress?: string): { hash: string; to: string; data: string } {
     // Placeholder onboard transaction creation
     // In production, interact with COTI onboard contract
+    const timestamp = Date.now().toString(16);
+    const randomPart = Math.random().toString(16).substr(2, 8);
     return {
-      hash: (() => {
-        const { generateSecureMockTxHash } = require('../../utils/secure-random');
-        return generateSecureMockTxHash();
-      })(),
-      to: contractAddress || '0x0000000000000000000000000000000000000001',
+      hash: `0x${timestamp}${randomPart}`,
+      to: contractAddress !== undefined && contractAddress.length > 0 ? contractAddress : '0x0000000000000000000000000000000000000001',
       data: '0x' + Array.from(publicKey, b => b.toString(16).padStart(2, '0')).join('')
     };
   }
 
-  private async recoverAESFromTransaction(_txHash: string): Promise<void> {
+  private recoverAESFromTransaction(_txHash: string): void {
     // Placeholder AES recovery from transaction
     // In production, decrypt key shares from transaction data
     const recoveredKey = '0123456789abcdef0123456789abcdef';
@@ -505,10 +504,9 @@ export class CotiProvider extends EthereumProvider {
   /**
    * Set request provider for network
    * @param network - Network configuration
-   * @returns Promise that resolves when provider is set
    */
-  override async setRequestProvider(network: BaseNetwork): Promise<void> {
-    await super.setRequestProvider(network);
+  override setRequestProvider(network: BaseNetwork): void {
+    super.setRequestProvider(network);
 
     // Clear onboard info when switching networks
     this.clearOnboardInfo();
@@ -548,15 +546,15 @@ export class CotiProvider extends EthereumProvider {
       let pxomBalance = '0';
       let pxomDecrypted: string | undefined;
 
-      if (this.privacyEnabled && this.userOnboardInfo?.isOnboarded) {
+      if (this.privacyEnabled && this.userOnboardInfo?.isOnboarded === true) {
         // Use COTI SDK if available
         if (cotiSDK !== null) {
           const encryptedBalance = await cotiSDK.getEncryptedBalance(address);
           pxomBalance = encryptedBalance.toString();
 
           // Decrypt if owner
-          if (this.userOnboardInfo.aesKey) {
-            pxomDecrypted = (await this.decryptValue(encryptedBalance)).toString();
+          if (this.userOnboardInfo.aesKey !== undefined && this.userOnboardInfo.aesKey !== '') {
+            pxomDecrypted = this.decryptValue(encryptedBalance).toString();
           }
         } else {
           // Fallback: estimate from contract
@@ -567,7 +565,7 @@ export class CotiProvider extends EthereumProvider {
       return {
         xom: ethers.formatEther(xomBalance),
         pxom: pxomBalance,
-        ...(pxomDecrypted ? { pxomDecrypted } : {}),
+        ...(pxomDecrypted !== undefined ? { pxomDecrypted } : {}),
         totalUsd: '0' // Would calculate from price oracle
       };
     } catch (error) {
@@ -577,9 +575,8 @@ export class CotiProvider extends EthereumProvider {
 
   /**
    * Convert XOM to pXOM (0.5% fee)
-   * @param amount Amount to convert
-   * @param address User address
-   * @param _address
+   * @param amount - Amount to convert
+   * @param _address - User address (currently unused)
    * @returns Transaction hash
    */
   async convertXOMToPXOM(amount: string, _address: string): Promise<string> {
@@ -593,11 +590,9 @@ export class CotiProvider extends EthereumProvider {
       const bridgeAbi = ['function swapToPrivate(uint256 amount)'];
       const bridgeContract = new ethers.Contract(bridgeAddress, bridgeAbi, this.provider);
 
-      const swapFn = (bridgeContract as any)['swapToPrivate'];
-      if (typeof swapFn !== 'function') {
-        throw new Error('Bridge contract missing swapToPrivate');
-      }
-      const tx = await swapFn(amountWei);
+      // Use bracket notation to access contract method
+      const swapToPrivate = bridgeContract['swapToPrivate'] as (amount: bigint) => Promise<ethers.TransactionResponse>;
+      const tx = await swapToPrivate(amountWei);
       await tx.wait();
 
       // Log conversion success
@@ -610,9 +605,8 @@ export class CotiProvider extends EthereumProvider {
 
   /**
    * Convert pXOM to XOM (no fee)
-   * @param amount Amount to convert
-   * @param address User address
-   * @param _address
+   * @param amount - Amount to convert
+   * @param _address - User address (currently unused)
    * @returns Transaction hash
    */
   async convertPXOMToXOM(amount: string, _address: string): Promise<string> {
@@ -624,11 +618,9 @@ export class CotiProvider extends EthereumProvider {
       const bridgeAbi = ['function swapToPublic(uint256 amount)'];
       const bridgeContract = new ethers.Contract(bridgeAddress, bridgeAbi, this.provider);
 
-      const swapFn = (bridgeContract as any)['swapToPublic'];
-      if (typeof swapFn !== 'function') {
-        throw new Error('Bridge contract missing swapToPublic');
-      }
-      const tx = await swapFn(amountWei);
+      // Use bracket notation to access contract method
+      const swapToPublic = bridgeContract['swapToPublic'] as (amount: bigint) => Promise<ethers.TransactionResponse>;
+      const tx = await swapToPublic(amountWei);
       await tx.wait();
 
       // Log conversion success
@@ -647,7 +639,7 @@ export class CotiProvider extends EthereumProvider {
    */
   async privateTransfer(to: string, amount: string, from: string): Promise<string> {
     try {
-      if (!this.privacyEnabled || !this.userOnboardInfo?.isOnboarded) {
+      if (!this.privacyEnabled || this.userOnboardInfo?.isOnboarded !== true) {
         throw new Error('Privacy not enabled. Please onboard first.');
       }
 
@@ -685,7 +677,7 @@ export class CotiProvider extends EthereumProvider {
    */
   async enablePrivacy(address: string): Promise<boolean> {
     try {
-      if (!this.userOnboardInfo?.isOnboarded) {
+      if (this.userOnboardInfo?.isOnboarded !== true) {
         await this.onboardUser();
       }
 

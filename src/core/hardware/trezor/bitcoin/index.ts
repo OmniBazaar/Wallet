@@ -1,6 +1,5 @@
 import { HWwalletCapabilities } from "../../../types/enkrypt-types";
 import HDKey from "hdkey";
-// @ts-expect-error - Using any for HDKey instance type
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type HDKeyInstance = any;
 import { bufferToHex } from "../../../types/enkrypt-types";
@@ -68,12 +67,19 @@ class TrezorBitcoin implements HWWalletProvider {
       const rootPub = await this.TrezorConnect.getAddress({
         path: options.pathType.basePath,
         showOnTrezor: options.confirmAddress,
-      } as { path: string; showOnTrezor: boolean });
+      } as { path: string; showOnTrezor: boolean }) as {
+        success: boolean;
+        payload?: {
+          publicKey: string;
+          chainCode: string;
+          error?: string;
+        };
+      };
       if (!rootPub.payload) {
         throw new Error("popup failed to open");
       }
       if (!rootPub.success)
-        throw new Error((rootPub.payload as { error: string }).error);
+        throw new Error(rootPub.payload.error || "Unknown error");
 
       // @ts-ignore - HDKey type issue
       const hdKey = new HDKey();
@@ -127,9 +133,15 @@ class TrezorBitcoin implements HWWalletProvider {
       path: options.pathType.path.replace(`{index}`, options.pathIndex.toString()),
       message: options.message.toString("hex"),
       hex: true,
-    } as { path: string; message: string; hex: boolean });
-    if (!result.success)
-      throw new Error((result.payload as { error: string }).error);
+    } as { path: string; message: string; hex: boolean }) as {
+      success: boolean;
+      payload: {
+        error?: string;
+        signature?: string;
+      };
+    };
+    if (!result.success || !result.payload.signature)
+      throw new Error(result.payload.error || "Failed to sign message");
     return bufferToHex(Buffer.from(result.payload.signature, "base64"));
   }
 
@@ -162,9 +174,10 @@ class TrezorBitcoin implements HWWalletProvider {
             script_type: "PAYTOADDRESS",
           }) as { amount: number; address: string; script_type: string },
       ),
-    }).then((res: { success: boolean; payload: { error?: string; serializedTx?: string } }) => {
-      if (!res.success) throw new Error(res.payload.error || 'Transaction failed');
-      return res.payload.serializedTx || '';
+    }).then((res: unknown) => {
+      const result = res as { success: boolean; payload: { error?: string; serializedTx?: string } };
+      if (!result.success) throw new Error(result.payload.error || 'Transaction failed');
+      return result.payload.serializedTx || '';
     });
   }
 

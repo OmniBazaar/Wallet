@@ -100,7 +100,7 @@ export class ArbitrumNFTProvider implements ChainProvider {
         c?.['tokenURI']?.(tokenId).catch(() => ''),
         c?.['name']?.().catch(() => 'Unknown Collection'),
         c?.['ownerOf']?.(tokenId).catch(() => '0x0000000000000000000000000000000000000000')
-      ]);
+      ]) as [string, string, string];
       
       // Parse metadata
       let metadata: { name: string; description: string; image?: string; attributes?: Array<{ trait_type: string; value: string | number }> } = { name: `${name} #${tokenId}`, description: '' };
@@ -135,7 +135,7 @@ export class ArbitrumNFTProvider implements ChainProvider {
         contractAddress,
         tokenStandard: 'ERC721',
         blockchain: 'arbitrum',
-        owner,
+        owner: owner || '',
         creator: '',
         isListed: false
       };
@@ -309,7 +309,7 @@ export class ArbitrumNFTProvider implements ChainProvider {
           if (!balanceOfMethod || typeof balanceOfMethod !== 'function') continue;
           
           const balance = await balanceOfMethod(address);
-          if (balance === 0n) continue;
+          if (balance === BigInt(0)) continue;
           
           // Get collection name
           const nameMethod = contract['name'];

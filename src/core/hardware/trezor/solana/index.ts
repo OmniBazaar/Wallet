@@ -1,9 +1,8 @@
 import type { TrezorConnect } from "@trezor/connect-web";
 import { HWwalletCapabilities } from "../../../types/enkrypt-types";
-// import HDKey from "hdkey"; - unused import
-// @ts-expect-error - Using any for HDKey instance type
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type HDKeyInstance = any;
+// HDKey type not used in Solana provider
+import type HDKey from "hdkey";
+type HDKeyInstance = HDKey;
 import base58 from "bs58";
 import { bufferToHex } from "../../../types/enkrypt-types";
 import {
@@ -56,10 +55,16 @@ class TrezorSolana implements HWWalletProvider {
     const res = await this.TrezorConnect.solanaGetAddress({
       path: options.pathType.path.replace(`{index}`, options.pathIndex.toString()),
       showOnTrezor: options.confirmAddress,
-    });
+    }) as { success: boolean; payload?: { address?: string; error?: string } };
+    
+    if (!res.success || !res.payload?.address) {
+      throw new Error(res.payload?.error ?? "Failed to get address");
+    }
+    
+    const payload = res.payload as { address: string };
     return {
-      address: bufferToHex(Buffer.from(base58.decode((res.payload as { address: string }).address))),
-      publicKey: bufferToHex(Buffer.from(base58.decode((res.payload as { address: string }).address))),
+      address: bufferToHex(Buffer.from(base58.decode(payload.address))),
+      publicKey: bufferToHex(Buffer.from(base58.decode(payload.address))),
     };
   }
 
@@ -102,15 +107,18 @@ class TrezorSolana implements HWWalletProvider {
    * @returns Promise with transaction signature
    */
   async signTransaction(options: SignTransactionRequest): Promise<string> {
-    return this.TrezorConnect.solanaSignTransaction({
+    const result = await this.TrezorConnect.solanaSignTransaction({
       path: options.pathType.path.replace(`{index}`, options.pathIndex.toString()),
       serializedTx: (options.transaction as SolSignTransaction).solTx.toString(
         "hex",
       ),
-    }).then((result: { success: boolean; payload: { error?: string; signature?: string } }) => {
-      if (!result.success) throw new Error(result.payload.error || 'Transaction failed');
-      return result.payload.signature || '';
     });
+    
+    const typedResult = result as { success: boolean; payload: { error?: string; signature?: string } };
+    if (!typedResult.success) {
+      throw new Error(typedResult.payload.error ?? 'Transaction failed');
+    }
+    return typedResult.payload.signature ?? '';
   }
 
   /**

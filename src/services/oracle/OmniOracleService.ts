@@ -100,7 +100,7 @@ export class OmniOracleService {
       await this.init();
     }
 
-    const basePrice = this.basePrices.get(query.token) || 0;
+    const basePrice = this.basePrices.get(query.token) ?? 0;
     
     // Simulate price fluctuation (±5%)
     const fluctuation = (Math.random() - 0.5) * 0.1;
@@ -116,7 +116,7 @@ export class OmniOracleService {
       timestamp: Date.now()
     };
     
-    if (query.includeMetadata) {
+    if (query.includeMetadata === true) {
       result.volume24h = price * Math.random() * 1000000; // Random volume
       result.marketCap = price * 1000000000; // 1B supply assumed
       result.metadata = true;
@@ -182,7 +182,7 @@ export class OmniOracleService {
       'optimism': 20,   // 0.20%
     };
 
-    const feePercentage = bridgeFees[query.bridge.toLowerCase()] || 30; // Default 0.30%
+    const feePercentage = bridgeFees[query.bridge.toLowerCase()] ?? 30; // Default 0.30%
     const fee = (query.amount * BigInt(feePercentage)) / BigInt(10000);
 
     // Estimate gas cost based on chain
@@ -195,7 +195,7 @@ export class OmniOracleService {
       'bsc': BigInt(100000) * BigInt(5e9),        // ~100k gas * 5 gwei
     };
 
-    const gasCost = gasCosts[query.sourceChain.toLowerCase()] || BigInt(100000) * BigInt(20e9);
+    const gasCost = gasCosts[query.sourceChain.toLowerCase()] ?? BigInt(100000) * BigInt(20e9);
 
     return {
       fee,

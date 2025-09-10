@@ -1,9 +1,6 @@
 // Loosen types to avoid external type dependency noise
-// @ts-expect-error - Ledger Live Common types issue
 import getDeviceInfo from "@ledgerhq/live-common/lib/hw/getDeviceInfo";
-// @ts-expect-error - Ledger Live Common types issue
 import openApp from "@ledgerhq/live-common/lib/hw/openApp";
-// @ts-expect-error - Ledger Live Common types issue
 import getAppAndVersion from "@ledgerhq/live-common/lib/hw/getAppAndVersion";
 import type LedgerEthereum from "./ethereum";
 import type LedgerSubstrate from "./substrate";

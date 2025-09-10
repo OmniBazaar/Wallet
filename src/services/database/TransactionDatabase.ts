@@ -228,7 +228,7 @@ export class TransactionDatabase {
       throw new Error(`Failed to get transactions: ${response.statusText}`);
     }
 
-    const data = await response.json() as unknown;
+    const data = await response.json() as { transactions: any[]; total: number };
 
     return {
       transactions: data.transactions.map((t: any) => this.mapToTransactionRecord(t)),
@@ -247,7 +247,7 @@ export class TransactionDatabase {
       throw new Error(`Failed to get statistics: ${response.statusText}`);
     }
 
-    return await response.json() as unknown;
+    return await response.json() as TransactionStats;
   }
 
   /**
@@ -295,7 +295,7 @@ export class TransactionDatabase {
       throw new Error(`Failed to get pending transactions: ${response.statusText}`);
     }
 
-    const data = await response.json() as unknown;
+    const data = await response.json() as any[];
     return data.map((t: any) => this.mapToTransactionRecord(t));
   }
 

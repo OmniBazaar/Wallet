@@ -38,7 +38,7 @@ export class ProviderFactory {
     }
     
     const provider = this.providers.get(chainId);
-    if (!provider) {
+    if (provider === undefined) {
       throw new Error(`Provider not found for chainId: ${chainId}`);
     }
     return provider;
@@ -62,7 +62,8 @@ export class ProviderFactory {
    * Disconnect all providers and clear the cache
    */
   static disconnectAll(): void {
-    for (const provider of this.providers.values()) {
+    const providers = Array.from(this.providers.values());
+    for (const provider of providers) {
       provider.disconnect();
     }
     this.providers.clear();
@@ -76,7 +77,7 @@ export class ProviderFactory {
    */
   static createProvider(rpcUrl: string): OmniProvider {
     // Ignore the RPC URL and return OmniProvider
-    console.log('External RPC requested, using OmniBazaar validator network instead');
+    // External RPC requested, using OmniBazaar validator network instead
     
     // Try to determine chain from URL
     let chainId = 1; // Default to Ethereum

@@ -258,7 +258,7 @@ class LedgerBitcoin implements HWWalletProvider {
       script: Buffer | Uint8Array | string;
     }
     
-    const txOutputs = transactionOptions.psbtTx.txOutputs.map((out: TxOutput) => {
+    const txOutputs = (transactionOptions.psbtTx.txOutputs as TxOutput[]).map((out) => {
       const valLE = Buffer.alloc(8);
       const value = typeof out.value === 'bigint' ? out.value : BigInt(out.value);
       valLE.writeBigInt64LE(value);

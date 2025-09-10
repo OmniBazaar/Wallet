@@ -1,13 +1,11 @@
 import { HWwalletCapabilities, NetworkNames } from "../../../types/enkrypt-types";
 import HDKey from "hdkey";
-// @ts-expect-error - Using any for HDKey instance type
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type HDKeyInstance = any;
+// HDKey instance type
+type HDKeyInstance = HDKey;
 import { bigIntToHex, bufferToHex, hexToBuffer } from "../../../types/enkrypt-types";
 import { publicToAddress, toRpcSig } from "@ethereumjs/util";
 // import type { FeeMarketEIP1559Transaction, LegacyTransaction } from "@ethereumjs/tx"; - unused imports
 import type { TrezorConnect } from "@trezor/connect-web";
-// @ts-expect-error - transformTypedData type issue
 import transformTypedData from "@trezor/connect-plugin-ethereum";
 
 // Transaction interface to avoid using 'any'
@@ -73,13 +71,19 @@ class TrezorEthereum implements HWWalletProvider {
       const rootPub = await this.TrezorConnect.ethereumGetPublicKey({
         path: options.pathType.basePath,
         showOnTrezor: options.confirmAddress,
-      });
+      }) as {
+        success: boolean;
+        payload?: {
+          publicKey: string;
+          chainCode: string;
+          error?: string;
+        };
+      };
       if (!rootPub.payload) {
         throw new Error("popup failed to open");
       }
-      if (!rootPub.success) throw new Error((rootPub.payload as { error: string }).error);
+      if (!rootPub.success) throw new Error(rootPub.payload.error || "Unknown error");
 
-      // @ts-expect-error - HDKey type issue
       const hdKey = new HDKey();
       hdKey.publicKey = Buffer.from(rootPub.payload.publicKey, "hex");
       hdKey.chainCode = Buffer.from(rootPub.payload.chainCode, "hex");
@@ -128,8 +132,14 @@ class TrezorEthereum implements HWWalletProvider {
       path: options.pathType.path.replace(`{index}`, options.pathIndex.toString()),
       message: options.message.toString("hex"),
       hex: true,
-    });
-    if (!result.success) throw new Error((result.payload as { error: string }).error);
+    }) as {
+      success: boolean;
+      payload: {
+        error?: string;
+        signature?: string;
+      };
+    };
+    if (!result.success || !result.payload.signature) throw new Error(result.payload.error || "Failed to sign message");
     return bufferToHex(hexToBuffer(result.payload.signature));
   }
 
@@ -153,14 +163,15 @@ class TrezorEthereum implements HWWalletProvider {
       return this.TrezorConnect.ethereumSignTransaction({
         path: options.pathType.path.replace(`{index}`, options.pathIndex.toString()),
         transaction: { ...txObject, gasPrice: bigIntToHex(tx.gasPrice || 0n) },
-      }).then((result: { success: boolean; payload: { error?: string; v: string; r: string; s: string } }) => {
-        if (!result.success) throw new Error(result.payload.error || 'Transaction failed');
-        const rv = BigInt(parseInt(result.payload.v, 16));
+      }).then((result: unknown) => {
+        const typedResult = result as { success: boolean; payload: { error?: string; v: string; r: string; s: string } };
+        if (!typedResult.success) throw new Error(typedResult.payload.error || 'Transaction failed');
+        const rv = BigInt(parseInt(typedResult.payload.v, 16));
         const cv = tx.common.chainId() * 2n + 35n;
         return toRpcSig(
           Number(rv - cv),
-          hexToBuffer(result.payload.r),
-          hexToBuffer(result.payload.s),
+          hexToBuffer(typedResult.payload.r),
+          hexToBuffer(typedResult.payload.s),
         );
       });
     }
@@ -173,12 +184,13 @@ class TrezorEthereum implements HWWalletProvider {
         maxFeePerGas: bigIntToHex(tx.maxFeePerGas || 0n),
         maxPriorityFeePerGas: bigIntToHex(tx.maxPriorityFeePerGas || 0n),
       },
-    }).then((result: { success: boolean; payload: { error?: string; v: string; r: string; s: string } }) => {
-      if (!result.success) throw new Error(result.payload.error || 'Transaction failed');
+    }).then((result: unknown) => {
+      const typedResult = result as { success: boolean; payload: { error?: string; v: string; r: string; s: string } };
+      if (!typedResult.success) throw new Error(typedResult.payload.error || 'Transaction failed');
       return toRpcSig(
-        Number(result.payload.v),
-        hexToBuffer(result.payload.r),
-        hexToBuffer(result.payload.s),
+        Number(typedResult.payload.v),
+        hexToBuffer(typedResult.payload.r),
+        hexToBuffer(typedResult.payload.s),
       );
     });
   }
@@ -195,19 +207,25 @@ class TrezorEthereum implements HWWalletProvider {
       domain: request.domain,
       message: request.message,
     };
-    // @ts-expect-error - transformTypedData type issue
-    const { domain_separator_hash, message_hash } = transformTypedData(
+    const transformedData = (transformTypedData as (data: { domain: Record<string, unknown>; message: Record<string, unknown> }, flag: boolean) => { domain_separator_hash: string; message_hash: string })(
       eip712Data as { domain: Record<string, unknown>; message: Record<string, unknown> },
       true,
     );
+    
     const result = await this.TrezorConnect.ethereumSignTypedData({
       path: request.pathType.path.replace(`{index}`, request.pathIndex.toString()),
       data: eip712Data as { domain: Record<string, unknown>; message: Record<string, unknown> },
       metamask_v4_compat: true,
-      domain_separator_hash,
-      message_hash,
-    });
-    if (!result.success) throw new Error((result.payload as { error: string }).error);
+      domain_separator_hash: transformedData.domain_separator_hash,
+      message_hash: transformedData.message_hash,
+    }) as {
+      success: boolean;
+      payload: {
+        error?: string;
+        signature?: string;
+      };
+    };
+    if (!result.success || !result.payload.signature) throw new Error(result.payload.error || "Failed to sign typed data");
     return bufferToHex(hexToBuffer(result.payload.signature));
   }
 

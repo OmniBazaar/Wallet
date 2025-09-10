@@ -131,9 +131,9 @@ export class PriceFeedService {
     }
     
     // Check cache first
-    const cacheKey = `${symbol}-${chain || 'default'}`;
+    const cacheKey = `${symbol}-${chain ?? 'default'}`;
     const cached = this.priceCache.get(cacheKey);
-    if (cached && cached.expires > Date.now()) {
+    if (cached !== undefined && cached.expires > Date.now()) {
       return cached.data;
     }
     
@@ -201,7 +201,7 @@ export class PriceFeedService {
       await this.init();
     }
     
-    if (!this.oracleAggregator) {
+    if (this.oracleAggregator === undefined) {
       throw new Error('Oracle aggregator not initialized');
     }
     
@@ -311,7 +311,7 @@ export class PriceFeedService {
    * @private
    */
   private async getAggregatedPrice(symbol: string, _chain?: string): Promise<PriceData> {
-    if (!this.oracleAggregator) {
+    if (this.oracleAggregator === undefined) {
       throw new Error('Oracle aggregator not initialized');
     }
     

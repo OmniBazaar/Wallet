@@ -210,14 +210,14 @@ class OmniBazaarMarketplaceExample {
       // Show some interesting statistics
       const allNFTs = portfolio.nfts;
       const listedNFTs = allNFTs.filter(nft => nft.isListed);
-      const categories = [...new Set(allNFTs.map(nft =>
+      const categories = Array.from(new Set(allNFTs.map(nft =>
         nft.attributes.find(attr => attr.trait_type === 'Category')?.value
-      ).filter(Boolean))];
+      ).filter(Boolean)));
 
       console.warn(`\n📊 Portfolio Statistics:`);
       console.warn(`Listed for Sale: ${listedNFTs.length}/${allNFTs.length}`);
       console.warn(`Categories: ${categories.join(', ')}`);
-      console.warn(`Blockchains: ${[...new Set(allNFTs.map(nft => nft.blockchain))].join(', ')}`);
+      console.warn(`Blockchains: ${Array.from(new Set(allNFTs.map(nft => nft.blockchain))).join(', ')}`);
 
     } catch (error) {
       console.error('❌ Failed to load NFT portfolio:', error);
