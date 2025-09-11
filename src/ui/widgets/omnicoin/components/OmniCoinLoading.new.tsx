@@ -1,5 +1,4 @@
-/* @jsxImportSource react */
-import React from 'react';
+import { CSSProperties, FC, useEffect } from 'react';
 // Theme interface removed - not used in this component
 
 // Function to inject CSS animations into document head
@@ -21,7 +20,7 @@ const injectStyles = (): void => {
   }
 };
 
-const loadingContainerStyle: React.CSSProperties = {
+const loadingContainerStyle: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
@@ -30,7 +29,7 @@ const loadingContainerStyle: React.CSSProperties = {
   animation: 'fadeIn 0.3s ease-in-out'
 };
 
-const spinnerStyle: React.CSSProperties = {
+const spinnerStyle: CSSProperties = {
   width: '40px',
   height: '40px',
   border: '3px solid #f3f4f6',
@@ -40,14 +39,14 @@ const spinnerStyle: React.CSSProperties = {
   marginBottom: '16px'
 };
 
-const loadingTextStyle: React.CSSProperties = {
+const loadingTextStyle: CSSProperties = {
   color: '#1f2937',
   fontSize: '14px',
   margin: '0',
   textAlign: 'center'
 };
 
-const progressBarStyle: React.CSSProperties = {
+const progressBarStyle: CSSProperties = {
   width: '200px',
   height: '4px',
   background: '#f3f4f6',
@@ -56,7 +55,7 @@ const progressBarStyle: React.CSSProperties = {
   overflow: 'hidden'
 };
 
-const getProgressStyle = (progress: number): React.CSSProperties => ({
+const getProgressStyle = (progress: number): CSSProperties => ({
   width: `${progress}%`,
   height: '100%',
   background: '#3b82f6',
@@ -81,13 +80,13 @@ interface OmniCoinLoadingProps {
  * @param props.showProgress - Whether to show progress bar
  * @returns React component for loading state
  */
-export const OmniCoinLoading: React.FC<OmniCoinLoadingProps> = ({
+export const OmniCoinLoading: FC<OmniCoinLoadingProps> = ({
     text = 'Loading...',
     progress = 0,
     showProgress = false
 }) => {
     // Inject styles when component is rendered
-    React.useEffect(() => {
+    useEffect(() => {
         injectStyles();
     }, []);
 

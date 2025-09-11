@@ -91,7 +91,7 @@ class OmniBazaarMarketplaceExample {
           { trait_type: 'Currency', value: 'XOM' },
           { trait_type: 'Marketplace', value: 'OmniBazaar' },
           { trait_type: 'Type', value: 'Product Listing' },
-          ...(productData.location ? [{ trait_type: 'Location', value: productData.location }] : [])
+          ...(productData.location !== undefined && productData.location !== null && productData.location !== '' ? [{ trait_type: 'Location', value: productData.location }] : [])
         ],
         royalties: 5,
         listImmediately: true,

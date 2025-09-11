@@ -1,5 +1,4 @@
-/* @jsxImportSource react */
-import React, { useState } from 'react';
+import { useState, CSSProperties, FC, ChangeEvent, FormEvent } from 'react';
 
 // Minimal search filter type to avoid external type import
 interface SearchFilters {
@@ -12,39 +11,39 @@ interface SearchFilters {
 }
 
 // Inline styles to avoid styled-components typing issues
-const searchContainerStyle: React.CSSProperties = {
+const searchContainerStyle: CSSProperties = {
   padding: '1rem',
   background: '#ffffff',
   borderRadius: '8px',
   boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
 };
 
-const searchFormStyle: React.CSSProperties = {
+const searchFormStyle: CSSProperties = {
   display: 'grid',
   gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
   gap: '1rem',
   marginBottom: '1rem'
 };
 
-const inputGroupStyle: React.CSSProperties = {
+const inputGroupStyle: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   gap: '0.5rem'
 };
 
-const labelStyle: React.CSSProperties = {
+const labelStyle: CSSProperties = {
   fontSize: '0.875rem',
   color: '#1f2937'
 };
 
-const inputStyle: React.CSSProperties = {
+const inputStyle: CSSProperties = {
   padding: '0.5rem',
   border: '1px solid #d1d5db',
   borderRadius: '4px',
   fontSize: '0.875rem'
 };
 
-const selectStyle: React.CSSProperties = {
+const selectStyle: CSSProperties = {
   padding: '0.5rem',
   border: '1px solid #d1d5db',
   borderRadius: '4px',
@@ -52,7 +51,7 @@ const selectStyle: React.CSSProperties = {
   background: 'white'
 };
 
-const buttonStyle: React.CSSProperties = {
+const buttonStyle: CSSProperties = {
   padding: '0.5rem 1rem',
   background: '#3b82f6',
   color: 'white',
@@ -62,20 +61,20 @@ const buttonStyle: React.CSSProperties = {
   transition: 'opacity 0.2s ease'
 };
 
-const buttonDisabledStyle: React.CSSProperties = {
+const buttonDisabledStyle: CSSProperties = {
   ...buttonStyle,
   background: '#9ca3af',
   cursor: 'not-allowed'
 };
 
-const filterTagsStyle: React.CSSProperties = {
+const filterTagsStyle: CSSProperties = {
   display: 'flex',
   flexWrap: 'wrap',
   gap: '0.5rem',
   marginTop: '1rem'
 };
 
-const filterTagStyle: React.CSSProperties = {
+const filterTagStyle: CSSProperties = {
   padding: '0.25rem 0.5rem',
   background: '#f3f4f6',
   borderRadius: '4px',
@@ -85,7 +84,7 @@ const filterTagStyle: React.CSSProperties = {
   gap: '0.5rem'
 };
 
-const removeButtonStyle: React.CSSProperties = {
+const removeButtonStyle: CSSProperties = {
   background: 'none',
   border: 'none',
   color: '#6b7280',
@@ -106,7 +105,7 @@ interface ListingSearchProps {
  * @param props.isLoading - Whether search is currently in progress
  * @returns React component with search form and active filters
  */
-export const ListingSearch: React.FC<ListingSearchProps> = ({ onSearch, isLoading }) => {
+export const ListingSearch: FC<ListingSearchProps> = ({ onSearch, isLoading }) => {
     const [filters, setFilters] = useState<SearchFilters>({
         type: 'product',
         sortBy: 'date',
@@ -115,7 +114,7 @@ export const ListingSearch: React.FC<ListingSearchProps> = ({ onSearch, isLoadin
 
     const [activeFilters, setActiveFilters] = useState<Record<string, string>>({});
 
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>): void => {
+    const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>): void => {
         const { name, value } = e.target;
 
         if (name.includes('.')) {
@@ -143,7 +142,7 @@ export const ListingSearch: React.FC<ListingSearchProps> = ({ onSearch, isLoadin
         }
     };
 
-    const handleSubmit = (e: React.FormEvent): void => {
+    const handleSubmit = (e: FormEvent): void => {
         e.preventDefault();
         onSearch(filters);
         updateActiveFilters();
@@ -301,7 +300,7 @@ export const ListingSearch: React.FC<ListingSearchProps> = ({ onSearch, isLoadin
                     {Object.entries(activeFilters).map(([key, value]) => (
                         <span key={key} style={filterTagStyle}>
                             {key}: {value}
-                            <button onClick={() => removeFilter(key)} style={removeButtonStyle}>×</button>
+                            <button type="button" onClick={() => removeFilter(key)} style={removeButtonStyle}>×</button>
                         </span>
                     ))}
                 </div>

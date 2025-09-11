@@ -334,7 +334,7 @@ export class OmniCoinNFTMinter {
     error?: string;
   }> {
     try {
-      await this.provider.getSigner();
+      this.provider.getSigner();
       const contract = this.provider.getContract(
         this.config.contractAddress,
         OMNICOIN_NFT_ABI

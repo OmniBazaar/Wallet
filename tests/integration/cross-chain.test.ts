@@ -10,6 +10,7 @@ import { paymentRouter } from '../../src/core/payments/routing';
 import { bridgeService } from '../../src/core/bridge';
 import { TEST_PASSWORD, TEST_ADDRESSES, cleanupTest } from '../setup';
 import { ChainType } from '../../src/core/keyring/BIP39Keyring';
+import { NFT, NFTType, NFTStandard, NFTMetadata } from '../../src/core/nft/types';
 
 describe('Cross-Chain Integration', () => {
   beforeAll(async () => {
@@ -77,23 +78,47 @@ describe('Cross-Chain Integration', () => {
             name: 'Ethereum NFT',
             chain: 'ethereum',
             contract_address: '0x123',
-            token_id: '1'
+            token_id: '1',
+            type: NFTType.ERC721,
+            standard: NFTStandard.ERC721,
+            owner: TEST_ADDRESSES.ethereum,
+            metadata: {
+              name: 'Ethereum NFT',
+              description: 'Test NFT on Ethereum',
+              image: 'https://example.com/eth-nft.png'
+            } as NFTMetadata
           },
           {
             id: 'polygon-nft-1',
             name: 'Polygon NFT',
             chain: 'polygon',
             contract_address: '0x456',
-            token_id: '2'
+            token_id: '2',
+            type: NFTType.ERC721,
+            standard: NFTStandard.ERC721,
+            owner: TEST_ADDRESSES.ethereum,
+            metadata: {
+              name: 'Polygon NFT',
+              description: 'Test NFT on Polygon',
+              image: 'https://example.com/polygon-nft.png'
+            } as NFTMetadata
           },
           {
             id: 'sol-nft-1',
             name: 'Solana NFT',
             chain: 'solana',
             contract_address: 'SolanaAddress',
-            token_id: '3'
+            token_id: '3',
+            type: NFTType.Solana,
+            standard: NFTStandard.Solana,
+            owner: TEST_ADDRESSES.solana || 'SolanaTestAddress',
+            metadata: {
+              name: 'Solana NFT',
+              description: 'Test NFT on Solana',
+              image: 'https://example.com/solana-nft.png'
+            } as NFTMetadata
           }
-        ] as any);
+        ] as NFT[]);
       
       const nfts = await nftManager.getActiveAccountNFTs({
         chains: ['ethereum', 'polygon', 'solana']
@@ -143,9 +168,9 @@ describe('Cross-Chain Integration', () => {
             blockchain: 'ethereum',
             fromAddress: TEST_ADDRESSES.ethereum,
             toAddress: TEST_ADDRESSES.ethereum,
-            fromToken: { symbol: 'ETH', decimals: 18 } as any,
-            toToken: { symbol: 'USDC', decimals: 6 } as any,
-            exchangeRoutes: [{ exchange: 'uniswap_v3' } as any],
+            fromToken: { symbol: 'ETH', decimals: 18 } as unknown,
+            toToken: { symbol: 'USDC', decimals: 6 } as unknown,
+            exchangeRoutes: [{ exchange: 'uniswap_v3' } as unknown],
             steps: [
               { type: 'swap', description: 'Swap ETH to USDC' },
               { type: 'transfer', description: 'Transfer USDC' }
@@ -155,15 +180,15 @@ describe('Cross-Chain Integration', () => {
             blockchain: 'polygon',
             fromAddress: TEST_ADDRESSES.ethereum,
             toAddress: TEST_ADDRESSES.ethereum,
-            fromToken: { symbol: 'MATIC', decimals: 18 } as any,
-            toToken: { symbol: 'USDC', decimals: 6 } as any,
-            exchangeRoutes: [{ exchange: 'quickswap' } as any],
+            fromToken: { symbol: 'MATIC', decimals: 18 } as unknown,
+            toToken: { symbol: 'USDC', decimals: 6 } as unknown,
+            exchangeRoutes: [{ exchange: 'quickswap' } as unknown],
             steps: [
               { type: 'swap', description: 'Swap MATIC to USDC' },
               { type: 'bridge', description: 'Bridge to Ethereum' }
             ]
           }
-        ] as any);
+        ] as unknown);
       
       const request = {
         from: [TEST_ADDRESSES.ethereum],
@@ -203,7 +228,7 @@ describe('Cross-Chain Integration', () => {
             data: { bridgeRoute: { id: 'test-bridge' } }
           }
         ]
-      } as any;
+      } as unknown;
       
       const result = await paymentRouter.executeRoute(crossChainRoute);
       
@@ -267,7 +292,7 @@ describe('Cross-Chain Integration', () => {
               fee: { amount: '500000', token: 'USDC' },
               estimatedTime: 300
             }
-          ] as any,
+          ] as unknown,
           bestRoute: null
         });
       
@@ -287,7 +312,9 @@ describe('Cross-Chain Integration', () => {
       
       expect(hopRoute).toBeTruthy();
       expect(stargateRoute).toBeTruthy();
-      expect(stargateRoute!.estimatedTime).toBeLessThan(hopRoute!.estimatedTime);
+      if (stargateRoute && hopRoute) {
+        expect(stargateRoute.estimatedTime).toBeLessThan(hopRoute.estimatedTime);
+      }
       
       mockQuotes.mockRestore();
     });
@@ -309,7 +336,7 @@ describe('Cross-Chain Integration', () => {
           toTxHash: '0x456'
         });
       
-      const transferId = await bridgeService.executeBridge({} as any);
+      const transferId = await bridgeService.executeBridge({} as unknown);
       
       // Check initial status
       let status = bridgeService.getTransferStatus(transferId);
@@ -330,7 +357,7 @@ describe('Cross-Chain Integration', () => {
       // Scenario: User wants to buy NFT on Ethereum but has funds on Polygon
       
       // 1. Check balances across chains
-      const mockBalances = new Map([
+      const _mockBalances = new Map([
         ['ethereum', '0'],
         ['polygon', '1000000000'] // 1000 USDC on Polygon
       ]);
@@ -339,13 +366,13 @@ describe('Cross-Chain Integration', () => {
       const mockRoute = jest.spyOn(paymentRouter, 'findBestRoute')
         .mockResolvedValue({
           blockchain: 'polygon',
-          fromToken: { symbol: 'USDC', decimals: 6 } as any,
-          toToken: { symbol: 'USDC', decimals: 6 } as any,
+          fromToken: { symbol: 'USDC', decimals: 6 } as unknown,
+          toToken: { symbol: 'USDC', decimals: 6 } as unknown,
           steps: [
             { type: 'bridge', description: 'Bridge USDC to Ethereum' },
             { type: 'transfer', description: 'Purchase NFT' }
           ]
-        } as any);
+        } as unknown);
       
       const route = await paymentRouter.findBestRoute({
         from: [TEST_ADDRESSES.ethereum],
@@ -356,8 +383,10 @@ describe('Cross-Chain Integration', () => {
       });
       
       expect(route).toBeTruthy();
-      expect(route!.blockchain).toBe('polygon'); // Starts from Polygon
-      expect(route!.steps[0].type).toBe('bridge');
+      if (route) {
+        expect(route.blockchain).toBe('polygon'); // Starts from Polygon
+        expect(route.steps[0].type).toBe('bridge');
+      }
       
       mockRoute.mockRestore();
     });

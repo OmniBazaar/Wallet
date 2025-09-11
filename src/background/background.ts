@@ -331,7 +331,7 @@ async function connectAccount(data: {
     if (!keyringState.isInitialized) {
       if (data.authMethod === 'web3' && data.password !== undefined && data.password.length > 0) {
         // Initialize Web3 wallet with seed phrase
-        const _seedPhrase = await keyringService.initializeWeb3Wallet(data.password, data.mnemonic);
+        const _seedPhrase = keyringService.initializeWeb3Wallet(data.password, data.mnemonic);
         logger.warn('✅ Web3 wallet initialized');
 
         const activeAccount = keyringService.getActiveAccount();

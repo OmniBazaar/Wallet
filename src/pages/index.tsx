@@ -1,5 +1,4 @@
-/* @jsxImportSource react */
-import React from 'react';
+import { JSX } from 'react';
 import { WalletProvider } from '../ui/contexts/WalletContext';
 import WalletConnect from '../ui/widgets/omnicoin/components/WalletConnect';
 
@@ -8,7 +7,7 @@ import WalletConnect from '../ui/widgets/omnicoin/components/WalletConnect';
  * 
  * @returns JSX element containing the main wallet interface
  */
-export default function Home(): React.JSX.Element {
+export default function Home(): JSX.Element {
   return (
     <WalletProvider>
       <div className="container">

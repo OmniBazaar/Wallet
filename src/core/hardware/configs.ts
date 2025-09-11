@@ -1,6 +1,10 @@
 // Minimal hardware config stubs to satisfy strict type-checking
-// Real implementations should mirror the upstream libraries’ structures.
+// Real implementations should mirror the upstream libraries' structures.
 
+/**
+ * BIP44 HD wallet derivation paths for hardware wallets
+ * Contains paths for both Ledger and Trezor devices across multiple networks
+ */
 export const bip44Paths = {
   ethereumLedger: "m/44'/60'/0'",
   ethereumLedgerLive: "m/44'/60'/0'/0",
@@ -24,6 +28,10 @@ export const bip44Paths = {
   dogecoinTrezor: "m/44'/3'/0'/0",
 };
 
+/**
+ * Mapping of network names to Ledger app names
+ * Used to determine which app should be opened on the Ledger device for each network
+ */
 export const ledgerAppNames: Record<string, string> = {
   Ethereum: 'Ethereum',
   Sepolia: 'Ethereum',

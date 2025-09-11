@@ -125,6 +125,43 @@ export interface ENSResolution {
   verified: boolean;
 }
 
+/** GraphQL response for balance query */
+interface BalanceQueryResponse {
+  data?: {
+    account?: {
+      balance: string;
+    };
+  };
+}
+
+/** GraphQL response for transaction mutation */
+interface TransactionMutationResponse {
+  data?: {
+    sendRawTransaction?: {
+      success: boolean;
+      transactionHash?: string;
+      blockNumber?: number;
+      confirmations?: number;
+      error?: string;
+    };
+  };
+}
+
+/** GraphQL response for username metadata query */
+interface UsernameMetadataResponse {
+  data?: {
+    usernameRegistration?: {
+      metadata?: {
+        email?: string;
+        website?: string;
+        twitter?: string;
+        avatar?: string;
+        description?: string;
+      };
+    };
+  };
+}
+
 /**
  * Service for managing wallet operations with validator network integration.
  * Provides account management, transactions, and backup functionality.
@@ -158,13 +195,16 @@ export class ValidatorWalletService {
 
   /**
    * Update the user identifier used by this service.
-   * @param userId
+   * @param userId New user identifier to set
    */
   public setUserId(userId: string): void {
     this.config.userId = userId;
   }
 
-  /** Expose a readonly view of the current configuration. */
+  /** 
+   * Expose a readonly view of the current configuration. 
+   * @returns Readonly configuration object
+   */
   public getConfig(): Readonly<ValidatorWalletConfig> {
     return this.config;
   }
@@ -177,8 +217,16 @@ export class ValidatorWalletService {
       // Check validator health
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
       const health = await this.client.checkHealth();
-      // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions, @typescript-eslint/no-unsafe-member-access
-      if (!(health as any).data?.health?.healthy) {
+      // Define the expected health response type
+      interface HealthResponse {
+        data?: {
+          health?: {
+            healthy: boolean;
+          };
+        };
+      }
+      const typedHealth = health as HealthResponse;
+      if (typedHealth.data?.health?.healthy !== true) {
         throw new Error('Validator service is not healthy');
       }
 
@@ -253,8 +301,10 @@ export class ValidatorWalletService {
           // Hardware wallet support requires additional implementation
           throw new Error(`${type} support not yet implemented`);
 
-        default:
-          throw new Error(`Unsupported account type: ${type}`);
+        default: {
+          const _exhaustive: never = type;
+          throw new Error(`Unsupported account type: ${String(_exhaustive)}`);
+        }
       }
 
       const account: WalletAccount = {
@@ -323,7 +373,10 @@ export class ValidatorWalletService {
     }
   }
 
-  /** Get all accounts currently managed by the service. */
+  /** 
+   * Get all accounts currently managed by the service. 
+   * @returns Array of all wallet accounts
+   */
   getAccounts(): WalletAccount[] {
     return Array.from(this.accounts.values());
   }
@@ -331,6 +384,7 @@ export class ValidatorWalletService {
   /**
    * Get account by its internal identifier.
    * @param accountId Internal account ID
+   * @returns Account if found, undefined otherwise
    */
   getAccount(accountId: string): WalletAccount | undefined {
     return this.accounts.get(accountId);
@@ -338,11 +392,12 @@ export class ValidatorWalletService {
 
   /**
    * Set the active account to use by default for operations.
-   * @param accountId Internal account ID
+   * @param accountId Internal account ID to set as active
+   * @returns void
    */
   setActiveAccount(accountId: string): void {
     const account = this.accounts.get(accountId);
-    if (!account) {
+    if (account === undefined) {
       throw new Error('Account not found');
     }
 
@@ -351,27 +406,29 @@ export class ValidatorWalletService {
 
     // Update last used timestamp
     account.metadata.lastUsed = Date.now();
-    this.saveAccountToStorage(account);
+    void this.saveAccountToStorage(account);
   }
 
   /**
    * Get active account
+   * @returns Active account or null if none is active
    */
   getActiveAccount(): WalletAccount | null {
-    if (!this.activeAccountId) {
+    if (this.activeAccountId === null) {
       return null;
     }
-    return this.accounts.get(this.activeAccountId) || null;
+    return this.accounts.get(this.activeAccountId) ?? null;
   }
 
   /**
    * Update account balance
-   * @param accountId
+   * @param accountId Account ID to update balance for
+   * @returns Promise resolving to updated balance string
    */
   async updateAccountBalance(accountId: string): Promise<string> {
     try {
       const account = this.accounts.get(accountId);
-      if (!account) {
+      if (account === undefined) {
         throw new Error('Account not found');
       }
 
@@ -385,9 +442,9 @@ export class ValidatorWalletService {
           }
         `,
         variables: { address: account.address }
-      });
+      }) as BalanceQueryResponse;
 
-      const balance = result.data?.account?.balance || '0';
+      const balance = result.data?.account?.balance ?? '0';
 
       // Update account balance
       account.balance = balance;
@@ -407,6 +464,7 @@ export class ValidatorWalletService {
 
   /**
    * Update all account balances
+   * @returns Promise resolving when all balances are updated
    */
   async updateAllBalances(): Promise<void> {
     try {
@@ -423,7 +481,8 @@ export class ValidatorWalletService {
 
   /**
    * Send transaction
-   * @param request
+   * @param request Transaction request details
+   * @returns Promise resolving to transaction result
    */
   async sendTransaction(request: TransactionRequest): Promise<TransactionResult> {
     try {
@@ -438,14 +497,14 @@ export class ValidatorWalletService {
       const account = Array.from(this.accounts.values())
         .find(acc => acc.address.toLowerCase() === request.from.toLowerCase());
 
-      if (!account) {
+      if (account === undefined) {
         throw new Error('Account not found for signing');
       }
 
       // Get private key from secure storage
       const privateKey = await this.getAccountPrivateKey(account.id);
 
-      if (!privateKey) {
+      if (privateKey === null || privateKey === undefined || privateKey === '') {
         throw new Error('Private key not available');
       }
 
@@ -456,7 +515,7 @@ export class ValidatorWalletService {
       const tx = {
         to: request.to,
         value: ethers.parseEther(request.value),
-        data: request.data || '0x',
+        data: request.data ?? '0x',
         chainId: BigInt(request.chainId),
         ...(request.nonce !== undefined && { nonce: request.nonce }),
         ...(request.gasLimit !== undefined && { gasLimit: BigInt(request.gasLimit) }),
@@ -483,9 +542,9 @@ export class ValidatorWalletService {
       const mutationResult = await this.client.mutate({
         mutation,
         variables: { signedTx }
-      });
+      }) as TransactionMutationResponse;
 
-      const result = mutationResult.data?.sendRawTransaction || {
+      const result = mutationResult.data?.sendRawTransaction ?? {
         success: false,
         error: 'Transaction submission failed'
       };
@@ -496,14 +555,14 @@ export class ValidatorWalletService {
 
         return {
           success: true,
-          txHash: result.transactionHash,
-          blockNumber: result.blockNumber,
-          confirmations: result.confirmations
+          ...(result.transactionHash !== undefined && { txHash: result.transactionHash as string }),
+          ...(result.blockNumber !== undefined && { blockNumber: result.blockNumber as number }),
+          ...(result.confirmations !== undefined && { confirmations: result.confirmations as number })
         };
       } else {
         return {
           success: false,
-          error: result.error || 'Transaction failed'
+          error: result.error ?? 'Transaction failed'
         };
       }
     } catch (error) {
@@ -524,14 +583,14 @@ export class ValidatorWalletService {
   async signMessage(accountId: string, message: string): Promise<string> {
     try {
       const account = this.accounts.get(accountId);
-      if (!account) {
+      if (account === undefined) {
         throw new Error('Account not found');
       }
 
       // Get private key from secure storage
       const privateKey = await this.getAccountPrivateKey(accountId);
 
-      if (!privateKey) {
+      if (privateKey === null || privateKey === undefined || privateKey === '') {
         throw new Error('Private key not available');
       }
 
@@ -560,7 +619,7 @@ export class ValidatorWalletService {
       // Use validator's ENS resolution
       const address = await this.client.resolveUsername(fullName);
 
-      if (!address) {
+      if (address === null || address === undefined || address === '') {
         return null;
       }
 
@@ -582,23 +641,25 @@ export class ValidatorWalletService {
       const result = await this.client.query({
         query,
         variables: { username: fullName }
-      });
+      }) as UsernameMetadataResponse;
 
-      const metadata = result.data?.usernameRegistration?.metadata || {};
+      const metadata = result.data?.usernameRegistration?.metadata ?? {};
 
       return {
         address,
         name: fullName,
-        avatar: metadata.avatar,
-        description: metadata.description,
-        social: {
-          twitter: metadata.twitter,
-          website: metadata.website
-        },
+        ...(metadata.avatar !== undefined && { avatar: metadata.avatar as string }),
+        ...(metadata.description !== undefined && { description: metadata.description as string }),
+        ...((metadata.twitter !== undefined || metadata.website !== undefined) && { 
+          social: {
+            ...(metadata.twitter !== undefined && { twitter: String(metadata.twitter) }),
+            ...(metadata.website !== undefined && { website: String(metadata.website) })
+          } 
+        }),
         verified: true
       };
     } catch (error) {
-      console.error('Error resolving ENS name:', error);
+      logger.error('Error resolving ENS name', error);
       return null;
     }
   }
@@ -666,8 +727,9 @@ export class ValidatorWalletService {
 
   /**
    * Restore wallet from backup
-   * @param backup
-   * @param password
+   * @param backup Backup object to restore from
+   * @param password Password to decrypt the backup
+   * @returns Promise resolving when restore is complete
    */
   async restoreWallet(backup: WalletBackup, password: string): Promise<void> {
     try {
@@ -679,7 +741,11 @@ export class ValidatorWalletService {
 
       // Decrypt backup data
       const decryptedData = await this.decryptData(backup.encryptedData, password);
-      const backupData = JSON.parse(decryptedData);
+      interface BackupData {
+        accounts: WalletAccount[];
+        activeAccountId: string | null;
+      }
+      const backupData = JSON.parse(decryptedData) as BackupData;
 
       // Clear existing accounts
       this.accounts.clear();
@@ -707,18 +773,19 @@ export class ValidatorWalletService {
 
   /**
    * Export account private key
-   * @param accountId
-   * @param password
+   * @param accountId Account ID to export private key for
+   * @param password Password to verify before export
+   * @returns Promise resolving to the private key
    */
   async exportPrivateKey(accountId: string, password: string): Promise<string> {
     try {
       // Verify password
-      await this.verifyPassword(password);
+      this.verifyPassword(password);
 
       // Get private key from secure storage
       const privateKey = await this.getAccountPrivateKey(accountId);
 
-      if (!privateKey) {
+      if (privateKey === null || privateKey === undefined || privateKey === '') {
         throw new Error('Private key not available');
       }
 
@@ -731,12 +798,13 @@ export class ValidatorWalletService {
 
   /**
    * Remove account
-   * @param accountId
+   * @param accountId Account ID to remove
+   * @returns Promise resolving when account is removed
    */
   async removeAccount(accountId: string): Promise<void> {
     try {
       const account = this.accounts.get(accountId);
-      if (!account) {
+      if (account === undefined) {
         throw new Error('Account not found');
       }
 
@@ -764,64 +832,41 @@ export class ValidatorWalletService {
 
   /**
    * Get transaction history
-   * @param address
-   * @param options
-   * @param options.limit
-   * @param options.offset
-   * @param options.chainId
+   * @param address Wallet address to get history for
+   * @param options Optional query parameters
+   * @param options.limit Maximum number of transactions to return
+   * @param options.offset Number of transactions to skip
+   * @param options.chainId Chain ID to filter transactions
+   * @returns Promise resolving to array of transaction records
    */
   async getTransactionHistory(
     address: string,
     options?: {
-      /**
-       *
-       */
+      /** Maximum number of transactions to return */
       limit?: number;
-      /**
-       *
-       */
+      /** Number of transactions to skip */
       offset?: number;
-      /**
-       *
-       */
+      /** Chain ID to filter transactions */
       chainId?: string;
     }
   ): Promise<Array<{
-    /**
-     *
-     */
+    /** Transaction hash */
     hash: string;
-    /**
-     *
-     */
+    /** Sender address */
     from: string;
-    /**
-     *
-     */
+    /** Recipient address */
     to: string;
-    /**
-     *
-     */
+    /** Transaction value in wei */
     value: string;
-    /**
-     *
-     */
+    /** Transaction timestamp */
     timestamp: number;
-    /**
-     *
-     */
+    /** Block number for the transaction */
     blockNumber: number;
-    /**
-     *
-     */
+    /** Transaction status (success/failure) */
     status: string;
-    /**
-     *
-     */
+    /** Gas used by the transaction */
     gasUsed: string;
-    /**
-     *
-     */
+    /** Gas price for the transaction */
     gasPrice: string;
   }>> {
     try {
@@ -849,12 +894,30 @@ export class ValidatorWalletService {
         query,
         variables: {
           address,
-          limit: options?.limit || 50,
-          offset: options?.offset || 0
+          limit: options?.limit ?? 50,
+          offset: options?.offset ?? 0
         }
       });
 
-      return result.data?.transactionHistory?.transactions || [];
+      interface TransactionHistoryResponse {
+        data?: {
+          transactionHistory?: {
+            transactions?: Array<{
+              hash: string;
+              from: string;
+              to: string;
+              value: string;
+              timestamp: number;
+              blockNumber: number;
+              status: string;
+              gasUsed: string;
+              gasPrice: string;
+            }>;
+          };
+        };
+      }
+      const typedResult = result as TransactionHistoryResponse;
+      return typedResult.data?.transactionHistory?.transactions ?? [];
     } catch (error) {
       console.error('Error getting transaction history:', error);
       return [];
@@ -863,7 +926,8 @@ export class ValidatorWalletService {
 
   /**
    * Estimate gas for transaction
-   * @param request
+   * @param request Transaction request details
+   * @returns Promise resolving to gas estimate string
    */
   async estimateGas(request: TransactionRequest): Promise<string> {
     try {
@@ -879,11 +943,17 @@ export class ValidatorWalletService {
           from: request.from,
           to: request.to,
           value: request.value,
-          data: request.data || '0x'
+          data: request.data ?? '0x'
         }
       });
 
-      return result.data?.estimateGas || '21000';
+      interface GasEstimateResponse {
+        data?: {
+          estimateGas?: string;
+        };
+      }
+      const typedResult = result as GasEstimateResponse;
+      return typedResult.data?.estimateGas ?? '21000';
     } catch (error) {
       console.error('Error estimating gas:', error);
       throw error;
@@ -892,6 +962,7 @@ export class ValidatorWalletService {
 
   /**
    * Get gas price
+   * @returns Promise resolving to current gas price string
    */
   async getGasPrice(): Promise<string> {
     try {
@@ -905,7 +976,13 @@ export class ValidatorWalletService {
         query
       });
 
-      return result.data?.gasPrice || '1000000000'; // 1 gwei default
+      interface GasPriceResponse {
+        data?: {
+          gasPrice?: string;
+        };
+      }
+      const typedResult = result as GasPriceResponse;
+      return typedResult.data?.gasPrice ?? '1000000000'; // 1 gwei default
     } catch (error) {
       console.error('Error getting gas price:', error);
       throw error;
@@ -955,9 +1032,17 @@ export class ValidatorWalletService {
         variables: { userId: `wallet_index_${this.config.userId}` }
       });
 
-      const indexData = result.data?.document?.content;
+      interface WalletIndexResponse {
+        data?: {
+          document?: {
+            content?: string;
+          };
+        };
+      }
+      const typedResult = result as WalletIndexResponse;
+      const indexData = typedResult.data?.document?.content;
 
-      if (!indexData) {
+      if (indexData === undefined) {
         console.warn('No existing wallet data found');
         return;
       }
@@ -980,8 +1065,16 @@ export class ValidatorWalletService {
             variables: { accountId: `wallet_account_${accountId}` }
           });
 
-          const accountData = accountResult.data?.document?.content;
-          if (accountData) {
+          interface AccountDocumentResponse {
+            data?: {
+              document?: {
+                content?: string;
+              };
+            };
+          }
+          const typedAccountResult = accountResult as AccountDocumentResponse;
+          const accountData = typedAccountResult.data?.document?.content;
+          if (accountData !== undefined) {
             const account = JSON.parse(accountData) as WalletAccount;
             this.accounts.set(account.id, account);
           }
@@ -1024,7 +1117,7 @@ export class ValidatorWalletService {
       );
 
       // Save private key separately (encrypted)
-      if (privateKey) {
+      if (privateKey !== undefined && privateKey !== '') {
         const encryptedKey = await this.encryptData(privateKey, this.config.userId);
         await this.client.storeDocument(
           encryptedKey,
@@ -1118,9 +1211,17 @@ export class ValidatorWalletService {
         variables: { keyId: `wallet_key_${accountId}` }
       });
 
-      const encryptedKey = keyResult.data?.document?.content;
+      interface WalletKeyResponse {
+        data?: {
+          document?: {
+            content?: string;
+          };
+        };
+      }
+      const typedKeyResult = keyResult as WalletKeyResponse;
+      const encryptedKey = typedKeyResult.data?.document?.content;
 
-      if (!encryptedKey) {
+      if (encryptedKey === undefined) {
         return null;
       }
 
@@ -1133,33 +1234,33 @@ export class ValidatorWalletService {
   }
 
   private validateTransactionRequest(request: TransactionRequest): void {
-    if (!request.from || !ethers.isAddress(request.from)) {
+    if (request.from === '' || !ethers.isAddress(request.from)) {
       throw new Error('Invalid from address');
     }
 
-    if (!request.to || !ethers.isAddress(request.to)) {
+    if (request.to === '' || !ethers.isAddress(request.to)) {
       throw new Error('Invalid to address');
     }
 
-    if (!request.value || isNaN(parseFloat(request.value))) {
+    if (request.value === '' || isNaN(parseFloat(request.value))) {
       throw new Error('Invalid transaction value');
     }
 
-    if (!request.chainId) {
+    if (request.chainId === '') {
       throw new Error('Chain ID required');
     }
   }
 
   private updateReactiveData(): void {
     this.accountsRef.value = Array.from(this.accounts.values());
-    this.activeAccountRef.value = this.activeAccountId ?
-      this.accounts.get(this.activeAccountId) || null : null;
+    this.activeAccountRef.value = this.activeAccountId !== null ?
+      this.accounts.get(this.activeAccountId) ?? null : null;
   }
 
   private setupAutoBackup(): void {
     // Set up periodic auto-backup (every 24 hours)
     setInterval(() => {
-      this.backupWallet('auto-backup').catch(error => {
+      void this.backupWallet('auto-backup').catch(error => {
         console.error('Auto-backup failed:', error);
       });
     }, 24 * 60 * 60 * 1000);
@@ -1168,8 +1269,9 @@ export class ValidatorWalletService {
   /**
    * Encrypt data using AES-256-GCM with PBKDF2 key derivation
    * Production-ready implementation with proper salt generation
-   * @param data
-   * @param password
+   * @param data Data to encrypt
+   * @param password Password for encryption
+   * @returns Promise resolving to base64 encoded encrypted data
    */
   private async encryptData(data: string, password: string): Promise<string> {
     const encoder = new TextEncoder();
@@ -1229,8 +1331,9 @@ export class ValidatorWalletService {
   /**
    * Decrypt data encrypted with AES-256-GCM
    * Production-ready implementation matching the encryption method
-   * @param encryptedData
-   * @param password
+   * @param encryptedData Base64 encoded encrypted data
+   * @param password Password for decryption
+   * @returns Promise resolving to decrypted string
    */
   private async decryptData(encryptedData: string, password: string): Promise<string> {
     const encoder = new TextEncoder();
@@ -1294,26 +1397,31 @@ export class ValidatorWalletService {
     return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
   }
 
-  private async verifyPassword(password: string): Promise<void> {
+  private verifyPassword(password: string): void {
     // In a real implementation, verify password against stored hash
     // For now, we'll just check if password is provided
-    if (!password || password.length < 8) {
+    if (password === '' || password.length < 8) {
       throw new Error('Invalid password');
     }
   }
 }
 
 // Export configured instance for easy use
-const apiKey = (typeof process !== 'undefined' && process.env?.['VITE_VALIDATOR_API_KEY']) || undefined;
+const apiKey = typeof process !== 'undefined' ? process.env?.['VITE_VALIDATOR_API_KEY'] : undefined;
 
-export const validatorWallet = new ValidatorWalletService({
-  validatorEndpoint: (typeof process !== 'undefined' && process.env?.['VITE_VALIDATOR_ENDPOINT']) || 'http://localhost:4000',
-  wsEndpoint: (typeof process !== 'undefined' && process.env?.['VITE_VALIDATOR_WS_ENDPOINT']) || 'ws://localhost:4000/graphql',
-  ...(apiKey !== undefined && { apiKey }),
-  networkId: (typeof process !== 'undefined' && process.env?.['VITE_NETWORK_ID']) || 'omnibazaar-mainnet',
+const config: ValidatorWalletConfig = {
+  validatorEndpoint: (typeof process !== 'undefined' && process.env?.['VITE_VALIDATOR_ENDPOINT'] !== undefined && process.env?.['VITE_VALIDATOR_ENDPOINT'] !== '') ? process.env['VITE_VALIDATOR_ENDPOINT'] : 'http://localhost:4000',
+  wsEndpoint: (typeof process !== 'undefined' && process.env?.['VITE_VALIDATOR_WS_ENDPOINT'] !== undefined && process.env?.['VITE_VALIDATOR_WS_ENDPOINT'] !== '') ? process.env['VITE_VALIDATOR_WS_ENDPOINT'] : 'ws://localhost:4000/graphql',
+  networkId: (typeof process !== 'undefined' && process.env?.['VITE_NETWORK_ID'] !== undefined && process.env?.['VITE_NETWORK_ID'] !== '') ? process.env['VITE_NETWORK_ID'] : 'omnibazaar-mainnet',
   userId: '', // Will be set when user logs in
   enableSecureStorage: true,
   autoBackup: true
-});
+};
+
+if (apiKey !== undefined && apiKey !== '') {
+  config.apiKey = apiKey;
+}
+
+export const validatorWallet = new ValidatorWalletService(config);
 
 export default ValidatorWalletService;

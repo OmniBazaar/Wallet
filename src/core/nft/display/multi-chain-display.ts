@@ -2,6 +2,8 @@ import type { NFTItem, NFTCollection, NFTSearchQuery, NFTSearchResult } from '..
 import { EthereumNFTProvider } from '../providers/ethereum-provider';
 import { PolygonNFTProvider } from '../providers/polygon-provider';
 import { SolanaNFTProvider } from '../providers/solana-provider';
+import { logger } from '../../../utils/logger';
+import { secureRandom, secureRandomInt, generateSecureMockAddress } from '../../utils/secure-random';
 
 /**
  * Static configuration for a supported blockchain.
@@ -149,12 +151,12 @@ export class MultiChainNFTDisplay {
           nftsByChain[chainId] = chainNFTs;
         } else {
           // Simulate NFT fetching for demonstration
-          const mockNFTs = await this.getMockNFTsForChain(chainId, address);
+          const mockNFTs = this.getMockNFTsForChain(chainId, address);
           allNFTs.push(...mockNFTs);
           nftsByChain[chainId] = mockNFTs;
         }
       } catch (error) {
-        console.warn(`Failed to fetch NFTs from chain ${chainId}:`, error);
+        logger.warn(`Failed to fetch NFTs from chain ${chainId}:`, error);
         nftsByChain[chainId] = [];
       }
     }
@@ -187,7 +189,7 @@ export class MultiChainNFTDisplay {
           collectionsByChain[chainId] = chainCollections;
         } else {
           // Simulate collection fetching
-          const mockCollections = await this.getMockCollectionsForChain(chainId);
+          const mockCollections = this.getMockCollectionsForChain(chainId);
           allCollections.push(...mockCollections);
           collectionsByChain[chainId] = mockCollections;
         }
@@ -206,9 +208,9 @@ export class MultiChainNFTDisplay {
   /**
    * Search NFTs across all enabled chains
    * @param query - Search parameters and filters
-   * @returns Promise resolving to search results with pagination
+   * @returns Search results with pagination
    */
-  async searchNFTs(query: NFTSearchQuery): Promise<NFTSearchResult> {
+  searchNFTs(query: NFTSearchQuery): NFTSearchResult {
     const results: NFTItem[] = [];
     const filters = {
       categories: new Map<string, number>(),
@@ -226,7 +228,7 @@ export class MultiChainNFTDisplay {
           continue;
         }
 
-        const chainNFTs = await this.searchChainNFTs(chainId, query);
+        const chainNFTs = this.searchChainNFTs(chainId, query);
         results.push(...chainNFTs);
 
         // Update filters
@@ -300,9 +302,9 @@ export class MultiChainNFTDisplay {
    * @param query - Search query parameters
    * @returns Promise resolving to filtered NFTs
    */
-  private async searchChainNFTs(chainId: number, query: NFTSearchQuery): Promise<NFTItem[]> {
+  private searchChainNFTs(chainId: number, query: NFTSearchQuery): NFTItem[] {
     // This would be replaced with actual chain-specific search logic
-    const mockNFTs = await this.getMockNFTsForChain(chainId, 'search');
+    const mockNFTs = this.getMockNFTsForChain(chainId, 'search');
     
     // Apply basic filtering
     return mockNFTs.filter(nft => {
@@ -333,12 +335,10 @@ export class MultiChainNFTDisplay {
     if (chainConfig === undefined) return [];
 
     const mockNFTs: NFTItem[] = [];
-    const { secureRandomInt } = require('../../utils/secure-random') as { secureRandomInt: (min: number, max: number) => number };
     const count = secureRandomInt(1, 5); // 1-5 NFTs per chain
 
     for (let i = 0; i < count; i++) {
       const tokenId = (Date.now() + i).toString();
-      const { secureRandom } = require('../../utils/secure-random') as { secureRandom: () => number };
       const isListed = secureRandom() > 0.5;
       const price = isListed ? (secureRandom() * 10).toFixed(3) : undefined;
       const currency = isListed ? (chainId === 8888 ? 'XOM' : ['ETH', 'MATIC', 'BNB', 'AVAX', 'SOL'][secureRandomInt(0, 4)]) : undefined;
@@ -351,29 +351,20 @@ export class MultiChainNFTDisplay {
         image: `https://api.dicebear.com/7.x/shapes/svg?seed=${tokenId}`,
         imageUrl: `https://api.dicebear.com/7.x/shapes/svg?seed=${tokenId}`,
         attributes: [
-          { trait_type: 'Blockchain', value: chainConfig.name || 'Unknown' },
-          { trait_type: 'Category', value: ['Art', 'Gaming', 'Collectibles'][i % 3] || 'Art' },
-          { trait_type: 'Rarity', value: ['Common', 'Rare', 'Epic'][i % 3] || 'Common' }
+          { trait_type: 'Blockchain', value: chainConfig.name !== '' ? chainConfig.name : 'Unknown' },
+          { trait_type: 'Category', value: ['Art', 'Gaming', 'Collectibles'][i % 3] !== undefined ? ['Art', 'Gaming', 'Collectibles'][i % 3] : 'Art' },
+          { trait_type: 'Rarity', value: ['Common', 'Rare', 'Epic'][i % 3] !== undefined ? ['Common', 'Rare', 'Epic'][i % 3] : 'Common' }
         ],
-        contract: (() => {
-          const { generateSecureMockAddress } = require('../../utils/secure-random');
-          return generateSecureMockAddress();
-        })(),
-        contractAddress: (() => {
-          const { generateSecureMockAddress } = require('../../utils/secure-random');
-          return generateSecureMockAddress();
-        })(),
+        contract: generateSecureMockAddress(),
+        contractAddress: generateSecureMockAddress(),
         // Ensure a valid token standard string for strict types
-        tokenStandard: chainConfig.nftStandards[0] || 'other',
+        tokenStandard: chainConfig.nftStandards[0] !== undefined ? chainConfig.nftStandards[0] : 'other',
         blockchain: chainConfig.name.toLowerCase(),
         owner: address,
-        creator: (() => {
-          const { generateSecureMockAddress } = require('../../utils/secure-random');
-          return generateSecureMockAddress();
-        })(),
-        ...(isListed && { isListed }),
-        ...(price && { price }),
-        ...(currency && { currency })
+        creator: generateSecureMockAddress(),
+        ...(isListed === true && { isListed }),
+        ...(price !== undefined && price !== null && { price }),
+        ...(currency !== undefined && currency !== null && currency !== '' && { currency })
       });
     }
 
@@ -382,9 +373,10 @@ export class MultiChainNFTDisplay {
 
   /**
    * Generate mock collections for demonstration
-   * @param chainId
+   * @param chainId - Chain ID to generate mock collections for
+   * @returns Promise resolving to array of mock NFT collections
    */
-  private async getMockCollectionsForChain(chainId: number): Promise<NFTCollection[]> {
+  private getMockCollectionsForChain(chainId: number): NFTCollection[] {
     const chainConfig = this.chains.get(chainId);
     if (chainConfig === undefined) return [];
 
@@ -392,20 +384,11 @@ export class MultiChainNFTDisplay {
       id: `collection_${chainId}`,
       name: `${chainConfig.name} Collection`,
       description: `Sample collection from ${chainConfig.name}`,
-      contract: (() => {
-        const { generateSecureMockAddress } = require('../../utils/secure-random');
-        return generateSecureMockAddress();
-      })(),
-      contractAddress: (() => {
-        const { generateSecureMockAddress } = require('../../utils/secure-random');
-        return generateSecureMockAddress();
-      })(),
-      tokenStandard: chainConfig.nftStandards[0] || 'other',
+      contract: generateSecureMockAddress(),
+      contractAddress: generateSecureMockAddress(),
+      tokenStandard: chainConfig.nftStandards[0] !== undefined ? chainConfig.nftStandards[0] : 'other',
       blockchain: chainConfig.name.toLowerCase(),
-      creator: (() => {
-        const { generateSecureMockAddress } = require('../../utils/secure-random');
-        return generateSecureMockAddress();
-      })(),
+      creator: generateSecureMockAddress(),
       verified: true,
       items: []
     }];
@@ -413,8 +396,8 @@ export class MultiChainNFTDisplay {
 
   /**
    * Enable/disable a blockchain for NFT display
-   * @param chainId
-   * @param enabled
+   * @param chainId - The chain ID to enable or disable
+   * @param enabled - Whether to enable or disable the chain
    */
   toggleChain(chainId: number, enabled: boolean): void {
     if (enabled) {
@@ -426,6 +409,7 @@ export class MultiChainNFTDisplay {
 
   /**
    * Get list of supported chains
+   * @returns Array of supported chain configurations
    */
   getSupportedChains(): ChainConfig[] {
     return Array.from(this.chains.values());
@@ -433,6 +417,7 @@ export class MultiChainNFTDisplay {
 
   /**
    * Get list of enabled chains
+   * @returns Array of enabled chain configurations
    */
   getEnabledChains(): ChainConfig[] {
     return Array.from(this.enabledChains).map(id => this.chains.get(id)).filter((chain): chain is ChainConfig => chain !== undefined);
@@ -440,8 +425,8 @@ export class MultiChainNFTDisplay {
 
   /**
    * Register a custom chain provider
-   * @param chainId
-   * @param provider
+   * @param chainId - The chain ID to register the provider for
+   * @param provider - The provider instance to register
    */
   registerProvider(chainId: number, provider: ChainProvider): void {
     this.providers.set(chainId, provider);
@@ -449,7 +434,8 @@ export class MultiChainNFTDisplay {
 
   /**
    * Convert NFTItem to MarketplaceListing format
-   * @param nft
+   * @param nft - The NFT item to convert to listing format
+   * @returns The converted marketplace listing object
    */
   private convertNFTToListing(nft: NFTItem): {
     id: string;
@@ -481,12 +467,12 @@ export class MultiChainNFTDisplay {
       nftId: nft.id,
       tokenId: nft.tokenId,
       contract: nft.contractAddress,
-      seller: nft.owner || 'unknown',
-      price: nft.price || '0',
-      currency: nft.currency || 'ETH',
+      seller: nft.owner !== undefined && nft.owner !== null && nft.owner !== '' ? nft.owner : 'unknown',
+      price: nft.price !== undefined && nft.price !== null && nft.price !== '' ? nft.price : '0',
+      currency: nft.currency !== undefined && nft.currency !== null && nft.currency !== '' ? nft.currency : 'ETH',
       listingType: 'fixed_price' as const,
       title: nft.name,
-      description: nft.description || '',
+      description: nft.description !== undefined && nft.description !== '' ? nft.description : '',
       category,
       tags: [],
       featured: false,
@@ -503,15 +489,15 @@ export class MultiChainNFTDisplay {
 
   /**
    * Initialize real chain providers with API keys
-   * @param apiKeys
-   * @param apiKeys.ethereum
-   * @param apiKeys.ethereum.alchemyApiKey
-   * @param apiKeys.ethereum.openseaApiKey
-   * @param apiKeys.polygon
-   * @param apiKeys.polygon.alchemyApiKey
-   * @param apiKeys.solana
-   * @param apiKeys.solana.heliusApiKey
-   * @param apiKeys.solana.magicEdenApiKey
+   * @param apiKeys - Object containing API keys for different chains
+   * @param apiKeys.ethereum - Ethereum provider API keys
+   * @param apiKeys.ethereum.alchemyApiKey - Alchemy API key for Ethereum
+   * @param apiKeys.ethereum.openseaApiKey - OpenSea API key for Ethereum NFTs
+   * @param apiKeys.polygon - Polygon provider API keys
+   * @param apiKeys.polygon.alchemyApiKey - Alchemy API key for Polygon
+   * @param apiKeys.solana - Solana provider API keys
+   * @param apiKeys.solana.heliusApiKey - Helius API key for Solana
+   * @param apiKeys.solana.magicEdenApiKey - Magic Eden API key for Solana NFTs
    */
   initializeProviders(apiKeys: {
     ethereum?: { alchemyApiKey?: string; openseaApiKey?: string };
@@ -519,7 +505,7 @@ export class MultiChainNFTDisplay {
     solana?: { heliusApiKey?: string; magicEdenApiKey?: string };
   }): void {
     // Initialize Ethereum provider
-    if (apiKeys.ethereum) {
+    if (apiKeys.ethereum !== undefined && apiKeys.ethereum !== null) {
       const ethereumProvider = new EthereumNFTProvider({
         rpcUrl: 'https://mainnet.infura.io/v3/demo',
         ...apiKeys.ethereum
@@ -528,7 +514,7 @@ export class MultiChainNFTDisplay {
     }
 
     // Initialize Polygon provider
-    if (apiKeys.polygon) {
+    if (apiKeys.polygon !== undefined && apiKeys.polygon !== null) {
       const polygonProvider = new PolygonNFTProvider({
         rpcUrl: 'https://polygon-rpc.com',
         ...apiKeys.polygon
@@ -537,7 +523,7 @@ export class MultiChainNFTDisplay {
     }
 
     // Initialize Solana provider
-    if (apiKeys.solana) {
+    if (apiKeys.solana !== undefined && apiKeys.solana !== null) {
       const solanaProvider = new SolanaNFTProvider({
         rpcUrl: 'https://api.mainnet-beta.solana.com',
         ...apiKeys.solana
@@ -545,13 +531,14 @@ export class MultiChainNFTDisplay {
       this.registerProvider(101, solanaProvider);
     }
 
-    console.warn('Multi-chain NFT providers initialized');
+    logger.warn('Multi-chain NFT providers initialized');
   }
 
   /**
    * Get chain statistics
+   * @returns Statistics for each chain
    */
-  async getChainStatistics(): Promise<{
+  getChainStatistics(): {
     [chainId: number]: {
       name: string;
       enabled: boolean;
@@ -559,7 +546,7 @@ export class MultiChainNFTDisplay {
       collectionCount: number;
       isConnected: boolean;
     };
-  }> {
+  } {
     const stats: Record<number, {
       name: string;
       enabled: boolean;
@@ -575,7 +562,7 @@ export class MultiChainNFTDisplay {
         enabled: this.enabledChains.has(chainId),
         nftCount: 0, // Would be fetched from provider
         collectionCount: 0, // Would be fetched from provider
-        isConnected: provider ? provider.isConnected : false
+        isConnected: provider !== undefined && provider !== null ? provider.isConnected : false
       };
     }
 

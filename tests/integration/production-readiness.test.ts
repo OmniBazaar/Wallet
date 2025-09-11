@@ -14,7 +14,7 @@ import { TransactionService } from '../../src/core/transaction/TransactionServic
 import { WalletDatabase } from '../../src/services/WalletDatabase';
 import { TransactionDatabase } from '../../src/services/TransactionDatabase';
 import { NFTDatabase } from '../../src/services/NFTDatabase';
-import { ethers } from 'ethers';
+import { ethers, TransactionRequest } from 'ethers';
 import {
   TEST_MNEMONIC,
   TEST_ADDRESSES,
@@ -34,7 +34,7 @@ describe('Production Readiness Validation', () => {
     transactionDB: TransactionDatabase;
     nftDB: NFTDatabase;
   };
-  let mockProvider: any;
+  let mockProvider: ethers.JsonRpcProvider;
 
   beforeAll(async () => {
     mockProvider = createMockProvider('ethereum');
@@ -93,9 +93,9 @@ describe('Production Readiness Validation', () => {
     services = {
       wallet: walletService,
       dex: dexService,
-      nft: nftService as any, // Cast to any to avoid type issues in test
+      nft: nftService as unknown as NFTService, // Cast for type compatibility in test
       keyring: keyringService,
-      transaction: walletService.getTransactionService()!,
+      transaction: walletService.getTransactionService() as TransactionService,
       walletDB,
       transactionDB,
       nftDB
@@ -194,7 +194,10 @@ describe('Production Readiness Validation', () => {
             
             // If account was created, name should be sanitized
             if (createdAccount) {
-              expect(createdAccount.name).not.toMatch(/<script|DROP TABLE|\.\.\/|javascript:|process\.exit|\$\{|\{\{|[\x00-\x1F]/);
+              expect(createdAccount.name).not.toMatch(/<script|DROP TABLE|\.\.\/|javascript:|process\.exit|\$\{|\{\{/);
+              // Check for control characters separately
+              // eslint-disable-next-line no-control-regex
+              expect(createdAccount.name).not.toMatch(/[\u0000-\u001F]/);
             }
           } catch (error) {
             // It's okay if malicious input is rejected
@@ -211,7 +214,7 @@ describe('Production Readiness Validation', () => {
         ];
 
         for (const invalidParam of invalidTxParams) {
-          await expect(services.transaction.sendTransaction(invalidParam as any))
+          await expect(services.transaction.sendTransaction(invalidParam as TransactionRequest))
             .rejects.toThrow();
         }
       });
@@ -538,7 +541,7 @@ describe('Production Readiness Validation', () => {
             operation: () => services.transaction.sendTransaction({
               to: '', // Empty address should definitely fail
               value: ethers.parseEther('1')
-            } as any),
+            } as TransactionRequest),
             expectedError: /recipient|required|address/i
           },
           {
@@ -698,7 +701,7 @@ describe('Production Readiness Validation', () => {
         });
 
         // Test 2: Verify timeout handling
-        const timeoutTest = new Promise((resolve, reject) => {
+        const timeoutTest = new Promise((resolve, _reject) => {
           setTimeout(() => resolve('timeout_handled'), 1000);
         });
 

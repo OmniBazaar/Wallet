@@ -178,7 +178,7 @@ export const useGalleryNFTs = (options: GalleryNFTsOptions = {}): GalleryNFTsRes
             }),
             floorPrice: BigInt(0),
             isListed: listing !== undefined,
-            ...(listing && { listingPrice: BigInt(listing.price) })
+            ...(listing !== undefined && listing !== null && { listingPrice: BigInt(listing.price) })
           };
           enhancedNFTs.push(galleryNft);
         } catch {
@@ -427,9 +427,9 @@ export const getNFTMetadata = async (
       name: metadata.name,
       metadata: {
         name: metadata.name,
-        ...(metadata.description && { description: metadata.description }),
-        ...(metadata.image && { image: metadata.image }),
-        ...(metadata.attributes && Array.isArray(metadata.attributes) && { 
+        ...(metadata.description !== undefined && metadata.description !== '' && { description: metadata.description }),
+        ...(metadata.image !== undefined && metadata.image !== '' && { image: metadata.image }),
+        ...(metadata.attributes !== undefined && Array.isArray(metadata.attributes) && { 
           attributes: metadata.attributes.filter((attr): attr is NFTAttribute => 
             attr !== null && 
             typeof attr === 'object' && 

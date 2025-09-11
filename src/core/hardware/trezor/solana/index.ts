@@ -1,9 +1,9 @@
 import type { TrezorConnect } from "@trezor/connect-web";
 import { HWwalletCapabilities } from "../../../types/enkrypt-types";
 // HDKey type not used in Solana provider
-import type HDKey from "hdkey";
-type HDKeyInstance = HDKey;
-import base58 from "bs58";
+type HDKeyInstance = { publicKey: Buffer; chainCode: Buffer; derive(path: string): HDKeyInstance };
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const base58 = require("bs58") as { encode: (buffer: Buffer | Uint8Array) => string; decode: (str: string) => Buffer };
 import { bufferToHex } from "../../../types/enkrypt-types";
 import {
   AddressResponse,
@@ -57,7 +57,7 @@ class TrezorSolana implements HWWalletProvider {
       showOnTrezor: options.confirmAddress,
     }) as { success: boolean; payload?: { address?: string; error?: string } };
     
-    if (!res.success || !res.payload?.address) {
+    if (!res.success || res.payload?.address === undefined || res.payload.address === null || res.payload.address === '') {
       throw new Error(res.payload?.error ?? "Failed to get address");
     }
     
@@ -73,7 +73,11 @@ class TrezorSolana implements HWWalletProvider {
    * @returns Array of supported path types
    */
   getSupportedPaths(): PathType[] {
-    return supportedPaths[this.network] || [];
+    const paths = supportedPaths[this.network];
+    if (paths === undefined) {
+      return [];
+    }
+    return paths;
   }
 
   /**
@@ -97,8 +101,8 @@ class TrezorSolana implements HWWalletProvider {
    * @param _options Message signing options (unused)
    * @returns Promise that rejects with unsupported error
    */
-  async signPersonalMessage(_options: SignMessageRequest): Promise<string> {
-    throw new Error("trezor-solana: message signing not supported");
+  signPersonalMessage(_options: SignMessageRequest): Promise<string> {
+    return Promise.reject(new Error("trezor-solana: message signing not supported"));
   }
 
   /**

@@ -126,8 +126,10 @@ Wallet/
 ### 1. Install Dependencies
 
 ```bash
-cd Wallet
+# From OmniBazaar root directory
 npm install
+
+# Note: Dependencies are now managed at the root level in /home/rickc/OmniBazaar/node_modules
 ```
 
 ### 2. View UI Mockups
@@ -171,7 +173,7 @@ npm run build:all
 # Run unit tests
 npm run test:unit
 
-# Run integration tests
+# Run wallet-specific integration tests
 npm run test:integration
 
 # Run end-to-end tests
@@ -184,6 +186,24 @@ npm test
 cd contract-tests
 npm test
 ```
+
+#### Cross-Module Integration Testing
+
+The Wallet module is fully integrated with the test suite at the project root:
+
+```bash
+# Run all integration tests including Wallet
+cd /home/rickc/OmniBazaar
+npm run test:integration
+
+# Run only wallet tests
+npx jest tests/integration/features/wallet
+
+# Run specific test file
+npx jest tests/integration/features/wallet/wallet-connection.test.ts
+```
+
+For more details, see the [Integration Test Documentation](/home/rickc/OmniBazaar/tests/integration/README.md)
 
 ## 🔧 Development Workflow
 

@@ -228,7 +228,7 @@ describe('Performance and Stress Testing', () => {
 
       // Create various concurrent operations
       for (let i = 0; i < operationCount; i++) {
-        const operation = async () => {
+        const operation = async (): Promise<{ success: boolean; chain: string; operation: string }> => {
           const chainIndex = i % 2; // Use only 2 chains for more reliable testing
           const chains = ['ethereum', 'omnicoin'] as const;
           const chain = chains[chainIndex];
@@ -255,7 +255,7 @@ describe('Performance and Stress Testing', () => {
 
       // Count successful operations
       const successful = results.filter(r => 
-        r.status === 'fulfilled' && (r.value as any).success
+        r.status === 'fulfilled' && (r.value as { success: boolean }).success
       );
 
       // At least 50% should succeed under stress
@@ -360,7 +360,7 @@ describe('Performance and Stress Testing', () => {
 
       // Check for data corruption
       const successful = results.filter(r => 
-        r.status === 'fulfilled' && (r.value as any).matches
+        r.status === 'fulfilled' && (r.value as { matches: boolean }).matches
       );
 
       expect(successful.length).toBeGreaterThan(concurrentUsers * operationsPerUser * 0.9);
@@ -649,11 +649,12 @@ describe('Performance and Stress Testing', () => {
               // Mock balance check
               await new Promise(resolve => setTimeout(resolve, Math.random() * 50));
               break;
-            case 'account_creation':
+            case 'account_creation': {
               const keyring = new BIP39Keyring();
               await keyring.initialize({ mnemonic: testMnemonic, password: testPassword });
               await keyring.createAccount('ethereum');
               break;
+            }
             case 'chain_switch':
               // Mock chain switching for load testing
               await new Promise(resolve => setTimeout(resolve, Math.random() * 30));
@@ -674,7 +675,10 @@ describe('Performance and Stress Testing', () => {
           if (!operationTimes.has(opType)) {
             operationTimes.set(opType, []);
           }
-          operationTimes.get(opType)!.push(opTime);
+          const times = operationTimes.get(opType);
+          if (times) {
+            times.push(opTime);
+          }
 
         } catch (error) {
           // Count failed operations
@@ -707,7 +711,7 @@ describe('Performance and Stress Testing', () => {
 
       // Simulate mixed success/failure scenario
       for (let i = 0; i < 100; i++) {
-        const operation = async (index: number) => {
+        const operation = async (index: number): Promise<{ success: boolean; index: number; error?: string }> => {
           try {
             // Simulate random failures (20% failure rate)
             if (Math.random() < 0.2) {
@@ -730,7 +734,7 @@ describe('Performance and Stress Testing', () => {
       
       results.forEach((result, index) => {
         if (result.status === 'fulfilled') {
-          if ((result.value as any).success) {
+          if ((result.value as { success: boolean }).success) {
             successfulOps.push(result.value);
           } else {
             failedOps.push(result.value);

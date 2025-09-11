@@ -1,5 +1,6 @@
 import { HWwalletCapabilities } from "../../../types/enkrypt-types";
-import HDKey from "hdkey";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const HDKey = require("hdkey") as new () => HDKeyInstance;
 
 interface HDKeyInstance {
   publicKey: Buffer;

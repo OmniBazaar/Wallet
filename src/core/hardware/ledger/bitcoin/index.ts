@@ -98,7 +98,7 @@ class LedgerBitcoin implements HWWalletProvider {
     }
     
     const connection = new BtcApp({ transport: this.transport });
-    const hdKey = new HDKey() as HDKeyInstance;
+    const hdKey = new HDKey();
     if (!isHardened) {
       if (this.HDNodes[options.pathType.basePath] === undefined) {
         const rootPub = await connection.getWalletPublicKey(

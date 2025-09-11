@@ -1,4 +1,5 @@
-/// <reference path="./shims-vue.d.ts" />
+/* Import the type definitions */
+import './shims-vue.d.ts';
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument */
 /**
  * OmniBazaar Wallet Popup Main Entry Point
@@ -9,6 +10,7 @@ import { createApp } from 'vue';
 import { createRouter, createWebHashHistory } from 'vue-router';
 import { createPinia } from 'pinia';
 import App from './App.vue';
+import { logger } from '../utils/logger';
 
 /** Import all page components for routing */
 import Home from './pages/Home.vue';
@@ -19,7 +21,7 @@ import Marketplace from './pages/Marketplace.vue';
 import Settings from './pages/Settings.vue';
 import Welcome from './pages/Welcome.vue';
 
-console.warn('🚀 OmniBazaar Wallet popup initializing...');
+logger.warn('🚀 OmniBazaar Wallet popup initializing...');
 
 /**
  * Create Vue Router instance with hash-based routing
@@ -61,10 +63,10 @@ app.use(pinia);
  * @param info - Vue-specific error info
  */
 app.config.errorHandler = (err, vm, info) => {
-  console.error('Vue error:', err, info);
+  logger.error(`Vue error: ${info}`, err);
 };
 
 /** Mount the application to the DOM element */
 app.mount('#app');
 
-console.warn('✅ OmniBazaar Wallet popup mounted'); 
+logger.warn('✅ OmniBazaar Wallet popup mounted'); 

@@ -178,11 +178,11 @@ export class BazaarIntegration {
 
   /**
    * Disconnect from Bazaar marketplace
-   * @returns Promise that resolves when disconnected
+   * @returns void
    */
-  async disconnect(): Promise<void> {
+  disconnect(): void {
     this.reset();
-    await this.listingService.cleanup();
+    this.listingService.cleanup();
     this.connected = false;
   }
 
@@ -333,7 +333,7 @@ export class BazaarIntegration {
       id: listing.id ?? `listing-${Date.now()}`,
       seller: sellerAddress,
       title: listing.title,
-      ...(listing.description && listing.description !== '' && { description: listing.description }),
+      ...(listing.description !== undefined && listing.description !== null && listing.description !== '' && { description: listing.description }),
       price: listing.price,
       currency: listingData.currency,
       status: listing.status ?? 'active',
@@ -440,7 +440,7 @@ export class BazaarIntegration {
       id: listingId,
       seller: sellerAddress,
       title: updates.title !== undefined && updates.title.length > 0 ? updates.title : 'Updated Title',
-      ...(updates.description && { description: updates.description }),
+      ...(updates.description !== undefined && updates.description !== null && updates.description !== '' && { description: updates.description }),
       price: updates.price !== undefined && updates.price.length > 0 ? updates.price : '100',
       currency: updates.currency !== undefined && updates.currency.length > 0 ? updates.currency : 'XOM',
       status: 'active',

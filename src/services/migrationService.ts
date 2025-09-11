@@ -16,6 +16,24 @@ interface MigrationResult {
   balance?: string;
 }
 
+/** Verification response from migration API */
+interface VerifyResponse {
+  verified: boolean;
+  balance?: string;
+}
+
+/** Migration response from migration API */
+interface MigrationResponse {
+  success: boolean;
+  error?: string;
+}
+
+/** Status response from migration API */
+interface StatusResponse {
+  status: string;
+  balance?: string;
+}
+
 /**
  * Migrate legacy OmniCoin balance to new wallet
  * @param username Legacy account username
@@ -30,7 +48,7 @@ export const migrateLegacyBalance = async (
 ): Promise<MigrationResult> => {
   try {
     // Verify credentials and get balance through migration API
-    const verifyResponse = await axios.post(`${API_URL}/verify`, {
+    const verifyResponse = await axios.post<VerifyResponse>(`${API_URL}/verify`, {
       username,
       password,
     });
@@ -43,7 +61,7 @@ export const migrateLegacyBalance = async (
     }
 
     // Extract balance from verification response
-    const balance = verifyResponse.data.balance || '0';
+    const balance = verifyResponse.data.balance ?? '0';
     
     if (balance === '0') {
       return {
@@ -53,7 +71,7 @@ export const migrateLegacyBalance = async (
     }
 
     // Initiate migration
-    const migrationResponse = await axios.post(`${API_URL}/migrate`, {
+    const migrationResponse = await axios.post<MigrationResponse>(`${API_URL}/migrate`, {
       username,
       balance,
       newWalletAddress,
@@ -82,13 +100,13 @@ export const migrateLegacyBalance = async (
 /**
  * Get migration status for a legacy username from the migration API.
  * @param username Legacy username to query
- * @returns Object with status and optional balance
+ * @returns Promise resolving to status and optional balance
  */
 export const getMigrationStatus = async (
   username: string
 ): Promise<{ status: string; balance?: string }> => {
   try {
-    const response = await axios.get(`${API_URL}/status/${username}`);
+    const response = await axios.get<StatusResponse>(`${API_URL}/status/${username}`);
     return response.data;
   } catch (error) {
     console.warn('Error getting migration status:', error);
@@ -169,9 +187,10 @@ export const formatBalance = (balance: string, displayDecimals: number = 4): str
 
 /**
  * Enhanced migration function that handles decimal conversion
- * @param username
- * @param password
- * @param newWalletAddress
+ * @param username Legacy account username
+ * @param password Legacy account password  
+ * @param newWalletAddress New wallet address to receive funds
+ * @returns Promise resolving to migration result with converted balance
  */
 export const migrateLegacyBalanceWithConversion = async (
   username: string,
@@ -180,7 +199,7 @@ export const migrateLegacyBalanceWithConversion = async (
 ): Promise<MigrationResult & { convertedBalance?: string }> => {
   const result = await migrateLegacyBalance(username, password, newWalletAddress);
 
-  if (result.success && result.balance) {
+  if (result.success && result.balance !== undefined && result.balance !== '') {
     // Convert the 6-decimal balance to 18 decimals
     const convertedBalance = convertLegacyBalance(result.balance);
 

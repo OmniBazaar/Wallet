@@ -78,7 +78,7 @@ export class BaseNFTProvider implements ChainProvider {
         );
         
         if (response.ok) {
-          const data = await response.json();
+          const data = await response.json() as unknown;
           return this.transformAlchemyNFT(data);
         }
       }
@@ -103,35 +103,39 @@ export class BaseNFTProvider implements ChainProvider {
       
       // Parse metadata
       let metadata: { name: string; description: string; image?: string; attributes?: Array<{ trait_type: string; value: string | number }> } = { name: `${name} #${tokenId}`, description: '' };
-      if (tokenURI) {
+      if (tokenURI.length > 0) {
         if (tokenURI.startsWith('data:')) {
           const json = tokenURI.split(',')[1] ?? '';
-          if (json) {
-            metadata = JSON.parse(atob(json));
+          if (json.length > 0) {
+            metadata = JSON.parse(atob(json)) as typeof metadata;
           }
         } else if (tokenURI.startsWith('ipfs://')) {
           const ipfsGateway = 'https://ipfs.io/ipfs/';
           const ipfsHash = tokenURI.replace('ipfs://', '');
           try {
             const response = await fetch(ipfsGateway + ipfsHash);
-            metadata = await response.json();
-          } catch {}
+            metadata = await response.json() as typeof metadata;
+          } catch {
+            // Failed to fetch from IPFS
+          }
         } else if (tokenURI.startsWith('http')) {
           try {
             const response = await fetch(tokenURI);
-            metadata = await response.json();
-          } catch {}
+            metadata = await response.json() as typeof metadata;
+          } catch {
+            // Failed to fetch metadata
+          }
         }
       }
       
       return {
         id: `base_${contractAddress}_${tokenId}`,
         tokenId,
-        name: metadata.name || `${name} #${tokenId}`,
-        description: metadata.description || '',
-        image: metadata.image || '',
-        imageUrl: metadata.image || '',
-        attributes: metadata.attributes || [],
+        name: (metadata.name !== undefined && metadata.name.length > 0) ? metadata.name : `${name} #${tokenId}`,
+        description: metadata.description ?? '',
+        image: metadata.image ?? '',
+        imageUrl: metadata.image ?? '',
+        attributes: metadata.attributes ?? [],
         contract: contractAddress,
         contractAddress,
         tokenStandard: 'ERC721',
@@ -148,7 +152,8 @@ export class BaseNFTProvider implements ChainProvider {
 
   /**
    * Get NFT collections for an address
-   * @param address
+   * @param address - Wallet address to fetch collections for
+   * @returns Promise resolving to array of NFT collections
    */
   async getCollections(address: string): Promise<NFTCollection[]> {
     try {
@@ -159,30 +164,34 @@ export class BaseNFTProvider implements ChainProvider {
         if (!collectionMap.has(nft.contractAddress)) {
           collectionMap.set(nft.contractAddress, {
             id: `base_collection_${nft.contractAddress}`,
-            name: (nft.name?.split('#')[0] ?? nft.name).toString().trim() || 'Unknown Collection',
+            name: (nft.name !== undefined && nft.name.length > 0) ? (nft.name.split('#')[0] ?? nft.name).toString().trim() : 'Unknown Collection',
             description: '',
             contract: nft.contractAddress,
             contractAddress: nft.contractAddress,
             tokenStandard: nft.tokenStandard,
             blockchain: 'base',
-            creator: nft.creator || address,
+            creator: nft.creator ?? address,
             verified: false,
             items: []
           });
         }
-        collectionMap.get(nft.contractAddress)!.items.push(nft);
+        const collection = collectionMap.get(nft.contractAddress);
+        if (collection !== undefined) {
+          collection.items.push(nft);
+        }
       }
       
       return Array.from(collectionMap.values());
     } catch (error) {
-      console.warn('Error fetching Base collections:', error);
+      // Error fetching Base collections
       return [];
     }
   }
 
   /**
    * Fetch NFTs from Alchemy API
-   * @param address
+   * @param address - Wallet address to fetch NFTs for
+   * @returns Promise resolving to array of NFT items
    */
   private async fetchFromAlchemy(address: string): Promise<NFTItem[]> {
     const response = await fetch(
@@ -193,20 +202,21 @@ export class BaseNFTProvider implements ChainProvider {
       throw new Error(`Alchemy API error: ${response.status}`);
     }
     
-    const data = await response.json();
-    return data.ownedNfts?.map((nft: any) => this.transformAlchemyNFT(nft)) || [];
+    const data = await response.json() as { ownedNfts?: unknown[] };
+    return data.ownedNfts?.map((nft) => this.transformAlchemyNFT(nft)) ?? [];
   }
 
   /**
    * Fetch NFTs from SimpleHash API
-   * @param address
+   * @param address - Wallet address to fetch NFTs for
+   * @returns Promise resolving to array of NFT items
    */
   private async fetchFromSimpleHash(address: string): Promise<NFTItem[]> {
     const response = await fetch(
       `${this.simplehashUrl}/nfts/owners?chains=base&wallet_addresses=${address}&limit=100`,
       {
         headers: {
-          'X-API-KEY': this.config.simplehashApiKey!
+          'X-API-KEY': this.config.simplehashApiKey ?? ''
         }
       }
     );
@@ -215,65 +225,91 @@ export class BaseNFTProvider implements ChainProvider {
       throw new Error(`SimpleHash API error: ${response.status}`);
     }
     
-    const data = await response.json();
-    return data.nfts?.map((nft: any) => this.transformSimpleHashNFT(nft)) || [];
+    const data = await response.json() as { nfts?: unknown[] };
+    return data.nfts?.map((nft) => this.transformSimpleHashNFT(nft)) ?? [];
   }
 
   /**
    * Transform Alchemy NFT data to our format
-   * @param nft
+   * @param nft - Raw NFT data from Alchemy API
+   * @returns Transformed NFT item
    */
-  private transformAlchemyNFT(nft: any): NFTItem {
-    const metadata = nft.metadata || {};
+  private transformAlchemyNFT(nft: unknown): NFTItem {
+    const nftData = nft as {
+      metadata?: { name?: string; description?: string; image?: string; attributes?: unknown[]; creator?: string };
+      title?: string;
+      description?: string;
+      media?: Array<{ gateway?: string }>;
+      id: { tokenId: string; tokenMetadata?: { tokenType?: string } };
+      contract: { address: string };
+    };
+    const metadata = nftData.metadata ?? {};
     
     return {
-      id: `base_${nft.contract.address}_${nft.id.tokenId}`,
-      tokenId: nft.id.tokenId,
-      name: metadata.name || nft.title || `Base NFT #${nft.id.tokenId}`,
-      description: metadata.description || nft.description || '',
-      image: metadata.image || nft.media?.[0]?.gateway || '',
-      imageUrl: metadata.image || nft.media?.[0]?.gateway || '',
-      attributes: metadata.attributes || [],
-      contract: nft.contract.address,
-      contractAddress: nft.contract.address,
-      tokenStandard: ((nft.id.tokenMetadata?.tokenType || 'ERC721') as string).toUpperCase() === 'ERC1155' ? 'ERC1155' : 'ERC721',
+      id: `base_${nftData.contract.address}_${nftData.id.tokenId}`,
+      tokenId: nftData.id.tokenId,
+      name: metadata.name ?? nftData.title ?? `Base NFT #${nftData.id.tokenId}`,
+      description: metadata.description ?? nftData.description ?? '',
+      image: metadata.image ?? nftData.media?.[0]?.gateway ?? '',
+      imageUrl: metadata.image ?? nftData.media?.[0]?.gateway ?? '',
+      attributes: (metadata.attributes ?? []) as Array<{ trait_type: string; value: string | number }>,
+      contract: nftData.contract.address,
+      contractAddress: nftData.contract.address,
+      tokenStandard: (nftData.id.tokenMetadata?.tokenType ?? 'ERC721').toUpperCase() === 'ERC1155' ? 'ERC1155' : 'ERC721',
       blockchain: 'base',
       owner: '',
-      creator: metadata.creator || '',
+      creator: metadata.creator ?? '',
       isListed: false
     };
   }
 
   /**
    * Transform SimpleHash NFT data to our format
-   * @param nft
+   * @param nft - Raw NFT data from SimpleHash API
+   * @returns Transformed NFT item
    */
-  private transformSimpleHashNFT(nft: any): NFTItem {
+  private transformSimpleHashNFT(nft: unknown): NFTItem {
+    const nftData = nft as {
+      contract_address: string;
+      token_id: string;
+      name?: string;
+      description?: string;
+      image_url?: string;
+      previews?: { image_medium_url?: string };
+      extra_metadata?: { attributes?: unknown[] };
+      contract?: { type?: string; deployed_by?: string };
+      owners?: Array<{ owner_address?: string }>;
+      last_sale?: { unit_price?: number | string };
+      listings?: unknown[];
+      external_url?: string;
+    };
+    
     return {
-      id: `base_${nft.contract_address}_${nft.token_id}`,
-      tokenId: nft.token_id,
-      name: nft.name || `Base NFT #${nft.token_id}`,
-      description: nft.description || '',
-      image: nft.image_url || nft.previews?.image_medium_url || '',
-      imageUrl: nft.image_url || nft.previews?.image_medium_url || '',
-      attributes: nft.extra_metadata?.attributes || [],
-      contract: nft.contract_address,
-      contractAddress: nft.contract_address,
-      tokenStandard: ((nft.contract?.type || 'ERC721') as string).toUpperCase() === 'ERC1155' ? 'ERC1155' : 'ERC721',
+      id: `base_${nftData.contract_address}_${nftData.token_id}`,
+      tokenId: nftData.token_id,
+      name: nftData.name ?? `Base NFT #${nftData.token_id}`,
+      description: nftData.description ?? '',
+      image: nftData.image_url ?? nftData.previews?.image_medium_url ?? '',
+      imageUrl: nftData.image_url ?? nftData.previews?.image_medium_url ?? '',
+      attributes: (nftData.extra_metadata?.attributes ?? []) as Array<{ trait_type: string; value: string | number }>,
+      contract: nftData.contract_address,
+      contractAddress: nftData.contract_address,
+      tokenStandard: (nftData.contract?.type ?? 'ERC721').toUpperCase() === 'ERC1155' ? 'ERC1155' : 'ERC721',
       blockchain: 'base',
-      owner: nft.owners?.[0]?.owner_address || '',
-      creator: nft.contract?.deployed_by || '',
-      price: nft.last_sale?.unit_price ? 
-        (Number(nft.last_sale.unit_price) / 1e18).toString() : '0',
+      owner: nftData.owners?.[0]?.owner_address ?? '',
+      creator: nftData.contract?.deployed_by ?? '',
+      price: nftData.last_sale?.unit_price !== undefined ? 
+        (Number(nftData.last_sale.unit_price) / 1e18).toString() : '0',
       currency: 'ETH',
-      isListed: Boolean(nft.listings?.length),
-      marketplaceUrl: nft.external_url
+      isListed: Boolean(nftData.listings?.length),
+      ...(nftData.external_url !== undefined && { marketplaceUrl: nftData.external_url })
     };
   }
 
   /**
    * Fetch NFTs directly from blockchain using ethers
-   * @param address
+   * @param address - Wallet address to fetch NFTs for
+   * @returns Promise resolving to array of NFT items
    */
   private async fetchFromBlockchain(address: string): Promise<NFTItem[]> {
     try {

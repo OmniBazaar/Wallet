@@ -14,9 +14,9 @@
   "author": "OmniBazaar Team",
   "license": "MIT",
   "devDependencies": {
-    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
     "@nomicfoundation/hardhat-verify": "^2.0.0",
-    "hardhat": "^2.19.0",
+    "hardhat": "^2.22.15",
     "hardhat-gas-reporter": "^1.0.8",
     "solidity-coverage": "^0.8.0"
   },

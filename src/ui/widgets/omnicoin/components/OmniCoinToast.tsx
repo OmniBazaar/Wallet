@@ -1,12 +1,11 @@
-/* @jsxImportSource react */
-import React, { useEffect } from 'react';
+import { useEffect, CSSProperties, FC, MouseEvent } from 'react';
 
 /**
  * Get toast container style based on toast type
  * @param type - Toast type (success, error, info, or pending)
  * @returns CSS style object
  */
-const getToastContainerStyle = (type: 'success' | 'error' | 'info' | 'pending'): React.CSSProperties => {
+const getToastContainerStyle = (type: 'success' | 'error' | 'info' | 'pending'): CSSProperties => {
   let backgroundColor: string;
   
   switch (type) {
@@ -42,13 +41,13 @@ const getToastContainerStyle = (type: 'success' | 'error' | 'info' | 'pending'):
   };
 };
 
-const toastMessageStyle: React.CSSProperties = {
+const toastMessageStyle: CSSProperties = {
   margin: '0',
   fontSize: '0.875rem',
   color: 'white'
 };
 
-const closeButtonStyle: React.CSSProperties = {
+const closeButtonStyle: CSSProperties = {
   background: 'none',
   border: 'none',
   color: 'white',
@@ -75,7 +74,7 @@ interface OmniCoinToastProps {
  * @param props.onClose - Callback function called when toast is closed
  * @returns React component for toast notifications
  */
-export const OmniCoinToast: React.FC<OmniCoinToastProps> = ({
+export const OmniCoinToast: FC<OmniCoinToastProps> = ({
     message,
     type = 'info',
     duration = 3000,
@@ -97,14 +96,14 @@ export const OmniCoinToast: React.FC<OmniCoinToastProps> = ({
         <div style={getToastContainerStyle(type)} data-testid="toast-container">
             <p style={toastMessageStyle}>{message}</p>
             {typeof onClose !== 'undefined' && (
-                <button 
+                <button type="button" 
                     style={closeButtonStyle} 
                     onClick={onClose} 
                     aria-label="Close toast"
-                    onMouseEnter={(e) => {
+                    onMouseEnter={(e: MouseEvent<HTMLButtonElement>) => {
                         e.currentTarget.style.opacity = '1';
                     }}
-                    onMouseLeave={(e) => {
+                    onMouseLeave={(e: MouseEvent<HTMLButtonElement>) => {
                         e.currentTarget.style.opacity = '0.7';
                     }}
                 >

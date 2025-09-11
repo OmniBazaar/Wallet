@@ -40,10 +40,12 @@ module.exports = {
     'jest.config.js',
     'playwright.config.ts',
     '*.js',
+    '*.cjs',
+    '.eslintrc.cjs',
+    '**/*.vue',  // Exclude Vue files since project uses React/TSX primarily
+    'tests/**/*.ts',  // Temporarily ignore test files
     '**/*.test.ts',
-    '**/*.spec.ts',
-    'tests/**/*.ts',
-    '**/*.vue'  // Exclude Vue files since project uses React/TSX primarily
+    '**/*.spec.ts'
   ],
   rules: {
     // Console logging - warn except for warn/error
@@ -138,26 +140,64 @@ module.exports = {
   overrides: [
     {
       files: ['tests/**/*.ts', '**/*.test.ts', '**/*.spec.ts', '**/__tests__/**/*.ts'],
+      parser: '@typescript-eslint/parser',
       parserOptions: {
-        project: null // Disable type-aware linting for test files
+        ecmaVersion: 2022,
+        sourceType: 'module',
+        project: undefined // Explicitly disable type-aware linting
       },
+      plugins: ['@typescript-eslint', 'jsdoc'],
+      extends: [
+        'eslint:recommended',
+        'plugin:@typescript-eslint/recommended'
+        // Explicitly NOT including recommended-requiring-type-checking
+      ],
       rules: {
-        // More lenient rules for test files
-        '@typescript-eslint/no-explicit-any': 'off',
-        '@typescript-eslint/no-non-null-assertion': 'off',
-        '@typescript-eslint/no-unused-vars': 'off',
-        '@typescript-eslint/explicit-function-return-type': 'off',
-        // Disable type-aware rules for test files
-        '@typescript-eslint/no-unsafe-assignment': 'off',
-        '@typescript-eslint/no-unsafe-member-access': 'off',
-        '@typescript-eslint/no-unsafe-call': 'off',
-        '@typescript-eslint/no-unsafe-return': 'off',
-        '@typescript-eslint/no-unsafe-argument': 'off',
-        '@typescript-eslint/strict-boolean-expressions': 'off',
-        // Disable JSDoc requirements for test files
-        'jsdoc/require-jsdoc': 'off',
-        'jsdoc/require-description': 'off',
-        'no-console': 'off'
+        // Basic ESLint rules
+        'prefer-const': 'error',
+        'no-var': 'error',
+        'no-console': 'off', // Allow console in tests
+        
+        // Test files still need proper types - no any
+        '@typescript-eslint/no-explicit-any': 'error',
+        '@typescript-eslint/no-non-null-assertion': 'warn',
+        '@typescript-eslint/no-unused-vars': ['error', {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_'
+        }],
+        '@typescript-eslint/explicit-function-return-type': ['error', {
+          allowExpressions: true,
+          allowTypedFunctionExpressions: true,
+          allowHigherOrderFunctions: true,
+          allowDirectConstAssertionInArrowFunctions: true
+        }],
+        
+        // Test utilities should be documented
+        'jsdoc/require-jsdoc': ['error', {
+          publicOnly: false,
+          require: {
+            ArrowFunctionExpression: false,
+            ClassDeclaration: true,
+            ClassExpression: true,
+            FunctionDeclaration: true,
+            FunctionExpression: false,
+            MethodDefinition: false
+          },
+          contexts: [
+            'ExportNamedDeclaration > VariableDeclaration > VariableDeclarator > ArrowFunctionExpression',
+            'ExportNamedDeclaration > FunctionDeclaration'
+          ]
+        }],
+        'jsdoc/require-description': ['error', {
+          contexts: ['FunctionDeclaration', 'ClassDeclaration']
+        }],
+        'jsdoc/require-param': 'error',
+        'jsdoc/require-param-description': 'error',
+        'jsdoc/require-returns': 'error',
+        'jsdoc/require-returns-description': 'error',
+        'jsdoc/check-alignment': 'error',
+        'jsdoc/check-param-names': 'error',
+        'jsdoc/check-tag-names': 'error'
       }
     },
     {

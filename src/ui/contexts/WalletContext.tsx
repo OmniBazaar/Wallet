@@ -1,17 +1,33 @@
-/* @jsxImportSource react */
-import React, { createContext, useContext, useReducer } from 'react';
+import { createContext, useContext, useReducer, useRef, ReactNode, JSX } from 'react';
 import { BrowserProvider, Contract, formatEther, formatUnits, parseEther, parseUnits } from 'ethers';
 import { WalletState, WalletContextType, TokenInfo, Transaction } from '../../types/wallet';
 
-/**
- * EIP-1193 Provider interface
- */
-interface Eip1193Provider {
+// Re-declare EthereumProvider to match globals.d.ts
+interface EthereumProvider {
+  isMetaMask?: boolean;
+  isOmniBazaar?: boolean;
+  chainId?: string;
+  networkVersion?: string;
+  selectedAddress?: string | null;
   request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
-  on: (event: string, handler: (data: unknown) => void) => void;
+  on?: (event: string, callback: (data: unknown) => void) => void;
+  removeListener?: (event: string, callback: (data: unknown) => void) => void;
+  isConnected?: () => boolean;
+  enable?: () => Promise<string[]>;
+  send?: (method: string, params: unknown[]) => Promise<unknown>;
+  sendAsync?: (request: unknown, callback: (error: Error | null, result?: unknown) => void) => void;
 }
 
-// Window ethereum typing is already declared in globals.d.ts
+/**
+ * Type guard for checking if ethereum provider has event listener support
+ * @param provider - Ethereum provider to check
+ * @returns True if provider has on method
+ */
+function hasEventSupport(provider: EthereumProvider): provider is EthereumProvider & { on: NonNullable<EthereumProvider['on']> } {
+  return typeof provider.on === 'function';
+}
+
+// Window.ethereum is already typed in globals.d.ts
 
 /**
  * Initial state for the wallet context
@@ -82,11 +98,11 @@ const WalletContext = createContext<WalletContextType | undefined>(undefined);
  * @param props.children - React child components
  * @returns JSX element with wallet context provider
  */
-export function WalletProvider({ children }: { children: React.ReactNode }): React.JSX.Element {
+export function WalletProvider({ children }: { children: ReactNode }): JSX.Element {
   const [state, dispatch] = useReducer(reducer, initialState);
   
   // Store the actual BrowserProvider separately for internal use
-  let ethersProvider: BrowserProvider | null = null;
+  const ethersProviderRef = useRef<BrowserProvider | undefined>(undefined);
 
   /**
    * Connects to user's Web3 wallet (MetaMask, etc.)
@@ -96,12 +112,14 @@ export function WalletProvider({ children }: { children: React.ReactNode }): Rea
     try {
       dispatch({ type: 'CONNECT_START' });
 
-      if (typeof window.ethereum === 'undefined') {
+      // Type assertion is safe here because we check for undefined immediately
+      const ethereumProvider = window.ethereum as EthereumProvider | undefined;
+      if (ethereumProvider === undefined) {
         throw new Error('Please install MetaMask or another Web3 wallet');
       }
 
-      const provider = new BrowserProvider(window.ethereum as Eip1193Provider);
-      ethersProvider = provider;
+      const provider = new BrowserProvider(ethereumProvider);
+      ethersProviderRef.current = provider;
       const accountsResponse: unknown = await provider.send('eth_requestAccounts', []);
       if (!Array.isArray(accountsResponse)) {
         throw new Error('Invalid response from wallet provider');
@@ -128,28 +146,29 @@ export function WalletProvider({ children }: { children: React.ReactNode }): Rea
       });
 
       // Set up event listeners
-      const ethereumProvider = window.ethereum as Eip1193Provider;
-      ethereumProvider.on('accountsChanged', (accounts: unknown) => {
-        const accountsArray = accounts as string[];
-        if (accountsArray.length === 0) {
-          dispatch({ type: 'DISCONNECT' });
-          ethersProvider = null;
-        } else if (typeof accountsArray[0] === 'string' && state.provider !== null) {
-          dispatch({
-            type: 'CONNECT_SUCCESS',
-            payload: {
-              address: accountsArray[0],
-              chainId: state.chainId ?? 1,
-              provider: state.provider,
-            },
-          });
-        }
-      });
+      if (hasEventSupport(ethereumProvider)) {
+        ethereumProvider.on('accountsChanged', (accounts: unknown) => {
+          const accountsArray = accounts as string[];
+          if (accountsArray.length === 0) {
+            dispatch({ type: 'DISCONNECT' });
+            ethersProviderRef.current = undefined;
+          } else if (typeof accountsArray[0] === 'string' && state.provider !== null) {
+            dispatch({
+              type: 'CONNECT_SUCCESS',
+              payload: {
+                address: accountsArray[0],
+                chainId: state.chainId ?? 1,
+                provider: state.provider,
+              },
+            });
+          }
+        });
 
-      ethereumProvider.on('chainChanged', (chainId: unknown) => {
-        const chainIdStr = chainId as string;
-        dispatch({ type: 'UPDATE_CHAIN_ID', payload: parseInt(chainIdStr, 16) });
-      });
+        ethereumProvider.on('chainChanged', (chainId: unknown) => {
+          const chainIdStr = chainId as string;
+          dispatch({ type: 'UPDATE_CHAIN_ID', payload: parseInt(chainIdStr, 16) });
+        });
+      }
     } catch (error) {
       dispatch({ type: 'CONNECT_ERROR', payload: (error as Error).message });
     }
@@ -159,7 +178,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }): Rea
    * Disconnects from the current wallet
    */
   const disconnect = (): void => {
-    ethersProvider = null;
+    ethersProviderRef.current = undefined;
     dispatch({ type: 'DISCONNECT' });
   };
 
@@ -169,12 +188,13 @@ export function WalletProvider({ children }: { children: React.ReactNode }): Rea
    * @throws {Error} When network switch fails
    */
   const switchNetwork = async (chainId: number): Promise<void> => {
-    if (typeof window.ethereum === 'undefined') {
+    // Type assertion is safe here because we check for undefined immediately
+    const ethereumProvider = window.ethereum as EthereumProvider | undefined;
+    if (ethereumProvider === undefined) {
       throw new Error('No wallet provider available');
     }
     
     try {
-      const ethereumProvider = window.ethereum as Eip1193Provider;
       const switchResult: unknown = await ethereumProvider.request({
         method: 'wallet_switchEthereumChain',
         params: [{ chainId: `0x${chainId.toString(16)}` }],
@@ -196,12 +216,12 @@ export function WalletProvider({ children }: { children: React.ReactNode }): Rea
    * @throws {Error} When wallet not connected or transaction fails
    */
   const sendTransaction = async (to: string, value: string, token?: TokenInfo): Promise<string> => {
-    if (ethersProvider === null || state.address === null) {
+    if (ethersProviderRef.current === undefined || state.address === null) {
       throw new Error('Wallet not connected');
     }
 
     try {
-      const signer = await ethersProvider.getSigner();
+      const signer = await ethersProviderRef.current.getSigner();
       
       if (typeof token !== 'undefined') {
         // ERC20 token transfer
@@ -233,7 +253,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }): Rea
    * @throws {Error} When wallet not connected or balance query fails
    */
   const getBalance = async (token?: TokenInfo): Promise<string> => {
-    if (ethersProvider === null || state.address === null) {
+    if (ethersProviderRef.current === undefined || state.address === null) {
       throw new Error('Wallet not connected');
     }
 
@@ -242,13 +262,13 @@ export function WalletProvider({ children }: { children: React.ReactNode }): Rea
         const contract = new Contract(
           token.address,
           ['function balanceOf(address owner) view returns (uint256)'],
-          ethersProvider
+          ethersProviderRef.current
         );
         const balanceOfMethod = contract.getFunction('balanceOf');
         const balance = await balanceOfMethod(state.address) as bigint;
         return formatUnits(balance, token.decimals);
       } else {
-        const balance = await ethersProvider.getBalance(state.address);
+        const balance = await ethersProviderRef.current.getBalance(state.address);
         return formatEther(balance);
       }
     } catch (error) {

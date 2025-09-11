@@ -1,7 +1,8 @@
 import { HWwalletCapabilities, NetworkNames } from "../../../types/enkrypt-types";
-import HDKey from "hdkey";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const HDKey = require("hdkey") as new () => HDKeyInstance;
 // HDKey instance type
-type HDKeyInstance = HDKey;
+type HDKeyInstance = { publicKey: Buffer; chainCode: Buffer; derive(path: string): HDKeyInstance };
 import { bigIntToHex, bufferToHex, hexToBuffer } from "../../../types/enkrypt-types";
 import { publicToAddress, toRpcSig } from "@ethereumjs/util";
 // import type { FeeMarketEIP1559Transaction, LegacyTransaction } from "@ethereumjs/tx"; - unused imports
@@ -64,10 +65,11 @@ class TrezorEthereum implements HWWalletProvider {
    * @returns Promise with address and public key
    */
   async getAddress(options: GetAddressRequest): Promise<AddressResponse> {
-    if (!supportedPaths[this.network])
+    const paths = supportedPaths[this.network];
+    if (paths === undefined || paths === null)
       return Promise.reject(new Error("trezor-ethereum: Invalid network name"));
 
-    if (!this.HDNodes[options.pathType.basePath]) {
+    if (this.HDNodes[options.pathType.basePath] === undefined) {
       const rootPub = await this.TrezorConnect.ethereumGetPublicKey({
         path: options.pathType.basePath,
         showOnTrezor: options.confirmAddress,
@@ -79,10 +81,10 @@ class TrezorEthereum implements HWWalletProvider {
           error?: string;
         };
       };
-      if (!rootPub.payload) {
+      if (rootPub.payload === null || rootPub.payload === undefined) {
         throw new Error("popup failed to open");
       }
-      if (!rootPub.success) throw new Error(rootPub.payload.error || "Unknown error");
+      if (!rootPub.success) throw new Error(rootPub.payload.error !== null && rootPub.payload.error !== undefined && rootPub.payload.error !== '' ? rootPub.payload.error : "Unknown error");
 
       const hdKey = new HDKey();
       hdKey.publicKey = Buffer.from(rootPub.payload.publicKey, "hex");
@@ -103,7 +105,11 @@ class TrezorEthereum implements HWWalletProvider {
    * @returns Array of supported path types
    */
   getSupportedPaths(): PathType[] {
-    return supportedPaths[this.network] || [];
+    const paths = supportedPaths[this.network];
+    if (paths === undefined) {
+      return [];
+    }
+    return paths;
   }
 
   /**
@@ -139,7 +145,7 @@ class TrezorEthereum implements HWWalletProvider {
         signature?: string;
       };
     };
-    if (!result.success || !result.payload.signature) throw new Error(result.payload.error || "Failed to sign message");
+    if (!result.success || result.payload.signature === null || result.payload.signature === undefined || result.payload.signature === '') throw new Error(result.payload.error !== null && result.payload.error !== undefined && result.payload.error !== '' ? result.payload.error : "Failed to sign message");
     return bufferToHex(hexToBuffer(result.payload.signature));
   }
 
@@ -159,15 +165,15 @@ class TrezorEthereum implements HWWalletProvider {
       gasLimit: bigIntToHex(tx.gasLimit),
       data: bufferToHex(tx.data),
     };
-    if ((options.transaction as EthereumTransaction).gasPrice) {
+    if ((options.transaction as EthereumTransaction).gasPrice !== undefined && (options.transaction as EthereumTransaction).gasPrice !== null) {
       return this.TrezorConnect.ethereumSignTransaction({
         path: options.pathType.path.replace(`{index}`, options.pathIndex.toString()),
-        transaction: { ...txObject, gasPrice: bigIntToHex(tx.gasPrice || 0n) },
+        transaction: { ...txObject, gasPrice: bigIntToHex(tx.gasPrice !== undefined && tx.gasPrice !== null ? tx.gasPrice : BigInt(0)) },
       }).then((result: unknown) => {
         const typedResult = result as { success: boolean; payload: { error?: string; v: string; r: string; s: string } };
-        if (!typedResult.success) throw new Error(typedResult.payload.error || 'Transaction failed');
+        if (!typedResult.success) throw new Error(typedResult.payload.error !== null && typedResult.payload.error !== undefined && typedResult.payload.error !== '' ? typedResult.payload.error : 'Transaction failed');
         const rv = BigInt(parseInt(typedResult.payload.v, 16));
-        const cv = tx.common.chainId() * 2n + 35n;
+        const cv = tx.common.chainId() * BigInt(2) + BigInt(35);
         return toRpcSig(
           Number(rv - cv),
           hexToBuffer(typedResult.payload.r),
@@ -181,12 +187,12 @@ class TrezorEthereum implements HWWalletProvider {
       path: options.pathType.path.replace(`{index}`, options.pathIndex.toString()),
       transaction: {
         ...txObject,
-        maxFeePerGas: bigIntToHex(tx.maxFeePerGas || 0n),
-        maxPriorityFeePerGas: bigIntToHex(tx.maxPriorityFeePerGas || 0n),
+        maxFeePerGas: bigIntToHex(tx.maxFeePerGas !== undefined && tx.maxFeePerGas !== null ? tx.maxFeePerGas : BigInt(0)),
+        maxPriorityFeePerGas: bigIntToHex(tx.maxPriorityFeePerGas !== undefined && tx.maxPriorityFeePerGas !== null ? tx.maxPriorityFeePerGas : BigInt(0)),
       },
     }).then((result: unknown) => {
       const typedResult = result as { success: boolean; payload: { error?: string; v: string; r: string; s: string } };
-      if (!typedResult.success) throw new Error(typedResult.payload.error || 'Transaction failed');
+      if (!typedResult.success) throw new Error(typedResult.payload.error !== null && typedResult.payload.error !== undefined && typedResult.payload.error !== '' ? typedResult.payload.error : 'Transaction failed');
       return toRpcSig(
         Number(typedResult.payload.v),
         hexToBuffer(typedResult.payload.r),
@@ -225,7 +231,7 @@ class TrezorEthereum implements HWWalletProvider {
         signature?: string;
       };
     };
-    if (!result.success || !result.payload.signature) throw new Error(result.payload.error || "Failed to sign typed data");
+    if (!result.success || result.payload.signature === null || result.payload.signature === undefined || result.payload.signature === '') throw new Error(result.payload.error !== null && result.payload.error !== undefined && result.payload.error !== '' ? result.payload.error : "Failed to sign typed data");
     return bufferToHex(hexToBuffer(result.payload.signature));
   }
 

@@ -150,8 +150,8 @@ export class StakingService {
   private tokenContract: ethers.Contract | null = null;
 
   // Contract addresses (would be loaded from config)
-  private readonly STAKING_CONTRACT_ADDRESS = (process?.env?.['STAKING_CONTRACT']) || '0x0000000000000000000000000000000000000000';
-  private readonly XOM_TOKEN_ADDRESS = (process?.env?.['XOM_TOKEN']) || '0x0000000000000000000000000000000000000000';
+  private readonly STAKING_CONTRACT_ADDRESS = ((process?.env?.['STAKING_CONTRACT'] ?? '') !== '' ? process.env['STAKING_CONTRACT'] : undefined) ?? '0x0000000000000000000000000000000000000000';
+  private readonly XOM_TOKEN_ADDRESS = ((process?.env?.['XOM_TOKEN'] ?? '') !== '' ? process.env['XOM_TOKEN'] : undefined) ?? '0x0000000000000000000000000000000000000000';
 
   // Staking tiers
   private readonly STAKING_TIERS: StakingTier[] = [
@@ -203,14 +203,15 @@ export class StakingService {
   ];
 
   private constructor() {
-    this.initializeProvider();
+    void this.initializeProvider();
   }
 
   /**
    * Get singleton instance
+   * @returns The StakingService singleton instance
    */
   public static getInstance(): StakingService {
-    if (!StakingService.instance) {
+    if (StakingService.instance === undefined) {
       StakingService.instance = new StakingService();
     }
     return StakingService.instance;
@@ -218,8 +219,9 @@ export class StakingService {
 
   /**
    * Initialize provider and contracts
+   * @returns Promise that resolves when initialization is complete
    */
-  private async initializeProvider(): Promise<void> {
+  private initializeProvider(): void {
     try {
       // Try OmniProvider first
       this.omniProvider = new OmniProvider('staking-service');
@@ -243,7 +245,7 @@ export class StakingService {
 
       // Fallback to standard provider
       this.provider = new ethers.JsonRpcProvider(
-        process.env['RPC_URL'] || 'https://ethereum.publicnode.com'
+        ((process.env['RPC_URL'] ?? '') !== '' ? process.env['RPC_URL'] : undefined) ?? 'https://ethereum.publicnode.com'
       );
 
       this.stakingContract = new ethers.Contract(
@@ -262,10 +264,11 @@ export class StakingService {
 
   /**
    * Stake XOM tokens
-   * @param amount
-   * @param durationDays
-   * @param usePrivacy
-   * @param signer
+   * @param amount - Amount of XOM tokens to stake
+   * @param durationDays - Duration of stake in days
+   * @param usePrivacy - Whether to use privacy-enabled staking
+   * @param signer - Ethers signer for transaction
+   * @returns Promise with success status and transaction hash
    */
   public async stake(
     amount: string,
@@ -274,7 +277,7 @@ export class StakingService {
     signer?: ethers.Signer
   ): Promise<{ success: boolean; txHash?: string; error?: string }> {
     try {
-      if (!this.stakingContract || !this.tokenContract) {
+      if (this.stakingContract === null || this.tokenContract === null) {
         throw new Error('Contracts not initialized');
       }
 
@@ -282,8 +285,12 @@ export class StakingService {
       const durationSeconds = durationDays * 24 * 60 * 60;
 
       // Get contract with signer
-      const stakingWithSigner = this.stakingContract.connect(signer || this.provider);
-      const tokenWithSigner = this.tokenContract.connect(signer || this.provider);
+      const signerOrProvider = signer ?? this.provider;
+      if (signerOrProvider === null) {
+        throw new Error('No signer or provider available');
+      }
+      const stakingWithSigner = this.stakingContract.connect(signerOrProvider);
+      const tokenWithSigner = this.tokenContract.connect(signerOrProvider);
 
       // Check allowance
       const allowance = await (tokenWithSigner as unknown as TokenContractMethods).allowance(
@@ -303,7 +310,7 @@ export class StakingService {
       // Stake tokens
       const tx = await (stakingWithSigner as unknown as StakingContractMethods).stake(amountWei, BigInt(durationSeconds), usePrivacy);
       const receipt = await tx.wait();
-      if (!receipt) {
+      if (receipt === null) {
         throw new Error('Transaction failed to confirm');
       }
 
@@ -311,35 +318,40 @@ export class StakingService {
         success: true,
         txHash: receipt.hash
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Staking failed:', error);
       return {
         success: false,
-        error: error.message || 'Staking failed'
+        error: error instanceof Error ? error.message : 'Staking failed'
       };
     }
   }
 
   /**
    * Unstake tokens
-   * @param amount
-   * @param signer
+   * @param amount - Amount of XOM tokens to unstake
+   * @param signer - Ethers signer for transaction
+   * @returns Promise with success status and transaction hash
    */
   public async unstake(
     amount: string,
     signer?: ethers.Signer
   ): Promise<{ success: boolean; txHash?: string; error?: string }> {
     try {
-      if (!this.stakingContract) {
+      if (this.stakingContract === null) {
         throw new Error('Contract not initialized');
       }
 
       const amountWei = ethers.parseEther(amount);
-      const stakingWithSigner = this.stakingContract.connect(signer || this.provider);
+      const signerOrProvider = signer ?? this.provider;
+      if (signerOrProvider === null) {
+        throw new Error('No signer or provider available');
+      }
+      const stakingWithSigner = this.stakingContract.connect(signerOrProvider);
 
       const tx = await (stakingWithSigner as unknown as StakingContractMethods).unstake(amountWei);
       const receipt = await tx.wait();
-      if (!receipt) {
+      if (receipt === null) {
         throw new Error('Transaction failed to confirm');
       }
 
@@ -347,73 +359,86 @@ export class StakingService {
         success: true,
         txHash: receipt.hash
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Unstaking failed:', error);
       return {
         success: false,
-        error: error.message || 'Unstaking failed'
+        error: error instanceof Error ? error.message : 'Unstaking failed'
       };
     }
   }
 
   /**
    * Claim staking rewards
-   * @param signer
+   * @param signer - Ethers signer for transaction
+   * @returns Promise with success status, claimed amount, and transaction hash
    */
   public async claimRewards(
     signer?: ethers.Signer
   ): Promise<{ success: boolean; amount?: string; txHash?: string; error?: string }> {
     try {
-      if (!this.stakingContract) {
+      if (this.stakingContract === null) {
         throw new Error('Contract not initialized');
       }
 
-      const stakingWithSigner = this.stakingContract.connect(signer || this.provider);
+      const signerOrProvider = signer ?? this.provider;
+      if (signerOrProvider === null) {
+        throw new Error('No signer or provider available');
+      }
+      const stakingWithSigner = this.stakingContract.connect(signerOrProvider);
 
       const tx = await (stakingWithSigner as unknown as StakingContractMethods).claimRewards();
       const receipt = await tx.wait();
-      if (!receipt) {
+      if (receipt === null) {
         throw new Error('Transaction failed to confirm');
       }
 
       // Get claimed amount from events
-      const event = receipt.logs.find((log: any) =>
-        log.topics[0] === ethers.id('RewardsClaimed(address,uint256)')
-      );
+      const event = receipt.logs.find((log) => {
+        if ('topics' in log && Array.isArray(log.topics) && log.topics.length > 0) {
+          return log.topics[0] === ethers.id('RewardsClaimed(address,uint256)');
+        }
+        return false;
+      });
 
-      const amount = event ? ethers.formatEther(event.data) : '0';
+      const amount = event !== undefined && 'data' in event ? ethers.formatEther(event.data) : '0';
 
       return {
         success: true,
         amount,
         txHash: receipt.hash
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Claim rewards failed:', error);
       return {
         success: false,
-        error: error.message || 'Claim failed'
+        error: error instanceof Error ? error.message : 'Claim failed'
       };
     }
   }
 
   /**
    * Compound rewards back into stake
-   * @param signer
+   * @param signer - Ethers signer for transaction
+   * @returns Promise with success status and transaction hash
    */
   public async compound(
     signer?: ethers.Signer
   ): Promise<{ success: boolean; txHash?: string; error?: string }> {
     try {
-      if (!this.stakingContract) {
+      if (this.stakingContract === null) {
         throw new Error('Contract not initialized');
       }
 
-      const stakingWithSigner = this.stakingContract.connect(signer || this.provider);
+      const signerOrProvider = signer ?? this.provider;
+      if (signerOrProvider === null) {
+        throw new Error('No signer or provider available');
+      }
+      const stakingWithSigner = this.stakingContract.connect(signerOrProvider);
 
       const tx = await (stakingWithSigner as unknown as StakingContractMethods).compound();
       const receipt = await tx.wait();
-      if (!receipt) {
+      if (receipt === null) {
         throw new Error('Transaction failed to confirm');
       }
 
@@ -421,26 +446,27 @@ export class StakingService {
         success: true,
         txHash: receipt.hash
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Compound failed:', error);
       return {
         success: false,
-        error: error.message || 'Compound failed'
+        error: error instanceof Error ? error.message : 'Compound failed'
       };
     }
   }
 
   /**
    * Get stake info for an address
-   * @param address
+   * @param address - Wallet address to query
+   * @returns Promise with stake info or null if not found
    */
   public async getStakeInfo(address: string): Promise<StakeInfo | null> {
     try {
       // Try OmniProvider first
-      if (this.omniProvider) {
+      if (this.omniProvider !== null) {
         try {
           const info = await this.omniProvider.send('omni_getStakeInfo', [address]);
-          if (info && typeof info === 'object' && 'tier' in info) {
+          if (info !== null && typeof info === 'object' && 'tier' in info) {
             return info as StakeInfo;
           }
         } catch (error) {
@@ -449,7 +475,7 @@ export class StakingService {
       }
 
       // Fallback to direct contract call
-      if (!this.stakingContract) {
+      if (this.stakingContract === null) {
         throw new Error('Contract not initialized');
       }
 
@@ -475,18 +501,16 @@ export class StakingService {
 
   /**
    * Get pending rewards for an address
-   * @param address
+   * @param address - Wallet address to query
+   * @returns Promise with pending rewards amount as string
    */
   public async getPendingRewards(address: string): Promise<string> {
     try {
-      if (!this.stakingContract) {
+      if (this.stakingContract === null) {
         throw new Error('Contract not initialized');
       }
 
-      const rewards = await this.stakingContract?.['calculateReward']?.(address);
-      if (!rewards) {
-        throw new Error('Failed to calculate rewards');
-      }
+      const rewards = await (this.stakingContract as unknown as StakingContractMethods).calculateReward(address);
       return ethers.formatEther(rewards);
     } catch (error) {
       console.error('Failed to get pending rewards:', error);
@@ -496,15 +520,16 @@ export class StakingService {
 
   /**
    * Get staking statistics
-   * @param userAddress
+   * @param userAddress - Optional user address for user-specific stats
+   * @returns Promise with staking statistics
    */
   public async getStakingStats(userAddress?: string): Promise<StakingStats> {
     try {
       // Try OmniProvider first
-      if (this.omniProvider) {
+      if (this.omniProvider !== null) {
         try {
           const stats = await this.omniProvider.send('omni_getStakingStats', [userAddress]);
-          if (stats && typeof stats === 'object' && 'totalStaked' in stats) {
+          if (stats !== null && typeof stats === 'object' && 'totalStaked' in stats) {
             return stats as StakingStats;
           }
         } catch (error) {
@@ -513,14 +538,11 @@ export class StakingService {
       }
 
       // Fallback to calculating from contract
-      if (!this.stakingContract) {
+      if (this.stakingContract === null) {
         throw new Error('Contract not initialized');
       }
 
-      const isEnabled = await this.stakingContract?.['isStakingEnabled']?.();
-      if (typeof isEnabled === 'undefined') {
-        throw new Error('Failed to get staking status');
-      }
+      const isEnabled = await (this.stakingContract as unknown as StakingContractMethods).isStakingEnabled();
 
       // Get tier info
       let totalStaked = BigInt(0);
@@ -535,15 +557,18 @@ export class StakingService {
 
       // Get user stake if address provided
       let userStake;
-      if (userAddress) {
-        userStake = await this.getStakeInfo(userAddress);
+      if (userAddress !== undefined && userAddress !== '') {
+        const stake = await this.getStakeInfo(userAddress);
+        if (stake !== null) {
+          userStake = stake;
+        }
       }
 
       return {
         totalStaked: ethers.formatEther(totalStaked),
         totalStakers,
         averageAPY: 10, // Average across all tiers
-        ...(userStake && { userStake }),
+        ...(userStake !== undefined && { userStake }),
         isEnabled
       };
     } catch (error) {
@@ -559,6 +584,7 @@ export class StakingService {
 
   /**
    * Get staking tiers
+   * @returns Array of staking tier definitions
    */
   public getTiers(): StakingTier[] {
     return this.STAKING_TIERS;
@@ -566,8 +592,9 @@ export class StakingService {
 
   /**
    * Calculate estimated APY for an amount and duration
-   * @param amount
-   * @param durationDays
+   * @param amount - Amount to stake
+   * @param durationDays - Duration of stake in days
+   * @returns Estimated APY percentage
    */
   public calculateAPY(amount: string, durationDays: number): number {
     const amountNum = parseFloat(amount);
@@ -577,7 +604,7 @@ export class StakingService {
       amountNum >= parseFloat(t.minStake) && amountNum <= parseFloat(t.maxStake)
     );
 
-    if (!tier) {
+    if (tier === undefined) {
       return 0;
     }
 
@@ -597,21 +624,26 @@ export class StakingService {
 
   /**
    * Emergency withdraw (forfeits rewards)
-   * @param signer
+   * @param signer - Ethers signer for transaction
+   * @returns Promise with success status and transaction hash
    */
   public async emergencyWithdraw(
     signer?: ethers.Signer
   ): Promise<{ success: boolean; txHash?: string; error?: string }> {
     try {
-      if (!this.stakingContract) {
+      if (this.stakingContract === null) {
         throw new Error('Contract not initialized');
       }
 
-      const stakingWithSigner = this.stakingContract.connect(signer || this.provider);
+      const signerOrProvider = signer ?? this.provider;
+      if (signerOrProvider === null) {
+        throw new Error('No signer or provider available');
+      }
+      const stakingWithSigner = this.stakingContract.connect(signerOrProvider);
 
       const tx = await (stakingWithSigner as unknown as StakingContractMethods).emergencyWithdraw();
       const receipt = await tx.wait();
-      if (!receipt) {
+      if (receipt === null) {
         throw new Error('Transaction failed to confirm');
       }
 
@@ -619,11 +651,11 @@ export class StakingService {
         success: true,
         txHash: receipt.hash
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Emergency withdraw failed:', error);
       return {
         success: false,
-        error: error.message || 'Emergency withdraw failed'
+        error: error instanceof Error ? error.message : 'Emergency withdraw failed'
       };
     }
   }

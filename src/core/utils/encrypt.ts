@@ -6,8 +6,6 @@ import {
   randomBytes,
   createCipheriv,
   createDecipheriv,
-  Cipher,
-  Decipher,
 } from "crypto";
 import { scrypt } from "ethereum-cryptography/scrypt";
 import { keccak256 } from "web3-utils";
@@ -55,8 +53,10 @@ const scryptParams = {
  * @param data - The data buffer to process
  * @returns Processed buffer
  */
-const runCipherBuffer = (cipher: Cipher | Decipher, data: Buffer): Buffer =>
-  Buffer.concat([cipher.update(data), cipher.final()]);
+const runCipherBuffer = (
+  cipher: ReturnType<typeof createCipheriv> | ReturnType<typeof createDecipheriv>,
+  data: Buffer,
+): Buffer => Buffer.concat([cipher.update(data), cipher.final()]);
 
 /**
  * Encrypts a message buffer using scrypt key derivation and AES-128-CTR

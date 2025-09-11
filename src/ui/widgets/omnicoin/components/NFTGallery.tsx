@@ -1,5 +1,4 @@
-/* @jsxImportSource react */
-import React, { useState } from 'react';
+import { useState, CSSProperties, FC, ChangeEvent, ReactNode } from 'react';
 import { useNFTs } from '../../../../hooks/useNFTs';
 import { useNFTTransfer } from '../../../../hooks/useNFTTransfer';
 import { OmniCoinLoading } from './OmniCoinLoading';
@@ -12,7 +11,7 @@ interface TooltipProps {
   /** Tooltip text to display */
   text: string;
   /** Child elements to wrap with tooltip */
-  children: React.ReactNode;
+  children: ReactNode;
 }
 
 /**
@@ -22,7 +21,7 @@ interface TooltipProps {
  * @param props.children - Child elements to wrap with tooltip
  * @returns React component with tooltip functionality
  */
-const SimpleTooltip: React.FC<TooltipProps> = ({ text, children }) => (
+const SimpleTooltip: FC<TooltipProps> = ({ text, children }) => (
   <div title={text}>
     {children}
   </div>
@@ -52,14 +51,14 @@ interface NFTItem {
 }
 
 // Inline styles to avoid styled-components typing issues
-const galleryContainerStyle: React.CSSProperties = {
+const galleryContainerStyle: CSSProperties = {
   display: 'grid',
   gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
   gap: '1rem',
   padding: '1rem'
 };
 
-const nftCardStyle: React.CSSProperties = {
+const nftCardStyle: CSSProperties = {
   background: '#ffffff',
   borderRadius: '8px',
   overflow: 'hidden',
@@ -67,29 +66,29 @@ const nftCardStyle: React.CSSProperties = {
   transition: 'transform 0.2s ease'
 };
 
-const nftImageStyle: React.CSSProperties = {
+const nftImageStyle: CSSProperties = {
   width: '100%',
   height: '200px',
   objectFit: 'cover'
 };
 
-const nftInfoStyle: React.CSSProperties = {
+const nftInfoStyle: CSSProperties = {
   padding: '1rem'
 };
 
-const nftNameStyle: React.CSSProperties = {
+const nftNameStyle: CSSProperties = {
   margin: '0',
   fontSize: '1rem',
   color: '#1f2937'
 };
 
-const nftDescriptionStyle: React.CSSProperties = {
+const nftDescriptionStyle: CSSProperties = {
   margin: '0.5rem 0',
   fontSize: '0.875rem',
   color: '#6b7280'
 };
 
-const transferButtonStyle: React.CSSProperties = {
+const transferButtonStyle: CSSProperties = {
   width: '100%',
   padding: '0.5rem',
   background: '#3b82f6',
@@ -100,13 +99,13 @@ const transferButtonStyle: React.CSSProperties = {
   transition: 'opacity 0.2s ease'
 };
 
-const transferButtonDisabledStyle: React.CSSProperties = {
+const transferButtonDisabledStyle: CSSProperties = {
   ...transferButtonStyle,
   background: '#9ca3af',
   cursor: 'not-allowed'
 };
 
-const transferDialogStyle: React.CSSProperties = {
+const transferDialogStyle: CSSProperties = {
   position: 'fixed',
   top: '50%',
   left: '50%',
@@ -118,7 +117,7 @@ const transferDialogStyle: React.CSSProperties = {
   zIndex: 1000
 };
 
-const dialogOverlayStyle: React.CSSProperties = {
+const dialogOverlayStyle: CSSProperties = {
   position: 'fixed',
   top: 0,
   left: 0,
@@ -128,7 +127,7 @@ const dialogOverlayStyle: React.CSSProperties = {
   zIndex: 999
 };
 
-const dialogInputStyle: React.CSSProperties = {
+const dialogInputStyle: CSSProperties = {
   width: '100%',
   padding: '0.5rem',
   margin: '0.5rem 0',
@@ -136,7 +135,7 @@ const dialogInputStyle: React.CSSProperties = {
   borderRadius: '4px'
 };
 
-const dialogButtonStyle: React.CSSProperties = {
+const dialogButtonStyle: CSSProperties = {
   padding: '0.5rem 1rem',
   margin: '0.5rem',
   background: '#3b82f6',
@@ -157,7 +156,7 @@ interface NFTGalleryProps {
  * @param props._contractAddress - Optional contract address filter (currently unused)
  * @returns React component for NFT gallery
  */
-export const NFTGallery: React.FC<NFTGalleryProps> = ({ _contractAddress }) => {
+export const NFTGallery: FC<NFTGalleryProps> = ({ _contractAddress }) => {
   const { nfts, isLoading, error, refetch } = useNFTs();
   const [selectedNFT, setSelectedNFT] = useState<NFTItem | null>(null);
   const [recipient, setRecipient] = useState('');
@@ -211,6 +210,7 @@ export const NFTGallery: React.FC<NFTGalleryProps> = ({ _contractAddress }) => {
               <p style={nftDescriptionStyle}>{nft.metadata?.description ?? 'No description available'}</p>
               <SimpleTooltip text="Transfer this NFT">
                 <button
+                  type="button"
                   onClick={() => setSelectedNFT(nft)}
                   disabled={isTransferring}
                   style={isTransferring ? transferButtonDisabledStyle : transferButtonStyle}
@@ -232,14 +232,14 @@ export const NFTGallery: React.FC<NFTGalleryProps> = ({ _contractAddress }) => {
               type="text"
               placeholder="Recipient Address"
               value={recipient}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRecipient(e.target.value)}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setRecipient(e.target.value)}
               style={dialogInputStyle}
             />
             <div>
-              <button onClick={() => { void handleTransfer(); }} disabled={isTransferring} style={dialogButtonStyle}>
+              <button type="button" onClick={() => { void handleTransfer(); }} disabled={isTransferring} style={dialogButtonStyle}>
                 {isTransferring ? 'Transferring...' : 'Transfer'}
               </button>
-              <button onClick={() => setSelectedNFT(null)} style={dialogButtonStyle}>
+              <button type="button" onClick={() => setSelectedNFT(null)} style={dialogButtonStyle}>
                 Cancel
               </button>
             </div>

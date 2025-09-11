@@ -1,5 +1,4 @@
-/* @jsxImportSource react */
-import React, { useState } from 'react';
+import { useState, CSSProperties, FC } from 'react';
 import { flushSync } from 'react-dom';
 import { OmniCoinLoading } from './OmniCoinLoading';
 import { OmniCoinToast } from './OmniCoinToast';
@@ -66,7 +65,7 @@ export const resetWalletHookProvider = (): void => {
   walletHookProvider = defaultUseWallet;
 };
 
-const connectContainerStyle: React.CSSProperties = {
+const connectContainerStyle: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   gap: '1rem',
@@ -76,13 +75,13 @@ const connectContainerStyle: React.CSSProperties = {
   boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
 };
 
-const providerListStyle: React.CSSProperties = {
+const providerListStyle: CSSProperties = {
   display: 'grid',
   gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
   gap: '1rem'
 };
 
-const getProviderButtonStyle = (isConnected = false): React.CSSProperties => ({
+const getProviderButtonStyle = (isConnected = false): CSSProperties => ({
   display: 'flex',
   alignItems: 'center',
   gap: '0.5rem',
@@ -95,13 +94,13 @@ const getProviderButtonStyle = (isConnected = false): React.CSSProperties => ({
   transition: 'all 0.2s ease'
 });
 
-const statusTextStyle: React.CSSProperties = {
+const statusTextStyle: CSSProperties = {
   margin: '0',
   fontSize: '0.875rem',
   color: '#1f2937'
 };
 
-const addressTextStyle: React.CSSProperties = {
+const addressTextStyle: CSSProperties = {
   background: '#f3f4f6',
   padding: '0.25rem 0.5rem',
   borderRadius: '4px',
@@ -121,7 +120,7 @@ export interface WalletConnectProps {
  * Allows users to connect/disconnect various wallet providers
  * @returns JSX element for wallet connection interface
  */
-const WalletConnect: React.FC<WalletConnectProps> = () => {
+const WalletConnect: FC<WalletConnectProps> = () => {
     const { state, connect, disconnect } = walletHookProvider();
     const { address, chainId, isConnecting, error } = state;
     const [showToast, setShowToast] = useState(false);
@@ -185,7 +184,7 @@ const WalletConnect: React.FC<WalletConnectProps> = () => {
                     <p style={statusTextStyle}>Connected to:</p>
                     <code style={addressTextStyle}>{address}</code>
                     <p style={statusTextStyle}>Network: {chainId}</p>
-                    <button 
+                    <button type="button" 
                         onClick={handleDisconnect} 
                         aria-label="Disconnect Wallet"
                         style={getProviderButtonStyle(true)}
@@ -198,6 +197,7 @@ const WalletConnect: React.FC<WalletConnectProps> = () => {
                     <p style={statusTextStyle}>Connect your wallet:</p>
                     <div style={providerListStyle}>
                         <button
+                          type="button"
                           onClick={() => void handleConnect()}
                           aria-label="Connect Wallet"
                           style={getProviderButtonStyle(false)}

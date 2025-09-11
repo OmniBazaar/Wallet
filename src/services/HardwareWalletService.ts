@@ -471,9 +471,9 @@ export class HardwareWalletService {
       }
 
       // Clear timers
-      for (const timer of this.reconnectTimers.values()) {
+      this.reconnectTimers.forEach(timer => {
         clearTimeout(timer);
-      }
+      });
       this.reconnectTimers.clear();
 
       // Clear listeners

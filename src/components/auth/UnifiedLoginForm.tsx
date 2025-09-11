@@ -83,11 +83,12 @@ export const UnifiedLoginForm: React.FC<UnifiedLoginFormProps> = ({
       const service = new LegacyMigrationService(
         provider
       );
-      void service.initialize().then(() => {
+      try {
+        service.initialize();
         setMigrationService(service);
-      }).catch(() => {
+      } catch {
         // Handle initialization error silently
-      });
+      }
     }
   }, [enableLegacyMigration, provider, signer, migrationContractAddress]);
   
@@ -117,7 +118,7 @@ export const UnifiedLoginForm: React.FC<UnifiedLoginFormProps> = ({
         setIsNullAccount(false);
         
         // Check if legacy user
-        const isLegacy = await migrationService.isLegacyUser(username);
+        const isLegacy = migrationService.isLegacyUser(username);
         setIsLegacyUser(isLegacy);
         
         if (isLegacy) {

@@ -278,7 +278,7 @@ export class LiquidityService {
       await this.loadPools();
 
       // Load user positions
-      await this.loadUserPositions();
+      this.loadUserPositions();
 
       this.isInitialized = true;
     } catch (error) {
@@ -294,19 +294,19 @@ export class LiquidityService {
    */
   async getPools(chainId?: number): Promise<LiquidityPool[]> {
     if (chainId !== undefined) {
-      return this.config.supportedPools[chainId] || [];
+      return this.config.supportedPools[chainId] ?? [];
     }
 
     let currentChainId: number;
-    if (this.walletService) {
+    if (this.walletService !== undefined) {
       currentChainId = await this.walletService.getChainId();
-    } else if (this.provider) {
+    } else if (this.provider !== undefined) {
       const network = await this.provider.getNetwork();
       currentChainId = Number(network.chainId);
     } else {
       throw new Error('No provider available');
     }
-    return this.config.supportedPools[currentChainId] || [];
+    return this.config.supportedPools[currentChainId] ?? [];
   }
 
   /**
@@ -320,20 +320,21 @@ export class LiquidityService {
     let targetChainId: number;
     if (chainId !== undefined) {
       targetChainId = chainId;
-    } else if (this.walletService) {
+    } else if (this.walletService !== undefined) {
       targetChainId = await this.walletService.getChainId();
-    } else if (this.provider) {
+    } else if (this.provider !== undefined) {
       const network = await this.provider.getNetwork();
       targetChainId = Number(network.chainId);
     } else {
       throw new Error('No provider available');
     }
-    const pools = this.config.supportedPools[targetChainId] || [];
+    const pools = this.config.supportedPools[targetChainId] ?? [];
     
-    return pools.find(pool => 
+    const foundPool = pools.find(pool => 
       (pool.tokenA.toLowerCase() === tokenA.toLowerCase() && pool.tokenB.toLowerCase() === tokenB.toLowerCase()) ||
       (pool.tokenA.toLowerCase() === tokenB.toLowerCase() && pool.tokenB.toLowerCase() === tokenA.toLowerCase())
-    ) || null;
+    );
+    return foundPool ?? null;
   }
 
   /**
@@ -348,7 +349,7 @@ export class LiquidityService {
     }
 
     try {
-      if (!this.poolManager || !this.ammIntegration) {
+      if (this.poolManager === undefined || this.ammIntegration === undefined) {
         throw new Error('Pool manager not available');
       }
 
@@ -358,18 +359,18 @@ export class LiquidityService {
       }
 
       // Get user address
-      let userAddress: string;
-      if (this.walletService) {
-        userAddress = await this.walletService.getAddress();
-      } else if (this.provider) {
+      let _userAddress: string;
+      if (this.walletService !== undefined) {
+        _userAddress = await this.walletService.getAddress();
+      } else if (this.provider !== undefined) {
         const signer = await this.provider.getSigner();
-        userAddress = await signer.getAddress();
+        _userAddress = await signer.getAddress();
       } else {
         throw new Error('No provider available');
       }
 
       // Set default deadline if not provided
-      const deadline = params.deadline || Math.floor(Date.now() / 1000) + 1200; // 20 minutes
+      const _deadline = (params.deadline !== undefined && params.deadline !== 0) ? params.deadline : Math.floor(Date.now() / 1000) + 1200; // 20 minutes
 
       // Check if this is a concentrated liquidity position (V3)
       const isV3 = params.priceLower !== undefined && params.priceUpper !== undefined;
@@ -380,18 +381,22 @@ export class LiquidityService {
         const pool = this.poolManager.getPoolByTokens(
           params.token0,
           params.token1,
-          params.feeTier || 3000
+          params.feeTier ?? 3000
         );
         
-        if (!pool) {
+        if (pool === undefined || pool === null) {
           throw new Error('Pool not found. Please create the pool first.');
         }
         
+        if (!('address' in pool) || typeof pool.address !== 'string') {
+          throw new Error('Invalid pool structure');
+        }
+        
         const result = await this.poolManager.addLiquidity(
-          pool.id,
+          pool.address,
           params.recipient,
-          this.priceToTick(params.priceLower!),
-          this.priceToTick(params.priceUpper!),
+          this.priceToTick(params.priceLower ?? 0),
+          this.priceToTick(params.priceUpper ?? 0),
           params.amount0Desired,
           params.amount1Desired,
           params.amount0Min,
@@ -410,7 +415,7 @@ export class LiquidityService {
         throw new Error('V2 style liquidity not supported in this implementation');
         
         // TypeScript needs these lines to be reachable for type checking
-        const result = { amount0: 0n, amount1: 0n, positionId: '' };
+        const result = { amount0: BigInt(0), amount1: BigInt(0), positionId: '' };
 
         return {
           success: true,
@@ -440,7 +445,7 @@ export class LiquidityService {
     }
 
     try {
-      if (!this.poolManager || !this.ammIntegration) {
+      if (this.poolManager === undefined || this.ammIntegration === undefined) {
         throw new Error('Pool manager not available');
       }
 
@@ -451,7 +456,7 @@ export class LiquidityService {
 
       // Get position details
       const position = await this.getPosition(params.positionId);
-      if (!position) {
+      if (position === null) {
         throw new Error('Position not found');
       }
 
@@ -459,7 +464,7 @@ export class LiquidityService {
       const liquidityToRemove = (position.liquidity * BigInt(params.liquidityPercentage)) / BigInt(100);
 
       // Set default deadline
-      const deadline = params.deadline || Math.floor(Date.now() / 1000) + 1200;
+      const _deadline = (params.deadline !== undefined && params.deadline !== 0) ? params.deadline : Math.floor(Date.now() / 1000) + 1200;
 
       // Check if this is a V3 position
       if (position.tickLower !== undefined && position.tickUpper !== undefined) {
@@ -482,7 +487,7 @@ export class LiquidityService {
         throw new Error('V2 style liquidity removal not supported in this implementation');
         
         // TypeScript needs these lines to be reachable for type checking
-        const result = { amount0: 0n, amount1: 0n };
+        const result = { amount0: BigInt(0), amount1: BigInt(0) };
 
         return {
           success: true,
@@ -504,7 +509,7 @@ export class LiquidityService {
    * Get user's liquidity positions
    * @returns Array of liquidity positions
    */
-  async getUserPositions(): Promise<LiquidityPosition[]> {
+  getUserPositions(): LiquidityPosition[] {
     return Array.from(this.positions.values());
   }
 
@@ -520,14 +525,14 @@ export class LiquidityService {
     }
 
     try {
-      if (!this.poolManager) {
+      if (this.poolManager === undefined) {
         throw new Error('Pool manager not available');
       }
 
       // Try to get V3 position first
       try {
         const v3Position = this.poolManager?.getPosition(positionId);
-        if (v3Position) {
+        if (v3Position !== undefined && v3Position !== null) {
           return {
             id: positionId,
             pool: {} as LiquidityPool, // Would need to fetch pool info
@@ -535,8 +540,8 @@ export class LiquidityService {
             poolAddress: v3Position.poolId,
             token0: '', // Would need to get from pool
             token1: '', // Would need to get from pool
-            amount0: 0n, // Would need to calculate
-            amount1: 0n, // Would need to calculate
+            amount0: BigInt(0), // Would need to calculate
+            amount1: BigInt(0), // Would need to calculate
             tickLower: v3Position.tickLower,
             tickUpper: v3Position.tickUpper,
             liquidity: v3Position.liquidity,
@@ -554,8 +559,8 @@ export class LiquidityService {
       const userAddress = await this.getUserAddress();
       const poolInfo = this.poolManager?.getPool(positionId);
       
-      if (poolInfo) {
-        const lpBalance = await this.getLPTokenBalance(positionId, userAddress);
+      if (poolInfo !== undefined && poolInfo !== null) {
+        const lpBalance = this.getLPTokenBalance(positionId, userAddress);
         
         return {
           id: positionId,
@@ -564,8 +569,8 @@ export class LiquidityService {
           poolAddress: poolInfo.id,
           token0: poolInfo.token0,
           token1: poolInfo.token1,
-          amount0: 0n, // Would need to calculate from reserves
-          amount1: 0n, // Would need to calculate from reserves,
+          amount0: BigInt(0), // Would need to calculate from reserves
+          amount1: BigInt(0), // Would need to calculate from reserves,
           liquidity: lpBalance,
           fees0: BigInt(0), // V2 fees are auto-compounded
           fees1: BigInt(0),
@@ -601,12 +606,12 @@ export class LiquidityService {
     try {
       // Get current position
       const position = await this.getPosition(positionId);
-      if (!position) {
+      if (position === null) {
         throw new Error('Position not found');
       }
 
       // Get current prices from pool analytics
-      const analytics = await this.getPoolAnalytics(position.poolAddress);
+      const analytics = this.getPoolAnalytics(position.poolAddress);
       const currentPrice0 = analytics.price0;
       const currentPrice1 = analytics.price1;
 
@@ -616,7 +621,7 @@ export class LiquidityService {
         Number(position.amount1) * initialPrices.price1;
 
       // Calculate what holdings would be if just held
-      const priceRatio = Math.sqrt(currentPrice0 / initialPrices.price0);
+      const _priceRatio = Math.sqrt(currentPrice0 / initialPrices.price0);
       const holdAmount0 = position.amount0;
       const holdAmount1 = position.amount1;
       const holdValue = 
@@ -668,7 +673,7 @@ export class LiquidityService {
     }
 
     try {
-      if (!this.poolManager) {
+      if (this.poolManager === undefined) {
         throw new Error('Pool manager not available');
       }
 
@@ -679,7 +684,7 @@ export class LiquidityService {
       // Harvest from each position
       for (const positionId of positionIds) {
         const position = await this.getPosition(positionId);
-        if (!position || (position.fees0 === BigInt(0) && position.fees1 === BigInt(0))) {
+        if (position === null || (position.fees0 === BigInt(0) && position.fees1 === BigInt(0))) {
           continue;
         }
 
@@ -689,9 +694,9 @@ export class LiquidityService {
           // We'd need to perform a zero liquidity removal to collect fees
           const result = await this.poolManager.removeLiquidity(
             positionId,
-            0n, // Remove zero liquidity to just collect fees
-            0n,
-            0n
+            BigInt(0), // Remove zero liquidity to just collect fees
+            BigInt(0),
+            BigInt(0)
           );
 
           totalFees0 += result.feeAmount0;
@@ -730,19 +735,19 @@ export class LiquidityService {
    * @returns Pool analytics data
    * @throws {Error} When analytics query fails
    */
-  async getPoolAnalytics(poolAddress: string): Promise<PoolAnalytics> {
+  getPoolAnalytics(poolAddress: string): PoolAnalytics {
     if (!this.isInitialized) {
       throw new Error('Liquidity service not initialized');
     }
 
     try {
-      if (!this.ammIntegration) {
+      if (this.ammIntegration === undefined) {
         throw new Error('AMM integration not available');
       }
 
       // Get pool information
       const poolInfo = this.poolManager?.getPool(poolAddress);
-      if (!poolInfo) {
+      if (poolInfo === undefined || poolInfo === null) {
         throw new Error('Pool not found');
       }
 
@@ -752,7 +757,7 @@ export class LiquidityService {
       const price1 = 1 / price0;
 
       // Historical data would come from event logs or external source
-      const historicalData: any[] = [];
+      const _historicalData: unknown[] = [];
 
       // Calculate metrics
       // Calculate TVL from liquidity instead of reserves
@@ -796,12 +801,12 @@ export class LiquidityService {
 
   /**
    * Get LP token balance for a user
-   * @param lpToken - LP token address
-   * @param userAddress - User address
+   * @param _lpToken - LP token address
+   * @param _userAddress - User address
    * @returns LP token balance
    * @private
    */
-  private async getLPTokenBalance(lpToken: string, userAddress: string): Promise<bigint> {
+  private getLPTokenBalance(_lpToken: string, _userAddress: string): bigint {
     // In production, query ERC20 balance
     return BigInt(0);
   }
@@ -832,9 +837,9 @@ export class LiquidityService {
    * @private
    */
   private async getUserAddress(): Promise<string> {
-    if (this.walletService) {
+    if (this.walletService !== undefined) {
       return await this.walletService.getAddress();
-    } else if (this.provider) {
+    } else if (this.provider !== undefined) {
       const signer = await this.provider.getSigner();
       return await signer.getAddress();
     } else {
@@ -849,9 +854,9 @@ export class LiquidityService {
   private async loadPools(): Promise<void> {
     try {
       let chainId: number;
-      if (this.walletService) {
+      if (this.walletService !== undefined) {
         chainId = await this.walletService.getChainId();
-      } else if (this.provider) {
+      } else if (this.provider !== undefined) {
         const network = await this.provider.getNetwork();
         chainId = Number(network.chainId);
       } else {
@@ -876,7 +881,7 @@ export class LiquidityService {
         version: 'V2'
       };
 
-      if (!this.config.supportedPools[chainId]) {
+      if (this.config.supportedPools[chainId] === undefined) {
         this.config.supportedPools[chainId] = [];
       }
       this.config.supportedPools[chainId].push(mockPool);
@@ -890,7 +895,7 @@ export class LiquidityService {
    * Load user positions from blockchain
    * @private
    */
-  private async loadUserPositions(): Promise<void> {
+  private loadUserPositions(): void {
     // Mock user positions - in production would query from blockchain
     this.positions.clear();
   }
@@ -899,30 +904,34 @@ export class LiquidityService {
    * Update user positions after operation
    * @private
    */
-  private async updateUserPositions(): Promise<void> {
+  private updateUserPositions(): void {
     // Reload positions after operations
-    await this.loadUserPositions();
+    this.loadUserPositions();
   }
 
   /**
    * Ensure token allowance for spending
-   * @param tokenAddress
-   * @param spender
-   * @param amount
+   * @param tokenAddress - Token contract address
+   * @param spender - Spender address
+   * @param amount - Amount to approve
    * @private
    */
   private async ensureAllowance(tokenAddress: string, spender: string, amount: bigint): Promise<void> {
-    if (this.walletService) {
+    if (this.walletService !== undefined) {
       const wallet = this.walletService.getWallet();
-      if (!wallet) {
+      if (wallet === undefined) {
         throw new Error('Wallet not available');
       }
 
       // Check current allowance and approve if needed
       try {
-        const currentBalance = await wallet.getTokenBalance(tokenAddress);
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any
+        const walletAny = wallet as any;
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+        const currentBalance = await walletAny.getTokenBalance(tokenAddress) as bigint;
         if (currentBalance >= amount) {
-          await wallet.approveToken(tokenAddress, spender, amount);
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+          await walletAny.approveToken(tokenAddress, spender, amount) as unknown;
         }
       } catch (error) {
         // Silently handle allowance errors
@@ -934,7 +943,7 @@ export class LiquidityService {
   /**
    * Clear cache and reset data
    */
-  async clearCache(): Promise<void> {
+  clearCache(): void {
     this.poolCache.clear();
     // console.log('LiquidityService cache cleared');
   }
@@ -942,14 +951,14 @@ export class LiquidityService {
   /**
    * Cleanup service and release resources
    */
-  async cleanup(): Promise<void> {
+  cleanup(): void {
     try {
       this.positions.clear();
       this.poolCache.clear();
       this.isInitialized = false;
       // Clear optional properties by deleting them
-      delete (this as any).poolManager;
-      delete (this as any).ammIntegration;
+      delete this.poolManager;
+      delete this.ammIntegration;
     } catch (error) {
       // Fail silently on cleanup
     }

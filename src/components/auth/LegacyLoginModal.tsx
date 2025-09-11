@@ -103,11 +103,12 @@ export const LegacyLoginModal: React.FC<LegacyLoginModalProps> = ({
       const service = new LegacyMigrationService(
         provider
       );
-      void service.initialize().then(() => {
+      try {
+        service.initialize();
         setMigrationService(service);
-      }).catch((error: unknown) => {
+      } catch (error: unknown) {
         setError(`Failed to initialize migration service: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      });
+      }
     }
   }, [open, provider, signer, migrationContractAddress]);
   
@@ -123,12 +124,12 @@ export const LegacyLoginModal: React.FC<LegacyLoginModalProps> = ({
           return;
         }
         
-        const isLegacy = await migrationService.isLegacyUser(username);
+        const isLegacy = migrationService.isLegacyUser(username);
         if (isLegacy) {
           const status = await migrationService.getMigrationStatus(username);
           setMigrationStatus(status);
           
-          if (status !== null && status.isClaimed && typeof status.claimTimestamp === 'number') {
+          if (status.isClaimed === true && status.claimTimestamp !== null && status.claimTimestamp !== undefined) {
             setError(`This account was already migrated on ${new Date(status.claimTimestamp * 1000).toLocaleDateString()}`);
           }
         }
@@ -144,7 +145,7 @@ export const LegacyLoginModal: React.FC<LegacyLoginModalProps> = ({
   /**
    * Step 1: Verify legacy credentials
    */
-  const handleVerifyLegacy = async (): Promise<void> => {
+  const handleVerifyLegacy = (): void => {
     if (migrationService === null) {
       setError('Migration service not initialized');
       return;
@@ -160,7 +161,7 @@ export const LegacyLoginModal: React.FC<LegacyLoginModalProps> = ({
     setError(null);
     
     try {
-      const result = await migrationService.validateLegacyCredentials(username, password);
+      const result = migrationService.validateLegacyCredentials(username, password);
       
       if (result.isValid) {
         setValidationResult(result);
@@ -463,7 +464,7 @@ export const LegacyLoginModal: React.FC<LegacyLoginModalProps> = ({
               
               <button
                 type="button"
-                onClick={() => void handleVerifyLegacy()}
+                onClick={handleVerifyLegacy}
                 disabled={username.length === 0 || password.length === 0 || loading || username.toLowerCase() === 'null'}
                 style={{ padding: '8px 16px', marginRight: '8px' }}
               >

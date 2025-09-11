@@ -1,11 +1,10 @@
-/* @jsxImportSource react */
-import React, { useState } from 'react';
+import { useState, CSSProperties, FC, ChangeEvent, FormEvent } from 'react';
 import { useTokenBalance } from '../../../../hooks/useTokenBalance';
 import { useTokenTransfer } from '../../../../hooks/useTokenTransfer';
 import { OmniCoinLoading } from './OmniCoinLoading';
 import { OmniCoinToast } from './OmniCoinToast';
 
-const balanceContainerStyle: React.CSSProperties = {
+const balanceContainerStyle: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   gap: '1rem',
@@ -15,53 +14,53 @@ const balanceContainerStyle: React.CSSProperties = {
   boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
 };
 
-const tokenInfoStyle: React.CSSProperties = {
+const tokenInfoStyle: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: '1rem'
 };
 
-const tokenIconStyle: React.CSSProperties = {
+const tokenIconStyle: CSSProperties = {
   width: '32px',
   height: '32px',
   borderRadius: '50%'
 };
 
-const tokenDetailsStyle: React.CSSProperties = {
+const tokenDetailsStyle: CSSProperties = {
   flex: 1
 };
 
-const tokenNameStyle: React.CSSProperties = {
+const tokenNameStyle: CSSProperties = {
   margin: '0',
   fontSize: '1rem',
   color: '#1f2937'
 };
 
-const tokenSymbolStyle: React.CSSProperties = {
+const tokenSymbolStyle: CSSProperties = {
   fontSize: '0.875rem',
   color: '#6b7280'
 };
 
-const balanceAmountStyle: React.CSSProperties = {
+const balanceAmountStyle: CSSProperties = {
   fontSize: '1.25rem',
   fontWeight: 'bold',
   color: '#1f2937'
 };
 
-const transferFormStyle: React.CSSProperties = {
+const transferFormStyle: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   gap: '0.5rem'
 };
 
-const inputStyle: React.CSSProperties = {
+const inputStyle: CSSProperties = {
   padding: '0.5rem',
   border: '1px solid #d1d5db',
   borderRadius: '4px',
   fontSize: '0.875rem'
 };
 
-const buttonStyle: React.CSSProperties = {
+const buttonStyle: CSSProperties = {
   padding: '0.5rem 1rem',
   background: '#3b82f6',
   color: 'white',
@@ -71,7 +70,7 @@ const buttonStyle: React.CSSProperties = {
   transition: 'all 0.2s ease'
 };
 
-const buttonDisabledStyle: React.CSSProperties = {
+const buttonDisabledStyle: CSSProperties = {
   ...buttonStyle,
   background: '#9ca3af',
   cursor: 'not-allowed'
@@ -87,7 +86,7 @@ interface TokenBalanceProps {
  * @param props.tokenAddress - The address of the token contract
  * @returns Token balance component
  */
-export const TokenBalance: React.FC<TokenBalanceProps> = ({ tokenAddress }) => {
+export const TokenBalance: FC<TokenBalanceProps> = ({ tokenAddress }) => {
   const { tokenInfo, balance: _balance, formattedBalance, isLoading: isBalanceLoading, error: balanceError } = useTokenBalance(tokenAddress);
   const { transfer, isTransferring, error: transferError } = useTokenTransfer(tokenAddress);
   const [recipient, setRecipient] = useState('');
@@ -100,7 +99,7 @@ export const TokenBalance: React.FC<TokenBalanceProps> = ({ tokenAddress }) => {
    * Handle token transfer form submission
    * @param e - Form event
    */
-  const handleTransfer = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
+  const handleTransfer = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
 
     if (tokenInfo === null) return;
@@ -126,7 +125,7 @@ export const TokenBalance: React.FC<TokenBalanceProps> = ({ tokenAddress }) => {
    * Handle input change with proper typing
    * @param e - Change event
    */
-  const handleRecipientChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
+  const handleRecipientChange = (e: ChangeEvent<HTMLInputElement>): void => {
     setRecipient(e.target.value);
   };
 
@@ -134,7 +133,7 @@ export const TokenBalance: React.FC<TokenBalanceProps> = ({ tokenAddress }) => {
    * Handle amount change with proper typing
    * @param e - Change event
    */
-  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
+  const handleAmountChange = (e: ChangeEvent<HTMLInputElement>): void => {
     setAmount(e.target.value);
   };
 

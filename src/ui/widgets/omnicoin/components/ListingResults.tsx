@@ -1,21 +1,20 @@
-/* @jsxImportSource react */
-import React from 'react';
+import { CSSProperties, FC } from 'react';
 import { OmniCoinLoading } from './OmniCoinLoading';
 import { OmniCoinToast } from './OmniCoinToast';
 
 // Inline styles to avoid styled-components typing issues
-const resultsContainerStyle: React.CSSProperties = {
+const resultsContainerStyle: CSSProperties = {
   padding: '1rem'
 };
 
-const gridStyle: React.CSSProperties = {
+const gridStyle: CSSProperties = {
   display: 'grid',
   gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
   gap: '1.5rem',
   marginTop: '1rem'
 };
 
-const listingCardStyle: React.CSSProperties = {
+const listingCardStyle: CSSProperties = {
   background: '#ffffff',
   borderRadius: '8px',
   boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
@@ -23,30 +22,30 @@ const listingCardStyle: React.CSSProperties = {
   transition: 'transform 0.2s ease'
 };
 
-const listingImageStyle: React.CSSProperties = {
+const listingImageStyle: CSSProperties = {
   width: '100%',
   height: '200px',
   objectFit: 'cover'
 };
 
-const listingContentStyle: React.CSSProperties = {
+const listingContentStyle: CSSProperties = {
   padding: '1rem'
 };
 
-const listingTitleStyle: React.CSSProperties = {
+const listingTitleStyle: CSSProperties = {
   margin: '0 0 0.5rem',
   fontSize: '1.1rem',
   color: '#1f2937'
 };
 
-const listingPriceStyle: React.CSSProperties = {
+const listingPriceStyle: CSSProperties = {
   fontSize: '1.2rem',
   fontWeight: 'bold',
   color: '#3b82f6',
   marginBottom: '0.5rem'
 };
 
-const listingDetailsStyle: React.CSSProperties = {
+const listingDetailsStyle: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   gap: '0.5rem',
@@ -54,7 +53,7 @@ const listingDetailsStyle: React.CSSProperties = {
   color: '#6b7280'
 };
 
-const listingLocationStyle: React.CSSProperties = {
+const listingLocationStyle: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: '0.5rem',
@@ -62,7 +61,7 @@ const listingLocationStyle: React.CSSProperties = {
   color: '#6b7280'
 };
 
-const sellerInfoStyle: React.CSSProperties = {
+const sellerInfoStyle: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: '0.5rem',
@@ -71,26 +70,26 @@ const sellerInfoStyle: React.CSSProperties = {
   borderTop: '1px solid #e5e7eb'
 };
 
-const sellerAvatarStyle: React.CSSProperties = {
+const sellerAvatarStyle: CSSProperties = {
   width: '32px',
   height: '32px',
   borderRadius: '50%',
   objectFit: 'cover'
 };
 
-const sellerNameStyle: React.CSSProperties = {
+const sellerNameStyle: CSSProperties = {
   fontSize: '0.875rem',
   color: '#1f2937'
 };
 
-const ratingStyle: React.CSSProperties = {
+const ratingStyle: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: '0.25rem',
   color: '#3b82f6'
 };
 
-const emptyStateStyle: React.CSSProperties = {
+const emptyStateStyle: CSSProperties = {
   textAlign: 'center',
   padding: '2rem',
   color: '#9ca3af'
@@ -127,7 +126,7 @@ interface ListingResultsProps {
  * @param props.error - Error message if listing fetch failed
  * @returns React component showing listings grid or appropriate state
  */
-export const ListingResults: React.FC<ListingResultsProps> = ({
+export const ListingResults: FC<ListingResultsProps> = ({
   listings,
   isLoading,
   error,
