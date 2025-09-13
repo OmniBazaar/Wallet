@@ -1,7 +1,5 @@
 import { generateMnemonic as _generateMnemonic, validateMnemonic as _validateMnemonic, mnemonicToSeedSync as _mnemonicToSeedSync } from 'bip39';
 import { randomBytes, createHash } from 'crypto';
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore - CryptoJS types may not be available
 import CryptoJS from 'crypto-js';
 
 /**
@@ -318,7 +316,6 @@ class WalletKeyring {
    * @returns Encrypted text string
    */
   private encrypt(text: string, password: string): string {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
     return CryptoJS.AES.encrypt(text, password).toString();
   }
 
@@ -329,9 +326,7 @@ class WalletKeyring {
    * @returns Decrypted text string
    */
   private decrypt(encryptedText: string, password: string): string {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
     const bytes = CryptoJS.AES.decrypt(encryptedText, password);
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
     const decrypted = bytes.toString(CryptoJS.enc.Utf8);
 
     if (decrypted === '') {

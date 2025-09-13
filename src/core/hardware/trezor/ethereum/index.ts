@@ -1,8 +1,8 @@
 import { HWwalletCapabilities, NetworkNames } from "../../../types/enkrypt-types";
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const HDKey = require("hdkey") as new () => HDKeyInstance;
+import hdkey from "hdkey";
 // HDKey instance type
 type HDKeyInstance = { publicKey: Buffer; chainCode: Buffer; derive(path: string): HDKeyInstance };
+const HDKey = hdkey as unknown as new () => HDKeyInstance;
 import { bigIntToHex, bufferToHex, hexToBuffer } from "../../../types/enkrypt-types";
 import { publicToAddress, toRpcSig } from "@ethereumjs/util";
 // import type { FeeMarketEIP1559Transaction, LegacyTransaction } from "@ethereumjs/tx"; - unused imports

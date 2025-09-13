@@ -13,6 +13,60 @@ export interface ArbitrumNFTConfig {
   moralisApiKey?: string;
 }
 
+/** Alchemy NFT data structure */
+interface AlchemyNFT {
+  id: {
+    tokenId: string;
+    tokenMetadata?: {
+      tokenType?: string;
+    };
+  };
+  contract: {
+    address: string;
+  };
+  title?: string;
+  description?: string;
+  metadata?: {
+    name?: string;
+    description?: string;
+    image?: string;
+    creator?: string;
+    attributes?: Array<{ trait_type: string; value: string | number }>;
+  };
+  media?: Array<{ gateway: string }>;
+}
+
+/** Moralis NFT data structure */
+interface MoralisNFT {
+  token_address: string;
+  token_id: string;
+  name?: string;
+  metadata?: string;
+  token_uri?: string;
+  contract_type?: string;
+  owner_of?: string;
+  minter_address?: string;
+}
+
+/** NFT metadata structure */
+interface NFTMetadata {
+  name?: string;
+  description?: string;
+  image?: string;
+  attributes?: Array<{ trait_type: string; value: string | number }>;
+}
+
+/** Alchemy response structure */
+interface AlchemyResponse {
+  ownedNfts?: AlchemyNFT[];
+  nfts?: AlchemyNFT[];
+}
+
+/** Moralis response structure */
+interface MoralisResponse {
+  result?: MoralisNFT[];
+}
+
 /**
  * Arbitrum NFT Provider for fetching NFTs from Arbitrum One
  * Supports Arbiscan, Alchemy, and Moralis APIs for comprehensive NFT data
@@ -29,22 +83,20 @@ export class ArbitrumNFTProvider implements ChainProvider {
 
   /**
    * Create Arbitrum NFT provider
-   * @param config Configuration for provider setup
+   * @param config - Configuration for provider setup
    */
   constructor(config: ArbitrumNFTConfig) {
     this.config = config;
-    this.isConnected = config.rpcUrl != null;
+    this.isConnected = config.rpcUrl !== undefined && config.rpcUrl !== null && config.rpcUrl !== '';
   }
 
   /**
    * Get all NFTs for a wallet address
-   * @param address Wallet address to fetch NFTs for
+   * @param address - Wallet address to fetch NFTs for
    * @returns Promise resolving to array of NFT items
    */
   async getNFTs(address: string): Promise<NFTItem[]> {
     try {
-      console.warn(`Fetching Arbitrum NFTs for address: ${address}`);
-      
       // Try Alchemy API first if available
       if (this.config.alchemyApiKey !== undefined && this.config.alchemyApiKey !== null && this.config.alchemyApiKey !== '') {
         return await this.fetchFromAlchemy(address);
@@ -59,15 +111,14 @@ export class ArbitrumNFTProvider implements ChainProvider {
       return await this.fetchFromBlockchain(address);
       
     } catch (error) {
-      console.warn('Error fetching Arbitrum NFTs:', error);
       return [];
     }
   }
 
   /**
    * Get specific NFT metadata
-   * @param contractAddress NFT contract address
-   * @param tokenId Token ID to fetch metadata for
+   * @param contractAddress - NFT contract address
+   * @param tokenId - Token ID to fetch metadata for
    * @returns Promise resolving to NFT item or null
    */
   async getNFTMetadata(contractAddress: string, tokenId: string): Promise<NFTItem | null> {
@@ -78,7 +129,7 @@ export class ArbitrumNFTProvider implements ChainProvider {
         );
         
         if (response.ok) {
-          const data = await response.json();
+          const data = await response.json() as AlchemyNFT;
           return this.transformAlchemyNFT(data);
         }
       }
@@ -95,59 +146,70 @@ export class ArbitrumNFTProvider implements ChainProvider {
       
       const contract = new ethers.Contract(contractAddress, erc721Abi, provider);
       
-      const c = contract as { tokenURI?: (tokenId: string) => Promise<string>; name?: () => Promise<string>; ownerOf?: (tokenId: string) => Promise<string> };
+      const contractTyped = contract as unknown as {
+        tokenURI: (tokenId: string) => Promise<string>;
+        name: () => Promise<string>;
+        ownerOf: (tokenId: string) => Promise<string>;
+      };
+      
       const [tokenURI, name, owner] = await Promise.all([
-        c?.['tokenURI']?.(tokenId).catch(() => ''),
-        c?.['name']?.().catch(() => 'Unknown Collection'),
-        c?.['ownerOf']?.(tokenId).catch(() => '0x0000000000000000000000000000000000000000')
-      ]) as [string, string, string];
+        contractTyped.tokenURI(tokenId).catch(() => ''),
+        contractTyped.name().catch(() => 'Unknown Collection'),
+        contractTyped.ownerOf(tokenId).catch(() => '0x0000000000000000000000000000000000000000')
+      ]);
       
       // Parse metadata
-      let metadata: { name: string; description: string; image?: string; attributes?: Array<{ trait_type: string; value: string | number }> } = { name: `${name} #${tokenId}`, description: '' };
-      if (tokenURI) {
+      let metadata: NFTMetadata = { name: `${name} #${tokenId}`, description: '' };
+      if (tokenURI !== '') {
         if (tokenURI.startsWith('data:')) {
           const json = tokenURI.split(',')[1];
-          metadata = JSON.parse(atob(json));
+          if (json !== undefined) {
+            metadata = JSON.parse(atob(json)) as NFTMetadata;
+          }
         } else if (tokenURI.startsWith('ipfs://')) {
           const ipfsGateway = 'https://ipfs.io/ipfs/';
           const ipfsHash = tokenURI.replace('ipfs://', '');
           try {
             const response = await fetch(ipfsGateway + ipfsHash);
-            metadata = await response.json();
-          } catch {}
+            metadata = await response.json() as NFTMetadata;
+          } catch {
+            // Keep default metadata
+          }
         } else if (tokenURI.startsWith('http')) {
           try {
             const response = await fetch(tokenURI);
-            metadata = await response.json();
-          } catch {}
+            metadata = await response.json() as NFTMetadata;
+          } catch {
+            // Keep default metadata
+          }
         }
       }
       
       return {
         id: `arbitrum_${contractAddress}_${tokenId}`,
         tokenId,
-        name: metadata.name || `${name} #${tokenId}`,
-        description: metadata.description || '',
-        image: metadata.image || '',
-        imageUrl: metadata.image || '',
-        attributes: metadata.attributes || [],
+        name: (metadata.name !== undefined && metadata.name !== '') ? metadata.name : `${name} #${tokenId}`,
+        description: metadata.description ?? '',
+        image: metadata.image ?? '',
+        imageUrl: metadata.image ?? '',
+        attributes: metadata.attributes ?? [],
         contract: contractAddress,
         contractAddress,
         tokenStandard: 'ERC721',
         blockchain: 'arbitrum',
-        owner: owner || '',
+        owner: owner !== '' ? owner : '0x0000000000000000000000000000000000000000',
         creator: '',
         isListed: false
       };
     } catch (error) {
-      console.warn('Error fetching Arbitrum NFT metadata:', error);
       return null;
     }
   }
 
   /**
    * Get NFT collections for an address
-   * @param address
+   * @param address - Wallet address to fetch collections for
+   * @returns Promise resolving to array of NFT collections
    */
   async getCollections(address: string): Promise<NFTCollection[]> {
     try {
@@ -156,35 +218,39 @@ export class ArbitrumNFTProvider implements ChainProvider {
       
       for (const nft of nfts) {
         if (!collectionMap.has(nft.contractAddress)) {
+          const collectionName = nft.name !== undefined && nft.name !== '' 
+            ? nft.name.split('#')[0]?.trim() ?? 'Unknown Collection'
+            : 'Unknown Collection';
+          
           collectionMap.set(nft.contractAddress, {
             id: `arbitrum_collection_${nft.contractAddress}`,
-            name: (nft.name || 'Unknown Collection').split('#')[0]?.trim() || 'Unknown Collection',
+            name: collectionName,
             description: '',
             contract: nft.contractAddress,
             contractAddress: nft.contractAddress,
             tokenStandard: nft.tokenStandard,
             blockchain: 'arbitrum',
-            creator: nft.creator || address,
+            creator: (nft.creator !== undefined && nft.creator !== '') ? nft.creator : address,
             verified: false,
             items: []
           });
         }
         const collection = collectionMap.get(nft.contractAddress);
-        if (collection) {
+        if (collection !== undefined) {
           collection.items.push(nft);
         }
       }
       
       return Array.from(collectionMap.values());
     } catch (error) {
-      console.warn('Error fetching Arbitrum collections:', error);
       return [];
     }
   }
 
   /**
    * Fetch NFTs from Alchemy API
-   * @param address
+   * @param address - Wallet address to fetch NFTs for
+   * @returns Promise resolving to array of NFT items
    */
   private async fetchFromAlchemy(address: string): Promise<NFTItem[]> {
     const response = await fetch(
@@ -195,20 +261,25 @@ export class ArbitrumNFTProvider implements ChainProvider {
       throw new Error(`Alchemy API error: ${response.status}`);
     }
     
-    const data = await response.json();
-    return data.ownedNfts?.map((nft: any) => this.transformAlchemyNFT(nft)) || [];
+    const data = await response.json() as AlchemyResponse;
+    return data.ownedNfts?.map((nft) => this.transformAlchemyNFT(nft)) ?? [];
   }
 
   /**
    * Fetch NFTs from Moralis API
-   * @param address
+   * @param address - Wallet address to fetch NFTs for
+   * @returns Promise resolving to array of NFT items
    */
   private async fetchFromMoralis(address: string): Promise<NFTItem[]> {
+    if (this.config.moralisApiKey === undefined) {
+      throw new Error('Moralis API key is undefined');
+    }
+    
     const response = await fetch(
       `${this.moralisUrl}/${address}/nft?chain=arbitrum&limit=100`,
       {
         headers: {
-          'X-API-Key': this.config.moralisApiKey!
+          'X-API-Key': this.config.moralisApiKey
         }
       }
     );
@@ -217,63 +288,73 @@ export class ArbitrumNFTProvider implements ChainProvider {
       throw new Error(`Moralis API error: ${response.status}`);
     }
     
-    const data = await response.json();
-    return data.result?.map((nft: any) => this.transformMoralisNFT(nft)) || [];
+    const data = await response.json() as MoralisResponse;
+    return data.result?.map((nft) => this.transformMoralisNFT(nft)) ?? [];
   }
 
   /**
    * Transform Alchemy NFT data to our format
-   * @param nft
+   * @param nft - Alchemy NFT data
+   * @returns Transformed NFT item
    */
-  private transformAlchemyNFT(nft: any): NFTItem {
-    const metadata = nft.metadata || {};
+  private transformAlchemyNFT(nft: AlchemyNFT): NFTItem {
+    const metadata = nft.metadata ?? {};
     
     return {
       id: `arbitrum_${nft.contract.address}_${nft.id.tokenId}`,
       tokenId: nft.id.tokenId,
-      name: metadata.name || nft.title || `Arbitrum NFT #${nft.id.tokenId}`,
-      description: metadata.description || nft.description || '',
-      image: metadata.image || nft.media?.[0]?.gateway || '',
-      imageUrl: metadata.image || nft.media?.[0]?.gateway || '',
-      attributes: metadata.attributes || [],
+      name: metadata.name ?? nft.title ?? `Arbitrum NFT #${nft.id.tokenId}`,
+      description: metadata.description ?? nft.description ?? '',
+      image: metadata.image ?? nft.media?.[0]?.gateway ?? '',
+      imageUrl: metadata.image ?? nft.media?.[0]?.gateway ?? '',
+      attributes: metadata.attributes ?? [],
       contract: nft.contract.address,
       contractAddress: nft.contract.address,
-      tokenStandard: nft.id.tokenMetadata?.tokenType || 'ERC721',
+      tokenStandard: (nft.id.tokenMetadata?.tokenType ?? 'ERC721') as 'ERC721' | 'ERC1155' | 'SPL' | 'other',
       blockchain: 'arbitrum',
       owner: '',
-      creator: metadata.creator || '',
+      creator: metadata.creator ?? '',
       isListed: false
     };
   }
 
   /**
    * Transform Moralis NFT data to our format
-   * @param nft
+   * @param nft - Moralis NFT data
+   * @returns Transformed NFT item
    */
-  private transformMoralisNFT(nft: any): NFTItem {
-    const metadata = nft.metadata ? JSON.parse(nft.metadata) : {};
+  private transformMoralisNFT(nft: MoralisNFT): NFTItem {
+    let metadata: NFTMetadata = {};
+    if (nft.metadata !== undefined && nft.metadata !== null && nft.metadata !== '') {
+      try {
+        metadata = JSON.parse(nft.metadata) as NFTMetadata;
+      } catch {
+        metadata = {};
+      }
+    }
     
     return {
       id: `arbitrum_${nft.token_address}_${nft.token_id}`,
       tokenId: nft.token_id,
-      name: nft.name || metadata.name || `Arbitrum NFT #${nft.token_id}`,
-      description: metadata.description || '',
-      image: metadata.image || nft.token_uri || '',
-      imageUrl: metadata.image || nft.token_uri || '',
-      attributes: metadata.attributes || [],
+      name: nft.name ?? metadata.name ?? `Arbitrum NFT #${nft.token_id}`,
+      description: metadata.description ?? '',
+      image: metadata.image ?? nft.token_uri ?? '',
+      imageUrl: metadata.image ?? nft.token_uri ?? '',
+      attributes: metadata.attributes ?? [],
       contract: nft.token_address,
       contractAddress: nft.token_address,
-      tokenStandard: nft.contract_type || 'ERC721',
+      tokenStandard: (nft.contract_type ?? 'ERC721') as 'ERC721' | 'ERC1155' | 'SPL' | 'other',
       blockchain: 'arbitrum',
-      owner: nft.owner_of || '',
-      creator: nft.minter_address || '',
+      owner: nft.owner_of ?? '',
+      creator: nft.minter_address ?? '',
       isListed: false
     };
   }
 
   /**
    * Fetch NFTs directly from blockchain using ethers
-   * @param address
+   * @param address - Wallet address to fetch NFTs for
+   * @returns Promise resolving to array of NFT items
    */
   private async fetchFromBlockchain(address: string): Promise<NFTItem[]> {
     try {
@@ -304,67 +385,67 @@ export class ArbitrumNFTProvider implements ChainProvider {
         try {
           const contract = new ethers.Contract(contractAddress, erc721Abi, provider);
           
-          // Get balance
-          const balanceOfMethod = contract['balanceOf'];
-          if (!balanceOfMethod || typeof balanceOfMethod !== 'function') continue;
+          // Type the contract methods
+          const contractTyped = contract as unknown as {
+            balanceOf: (owner: string) => Promise<bigint>;
+            tokenOfOwnerByIndex: (owner: string, index: number) => Promise<bigint>;
+            tokenURI: (tokenId: bigint) => Promise<string>;
+            name: () => Promise<string>;
+          };
           
-          const balance = await balanceOfMethod(address);
+          // Get balance
+          const balance = await contractTyped.balanceOf(address);
           if (balance === BigInt(0)) continue;
           
           // Get collection name
-          const nameMethod = contract['name'];
-          const collectionName = nameMethod && typeof nameMethod === 'function'
-            ? await nameMethod().catch(() => 'Unknown Collection')
-            : 'Unknown Collection';
+          const collectionName = await contractTyped.name().catch(() => 'Unknown Collection');
           
           // Get up to 10 NFTs from this collection
           const limit = Math.min(Number(balance), 10);
           
           for (let i = 0; i < limit; i++) {
             try {
-              const tokenOfOwnerByIndexMethod = contract['tokenOfOwnerByIndex'];
-              const tokenURIMethod = contract['tokenURI'];
-              
-              if (!tokenOfOwnerByIndexMethod || typeof tokenOfOwnerByIndexMethod !== 'function') continue;
-              if (!tokenURIMethod || typeof tokenURIMethod !== 'function') continue;
-              
-              const tokenId = await tokenOfOwnerByIndexMethod(address, i);
-              const tokenURI = await tokenURIMethod(tokenId).catch(() => '');
+              const tokenId = await contractTyped.tokenOfOwnerByIndex(address, i);
+              const tokenURI = await contractTyped.tokenURI(tokenId).catch(() => '');
               
               // Parse metadata if available
-              let metadata: any = {};
-              if (tokenURI.startsWith('data:')) {
-                // On-chain metadata
-                const json = tokenURI.split(',')[1];
-                metadata = JSON.parse(atob(json));
-              } else if (tokenURI.startsWith('ipfs://')) {
-                // IPFS metadata
-                const ipfsGateway = 'https://ipfs.io/ipfs/';
-                const ipfsHash = tokenURI.replace('ipfs://', '');
-                try {
-                  const response = await fetch(ipfsGateway + ipfsHash);
-                  metadata = await response.json();
-                } catch {
-                  metadata = { name: `${collectionName} #${tokenId}`, description: '' };
-                }
-              } else if (tokenURI.startsWith('http')) {
-                // HTTP metadata
-                try {
-                  const response = await fetch(tokenURI);
-                  metadata = await response.json();
-                } catch {
-                  metadata = { name: `${collectionName} #${tokenId}`, description: '' };
+              let metadata: NFTMetadata = { name: `${collectionName} #${tokenId}`, description: '' };
+              if (tokenURI !== '') {
+                if (tokenURI.startsWith('data:')) {
+                  // On-chain metadata
+                  const json = tokenURI.split(',')[1];
+                  if (json !== undefined) {
+                    metadata = JSON.parse(atob(json)) as NFTMetadata;
+                  }
+                } else if (tokenURI.startsWith('ipfs://')) {
+                  // IPFS metadata
+                  const ipfsGateway = 'https://ipfs.io/ipfs/';
+                  const ipfsHash = tokenURI.replace('ipfs://', '');
+                  try {
+                    const response = await fetch(ipfsGateway + ipfsHash);
+                    metadata = await response.json() as NFTMetadata;
+                  } catch {
+                    metadata = { name: `${collectionName} #${tokenId}`, description: '' };
+                  }
+                } else if (tokenURI.startsWith('http')) {
+                  // HTTP metadata
+                  try {
+                    const response = await fetch(tokenURI);
+                    metadata = await response.json() as NFTMetadata;
+                  } catch {
+                    metadata = { name: `${collectionName} #${tokenId}`, description: '' };
+                  }
                 }
               }
               
               nfts.push({
                 id: `arbitrum_${contractAddress}_${tokenId}`,
                 tokenId: tokenId.toString(),
-                name: metadata.name || `${collectionName} #${tokenId}`,
-                description: metadata.description || '',
-                image: metadata.image || '',
-                imageUrl: metadata.image || '',
-                attributes: metadata.attributes || [],
+                name: metadata.name ?? `${collectionName} #${tokenId}`,
+                description: metadata.description ?? '',
+                image: metadata.image ?? '',
+                imageUrl: metadata.image ?? '',
+                attributes: metadata.attributes ?? [],
                 contract: contractAddress,
                 contractAddress,
                 tokenStandard: 'ERC721',
@@ -376,25 +457,25 @@ export class ArbitrumNFTProvider implements ChainProvider {
                 isListed: false
               });
             } catch (error) {
-              console.warn(`Failed to fetch NFT ${i} from ${contractAddress}:`, error);
+              // Skip individual NFT errors
             }
           }
         } catch (error) {
-          console.warn(`Failed to query contract ${contractAddress}:`, error);
+          // Skip contract errors
         }
       }
       
       return nfts;
     } catch (error) {
-      console.error('Failed to fetch NFTs from blockchain:', error);
       return [];
     }
   }
 
   /**
    * Search NFTs on Arbitrum
-   * @param query
-   * @param limit
+   * @param query - Search query string
+   * @param limit - Maximum number of results to return
+   * @returns Promise resolving to array of NFT items
    */
   async searchNFTs(query: string, limit = 20): Promise<NFTItem[]> {
     try {
@@ -405,8 +486,8 @@ export class ArbitrumNFTProvider implements ChainProvider {
         );
         
         if (response.ok) {
-          const data = await response.json();
-          return data.ownedNfts?.map((nft: any) => this.transformAlchemyNFT(nft)) || [];
+          const data = await response.json() as AlchemyResponse;
+          return data.ownedNfts?.map((nft) => this.transformAlchemyNFT(nft)) ?? [];
         }
       }
       
@@ -422,21 +503,21 @@ export class ArbitrumNFTProvider implements ChainProvider {
         );
         
         if (response.ok) {
-          const data = await response.json();
-          return data.result?.map((nft: any) => this.transformMoralisNFT(nft)) || [];
+          const data = await response.json() as MoralisResponse;
+          return data.result?.map((nft) => this.transformMoralisNFT(nft)) ?? [];
         }
       }
       
       return [];
     } catch (error) {
-      console.warn('Error searching Arbitrum NFTs:', error);
       return [];
     }
   }
 
   /**
    * Get trending NFTs on Arbitrum
-   * @param limit
+   * @param limit - Maximum number of results to return
+   * @returns Promise resolving to array of trending NFT items
    */
   async getTrendingNFTs(limit = 20): Promise<NFTItem[]> {
     try {
@@ -463,8 +544,8 @@ export class ArbitrumNFTProvider implements ChainProvider {
             );
             
             if (nftResponse.ok) {
-              const data = await nftResponse.json();
-              const collectionNfts = data.nfts?.map((nft: any) => this.transformAlchemyNFT(nft)) || [];
+              const data = await nftResponse.json() as AlchemyResponse;
+              const collectionNfts = data.nfts?.map((nft) => this.transformAlchemyNFT(nft)) ?? [];
               nfts.push(...collectionNfts);
             }
           }
@@ -475,22 +556,22 @@ export class ArbitrumNFTProvider implements ChainProvider {
       
       return [];
     } catch (error) {
-      console.warn('Error fetching trending Arbitrum NFTs:', error);
       return [];
     }
   }
 
   /**
    * Update configuration
-   * @param newConfig
+   * @param newConfig - Partial configuration object to merge with existing config
    */
   updateConfig(newConfig: Partial<ArbitrumNFTConfig>): void {
     this.config = { ...this.config, ...newConfig };
-    this.isConnected = Boolean(this.config.rpcUrl);
+    this.isConnected = this.config.rpcUrl !== undefined && this.config.rpcUrl !== null && this.config.rpcUrl !== '';
   }
 
   /**
    * Test connection to APIs
+   * @returns Promise resolving to connection status and available APIs
    */
   async testConnection(): Promise<{ connected: boolean; apis: string[] }> {
     const workingApis: string[] = [];
@@ -500,7 +581,7 @@ export class ArbitrumNFTProvider implements ChainProvider {
         const response = await fetch(`${this.alchemyUrl}/${this.config.alchemyApiKey}/isHolderOfCollection?wallet=0x0000000000000000000000000000000000000000&contractAddress=0x0000000000000000000000000000000000000000`);
         if (response.ok) workingApis.push('Alchemy');
       } catch (error) {
-        console.warn('Alchemy connection test failed:', error);
+        // Alchemy test failed
       }
     }
 
@@ -511,23 +592,23 @@ export class ArbitrumNFTProvider implements ChainProvider {
         });
         if (response.ok) workingApis.push('Moralis');
       } catch (error) {
-        console.warn('Moralis connection test failed:', error);
+        // Moralis test failed
       }
     }
 
-    if (this.config.arbiscanApiKey) {
+    if (this.config.arbiscanApiKey !== undefined && this.config.arbiscanApiKey !== null && this.config.arbiscanApiKey !== '') {
       try {
         const response = await fetch(
           `${this.arbiscanUrl}?module=account&action=tokennfttx&address=0x0000000000000000000000000000000000000000&apikey=${this.config.arbiscanApiKey}`
         );
         if (response.ok) workingApis.push('Arbiscan');
       } catch (error) {
-        console.warn('Arbiscan connection test failed:', error);
+        // Arbiscan test failed
       }
     }
 
     return {
-      connected: workingApis.length > 0 || Boolean(this.config.rpcUrl),
+      connected: workingApis.length > 0 || (this.config.rpcUrl !== undefined && this.config.rpcUrl !== null && this.config.rpcUrl !== ''),
       apis: workingApis
     };
   }

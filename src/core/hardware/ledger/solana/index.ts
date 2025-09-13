@@ -31,6 +31,15 @@ interface SolanaApp {
   signTransaction(path: string, transaction: Buffer): Promise<SolanaSignResponse>;
 }
 
+// Dynamic import for optional Ledger Solana support
+let SolApp: (new (transport: Transport) => SolanaApp) | undefined;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  SolApp = require("@ledgerhq/hw-app-solana") as new (transport: Transport) => SolanaApp;
+} catch {
+  // Module is not available
+}
+
 /**
  * Creates a Solana App instance
  * @param transport - The transport to use
@@ -38,12 +47,9 @@ interface SolanaApp {
  */
 function createSolanaApp(transport: Transport): SolanaApp {
   // Runtime check for Ledger Solana support
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-unsafe-assignment
-    const SolApp = require("@ledgerhq/hw-app-solana") as new (transport: Transport) => SolanaApp;
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+  if (SolApp !== undefined) {
     return new SolApp(transport);
-  } catch {
+  } else {
     // Provide stub implementation when module is not available
     return {
       getAddress: () => Promise.reject(new Error("Ledger Solana support not available")),

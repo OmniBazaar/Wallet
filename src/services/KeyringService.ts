@@ -159,8 +159,8 @@ export class KeyringService {
    * @param name - Account name
    * @returns Created account
    */
-  async addAccountFromSeed(seedPhrase: string, name: string): Promise<KeyringAccount> {
-    return await this.coreService.addAccountFromSeed(seedPhrase, name);
+  addAccountFromSeed(seedPhrase: string, name: string): KeyringAccount {
+    return this.coreService.addAccountFromSeed(seedPhrase, name);
   }
 
   /**
@@ -169,8 +169,8 @@ export class KeyringService {
    * @param name - Account name
    * @returns Created account
    */
-  async addAccountFromPrivateKey(privateKey: string, name: string): Promise<KeyringAccount> {
-    return await this.coreService.addAccountFromPrivateKey(privateKey, name);
+  addAccountFromPrivateKey(privateKey: string, name: string): KeyringAccount {
+    return this.coreService.addAccountFromPrivateKey(privateKey, name);
   }
 
   /**
@@ -407,14 +407,14 @@ export class KeyringService {
    * @param maybePassword - Password (when using keyring interface)
    * @returns Private key
    */
-  async exportPrivateKey(accountIdOrKeyringId: string, passwordOrAccountAddress?: string, maybePassword?: string): Promise<string> {
+  exportPrivateKey(accountIdOrKeyringId: string, passwordOrAccountAddress?: string, maybePassword?: string): string {
     if (maybePassword !== undefined && maybePassword !== '') {
       // Three parameter version (keyring interface)
       return '0x' + '1'.repeat(64); // Mock private key for tests
     } else {
       // Two parameter version (original interface)
       // Note: Core service only takes accountId, not password
-      return await this.coreService.exportPrivateKey(accountIdOrKeyringId);
+      return this.coreService.exportPrivateKey(accountIdOrKeyringId);
     }
   }
 
@@ -603,10 +603,10 @@ export class KeyringService {
    * @param password - Master password
    * @returns Exported account data
    */
-  async exportAccount(keyringId: string, accountAddress: string, password: string): Promise<{ address: string; privateKey: string; publicKey: string }> {
+  exportAccount(keyringId: string, accountAddress: string, password: string): { address: string; privateKey: string; publicKey: string } {
     return {
       address: accountAddress,
-      privateKey: await this.exportPrivateKey(keyringId, accountAddress, password),
+      privateKey: this.exportPrivateKey(keyringId, accountAddress, password),
       publicKey: '0x04' + '2'.repeat(128)
     };
   }

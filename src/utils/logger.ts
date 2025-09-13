@@ -20,10 +20,52 @@ interface LogEntry {
 }
 
 /**
+ * Logger interface for type safety
+ */
+export interface Logger {
+  /**
+   * Log a debug message (only in development)
+   * @param message - The message to log
+   * @param data - Optional additional data to log
+   */
+  debug(message: string, data?: unknown): void;
+  
+  /**
+   * Log an info message
+   * @param message - The message to log
+   * @param data - Optional additional data to log
+   */
+  info(message: string, data?: unknown): void;
+  
+  /**
+   * Log a warning message
+   * @param message - The message to log
+   * @param data - Optional additional data to log
+   */
+  warn(message: string, data?: unknown): void;
+  
+  /**
+   * Log an error message
+   * @param message - The message to log
+   * @param error - The error object or additional data
+   */
+  error(message: string, error?: unknown): void;
+}
+
+/**
  * Logger class for consistent logging across the application
  */
-class Logger {
+class LoggerImpl implements Logger {
   private readonly isDevelopment = process.env.NODE_ENV === 'development';
+  private readonly prefix: string | undefined;
+
+  /**
+   * Create a new logger instance
+   * @param prefix - Optional prefix for log messages
+   */
+  constructor(prefix?: string) {
+    this.prefix = prefix;
+  }
 
   /**
    * Log a debug message
@@ -70,16 +112,20 @@ class Logger {
    * @param data Optional additional data
    */
   private log(level: LogLevel, message: string, data?: unknown): void {
+    const fullMessage = this.prefix !== undefined && this.prefix !== '' 
+      ? `[${this.prefix}] ${message}` 
+      : message;
+    
     const entry: LogEntry = {
       level,
-      message,
+      message: fullMessage,
       timestamp: new Date().toISOString(),
       ...(data !== undefined && { data })
     };
 
     // In development, use console methods
     if (this.isDevelopment) {
-      const logData = data !== undefined ? [message, data] : [message];
+      const logData = data !== undefined ? [fullMessage, data] : [fullMessage];
       
       switch (level) {
         case LogLevel.DEBUG:
@@ -91,11 +137,9 @@ class Logger {
           console.info(...logData);
           break;
         case LogLevel.WARN:
-          // eslint-disable-next-line no-console
           console.warn(...logData);
           break;
         case LogLevel.ERROR:
-          // eslint-disable-next-line no-console
           console.error(...logData);
           break;
       }
@@ -122,4 +166,13 @@ class Logger {
 }
 
 // Export singleton instance
-export const logger = new Logger();
+export const logger = new LoggerImpl();
+
+/**
+ * Create a logger instance with an optional prefix
+ * @param prefix - Optional prefix for log messages
+ * @returns Logger instance
+ */
+export function createLogger(prefix?: string): Logger {
+  return new LoggerImpl(prefix);
+}

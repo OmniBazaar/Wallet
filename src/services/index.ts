@@ -69,7 +69,7 @@ export async function initializeValidatorServices(userId: string): Promise<void>
     // Initialize services
     await validatorWallet.initialize();
     await validatorTransaction.initialize();
-    await validatorBalance.initialize();
+    validatorBalance.initialize(); // This method is synchronous
 
     // All validator services initialized successfully - using logger would be better than console.warn
   } catch (error) {
@@ -84,7 +84,7 @@ export async function disconnectValidatorServices(): Promise<void> {
   try {
     await validatorWallet.disconnect();
     await validatorTransaction.disconnect();
-    await validatorBalance.disconnect();
+    validatorBalance.disconnect(); // This method is synchronous
 
     // All validator services disconnected successfully - using logger would be better than console.warn
   } catch (error) {
@@ -118,7 +118,7 @@ export function checkValidatorServiceHealth(): {
     // Check wallet service
     try {
       // Basic health check - services exist and are not null/undefined
-      health.wallet = Boolean(validatorWallet && typeof validatorWallet === 'object');
+      health.wallet = validatorWallet !== null && validatorWallet !== undefined && typeof validatorWallet === 'object';
     } catch (error: unknown) {
       health.wallet = false;
     }
@@ -126,7 +126,7 @@ export function checkValidatorServiceHealth(): {
     // Check transaction service
     try {
       // Basic health check - services exist and are not null/undefined
-      health.transaction = Boolean(validatorTransaction && typeof validatorTransaction === 'object');
+      health.transaction = validatorTransaction !== null && validatorTransaction !== undefined && typeof validatorTransaction === 'object';
     } catch (error: unknown) {
       health.transaction = false;
     }
@@ -134,7 +134,7 @@ export function checkValidatorServiceHealth(): {
     // Check balance service
     try {
       // Basic health check - services exist and are not null/undefined
-      health.balance = Boolean(validatorBalance && typeof validatorBalance === 'object');
+      health.balance = validatorBalance !== null && validatorBalance !== undefined && typeof validatorBalance === 'object';
     } catch (error: unknown) {
       health.balance = false;
     }

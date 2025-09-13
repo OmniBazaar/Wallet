@@ -81,7 +81,7 @@ export class XOMService {
    * @param amount - Amount to stake in wei
    * @returns Staking transaction result
    */
-  async stakeXOM(amount: bigint): Promise<any> { // eslint-disable-line @typescript-eslint/no-explicit-any
+  async stakeXOM(amount: bigint): Promise<ethers.TransactionResponse> {
     const wallet = this.walletService.getWallet();
     if (wallet === null) throw new Error('Wallet not available');
     return await wallet.stakeOmniCoin(amount);
@@ -122,35 +122,12 @@ export class XOMService {
     const response = await wallet.sendTransaction(tx);
     
     // Wait for transaction receipt
-    let receipt: ethers.TransactionReceipt;
-    if (response !== null && response !== undefined && response.wait) {
-      const txReceipt = await response.wait();
-      if (txReceipt === null) {
-        throw new Error('Transaction receipt not available');
-      }
-      receipt = txReceipt;
-    } else {
-      // Mock receipt for testing
-      receipt = {
-        hash: response.hash ?? '0x' + Math.random().toString(16).substring(2, 66),
-        from: params.from ?? await wallet.getAddress(),
-        to: params.to,
-        value: params.amount,
-        blockNumber: 1,
-        blockHash: '0x' + Math.random().toString(16).substring(2, 66),
-        transactionIndex: 0,
-        gasUsed: BigInt(21000),
-        cumulativeGasUsed: BigInt(21000),
-        gasPrice: ethers.parseUnits('30', 'gwei'),
-        type: 2,
-        status: 1,
-        effectiveGasPrice: ethers.parseUnits('30', 'gwei'),
-        byzantium: true,
-        confirmations: 1
-      } as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    const txReceipt = await response.wait();
+    if (txReceipt === null) {
+      throw new Error('Transaction receipt not available');
     }
     
-    return receipt;
+    return txReceipt;
   }
 
   /**
@@ -192,8 +169,7 @@ export class XOMService {
    * @param duration - Duration in days
    * @returns Calculated rewards
    */
-  // eslint-disable-next-line @typescript-eslint/require-await
-  calculateRewards(amount: bigint, duration: number): Promise<{
+  async calculateRewards(amount: bigint, duration: number): Promise<{
     base: bigint;
     bonus: bigint;
     total: bigint;
@@ -222,10 +198,10 @@ export class XOMService {
 
   /**
    * Get staking positions
-   * @param address - Wallet address
+   * @param _address - Wallet address
    * @returns Array of staking positions
    */
-  async getStakingPositions(address: string): Promise<Array<{
+  async getStakingPositions(_address: string): Promise<Array<{
     stakeId: string;
     amount: bigint;
     startDate: Date;
@@ -253,12 +229,12 @@ export class XOMService {
 
   /**
    * Unstake XOM tokens
-   * @param params - Unstaking parameters
-   * @param params.stakeId
-   * @param params.address
+   * @param _params - Unstaking parameters
+   * @param _params.stakeId - The ID of the stake to unstake
+   * @param _params.address - The address of the staker
    * @returns Transaction result
    */
-  async unstake(params: {
+  async unstake(_params: {
     stakeId: string;
     address: string;
   }): Promise<{
@@ -290,7 +266,7 @@ export class XOMService {
   /**
    * Cleanup service resources
    */
-  async cleanup(): Promise<void> {
+  cleanup(): void {
     this.isInitialized = false;
     // Clean up XOM service resources
   }

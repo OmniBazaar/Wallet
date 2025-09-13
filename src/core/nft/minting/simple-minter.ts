@@ -233,9 +233,8 @@ export class SimplifiedNFTMinter {
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       // Generate secure mock IPFS hash
-      // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-unsafe-assignment
-      const { secureRandomBase36 } = require('../../utils/secure-random');
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-assignment
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { secureRandomBase36 } = require('../../utils/secure-random') as { secureRandomBase36: (length: number) => string };
       const hash = 'Qm' + secureRandomBase36(45);
       
       // Update metadata with IPFS image URL
@@ -260,9 +259,8 @@ export class SimplifiedNFTMinter {
    */
   private generateTokenId(): string {
     // Use timestamp + secure random for uniqueness
-    // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-unsafe-assignment
-    const { secureRandomBase36 } = require('../../utils/secure-random');
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { secureRandomBase36 } = require('../../utils/secure-random') as { secureRandomBase36: (length: number) => string };
     return Date.now().toString() + secureRandomBase36(7);
   }
 
@@ -283,15 +281,13 @@ export class SimplifiedNFTMinter {
       await new Promise(resolve => setTimeout(resolve, 2000));
       
       // Generate secure mock transaction hash
-      // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-unsafe-assignment
-      const { generateSecureMockTxHash } = require('../../utils/secure-random');
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-assignment
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { generateSecureMockTxHash } = require('../../utils/secure-random') as { generateSecureMockTxHash: () => string };
       const transactionHash = generateSecureMockTxHash();
 
       console.warn('Blockchain minting simulated:', transactionHash);
       return {
         success: true,
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         transactionHash
       };
     } catch (error) {

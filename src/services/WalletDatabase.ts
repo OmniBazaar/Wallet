@@ -28,7 +28,7 @@ export interface WalletAccountData {
   /** Whether account is active */
   isActive: boolean;
   /** Account metadata */
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 /** Wallet preferences */
@@ -105,7 +105,55 @@ export interface QueryOptions {
   /** Sort order */
   sortOrder?: 'asc' | 'desc';
   /** Filters to apply */
-  filters?: Record<string, any>;
+  filters?: Record<string, unknown>;
+}
+
+/** Backup data structure */
+export interface BackupData {
+  /** Backup timestamp */
+  timestamp: number;
+  /** Database version */
+  version: number;
+  /** Backed up data */
+  data: {
+    /** Wallet accounts */
+    wallets: WalletAccountData[];
+    /** User preferences */
+    preferences: WalletPreferences[];
+    /** Configurations */
+    configs: WalletConfig[];
+    /** Transactions (from TransactionDatabase) */
+    transactions: unknown[];
+    /** NFTs (from NFTDatabase) */
+    nfts: unknown[];
+  };
+}
+
+/** Sync data structure */
+export interface SyncData {
+  /** Wallet accounts */
+  wallets?: WalletAccountData[];
+  /** Transactions */
+  transactions?: unknown[];
+  /** NFTs */
+  nfts?: unknown[];
+  /** Last modified timestamp */
+  lastModified?: number;
+}
+
+/** Sync result structure */
+export interface SyncResult {
+  /** Success status */
+  success: boolean;
+  /** Synced data */
+  synced: {
+    /** Wallet accounts */
+    wallets: WalletAccountData[];
+    /** Transactions */
+    transactions: unknown[];
+    /** NFTs */
+    nfts: unknown[];
+  };
 }
 
 /**
@@ -148,6 +196,7 @@ export class WalletDatabase {
   /**
    * Open IndexedDB database
    * @private
+   * @returns Promise resolving to IDBDatabase instance
    */
   private openDatabase(): Promise<IDBDatabase> {
     return new Promise((resolve, reject) => {
@@ -198,7 +247,7 @@ export class WalletDatabase {
    * @returns Success status
    */
   async saveAccount(account: WalletAccountData): Promise<boolean> {
-    if (!this.db) {
+    if (this.db === null) {
       throw new Error('Database not initialized');
     }
 
@@ -226,7 +275,7 @@ export class WalletDatabase {
    * @returns Account data or null
    */
   async getAccount(accountId: string): Promise<WalletAccountData | null> {
-    if (!this.db) {
+    if (this.db === null) {
       throw new Error('Database not initialized');
     }
 
@@ -236,7 +285,10 @@ export class WalletDatabase {
       
       return new Promise<WalletAccountData | null>((resolve, reject) => {
         const request = store.get(accountId);
-        request.onsuccess = () => resolve(request.result || null);
+        request.onsuccess = () => {
+          const result = request.result as WalletAccountData | null;
+          resolve(result);
+        };
         request.onerror = () => reject(request.error);
       });
     } catch (error) {
@@ -251,7 +303,7 @@ export class WalletDatabase {
    * @returns Array of accounts
    */
   async getAccounts(options: QueryOptions = {}): Promise<WalletAccountData[]> {
-    if (!this.db) {
+    if (this.db === null) {
       throw new Error('Database not initialized');
     }
 
@@ -262,31 +314,37 @@ export class WalletDatabase {
       return new Promise<WalletAccountData[]>((resolve, reject) => {
         const request = store.getAll();
         request.onsuccess = () => {
-          let results = request.result || [];
+          let results: WalletAccountData[] = request.result as WalletAccountData[] ?? [];
           
           // Apply filters
-          if (options.filters) {
+          if (options.filters !== undefined) {
             results = results.filter(account => {
-              return Object.entries(options.filters!).every(([key, value]) => {
-                return (account)[key] === value;
+              if (options.filters === null || options.filters === undefined) return true;
+              return Object.entries(options.filters).every(([key, value]) => {
+                return (account as unknown as Record<string, unknown>)[key] === value;
               });
             });
           }
 
           // Apply sorting
-          if (options.sortBy) {
+          if (options.sortBy !== undefined) {
+            const sortBy = options.sortBy;
             results.sort((a, b) => {
-              const aVal = (a)[options.sortBy!];
-              const bVal = (b)[options.sortBy!];
+              const aVal = (a as unknown as Record<string, unknown>)[sortBy];
+              const bVal = (b as unknown as Record<string, unknown>)[sortBy];
               const order = options.sortOrder === 'desc' ? -1 : 1;
-              return aVal > bVal ? order : aVal < bVal ? -order : 0;
+              
+              if (aVal === undefined || aVal === null || bVal === undefined || bVal === null) return 0;
+              if (aVal > bVal) return order;
+              if (aVal < bVal) return -order;
+              return 0;
             });
           }
 
           // Apply pagination
-          if (options.offset || options.limit) {
-            const start = options.offset || 0;
-            const end = options.limit ? start + options.limit : undefined;
+          if (options.offset !== undefined || options.limit !== undefined) {
+            const start = options.offset ?? 0;
+            const end = options.limit !== undefined ? start + options.limit : undefined;
             results = results.slice(start, end);
           }
 
@@ -306,7 +364,7 @@ export class WalletDatabase {
    * @returns Success status
    */
   async deleteAccount(accountId: string): Promise<boolean> {
-    if (!this.db) {
+    if (this.db === null) {
       throw new Error('Database not initialized');
     }
 
@@ -334,7 +392,7 @@ export class WalletDatabase {
    * @returns Success status
    */
   async savePreferences(preferences: WalletPreferences): Promise<boolean> {
-    if (!this.db) {
+    if (this.db === null) {
       throw new Error('Database not initialized');
     }
 
@@ -364,7 +422,7 @@ export class WalletDatabase {
    * @returns Preferences or default preferences
    */
   async getPreferences(userId: string): Promise<WalletPreferences> {
-    if (!this.db) {
+    if (this.db === null) {
       throw new Error('Database not initialized');
     }
 
@@ -374,11 +432,14 @@ export class WalletDatabase {
       
       const preferences = await new Promise<WalletPreferences | null>((resolve, reject) => {
         const request = store.get(userId);
-        request.onsuccess = () => resolve(request.result || null);
+        request.onsuccess = () => {
+          const result = request.result as WalletPreferences | null;
+          resolve(result);
+        };
         request.onerror = () => reject(request.error);
       });
 
-      if (preferences) {
+      if (preferences !== null) {
         return preferences;
       }
 
@@ -435,7 +496,7 @@ export class WalletDatabase {
    * @returns Success status
    */
   async saveConfig(config: WalletConfig): Promise<boolean> {
-    if (!this.db) {
+    if (this.db === null) {
       throw new Error('Database not initialized');
     }
 
@@ -465,7 +526,7 @@ export class WalletDatabase {
    * @returns Configuration or null
    */
   async getConfig(configId: string): Promise<WalletConfig | null> {
-    if (!this.db) {
+    if (this.db === null) {
       throw new Error('Database not initialized');
     }
 
@@ -475,7 +536,10 @@ export class WalletDatabase {
       
       return new Promise<WalletConfig | null>((resolve, reject) => {
         const request = store.get(configId);
-        request.onsuccess = () => resolve(request.result || null);
+        request.onsuccess = () => {
+          const result = request.result as WalletConfig | null;
+          resolve(result);
+        };
         request.onerror = () => reject(request.error);
       });
     } catch (error) {
@@ -489,7 +553,7 @@ export class WalletDatabase {
    * @returns Success status
    */
   async clearAll(): Promise<boolean> {
-    if (!this.db) {
+    if (this.db === null) {
       throw new Error('Database not initialized');
     }
 
@@ -529,6 +593,7 @@ export class WalletDatabase {
 
   /**
    * Clear database (alias for clearAll)
+   * @returns Success status
    */
   async clear(): Promise<boolean> {
     return await this.clearAll();
@@ -538,9 +603,10 @@ export class WalletDatabase {
    * Save wallet data
    * @param wallet - Wallet data to save
    * @returns Success status
+   * @throws {Error} When database not initialized
    */
-  async saveWallet(wallet: any): Promise<boolean> {
-    if (!this.db) {
+  async saveWallet(wallet: Partial<WalletAccountData> & { address: string }): Promise<boolean> {
+    if (this.db === null) {
       throw new Error('Database not initialized');
     }
 
@@ -576,8 +642,8 @@ export class WalletDatabase {
    * @param address - Wallet address
    * @returns Wallet data or null
    */
-  async getWallet(address: string): Promise<any | null> {
-    if (!this.db) {
+  async getWallet(address: string): Promise<WalletAccountData | null> {
+    if (this.db === null) {
       throw new Error('Database not initialized');
     }
 
@@ -586,9 +652,12 @@ export class WalletDatabase {
       const store = transaction.objectStore('accounts');
       
       // Use the ID directly as address is the ID
-      return new Promise<any | null>((resolve, reject) => {
+      return new Promise<WalletAccountData | null>((resolve, reject) => {
         const request = store.get(address);
-        request.onsuccess = () => resolve(request.result || null);
+        request.onsuccess = () => {
+          const result = request.result as WalletAccountData | null;
+          resolve(result);
+        };
         request.onerror = () => reject(request.error);
       });
     } catch (error) {
@@ -610,7 +679,7 @@ export class WalletDatabase {
    * Get all wallets
    * @returns Array of wallets
    */
-  async getAllWallets(): Promise<any[]> {
+  async getAllWallets(): Promise<WalletAccountData[]> {
     const accounts = await this.getAccounts();
     return accounts;
   }
@@ -621,14 +690,14 @@ export class WalletDatabase {
    * @param updates - Updates to apply
    * @returns Success status
    */
-  async updateWallet(address: string, updates: any): Promise<boolean> {
-    if (!this.db) {
+  async updateWallet(address: string, updates: Partial<WalletAccountData>): Promise<boolean> {
+    if (this.db === null) {
       throw new Error('Database not initialized');
     }
 
     try {
       const existing = await this.getWallet(address);
-      if (!existing) {
+      if (existing === null) {
         return false;
       }
 
@@ -657,10 +726,10 @@ export class WalletDatabase {
   /**
    * Encrypt sensitive data
    * @param data - Data to encrypt
-   * @param password - Encryption password (optional)
+   * @param _password - Encryption password (optional)
    * @returns Encrypted data
    */
-  async encryptData(data: any, password?: string): Promise<string> {
+  encryptData(data: unknown, _password?: string): string {
     // Simple base64 encoding for testing - in production use proper encryption
     const jsonStr = JSON.stringify(data);
     const encrypted = btoa(jsonStr);
@@ -670,10 +739,10 @@ export class WalletDatabase {
   /**
    * Decrypt sensitive data
    * @param encryptedData - Encrypted data
-   * @param password - Decryption password (optional)
+   * @param _password - Decryption password (optional)
    * @returns Decrypted data
    */
-  async decryptData(encryptedData: string, password?: string): Promise<any> {
+  decryptData(encryptedData: string, _password?: string): unknown {
     // Simple base64 decoding for testing - in production use proper decryption
     if (!encryptedData.startsWith('encrypted:')) {
       throw new Error('Invalid encrypted data format');
@@ -681,15 +750,15 @@ export class WalletDatabase {
     
     const base64Data = encryptedData.substring('encrypted:'.length);
     const jsonStr = atob(base64Data);
-    return JSON.parse(jsonStr);
+    return JSON.parse(jsonStr) as unknown;
   }
 
   /**
    * Create a backup of all wallet data
    * @returns Backup object with timestamp and data
    */
-  async createBackup(): Promise<any> {
-    if (!this.db) {
+  async createBackup(): Promise<BackupData> {
+    if (this.db === null) {
       throw new Error('Database not initialized');
     }
 
@@ -726,8 +795,8 @@ export class WalletDatabase {
    * @param backup - Backup object
    * @returns Success status
    */
-  async restoreFromBackup(backup: any): Promise<boolean> {
-    if (!this.db) {
+  async restoreFromBackup(backup: BackupData): Promise<boolean> {
+    if (this.db === null) {
       throw new Error('Database not initialized');
     }
 
@@ -736,21 +805,21 @@ export class WalletDatabase {
       await this.clearAll();
 
       // Restore wallets
-      if (backup.data.wallets) {
+      if (backup.data.wallets !== undefined) {
         for (const wallet of backup.data.wallets) {
           await this.saveAccount(wallet);
         }
       }
 
       // Restore preferences
-      if (backup.data.preferences) {
+      if (backup.data.preferences !== undefined) {
         for (const pref of backup.data.preferences) {
           await this.savePreferences(pref);
         }
       }
 
       // Restore configs
-      if (backup.data.configs) {
+      if (backup.data.configs !== undefined) {
         for (const config of backup.data.configs) {
           await this.saveConfig(config);
         }
@@ -771,14 +840,14 @@ export class WalletDatabase {
    * @param localData - Local data to sync
    * @returns Sync result
    */
-  async syncWithRemote(localData: any): Promise<any> {
+  syncWithRemote(localData: SyncData): SyncResult {
     // Mock sync for testing
     return {
       success: true,
       synced: {
-        wallets: localData.wallets || [],
-        transactions: localData.transactions || [],
-        nfts: localData.nfts || []
+        wallets: localData.wallets ?? [],
+        transactions: localData.transactions ?? [],
+        nfts: localData.nfts ?? []
       }
     };
   }
@@ -789,9 +858,9 @@ export class WalletDatabase {
    * @param remoteData - Remote data
    * @returns Resolved data (favors newer data)
    */
-  async resolveConflict(localData: any, remoteData: any): Promise<any> {
+  resolveConflict(localData: SyncData, remoteData: SyncData): SyncData {
     // Simple conflict resolution - favor newer data
-    if (!localData.lastModified || !remoteData.lastModified) {
+    if (localData.lastModified === undefined || remoteData.lastModified === undefined) {
       return remoteData;
     }
     
@@ -820,9 +889,10 @@ export class WalletDatabase {
   /**
    * Helper: Get all preferences
    * @private
+   * @returns Array of all preferences
    */
   private async getAllPreferences(): Promise<WalletPreferences[]> {
-    if (!this.db) return [];
+    if (this.db === null) return [];
     
     try {
       const transaction = this.db.transaction(['preferences'], 'readonly');
@@ -830,7 +900,10 @@ export class WalletDatabase {
       
       return new Promise<WalletPreferences[]>((resolve, reject) => {
         const request = store.getAll();
-        request.onsuccess = () => resolve(request.result || []);
+        request.onsuccess = () => {
+          const result = request.result as WalletPreferences[];
+          resolve(result ?? []);
+        };
         request.onerror = () => reject(request.error);
       });
     } catch (error) {
@@ -842,9 +915,10 @@ export class WalletDatabase {
   /**
    * Helper: Get all configs
    * @private
+   * @returns Array of all configurations
    */
   private async getAllConfigs(): Promise<WalletConfig[]> {
-    if (!this.db) return [];
+    if (this.db === null) return [];
     
     try {
       const transaction = this.db.transaction(['config'], 'readonly');
@@ -852,7 +926,10 @@ export class WalletDatabase {
       
       return new Promise<WalletConfig[]>((resolve, reject) => {
         const request = store.getAll();
-        request.onsuccess = () => resolve(request.result || []);
+        request.onsuccess = () => {
+          const result = request.result as WalletConfig[];
+          resolve(result ?? []);
+        };
         request.onerror = () => reject(request.error);
       });
     } catch (error) {
@@ -864,34 +941,38 @@ export class WalletDatabase {
   /**
    * Helper: Get all transactions (stub - actual data from TransactionDatabase)
    * @private
+   * @returns Array of transactions
    */
-  private async getAllTransactions(): Promise<any[]> {
+  private getAllTransactions(): Promise<unknown[]> {
     // This is a stub - actual transaction data should come from TransactionDatabase
-    return [];
+    return Promise.resolve([]);
   }
 
   /**
    * Helper: Get all NFTs (stub - actual data from NFTDatabase)
    * @private
+   * @returns Array of NFTs
    */
-  private async getAllNFTs(): Promise<any[]> {
+  private getAllNFTs(): Promise<unknown[]> {
     // This is a stub - actual NFT data should come from NFTDatabase
-    return [];
+    return Promise.resolve([]);
   }
 
   /**
    * Close database connection (alias for cleanup)
+   * @returns Promise resolving when closed
    */
-  async close(): Promise<void> {
-    return this.cleanup();
+  close(): void {
+    this.cleanup();
   }
 
   /**
    * Cleanup database and close connection
+   * @returns Promise resolving when cleanup is complete
    */
-  async cleanup(): Promise<void> {
+  cleanup(): void {
     try {
-      if (this.db) {
+      if (this.db !== null) {
         this.db.close();
         this.db = null;
       }

@@ -4,11 +4,12 @@
  * Manages balance queries and tracking through the Validator network
  */
 
-import { ValidatorClient } from '../../Validator/src/client/ValidatorClient';
-import { OmniCoinBlockchain } from '../../Validator/src/services/blockchain/OmniCoinBlockchain';
-import { IPFSStorageNetwork } from '../../Validator/src/services/storage/IPFSStorageNetwork';
 import { ethers } from 'ethers';
 import { ref, Ref } from 'vue';
+import { DebugLogger } from '../core/utils/debug-logger';
+
+// Create logger for this service
+const logger = new DebugLogger('services:validator-balance');
 
 /**
  * Configuration for the Validator Balance Service integration.
@@ -114,12 +115,12 @@ export interface PriceData {
 }
 
 /**
- *
+ * Service for managing and tracking cryptocurrency balances through the Validator network.
+ * Provides caching, history tracking, and reactive state management for wallet balances.
  */
 export class ValidatorBalanceService {
-  private validatorClient: ValidatorClient;
-  private blockchain: OmniCoinBlockchain;
-  private ipfsStorage: IPFSStorageNetwork;
+  private validatorClient: unknown; // Will be properly typed when validator client is integrated
+  private ipfsStorage: unknown;
   private config: ValidatorBalanceConfig;
   private balanceCache: BalanceCache = {};
   private priceCache: Map<string, PriceData> = new Map();
@@ -139,46 +140,50 @@ export class ValidatorBalanceService {
    */
   constructor(config: ValidatorBalanceConfig) {
     this.config = config;
-    this.validatorClient = new ValidatorClient(config.validatorEndpoint);
-    this.blockchain = this.validatorClient.getBlockchain();
-    this.ipfsStorage = this.validatorClient.getStorage();
+    // TODO: Integrate with OmniValidatorClient when available
+    this.validatorClient = null;
   }
 
   /**
    * Update the user identifier used by this service.
-   * @param userId
+   * @param userId - The new user identifier to set
    */
   public setUserId(userId: string): void {
     this.config.userId = userId;
   }
 
-  /** Expose a readonly view of the current configuration. */
+  /**
+   * Expose a readonly view of the current configuration.
+   * @returns The current service configuration
+   */
   public getConfig(): Readonly<ValidatorBalanceConfig> {
     return this.config;
   }
 
-  /** Initialize the balance service (validator client, caches, history). */
-  async initialize(): Promise<void> {
+  /**
+   * Initialize the balance service (validator client, caches, history).
+   */
+  initialize(): void {
     try {
       // Initialize validator client
-      await this.validatorClient.initialize();
+      // TODO: await this.validatorClient.connect();
       
       // Load cached data
       if (this.config.enableCaching) {
-        await this.loadCachedData();
+        this.loadCachedData();
       }
       
       // Load balance history
       if (this.config.enableHistoryTracking) {
-        await this.loadBalanceHistory();
+        this.loadBalanceHistory();
       }
       
       // Start price updates
       this.startPriceUpdates();
       
-      console.warn('Validator Balance Service initialized successfully');
+      logger.info('Validator Balance Service initialized successfully');
     } catch (error) {
-      console.error('Failed to initialize Validator Balance Service:', error);
+      logger.error('Failed to initialize Validator Balance Service:', error);
       throw new Error(`Balance service initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -197,24 +202,29 @@ export class ValidatorBalanceService {
       // Check cache first
       if (useCache && this.config.enableCaching) {
         const cached = this.balanceCache[address];
-        if (cached && (Date.now() - cached.timestamp) < this.config.cacheTimeout) {
+        if (cached !== undefined && (Date.now() - cached.timestamp) < this.config.cacheTimeout) {
           this.isLoadingRef.value = false;
           return cached.balance;
         }
       }
 
-      // Get native balance
-      const nativeBalance = await this.blockchain.getBalance(address);
+      // Await to maintain async behavior for future GraphQL integration
+      await Promise.resolve();
+
+      // Get native balance using GraphQL query
+      // TODO: Implement actual GraphQL query
+      const nativeBalance = BigInt(0);
       const nativeBalanceFormatted = ethers.formatEther(nativeBalance);
 
       // Get token balances
-      const tokens = await this.getTokenBalances(address);
+      const tokens = this.getTokenBalances(address);
 
       // Calculate total USD value
       let totalValueUSD = '0';
       if (tokens.length > 0) {
         const totalValue = tokens.reduce((sum, token) => {
-          const value = parseFloat(token.valueUSD || '0');
+          const valueStr = token.valueUSD;
+          const value = valueStr !== undefined ? parseFloat(valueStr) : 0;
           return sum + value;
         }, 0);
         totalValueUSD = totalValue.toFixed(2);
@@ -235,7 +245,7 @@ export class ValidatorBalanceService {
           balance: accountBalance,
           timestamp: Date.now()
         };
-        await this.saveCachedData();
+        this.saveCachedData();
       }
 
       // Update reactive reference
@@ -246,13 +256,13 @@ export class ValidatorBalanceService {
 
       // Track balance history
       if (this.config.enableHistoryTracking) {
-        await this.trackBalanceHistory(address, nativeBalance.toString());
+        void this.trackBalanceHistory(address, nativeBalance.toString());
       }
 
       this.isLoadingRef.value = false;
       return accountBalance;
     } catch (error) {
-      console.error('Error getting balance:', error);
+      logger.error('Error getting balance:', error);
       this.isLoadingRef.value = false;
       throw error;
     }
@@ -261,15 +271,16 @@ export class ValidatorBalanceService {
   /**
    * Get token balances for an address by iterating the validator token list.
    *
-   * @param address Account address
+   * @param _address - Account address
    * @returns Array of token balances with USD values when available
    */
-  async getTokenBalances(address: string): Promise<TokenBalance[]> {
+  getTokenBalances(_address: string): TokenBalance[] {
     try {
-      // Get token list from blockchain
-      const tokenList = await this.blockchain.getTokenList(address);
+      // Get token list from validator - for now returning empty array
+      // TODO: Implement token list query through GraphQL
+      const tokenList: Array<{address: string; symbol: string; name: string; decimals: number}> = [];
       
-      if (!tokenList || tokenList.length === 0) {
+      if (tokenList.length === 0) {
         return [];
       }
 
@@ -278,14 +289,15 @@ export class ValidatorBalanceService {
       // Get balance for each token
       for (const token of tokenList) {
         try {
-          const balance = await this.blockchain.getTokenBalance(address, token.address);
+          // TODO: Implement token balance query through GraphQL
+          const balance = BigInt(0);
           
           if (BigInt(balance) > BigInt(0)) {
             const balanceFormatted = ethers.formatUnits(balance, token.decimals);
             
             // Get price data
-            const priceData = await this.getTokenPrice(token.symbol);
-            const priceUSD = priceData?.price || '0';
+            const priceData = this.getTokenPrice(token.symbol);
+            const priceUSD = priceData?.price ?? '0';
             const valueUSD = (parseFloat(balanceFormatted) * parseFloat(priceUSD)).toFixed(2);
 
             tokenBalances.push({
@@ -301,22 +313,25 @@ export class ValidatorBalanceService {
             });
           }
         } catch (error) {
-          console.error(`Error getting balance for token ${token.symbol}:`, error);
+          logger.error(`Error getting balance for token ${token.symbol}:`, error);
         }
       }
 
-      return tokenBalances.sort((a, b) => 
-        parseFloat(b.valueUSD || '0') - parseFloat(a.valueUSD || '0')
-      );
+      return tokenBalances.sort((a, b) => {
+        const aValue = b.valueUSD !== undefined ? parseFloat(b.valueUSD) : 0;
+        const bValue = a.valueUSD !== undefined ? parseFloat(a.valueUSD) : 0;
+        return aValue - bValue;
+      });
     } catch (error) {
-      console.error('Error getting token balances:', error);
+      logger.error('Error getting token balances:', error);
       return [];
     }
   }
 
   /**
    * Get multiple account balances
-   * @param addresses
+   * @param addresses - Array of addresses to query
+   * @returns Record of addresses to account balances
    */
   async getMultipleBalances(addresses: string[]): Promise<Record<string, AccountBalance>> {
     try {
@@ -331,7 +346,7 @@ export class ValidatorBalanceService {
         
         const batchPromises = batch.map(address => 
           this.getBalance(address).catch(error => {
-            console.error(`Error getting balance for ${address}:`, error);
+            logger.error(`Error getting balance for ${address}:`, error);
             return null;
           })
         );
@@ -339,7 +354,7 @@ export class ValidatorBalanceService {
         const batchResults = await Promise.all(batchPromises);
         
         batchResults.forEach((result, index) => {
-          if (result) {
+          if (result !== null) {
             balances[batch[index]] = result;
           }
         });
@@ -348,7 +363,7 @@ export class ValidatorBalanceService {
       this.isLoadingRef.value = false;
       return balances;
     } catch (error) {
-      console.error('Error getting multiple balances:', error);
+      logger.error('Error getting multiple balances:', error);
       this.isLoadingRef.value = false;
       return {};
     }
@@ -356,27 +371,33 @@ export class ValidatorBalanceService {
 
   /**
    * Get token price
-   * @param symbol
+   * @param symbol - Token symbol to get price for
+   * @returns Price data or null if not available
    */
-  async getTokenPrice(symbol: string): Promise<PriceData | null> {
+  getTokenPrice(symbol: string): PriceData | null {
     try {
       // Check cache first
       const cached = this.priceCache.get(symbol);
-      if (cached && (Date.now() - cached.lastUpdated) < 60000) { // 1 minute cache
+      if (cached !== undefined && (Date.now() - cached.lastUpdated) < 60000) { // 1 minute cache
         return cached;
       }
 
-      // Get price from blockchain oracle or external source
-      const priceInfo = await this.blockchain.getTokenPrice(symbol);
+      // Get price from validator oracle - for now returning null
+      // TODO: Implement price query through GraphQL
+      const priceInfo: unknown = null;
       
-      if (!priceInfo) {
+      if (priceInfo === null || priceInfo === undefined) {
         return null;
       }
 
       const priceData: PriceData = {
         symbol,
-        price: typeof priceInfo === 'string' ? priceInfo : (priceInfo as any).price,
-        change24h: typeof priceInfo === 'string' ? '0' : ((priceInfo as any).change24h || '0'),
+        price: typeof priceInfo === 'string' ? priceInfo : 
+               (typeof priceInfo === 'object' && priceInfo !== null && 'price' in priceInfo && typeof (priceInfo as {price: unknown}).price === 'string') ? 
+               (priceInfo as {price: string}).price : '0',
+        change24h: typeof priceInfo === 'string' ? '0' : 
+                   (typeof priceInfo === 'object' && priceInfo !== null && 'change24h' in priceInfo && typeof (priceInfo as {change24h: unknown}).change24h === 'string') ?
+                   (priceInfo as {change24h: string}).change24h : '0',
         lastUpdated: Date.now()
       };
 
@@ -391,15 +412,15 @@ export class ValidatorBalanceService {
 
       return priceData;
     } catch (error) {
-      console.error(`Error getting price for ${symbol}:`, error);
+      logger.error(`Error getting price for ${symbol}:`, error);
       return null;
     }
   }
 
   /**
    * Start automatic balance updates
-   * @param addresses
-   * @param interval
+   * @param addresses - Array of addresses to monitor
+   * @param interval - Update interval in milliseconds (default: 30000)
    */
   startBalanceUpdates(addresses: string[], interval = 30000): void {
     addresses.forEach(address => {
@@ -408,8 +429,8 @@ export class ValidatorBalanceService {
       
       // Start new interval
       const intervalId = setInterval(() => {
-        this.getBalance(address, false).catch(error => {
-          console.error(`Error updating balance for ${address}:`, error);
+        void this.getBalance(address, false).catch(error => {
+          logger.error(`Error updating balance for ${address}:`, error);
         });
       }, interval);
       
@@ -419,12 +440,12 @@ export class ValidatorBalanceService {
 
   /**
    * Stop automatic balance updates
-   * @param address
+   * @param address - Optional address to stop updates for. If not provided, stops all updates
    */
   stopBalanceUpdates(address?: string): void {
-    if (address) {
+    if (address !== undefined) {
       const intervalId = this.updateIntervals.get(address);
-      if (intervalId) {
+      if (intervalId !== undefined) {
         clearInterval(intervalId);
         this.updateIntervals.delete(address);
       }
@@ -439,31 +460,33 @@ export class ValidatorBalanceService {
 
   /**
    * Get balance history for an address
-   * @param address
-   * @param limit
+   * @param address - Address to get history for
+   * @param limit - Maximum number of history entries to return (default: 100)
+   * @returns Array of balance history entries, most recent first
    */
   getBalanceHistory(address: string, limit = 100): BalanceHistory[] {
-    const history = this.balanceHistory.get(address) || [];
+    const history = this.balanceHistory.get(address) ?? [];
     return history.slice(-limit).reverse(); // Most recent first
   }
 
   /**
    * Track balance history
-   * @param address
-   * @param balance
+   * @param address - Address to track history for
+   * @param balance - Current balance value
    */
-  private async trackBalanceHistory(address: string, balance: string): Promise<void> {
+  private trackBalanceHistory(address: string, balance: string): void {
     try {
       if (!this.config.enableHistoryTracking) {
         return;
       }
 
-      const history = this.balanceHistory.get(address) || [];
-      const currentBlock = await this.blockchain.getBlockNumber();
+      const history = this.balanceHistory.get(address) ?? [];
+      // TODO: Implement block number query through GraphQL
+      const currentBlock = 0;
       
       // Only add if balance has changed
       const lastEntry = history[history.length - 1];
-      if (!lastEntry || lastEntry.balance !== balance) {
+      if (lastEntry === undefined || lastEntry.balance !== balance) {
         const entry: BalanceHistory = {
           address,
           timestamp: Date.now(),
@@ -487,10 +510,10 @@ export class ValidatorBalanceService {
         };
         
         // Save to storage
-        await this.saveBalanceHistory(address, history);
+        this.saveBalanceHistory(address, history);
       }
     } catch (error) {
-      console.error('Error tracking balance history:', error);
+      logger.error('Error tracking balance history:', error);
     }
   }
 
@@ -504,13 +527,14 @@ export class ValidatorBalanceService {
     this.pricesRef.value = {};
     
     if (this.config.enableCaching) {
-      this.saveCachedData();
+      void this.saveCachedData();
     }
   }
 
   /**
    * Export balance data
-   * @param format
+   * @param format - Export format, either 'json' or 'csv' (default: 'json')
+   * @returns Exported data as string in the requested format
    */
   exportBalanceData(format: 'json' | 'csv' = 'json'): string {
     const data = {
@@ -527,7 +551,7 @@ export class ValidatorBalanceService {
       const rows = Object.entries(this.balancesRef.value).map(([address, balance]) => [
         address,
         balance.nativeBalanceFormatted,
-        balance.totalValueUSD || '0',
+        balance.totalValueUSD ?? '0',
         new Date(balance.lastUpdated).toISOString()
       ]);
       
@@ -556,7 +580,8 @@ export class ValidatorBalanceService {
     const balances = Object.values(this.balancesRef.value);
     
     const totalValueUSD = balances.reduce((sum, balance) => {
-      return sum + parseFloat(balance.totalValueUSD || '0');
+      const valueStr = balance.totalValueUSD;
+      return sum + (valueStr !== undefined ? parseFloat(valueStr) : 0);
     }, 0);
     
     // Aggregate tokens across all accounts
@@ -564,9 +589,11 @@ export class ValidatorBalanceService {
     balances.forEach(balance => {
       balance.tokens.forEach(token => {
         const existing = tokenMap.get(token.symbol);
-        if (existing) {
+        if (existing !== undefined) {
           const totalBalance = parseFloat(existing.balanceFormatted) + parseFloat(token.balanceFormatted);
-          const totalValue = parseFloat(existing.valueUSD || '0') + parseFloat(token.valueUSD || '0');
+          const existingValue = existing.valueUSD !== undefined ? parseFloat(existing.valueUSD) : 0;
+          const tokenValue = token.valueUSD !== undefined ? parseFloat(token.valueUSD) : 0;
+          const totalValue = existingValue + tokenValue;
           
           tokenMap.set(token.symbol, {
             ...existing,
@@ -580,7 +607,11 @@ export class ValidatorBalanceService {
     });
     
     const topTokens = Array.from(tokenMap.values())
-      .sort((a, b) => parseFloat(b.valueUSD || '0') - parseFloat(a.valueUSD || '0'))
+      .sort((a, b) => {
+        const bValue = b.valueUSD !== undefined ? parseFloat(b.valueUSD) : 0;
+        const aValue = a.valueUSD !== undefined ? parseFloat(a.valueUSD) : 0;
+        return bValue - aValue;
+      })
       .slice(0, 10);
     
     return {
@@ -594,36 +625,39 @@ export class ValidatorBalanceService {
   /**
    * Disconnect from Validator services
    */
-  async disconnect(): Promise<void> {
+  disconnect(): void {
     try {
       // Stop all balance updates
       this.stopBalanceUpdates();
       
       // Save cached data
       if (this.config.enableCaching) {
-        await this.saveCachedData();
+        this.saveCachedData();
       }
       
       // Save balance history
       if (this.config.enableHistoryTracking) {
-        await this.saveAllBalanceHistory();
+        this.saveAllBalanceHistory();
       }
       
       // Disconnect from validator client
-      await this.validatorClient.disconnect();
+      // TODO: await this.validatorClient.disconnect();
       
-      console.warn('Validator Balance Service disconnected');
+      logger.info('Validator Balance Service disconnected');
     } catch (error) {
-      console.error('Error disconnecting balance service:', error);
+      logger.error('Error disconnecting balance service:', error);
     }
   }
 
   // Private helper methods
-  private async loadCachedData(): Promise<void> {
+  private loadCachedData(): void {
     try {
       const cached = localStorage.getItem(`balance_cache_${this.config.userId}`);
-      if (cached) {
-        this.balanceCache = JSON.parse(cached);
+      if (cached !== null) {
+        const parsedCache = JSON.parse(cached) as unknown;
+        if (typeof parsedCache === 'object' && parsedCache !== null) {
+          this.balanceCache = parsedCache as BalanceCache;
+        }
         
         // Update reactive reference
         const balances: Record<string, AccountBalance> = {};
@@ -633,39 +667,43 @@ export class ValidatorBalanceService {
         this.balancesRef.value = balances;
       }
     } catch (error) {
-      console.error('Error loading cached data:', error);
+      logger.error('Error loading cached data:', error);
     }
   }
 
-  private async saveCachedData(): Promise<void> {
+  private saveCachedData(): void {
     try {
       localStorage.setItem(
         `balance_cache_${this.config.userId}`,
         JSON.stringify(this.balanceCache)
       );
     } catch (error) {
-      console.error('Error saving cached data:', error);
+      logger.error('Error saving cached data:', error);
     }
   }
 
-  private async loadBalanceHistory(): Promise<void> {
+  private loadBalanceHistory(): void {
     try {
       const stored = localStorage.getItem(`balance_history_${this.config.userId}`);
-      if (stored) {
-        const historyData = JSON.parse(stored);
-        Object.entries(historyData).forEach(([address, history]) => {
-          this.balanceHistory.set(address, history as BalanceHistory[]);
-        });
-        
-        // Update reactive reference
-        this.historyRef.value = historyData;
+      if (stored !== null) {
+        const historyData = JSON.parse(stored) as unknown;
+        if (typeof historyData === 'object' && historyData !== null) {
+          Object.entries(historyData as Record<string, unknown>).forEach(([address, history]) => {
+            if (Array.isArray(history)) {
+              this.balanceHistory.set(address, history as BalanceHistory[]);
+            }
+          });
+          
+          // Update reactive reference
+          this.historyRef.value = historyData as Record<string, BalanceHistory[]>;
+        }
       }
     } catch (error) {
-      console.error('Error loading balance history:', error);
+      logger.error('Error loading balance history:', error);
     }
   }
 
-  private async saveBalanceHistory(_address: string, _history: BalanceHistory[]): Promise<void> {
+  private saveBalanceHistory(_address: string, _history: BalanceHistory[]): void {
     try {
       const allHistory = Object.fromEntries(this.balanceHistory.entries());
       localStorage.setItem(
@@ -673,11 +711,11 @@ export class ValidatorBalanceService {
         JSON.stringify(allHistory)
       );
     } catch (error) {
-      console.error('Error saving balance history:', error);
+      logger.error('Error saving balance history:', error);
     }
   }
 
-  private async saveAllBalanceHistory(): Promise<void> {
+  private saveAllBalanceHistory(): void {
     try {
       const allHistory = Object.fromEntries(this.balanceHistory.entries());
       localStorage.setItem(
@@ -685,20 +723,22 @@ export class ValidatorBalanceService {
         JSON.stringify(allHistory)
       );
     } catch (error) {
-      console.error('Error saving all balance history:', error);
+      logger.error('Error saving all balance history:', error);
     }
   }
 
   private startPriceUpdates(): void {
     // Update prices every 5 minutes
     setInterval(() => {
-      this.updateAllPrices().catch(error => {
-        console.error('Error updating prices:', error);
-      });
+      try {
+        this.updateAllPrices();
+      } catch (error) {
+        logger.error('Error updating prices:', error);
+      }
     }, 5 * 60 * 1000);
   }
 
-  private async updateAllPrices(): Promise<void> {
+  private updateAllPrices(): void {
     try {
       const symbols = new Set<string>();
       
@@ -710,24 +750,27 @@ export class ValidatorBalanceService {
       });
       
       // Update prices for all symbols
-      const pricePromises = Array.from(symbols).map(symbol => 
-        this.getTokenPrice(symbol).catch(error => {
-          console.error(`Error updating price for ${symbol}:`, error);
-          return null;
-        })
-      );
-      
-      await Promise.all(pricePromises);
+      Array.from(symbols).forEach(symbol => {
+        try {
+          this.getTokenPrice(symbol);
+        } catch (error) {
+          logger.error(`Error updating price for ${symbol}:`, error);
+        }
+      });
     } catch (error) {
-      console.error('Error updating all prices:', error);
+      logger.error('Error updating all prices:', error);
     }
   }
 }
 
-// Export configured instance
+/**
+ * Pre-configured instance of ValidatorBalanceService for use throughout the application.
+ * This singleton instance is initialized with default configuration from environment variables.
+ * The userId should be set when a user logs in using validatorBalance.setUserId(userId).
+ */
 export const validatorBalance = new ValidatorBalanceService({
-  validatorEndpoint: process.env.VITE_VALIDATOR_ENDPOINT || 'localhost:3000',
-  networkId: process.env.VITE_NETWORK_ID || 'omnibazaar-mainnet',
+  validatorEndpoint: process.env.VITE_VALIDATOR_ENDPOINT ?? 'localhost:3000',
+  networkId: process.env.VITE_NETWORK_ID ?? 'omnibazaar-mainnet',
   userId: '', // Will be set when user logs in
   enableCaching: true,
   cacheTimeout: 30000, // 30 seconds

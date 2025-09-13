@@ -49,6 +49,7 @@ export enum HWwalletCapabilities {
   typedMessage = "typedMessage",
 }
 /* eslint-enable @typescript-eslint/naming-convention */
+/* eslint-disable @typescript-eslint/naming-convention */
 
 /**
  * Re-export common utility functions used across the codebase

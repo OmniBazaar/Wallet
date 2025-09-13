@@ -61,17 +61,42 @@ export interface TransactionData {
   /** Transaction data */
   data?: string;
   /** Transaction logs */
-  logs?: any[];
+  logs?: Array<{
+    logIndex?: number;
+    transactionIndex?: number;
+    transactionHash?: string;
+    blockHash?: string;
+    blockNumber?: number;
+    address?: string;
+    data?: string;
+    topics?: string[];
+    type?: string;
+    removed?: boolean;
+  }>;
   /** Additional metadata */
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   /** Nonce */
   nonce?: number;
   /** Receipt */
-  receipt?: any;
+  receipt?: {
+    transactionHash?: string;
+    transactionIndex?: number;
+    blockHash?: string;
+    blockNumber?: number;
+    from?: string;
+    to?: string | null;
+    cumulativeGasUsed?: string;
+    gasUsed?: string;
+    contractAddress?: string | null;
+    logs?: Array<unknown>;
+    logsBloom?: string;
+    status?: number;
+  };
 }
 
 /**
- * Transaction database service
+ * Transaction database service.
+ * Manages transaction data storage and retrieval using IndexedDB.
  */
 export class TransactionDatabase {
   private isInitialized = false;
@@ -80,12 +105,15 @@ export class TransactionDatabase {
   private db: IDBDatabase | null = null;
 
   /**
-   *
+   * Creates a new TransactionDatabase instance.
    */
   constructor() {}
 
   /**
-   *
+   * Initializes the database connection.
+   * Opens or creates the IndexedDB database for transaction storage.
+   * @returns Promise that resolves when initialization is complete
+   * @throws Error if IndexedDB is not supported
    */
   async init(): Promise<void> {
     if (this.isInitialized) return;
@@ -99,6 +127,11 @@ export class TransactionDatabase {
     // console.log('TransactionDatabase initialized');
   }
 
+  /**
+   * Opens the IndexedDB database.
+   * @returns Promise that resolves with the database instance
+   * @private
+   */
   private openDatabase(): Promise<IDBDatabase> {
     return new Promise((resolve, reject) => {
       const request = indexedDB.open(this.dbName, this.dbVersion);
@@ -129,13 +162,13 @@ export class TransactionDatabase {
    * @returns Success status
    */
   async saveTransaction(transaction: TransactionData): Promise<boolean> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (this.db === null) throw new Error('Database not initialized');
 
     try {
       // Ensure transaction has an ID - use hash if ID not provided
       const txToSave = {
         ...transaction,
-        id: transaction.id || transaction.hash || 'tx-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9)
+        id: (transaction.id !== undefined && transaction.id !== '') ? transaction.id : (transaction.hash !== undefined && transaction.hash !== '') ? transaction.hash : `tx-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
       };
 
       const tx = this.db.transaction(['transactions'], 'readwrite');
@@ -160,7 +193,7 @@ export class TransactionDatabase {
    * @returns Transaction data or null
    */
   async getTransaction(idOrHash: string): Promise<TransactionData | null> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (this.db === null) throw new Error('Database not initialized');
 
     try {
       const tx = this.db.transaction(['transactions'], 'readonly');
@@ -169,12 +202,12 @@ export class TransactionDatabase {
       // First try to get by ID
       let result = await new Promise<TransactionData | null>((resolve, reject) => {
         const request = store.get(idOrHash);
-        request.onsuccess = () => resolve(request.result || null);
+        request.onsuccess = () => resolve(request.result as TransactionData | null);
         request.onerror = () => reject(request.error);
       });
 
       // If not found by ID and it looks like a hash, try by hash
-      if (!result && idOrHash.startsWith('0x') && idOrHash.length === 66) {
+      if (result === null && idOrHash.startsWith('0x') && idOrHash.length === 66) {
         result = await this.getTransactionByHash(idOrHash);
       }
 
@@ -186,11 +219,12 @@ export class TransactionDatabase {
   }
 
   /**
-   *
-   * @param filters
+   * Retrieves transactions with optional filtering.
+   * @param filters - Optional filters to apply to transactions
+   * @returns Promise that resolves with array of transactions
    */
-  async getTransactions(filters?: any): Promise<TransactionData[]> {
-    if (!this.db) throw new Error('Database not initialized');
+  async getTransactions(filters?: Record<string, unknown>): Promise<TransactionData[]> {
+    if (this.db === null) throw new Error('Database not initialized');
 
     try {
       const tx = this.db.transaction(['transactions'], 'readonly');
@@ -199,19 +233,20 @@ export class TransactionDatabase {
       return new Promise<TransactionData[]>((resolve, reject) => {
         const request = store.getAll();
         request.onsuccess = () => {
-          let results = request.result || [];
+          const rawResults = request.result as TransactionData[] | undefined;
+          let results: TransactionData[] = rawResults ?? [];
           
           // Apply filters if provided
-          if (filters) {
-            results = results.filter(tx => {
+          if (filters !== undefined) {
+            results = results.filter((tx: TransactionData) => {
               return Object.entries(filters).every(([key, value]) => {
-                return (tx)[key] === value;
+                return (tx as unknown as Record<string, unknown>)[key] === value;
               });
             });
           }
 
           // Sort by timestamp (newest first)
-          results.sort((a, b) => b.timestamp - a.timestamp);
+          results.sort((a: TransactionData, b: TransactionData) => b.timestamp - a.timestamp);
           resolve(results);
         };
         request.onerror = () => reject(request.error);
@@ -228,7 +263,7 @@ export class TransactionDatabase {
    * @returns Array of transactions
    */
   async getTransactionsByAddress(address: string): Promise<TransactionData[]> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (this.db === null) throw new Error('Database not initialized');
 
     try {
       const tx = this.db.transaction(['transactions'], 'readonly');
@@ -237,16 +272,17 @@ export class TransactionDatabase {
       return new Promise<TransactionData[]>((resolve, reject) => {
         const request = store.getAll();
         request.onsuccess = () => {
-          let results = request.result || [];
+          const rawResults = request.result as TransactionData[] | undefined;
+          let results: TransactionData[] = rawResults ?? [];
           
           // Filter by address (either from or to)
-          results = results.filter(tx => 
+          results = results.filter((tx: TransactionData) => 
             tx.from.toLowerCase() === address.toLowerCase() || 
             tx.to.toLowerCase() === address.toLowerCase()
           );
 
           // Sort by timestamp (newest first)
-          results.sort((a, b) => b.timestamp - a.timestamp);
+          results.sort((a: TransactionData, b: TransactionData) => b.timestamp - a.timestamp);
           resolve(results);
         };
         request.onerror = () => reject(request.error);
@@ -258,11 +294,12 @@ export class TransactionDatabase {
   }
 
   /**
-   *
-   * @param id
+   * Deletes a transaction by ID.
+   * @param id - Transaction ID to delete
+   * @returns Promise that resolves with success status
    */
   async deleteTransaction(id: string): Promise<boolean> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (this.db === null) throw new Error('Database not initialized');
 
     try {
       const tx = this.db.transaction(['transactions'], 'readwrite');
@@ -282,17 +319,19 @@ export class TransactionDatabase {
   }
 
   /**
-   *
+   * Clears all transactions from the database.
+   * @returns Promise that resolves with success status
    */
   async clear(): Promise<boolean> {
     return await this.clearAll();
   }
 
   /**
-   *
+   * Clears all transactions from the database.
+   * @returns Promise that resolves with success status
    */
   async clearAll(): Promise<boolean> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (this.db === null) throw new Error('Database not initialized');
 
     try {
       const tx = this.db.transaction(['transactions'], 'readwrite');
@@ -312,16 +351,16 @@ export class TransactionDatabase {
   }
 
   /**
-   *
+   * Cleans up database resources and closes connections.
+   * @returns Promise that resolves when cleanup is complete
    */
-  async cleanup(): Promise<void> {
+  cleanup(): void {
     try {
-      if (this.db) {
+      if (this.db !== null) {
         this.db.close();
         this.db = null;
       }
       this.isInitialized = false;
-      // console.log('TransactionDatabase cleanup completed');
     } catch (error) {
       console.error('Error during TransactionDatabase cleanup:', error);
     }
@@ -333,7 +372,7 @@ export class TransactionDatabase {
    * @returns Transaction data or null
    */
   async getTransactionByHash(hash: string): Promise<TransactionData | null> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (this.db === null) throw new Error('Database not initialized');
 
     try {
       const tx = this.db.transaction(['transactions'], 'readonly');
@@ -342,7 +381,7 @@ export class TransactionDatabase {
       
       return new Promise<TransactionData | null>((resolve, reject) => {
         const request = index.get(hash);
-        request.onsuccess = () => resolve(request.result || null);
+        request.onsuccess = () => resolve(request.result as TransactionData | null);
         request.onerror = () => reject(request.error);
       });
     } catch (error) {
@@ -358,7 +397,7 @@ export class TransactionDatabase {
    * @returns Array of transactions
    */
   async getTransactionsByDateRange(startDate: number, endDate: number): Promise<TransactionData[]> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (this.db === null) throw new Error('Database not initialized');
 
     try {
       const tx = this.db.transaction(['transactions'], 'readonly');
@@ -367,15 +406,16 @@ export class TransactionDatabase {
       return new Promise<TransactionData[]>((resolve, reject) => {
         const request = store.getAll();
         request.onsuccess = () => {
-          let results = request.result || [];
+          const rawResults = request.result as TransactionData[] | undefined;
+          let results: TransactionData[] = rawResults ?? [];
           
           // Filter by date range
-          results = results.filter(tx => 
+          results = results.filter((tx: TransactionData) => 
             tx.timestamp >= startDate && tx.timestamp <= endDate
           );
 
           // Sort by timestamp (newest first)
-          results.sort((a, b) => b.timestamp - a.timestamp);
+          results.sort((a: TransactionData, b: TransactionData) => b.timestamp - a.timestamp);
           resolve(results);
         };
         request.onerror = () => reject(request.error);
@@ -393,20 +433,19 @@ export class TransactionDatabase {
    * @param updates - Additional updates
    * @returns Success status
    */
-  async updateTransactionStatus(hash: string, status: string, updates?: any): Promise<boolean> {
-    if (!this.db) throw new Error('Database not initialized');
+  async updateTransactionStatus(hash: string, status: string, updates?: Partial<TransactionData>): Promise<boolean> {
+    if (this.db === null) throw new Error('Database not initialized');
 
     try {
       const existing = await this.getTransactionByHash(hash);
-      if (!existing) {
+      if (existing === null) {
         return false;
       }
 
-      const updated = {
+      const updated: TransactionData = {
         ...existing,
         status: status as TransactionStatus,
-        ...updates,
-        updatedAt: Date.now()
+        ...(updates ?? {})
       };
 
       const tx = this.db.transaction(['transactions'], 'readwrite');
@@ -430,13 +469,16 @@ export class TransactionDatabase {
    * @param address - Address to get statistics for
    * @returns Statistics object
    */
-  async getStatistics(address: string): Promise<any> {
+  async getStatistics(address: string): Promise<{
+    totalTransactions: number;
+    totalVolume: string;
+  }> {
     const transactions = await this.getTransactionsByAddress(address);
     
     let totalVolume = BigInt(0);
     for (const tx of transactions) {
       try {
-        totalVolume += BigInt(tx.value || '0');
+        totalVolume += BigInt(tx.value !== '' ? tx.value : '0');
       } catch (e) {
         // Handle invalid values
       }
@@ -462,7 +504,7 @@ export class TransactionDatabase {
    * @returns Success status
    */
   async bulkInsert(transactions: TransactionData[]): Promise<boolean> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (this.db === null) throw new Error('Database not initialized');
 
     try {
       const tx = this.db.transaction(['transactions'], 'readwrite');
@@ -488,7 +530,7 @@ export class TransactionDatabase {
    * @returns Number of transactions
    */
   async getTransactionCount(): Promise<number> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (this.db === null) throw new Error('Database not initialized');
 
     try {
       const tx = this.db.transaction(['transactions'], 'readonly');
@@ -496,7 +538,7 @@ export class TransactionDatabase {
       
       return new Promise<number>((resolve, reject) => {
         const request = store.count();
-        request.onsuccess = () => resolve(request.result || 0);
+        request.onsuccess = () => resolve(request.result);
         request.onerror = () => reject(request.error);
       });
     } catch (error) {
@@ -511,7 +553,7 @@ export class TransactionDatabase {
    * @returns Success status
    */
   async cleanupOldData(maxAge: number): Promise<boolean> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (this.db === null) throw new Error('Database not initialized');
 
     try {
       const cutoffTime = Date.now() - maxAge;
@@ -520,7 +562,10 @@ export class TransactionDatabase {
       
       const allTransactions = await new Promise<TransactionData[]>((resolve, reject) => {
         const request = store.getAll();
-        request.onsuccess = () => resolve(request.result || []);
+        request.onsuccess = () => {
+          const rawResults = request.result as TransactionData[] | undefined;
+          resolve(rawResults ?? []);
+        };
         request.onerror = () => reject(request.error);
       });
 
@@ -545,7 +590,7 @@ export class TransactionDatabase {
   /**
    * Close database connection (alias for cleanup)
    */
-  async close(): Promise<void> {
-    return this.cleanup();
+  close(): void {
+    this.cleanup();
   }
 }

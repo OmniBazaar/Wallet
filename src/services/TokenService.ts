@@ -118,7 +118,7 @@ export class TokenService {
     }
     
     // Load default tokens
-    await this.loadDefaultTokens();
+    this.loadDefaultTokens();
     
     this.isInitialized = true;
     // console.log('TokenService initialized');
@@ -136,12 +136,12 @@ export class TokenService {
     }
     
     const wallet = this.walletService.getWallet();
-    if (!wallet) throw new Error('Wallet not available');
+    if (wallet === null) throw new Error('Wallet not available');
     
-    const address = walletAddress || await wallet.getAddress();
-    const provider = await providerManager.getActiveProvider();
+    const address = walletAddress ?? await wallet.getAddress();
+    const provider = providerManager.getActiveProvider();
     
-    if (!provider) {
+    if (provider === null) {
       throw new Error('No active provider');
     }
     
@@ -150,7 +150,7 @@ export class TokenService {
       if ('getProvider' in provider && typeof provider.getProvider === 'function') {
         const ethersProvider = provider.getProvider();
         const contract = new Contract(tokenAddress, ERC20_ABI, ethersProvider);
-        const balance = await contract.balanceOf(address);
+        const balance = await contract.balanceOf(address) as bigint;
         return balance;
       } else {
         throw new Error('Provider does not support ERC20 operations');
@@ -162,17 +162,19 @@ export class TokenService {
   }
 
   /**
-   *
-   * @param tokenAddress
+   * Get token information by address
+   * @param tokenAddress - Token contract address
+   * @returns Token information or null if not found
    */
-  async getTokenInfo(tokenAddress: string): Promise<TokenInfo | null> {
-    return this.supportedTokens.get(tokenAddress.toLowerCase()) || null;
+  getTokenInfo(tokenAddress: string): TokenInfo | null {
+    return this.supportedTokens.get(tokenAddress.toLowerCase()) ?? null;
   }
 
   /**
-   *
+   * Get all cached token balances
+   * @returns Array of token balances from cache
    */
-  async getAllTokenBalances(): Promise<TokenBalance[]> {
+  getAllTokenBalances(): TokenBalance[] {
     return Array.from(this.balanceCache.values());
   }
 
@@ -200,7 +202,7 @@ export class TokenService {
         if (balance > BigInt(0)) {
           const formatted = ethers.formatUnits(balance, token.decimals);
           const price = await priceFeedService.getPrice(token.symbol);
-          const valueUSD = price?.priceUSD ? parseFloat(formatted) * price.priceUSD : undefined;
+          const valueUSD = price?.priceUSD !== undefined ? parseFloat(formatted) * price.priceUSD : undefined;
           
           balances.push({
             token: { ...token, chain },
@@ -238,10 +240,10 @@ export class TokenService {
     }
     
     const wallet = this.walletService.getWallet();
-    if (!wallet) throw new Error('Wallet not available');
+    if (wallet === null) throw new Error('Wallet not available');
     
-    const provider = await providerManager.getActiveProvider();
-    if (!provider) throw new Error('No active provider');
+    const provider = providerManager.getActiveProvider();
+    if (provider === null) throw new Error('No active provider');
     
     // Check if provider has getSigner method
     if (!('getSigner' in provider) || typeof provider.getSigner !== 'function') {
@@ -250,7 +252,7 @@ export class TokenService {
     const signer = await provider.getSigner();
     const contract = new Contract(tokenAddress, ERC20_ABI, signer);
     
-    const tx = await contract.transfer(recipient, amount);
+    const tx = await contract.transfer(recipient, amount) as ethers.TransactionResponse;
     await tx.wait();
     
     return tx.hash;
@@ -272,10 +274,10 @@ export class TokenService {
     }
     
     const wallet = this.walletService.getWallet();
-    if (!wallet) throw new Error('Wallet not available');
+    if (wallet === null) throw new Error('Wallet not available');
     
-    const provider = await providerManager.getActiveProvider();
-    if (!provider) throw new Error('No active provider');
+    const provider = providerManager.getActiveProvider();
+    if (provider === null) throw new Error('No active provider');
     
     // Check if provider has getSigner method
     if (!('getSigner' in provider) || typeof provider.getSigner !== 'function') {
@@ -284,7 +286,7 @@ export class TokenService {
     const signer = await provider.getSigner();
     const contract = new Contract(tokenAddress, ERC20_ABI, signer);
     
-    const tx = await contract.approve(spender, amount);
+    const tx = await contract.approve(spender, amount) as ethers.TransactionResponse;
     await tx.wait();
     
     return tx.hash;
@@ -308,8 +310,8 @@ export class TokenService {
       throw new Error('Invalid spender address');
     }
     
-    const provider = await providerManager.getActiveProvider();
-    if (!provider) throw new Error('No active provider');
+    const provider = providerManager.getActiveProvider();
+    if (provider === null) throw new Error('No active provider');
     
     // Get appropriate provider for contract calls
     let contractRunner: ethers.ContractRunner;
@@ -320,7 +322,7 @@ export class TokenService {
     }
     
     const contract = new Contract(tokenAddress, ERC20_ABI, contractRunner);
-    const allowance = await contract.allowance(owner, spender);
+    const allowance = await contract.allowance(owner, spender) as bigint;
     
     return allowance;
   }
@@ -334,8 +336,8 @@ export class TokenService {
       throw new Error('Invalid token address');
     }
     
-    const provider = await providerManager.getActiveProvider();
-    if (!provider) throw new Error('No active provider');
+    const provider = providerManager.getActiveProvider();
+    if (provider === null) throw new Error('No active provider');
     
     // Get appropriate provider for contract calls
     let contractRunner: ethers.ContractRunner;
@@ -349,10 +351,10 @@ export class TokenService {
     
     // Fetch token metadata from chain if not provided
     const [symbol, name, decimals, totalSupply] = await Promise.all([
-      token.symbol || contract.symbol(),
-      token.name || contract.name(),
-      token.decimals || contract.decimals(),
-      contract.totalSupply()
+      token.symbol ?? contract.symbol() as Promise<string>,
+      token.name ?? contract.name() as Promise<string>,
+      token.decimals ?? contract.decimals() as Promise<number>,
+      contract.totalSupply() as Promise<bigint>
     ]);
     
     // Get network from provider
@@ -399,10 +401,10 @@ export class TokenService {
     
     for (const address of tokenAddresses) {
       const token = this.supportedTokens.get(address.toLowerCase());
-      if (token) {
+      if (token !== undefined) {
         try {
           const priceData = await priceFeedService.getPrice(token.symbol);
-          if (priceData && priceData.priceUSD) {
+          if (priceData !== null && priceData.priceUSD !== undefined) {
             prices.set(address, priceData.priceUSD);
           }
         } catch (error) {
@@ -420,7 +422,7 @@ export class TokenService {
    * @param chain - Chain name
    * @returns Array of popular tokens
    */
-  async getPopularTokens(chain: string): Promise<TokenInfo[]> {
+  getPopularTokens(chain: string): TokenInfo[] {
     // Define popular tokens by chain
     const popularTokensByChain: Record<string, TokenInfo[]> = {
       ethereum: [
@@ -479,21 +481,21 @@ export class TokenService {
       ]
     };
     
-    return popularTokensByChain[chain] || [];
+    return popularTokensByChain[chain] ?? [];
   }
 
   /**
    * Get token transaction history
-   * @param walletAddress - Wallet address
-   * @param tokenAddress - Token address (optional, all tokens if not provided)
-   * @param limit - Number of transactions to return
+   * @param _walletAddress - Wallet address
+   * @param _tokenAddress - Token address (optional, all tokens if not provided)
+   * @param _limit - Number of transactions to return
    * @returns Array of token transactions
    */
-  async getTokenTransactionHistory(
-    walletAddress: string,
-    tokenAddress?: string,
-    limit: number = 10
-  ): Promise<TokenTransaction[]> {
+  getTokenTransactionHistory(
+    _walletAddress: string,
+    _tokenAddress?: string,
+    _limit: number = 10
+  ): TokenTransaction[] {
     // This would typically integrate with a blockchain indexer service
     // For now, return empty array
     return [];
@@ -501,10 +503,10 @@ export class TokenService {
 
   /**
    * Get DeFi positions
-   * @param walletAddress - Wallet address
+   * @param _walletAddress - Wallet address
    * @returns Array of DeFi positions
    */
-  async getDeFiPositions(walletAddress: string): Promise<DeFiPosition[]> {
+  getDeFiPositions(_walletAddress: string): DeFiPosition[] {
     // This would integrate with DeFi protocols
     // For now, return empty array
     return [];
@@ -517,20 +519,23 @@ export class TokenService {
   private getCustomTokens(): TokenInfo[] {
     try {
       const stored = localStorage.getItem('customTokens');
-      if (!stored) return [];
+      if (stored === null) return [];
       
       // Parse and convert string totalSupply back to BigInt
-      const parsed = JSON.parse(stored);
-      return parsed.map((token: any) => ({
-        ...token,
-        totalSupply: token.totalSupply ? BigInt(token.totalSupply) : undefined
-      }));
+      const parsed = JSON.parse(stored) as Array<TokenInfo & { totalSupply?: string }>;
+      return parsed.map((token) => {
+        const result: TokenInfo = {
+          ...token,
+          ...(token.totalSupply !== undefined && { totalSupply: BigInt(token.totalSupply) })
+        };
+        return result;
+      });
     } catch {
       return [];
     }
   }
 
-  private async loadDefaultTokens(): Promise<void> {
+  private loadDefaultTokens(): void {
     // Load default OmniCoin
     const defaultToken: TokenInfo = {
       address: '0xA0b86a33E6441Cc00C5d8a08E3B7F4a0A6F0D4Ce',
@@ -545,7 +550,7 @@ export class TokenService {
     // Load popular tokens for major chains
     const chains = ['ethereum', 'polygon', 'avalanche'];
     for (const chain of chains) {
-      const popularTokens = await this.getPopularTokens(chain);
+      const popularTokens = this.getPopularTokens(chain);
       for (const token of popularTokens) {
         this.supportedTokens.set(token.address.toLowerCase(), token);
       }
@@ -559,16 +564,16 @@ export class TokenService {
   }
 
   /**
-   *
+   * Clear the token balance cache
    */
-  async clearCache(): Promise<void> {
+  clearCache(): void {
     this.balanceCache.clear();
   }
 
   /**
-   *
+   * Clean up service resources
    */
-  async cleanup(): Promise<void> {
+  cleanup(): void {
     this.supportedTokens.clear();
     this.balanceCache.clear();
     this.isInitialized = false;
@@ -588,9 +593,9 @@ export class TokenService {
       try {
         const tokens = await this.getTokensByChain(walletAddress, chain);
         allTokens.push(...tokens);
-      } catch (error) {
+      } catch (_error) {
         // Continue with other chains if one fails
-        console.error(`Failed to get tokens for ${chain}:`, error);
+        // Silently skip failed chains
       }
     }
     
@@ -599,12 +604,12 @@ export class TokenService {
 
   /**
    * Get price history for a token
-   * @param tokenAddress - Token contract address
-   * @param chain - Chain name
+   * @param _tokenAddress - Token contract address
+   * @param _chain - Chain name
    * @param period - Time period (e.g., '7d', '30d')
    * @returns Array of price points
    */
-  async getPriceHistory(tokenAddress: string, chain: string, period: string): Promise<Array<{ timestamp: number; price: number }>> {
+  getPriceHistory(_tokenAddress: string, _chain: string, period: string): Array<{ timestamp: number; price: number }> {
     // In a real implementation, this would fetch from a price API
     // For testing, return mock data
     const now = Date.now();
@@ -624,11 +629,11 @@ export class TokenService {
   /**
    * Convert token amounts between different tokens
    * @param params - Conversion parameters
-   * @param params.fromToken
-   * @param params.toToken
-   * @param params.amount
-   * @param params.chain
-   * @returns Converted amount
+   * @param params.fromToken - Address of the token to convert from
+   * @param params.toToken - Address of the token to convert to
+   * @param params.amount - Amount to convert in smallest unit
+   * @param params.chain - Blockchain chain name
+   * @returns Converted amount and exchange rate
    */
   async convertToken(params: {
     fromToken: string;
@@ -638,8 +643,8 @@ export class TokenService {
   }): Promise<{ amount: bigint; rate: number }> {
     // Get prices for both tokens
     const prices = await this.getTokenPrices([params.fromToken, params.toToken]);
-    const fromPrice = prices.get(params.fromToken) || 1;
-    const toPrice = prices.get(params.toToken) || 1;
+    const fromPrice = prices.get(params.fromToken) ?? 1;
+    const toPrice = prices.get(params.toToken) ?? 1;
     
     // Calculate conversion rate
     const rate = fromPrice / toPrice;
@@ -658,7 +663,7 @@ export class TokenService {
    * @param query - Search query
    * @returns Array of matching tokens
    */
-  async searchTokens(query: string): Promise<TokenInfo[]> {
+  searchTokens(query: string): TokenInfo[] {
     const allTokens: TokenInfo[] = [];
     const lowerQuery = query.toLowerCase();
     
@@ -676,15 +681,15 @@ export class TokenService {
   /**
    * Check if a contract address is a valid token
    * @param address - Contract address
-   * @param chain - Chain name
+   * @param _chain - Chain name
    * @returns True if valid token
    */
-  async isValidToken(address: string, chain: string): Promise<boolean> {
+  isValidToken(address: string, _chain: string): boolean {
     if (!ethers.isAddress(address)) return false;
     
     try {
       // Try to get token info
-      const info = await this.getTokenInfo(address);
+      const info = this.getTokenInfo(address);
       return info !== null;
     } catch {
       return false;
@@ -694,18 +699,18 @@ export class TokenService {
   /**
    * Get detailed token metadata
    * @param address - Token address
-   * @param chain - Chain name
+   * @param _chain - Chain name
    * @returns Token metadata
    */
-  async getTokenMetadata(address: string, chain: string): Promise<{
+  getTokenMetadata(address: string, _chain: string): {
     name: string;
     symbol: string;
     decimals: number;
     totalSupply?: bigint;
     logoUri?: string;
-  } | null> {
-    const info = await this.getTokenInfo(address);
-    if (!info) return null;
+  } | null {
+    const info = this.getTokenInfo(address);
+    if (info === null) return null;
     
     return {
       name: info.name,
@@ -722,8 +727,8 @@ export class TokenService {
    * @param type - Transaction type ('sent' | 'received' | 'all')
    * @returns Filtered transactions
    */
-  async getTransactionsByType(walletAddress: string, type: 'sent' | 'received' | 'all'): Promise<any[]> {
-    const history = await this.getTokenTransactionHistory(walletAddress);
+  getTransactionsByType(walletAddress: string, type: 'sent' | 'received' | 'all'): TokenTransaction[] {
+    const history = this.getTokenTransactionHistory(walletAddress);
     
     if (type === 'all') return history;
     if (type === 'sent') return history.filter(tx => tx.from?.toLowerCase() === walletAddress.toLowerCase());
@@ -735,22 +740,22 @@ export class TokenService {
   /**
    * Calculate yield for DeFi positions
    * @param params - Yield calculation parameters
-   * @param params.protocol
-   * @param params.token
-   * @param params.amount
-   * @param params.duration
-   * @returns Yield information
+   * @param params.protocol - DeFi protocol name
+   * @param params.token - Token address
+   * @param params.amount - Amount staked/deposited
+   * @param params.duration - Duration in days
+   * @returns Yield information with APY and estimated rewards
    */
-  async calculateYield(params: {
+  calculateYield(params: {
     protocol: string;
     token: string;
     amount: bigint;
     duration: number;
-  }): Promise<{
+  }): {
     apy: number;
     estimatedRewards: bigint;
     protocol: string;
-  }> {
+  } {
     // Mock yield calculation
     const apyRates: Record<string, number> = {
       'aave': 5.2,
@@ -759,7 +764,7 @@ export class TokenService {
       'curve': 6.3
     };
     
-    const apy = apyRates[params.protocol] || 5.0;
+    const apy = apyRates[params.protocol] ?? 5.0;
     const dailyRate = apy / 365 / 100;
     const estimatedRewards = BigInt(Math.floor(Number(params.amount) * dailyRate * params.duration));
     

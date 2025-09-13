@@ -146,7 +146,7 @@ export class BrowserExtensionService extends EventEmitter {
         
         default: {
           // Forward to wallet service for other methods
-          const result = await this.walletService.request({ method, params }) as unknown;
+          const result = await this.walletService.request({ method, params });
           return {
             ...(id !== undefined && { id }),
             result,

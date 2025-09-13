@@ -12,6 +12,8 @@ import { TransactionService } from '../core/transaction/TransactionService';
 import { NFTService } from './NFTService';
 import * as crypto from 'crypto';
 
+// Window.ethereum type is already declared in types/shims.d.ts
+
 /** Provider configuration for different chains */
 export interface ProviderConfig {
   /** Chain ID */
@@ -98,7 +100,7 @@ export class WalletService {
       }
 
       // Initialize keyring service using getInstance if available
-      this.keyringService = KeyringService.getInstance ? KeyringService.getInstance() : null;
+      this.keyringService = KeyringService.getInstance !== undefined ? KeyringService.getInstance() : null;
 
       // Initialize provider if not provided
       if (this.currentProvider === null) {
@@ -140,20 +142,18 @@ export class WalletService {
    * @private
    */
   private initializeProvider(): void {
-    if (typeof window !== 'undefined' && (window as any).ethereum !== undefined) { // eslint-disable-line @typescript-eslint/no-explicit-any
-      this.currentProvider = new BrowserProvider((window as any).ethereum); // eslint-disable-line @typescript-eslint/no-explicit-any
+    if (typeof window !== 'undefined' && window.ethereum !== undefined) {
+      this.currentProvider = new BrowserProvider(window.ethereum as ethers.Eip1193Provider);
     } else {
       // Use default RPC provider for the default chain
       const defaultConfig = this.config.providers[this.config.defaultChainId];
       if (defaultConfig !== undefined) {
         // Create a fallback provider - in production this should be more robust
-        const provider = {
-          request: (): Promise<never> => { throw new Error('No provider available'); },
-          on: (): void => {},
-          removeListener: (): void => {},
-          removeAllListeners: (): void => {}
+        // Create a minimal provider that satisfies the interface
+        const provider: ethers.Eip1193Provider = {
+          request: (): Promise<never> => { throw new Error('No provider available'); }
         };
-        this.currentProvider = new BrowserProvider(provider as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+        this.currentProvider = new BrowserProvider(provider);
       }
     }
   }
@@ -311,14 +311,13 @@ export class WalletService {
    * Get keyring accounts
    * @returns Array of keyring accounts
    */
-  // eslint-disable-next-line @typescript-eslint/require-await
   async getAccounts(): Promise<KeyringAccount[]> {
     if (this.keyringService === null) {
-      return [];
+      return Promise.resolve([]);
     }
     // Use the instance keyringService
     const accounts = this.keyringService.getAccounts();
-    return accounts;
+    return Promise.resolve(accounts);
   }
 
   /**
@@ -327,11 +326,11 @@ export class WalletService {
    * @param name - Account name
    * @returns Created account
    */
-  async addAccountFromSeed(seedPhrase: string, name: string): Promise<KeyringAccount> {
+  addAccountFromSeed(seedPhrase: string, name: string): Promise<KeyringAccount> {
     if (this.keyringService === null) {
       throw new Error('Keyring service not initialized');
     }
-    return this.keyringService.addAccountFromSeed(seedPhrase, name);
+    return Promise.resolve(this.keyringService.addAccountFromSeed(seedPhrase, name));
   }
 
   /**
@@ -340,11 +339,11 @@ export class WalletService {
    * @param name - Account name
    * @returns Created account
    */
-  async addAccountFromPrivateKey(privateKey: string, name: string): Promise<KeyringAccount> {
+  addAccountFromPrivateKey(privateKey: string, name: string): Promise<KeyringAccount> {
     if (this.keyringService === null) {
       throw new Error('Keyring service not initialized');
     }
-    return this.keyringService.addAccountFromPrivateKey(privateKey, name);
+    return Promise.resolve(this.keyringService.addAccountFromPrivateKey(privateKey, name));
   }
 
   /**
@@ -434,16 +433,29 @@ export class WalletService {
     
     // Send transaction through transaction service
     try {
+      // Determine chain type based on current chainId
+      const chainId = await this.getChainId();
+      let chainType: 'ethereum' | 'polygon' | 'arbitrum' | 'optimism' = 'ethereum';
+      if (chainId === 137) {
+        chainType = 'polygon';
+      } else if (chainId === 42161) {
+        chainType = 'arbitrum';
+      } else if (chainId === 10) {
+        chainType = 'optimism';
+      }
+      
       const txRequest: { 
         to: string; 
         value: string; 
         data: string; 
+        chainType: 'ethereum' | 'polygon' | 'arbitrum' | 'optimism';
         gasLimit?: number; 
         gasPrice?: string; 
       } = {
         to: tx.to,
         value: tx.value?.toString() ?? '0',
-        data: tx.data ?? '0x'
+        data: tx.data ?? '0x',
+        chainType
       };
       
       if (tx.gasLimit !== undefined && tx.gasLimit !== null) {
@@ -453,7 +465,7 @@ export class WalletService {
         txRequest.gasPrice = tx.gasPrice.toString();
       }
       
-      const txResponse = await this.transactionService.sendTransaction(txRequest as any);
+      const txResponse = await this.transactionService.sendTransaction(txRequest);
       
       return { hash: txResponse.hash };
     } catch (error) {
@@ -473,7 +485,7 @@ export class WalletService {
    * @param request.params - RPC method parameters
    * @returns RPC response
    */
-  async request(request: { method: string; params?: any[] }): Promise<any> { // eslint-disable-line @typescript-eslint/no-explicit-any
+  async request(request: { method: string; params?: unknown[] }): Promise<unknown> {
     if (this.currentProvider === null) {
       throw new Error('No provider connected');
     }
@@ -497,8 +509,8 @@ export class WalletService {
       }
       
       case 'eth_getBalance':
-        if (request.params !== undefined && request.params[0] !== undefined) {
-          const balance = await this.keyringService?.getBalance(request.params[0] as string);
+        if (request.params !== undefined && request.params[0] !== undefined && typeof request.params[0] === 'string') {
+          const balance = await this.keyringService?.getBalance(request.params[0]);
           return balance ?? '0x0';
         }
         throw new Error('Missing address parameter');
@@ -548,7 +560,6 @@ export class WalletService {
    * @param chainId - Chain ID (optional)
    * @returns Balance in wei
    */
-  // eslint-disable-next-line @typescript-eslint/require-await
   async getNativeBalance(address: string, chainId?: number): Promise<bigint> {
     if (!ethers.isAddress(address)) {
       throw new Error('Invalid wallet address');
@@ -598,7 +609,7 @@ export class WalletService {
    * @param _chain - Chain name (unused)
    * @returns Gas estimate with limit and price
    */
-  async estimateGas(tx: any, _chain: string): Promise<{ // eslint-disable-line @typescript-eslint/no-explicit-any
+  async estimateGas(tx: ethers.TransactionRequest, _chain: string): Promise<{
     gasLimit: bigint;
     gasPrice: bigint;
     totalCost: bigint;
@@ -610,7 +621,7 @@ export class WalletService {
 
     try {
       const [gasLimit, feeData] = await Promise.all([
-        provider.estimateGas(tx), // eslint-disable-line @typescript-eslint/no-unsafe-argument
+        provider.estimateGas(tx),
         provider.getFeeData()
       ]);
 
@@ -626,10 +637,11 @@ export class WalletService {
       // Default gas estimates
       const gasLimit = BigInt(21000);
       const gasPrice = ethers.parseUnits('30', 'gwei');
+      const totalCost = gasLimit * gasPrice;
       return {
         gasLimit,
         gasPrice,
-        totalCost: gasLimit * gasPrice
+        totalCost
       };
     }
   }
@@ -706,16 +718,16 @@ export class WalletService {
     try {
       await this.disconnect();
       
-      if (this.transactionService !== null && 'cleanup' in this.transactionService) {
-        await (this.transactionService as any).cleanup(); // eslint-disable-line @typescript-eslint/no-explicit-any,@typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
+      if (this.transactionService !== null && 'cleanup' in this.transactionService && typeof (this.transactionService as unknown as { cleanup: unknown }).cleanup === 'function') {
+        await (this.transactionService as unknown as { cleanup: () => Promise<void> }).cleanup();
       }
 
-      if (this.nftService !== null && 'cleanup' in this.nftService) {
-        await (this.nftService as any).cleanup(); // eslint-disable-line @typescript-eslint/no-explicit-any,@typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
+      if (this.nftService !== null && 'cleanup' in this.nftService && typeof (this.nftService as unknown as { cleanup: unknown }).cleanup === 'function') {
+        await (this.nftService as unknown as { cleanup: () => Promise<void> }).cleanup();
       }
 
-      if (this.keyringService !== null && 'cleanup' in this.keyringService) {
-        await this.keyringService.cleanup();
+      if (this.keyringService !== null && 'cleanup' in this.keyringService && typeof this.keyringService.cleanup === 'function') {
+        this.keyringService.cleanup();
       }
 
       this.wallet = null;

@@ -3,9 +3,10 @@
  * 
  * Provides order book functionality including limit orders, order management,
  * MEV protection, and order book depth analysis.
+ * 
+ * @module OrderBookService
  */
 
-// import { ethers } from 'ethers'; - unused import
 import { DecentralizedOrderBook } from '../../../Validator/src/services/dex/DecentralizedOrderBook';
 import { MEVProtection } from '../../../Validator/src/services/dex/mev/MEVProtection';
 import type { UnifiedOrder } from '../../../Validator/src/types/config';
@@ -176,7 +177,14 @@ export interface OrderFillEvent {
 }
 
 /**
- * Order book integration service
+ * Order book integration service for managing decentralized limit orders
+ * 
+ * @class OrderBookService
+ * @description Provides comprehensive order book functionality including:
+ * - Limit order placement and management
+ * - MEV protection for sensitive orders
+ * - Order book depth analysis
+ * - Real-time order tracking and events
  */
 export class OrderBookService {
   private walletService?: WalletService;
@@ -290,14 +298,15 @@ export class OrderBookService {
         timeInForce: params.timeInForce === TimeInForce.GTC ? 'GTC' as const : 
                      params.timeInForce === TimeInForce.IOC ? 'IOC' as const : 
                      params.timeInForce === TimeInForce.FOK ? 'FOK' as const : 'GTC' as const,
-        ...(params.postOnly !== undefined && { postOnly: params.postOnly }),
-        ...(params.reduceOnly !== undefined && { reduceOnly: params.reduceOnly })
+        ...(params.postOnly !== undefined ? { postOnly: params.postOnly } : {}),
+        ...(params.reduceOnly !== undefined ? { reduceOnly: params.reduceOnly } : {})
       };
 
-      if (params.mevProtection && this.mevProtection) {
-        const protectionResult = await this.mevProtection.protectOrder({
+      if (params.mevProtection === true && this.mevProtection !== undefined) {
+        const userAddr = await this.getUserAddress();
+        const protectionResult = this.mevProtection.protectOrder({
           orderId: Date.now().toString(),
-          userId: await this.getUserAddress(),
+          userId: userAddr,
           orderType: 'limit',
           tokenIn: params.tokenIn,
           tokenOut: params.tokenOut,
@@ -315,7 +324,7 @@ export class OrderBookService {
       // Submit order to decentralized order book
       const result = await this.orderBook.submitOrder(orderData);
 
-      if (result.success && result.orderId) {
+      if (result.success === true && result.orderId !== undefined && result.orderId !== '') {
         // Create order object
         const order: Order = {
           orderId: result.orderId,
@@ -333,7 +342,7 @@ export class OrderBookService {
           timeInForce: params.timeInForce ?? TimeInForce.GTC,
           createdAt: Date.now(),
           updatedAt: Date.now(),
-          expiration: params.expiration || 0,
+          expiration: params.expiration ?? 0,
           txHash: '0x' + '0'.repeat(64)
         };
 
@@ -379,7 +388,7 @@ export class OrderBookService {
 
       // Verify order exists and is cancellable
       const order = this.userOrders.get(orderId);
-      if (!order) {
+      if (order === undefined) {
         throw new Error('Order not found');
       }
 
@@ -419,8 +428,8 @@ export class OrderBookService {
   /**
    * Get user's open orders
    * @param tokenPair - Optional token pair filter
-   * @param tokenPair.tokenIn
-   * @param tokenPair.tokenOut
+   * @param tokenPair.tokenIn - Input token address
+   * @param tokenPair.tokenOut - Output token address
    * @returns Array of user's open orders
    * @throws {Error} When query fails
    */
@@ -437,7 +446,7 @@ export class OrderBookService {
       let userOrdersList = orders.filter(order => order.maker === userAddress);
 
       // Filter by token pair if provided
-      if (tokenPair) {
+      if (tokenPair !== undefined) {
         userOrdersList = userOrdersList.filter(order =>
           (order.tokenIn === tokenPair.tokenIn && order.tokenOut === tokenPair.tokenOut) ||
           (order.tokenIn === tokenPair.tokenOut && order.tokenOut === tokenPair.tokenIn)
@@ -461,7 +470,7 @@ export class OrderBookService {
    * @returns Fill result
    * @throws {Error} When fill fails
    */
-  async fillOrder(orderId: string, fillAmount: bigint): Promise<OrderResult> {
+  fillOrder(orderId: string, fillAmount: bigint): OrderResult {
     if (!this.isInitialized) {
       throw new Error('Order book service not initialized');
     }
@@ -472,8 +481,8 @@ export class OrderBookService {
       }
 
       // Get order details
-      const order = await this.orderBook.getOrder(orderId);
-      if (!order) {
+      const order = this.orderBook.getOrder(orderId);
+      if (order === undefined || order === null) {
         throw new Error('Order not found');
       }
 
@@ -482,7 +491,11 @@ export class OrderBookService {
       }
 
       // Validate fill amount
-      const orderAmount = BigInt(order.quantity || '0');
+      const orderQuantity = order.quantity ?? '0';
+      if (orderQuantity === '') {
+        throw new Error('Order quantity is empty');
+      }
+      const orderAmount = BigInt(orderQuantity);
       if (fillAmount > orderAmount) {
         throw new Error('Fill amount exceeds order amount');
       }
@@ -534,18 +547,18 @@ export class OrderBookService {
       const orders = allOrders.filter(o => o.pair === pair || o.pair === `${tokenOut}/${tokenIn}`);
 
       // Separate buy and sell orders
-      const buyOrders = orders.filter(o => o.side === 'BUY' && o.status === 'OPEN');
-      const sellOrders = orders.filter(o => o.side === 'SELL' && o.status === 'OPEN');
+      const buyOrders = orders.filter((o): o is UnifiedOrder => o.side === 'BUY' && o.status === 'OPEN');
+      const sellOrders = orders.filter((o): o is UnifiedOrder => o.side === 'SELL' && o.status === 'OPEN');
 
       // Aggregate by price level
       const bids = this.aggregateOrdersByPrice(buyOrders, levels, true);
       const asks = this.aggregateOrdersByPrice(sellOrders, levels, false);
 
       // Calculate mid price and spread
-      const bestBid = bids[0]?.price || 0;
-      const bestAsk = asks[0]?.price || Number.MAX_SAFE_INTEGER;
+      const bestBid = bids[0]?.price ?? 0;
+      const bestAsk = asks[0]?.price ?? Number.MAX_SAFE_INTEGER;
       const midPrice = (bestBid + bestAsk) / 2;
-      const spread = bestAsk > 0 && bestBid > 0 ? ((bestAsk - bestBid) / midPrice) * 100 : 0;
+      const spread = (bestAsk > 0 && bestBid > 0) ? ((bestAsk - bestBid) / midPrice) * 100 : 0;
 
       return {
         pair: `${tokenIn}/${tokenOut}`,
@@ -567,7 +580,7 @@ export class OrderBookService {
    * @returns Order details or null if not found
    * @throws {Error} When query fails
    */
-  async getOrder(orderId: string): Promise<Order | null> {
+  getOrder(orderId: string): Order | null {
     if (!this.isInitialized) {
       throw new Error('Order book service not initialized');
     }
@@ -575,28 +588,30 @@ export class OrderBookService {
     try {
       // Check local cache first
       const cachedOrder = this.userOrders.get(orderId);
-      if (cachedOrder) {
+      if (cachedOrder !== undefined) {
         return cachedOrder;
       }
 
       // Query from order book
-      if (this.orderBook) {
-        const orderData = await this.orderBook.getOrder(orderId);
-        if (orderData) {
+      if (this.orderBook !== undefined) {
+        const orderData = this.orderBook.getOrder(orderId);
+        if (orderData !== undefined && orderData !== null) {
           // Map UnifiedOrder to Order
-          const [tokenIn, tokenOut] = (orderData.pair || '/').split('/');
+          const pairParts = (orderData.pair ?? '/').split('/');
+          const tokenIn = pairParts[0] ?? '';
+          const tokenOut = pairParts[1] ?? '';
           const order: Order = {
             orderId: orderData.id,
             maker: orderData.userId,
-            tokenIn: tokenIn || '',
-            tokenOut: tokenOut || '',
-            amountIn: BigInt(orderData.quantity || '0'),
-            amountRemaining: BigInt(orderData.remaining || '0'),
-            amountFilled: BigInt(orderData.filled || '0'),
+            tokenIn,
+            tokenOut,
+            amountIn: BigInt(orderData.quantity ?? '0'),
+            amountRemaining: BigInt(orderData.remaining ?? '0'),
+            amountFilled: BigInt(orderData.filled ?? '0'),
             amountOutMin: BigInt(0),
             type: OrderType.LIMIT,
             side: orderData.side === 'BUY' ? OrderSide.BUY : OrderSide.SELL,
-            price: Number(orderData.price || 0),
+            price: Number(orderData.price ?? '0'),
             status: orderData.status === 'OPEN' ? OrderStatus.OPEN : 
                    orderData.status === 'FILLED' ? OrderStatus.FILLED :
                    orderData.status === 'CANCELLED' ? OrderStatus.CANCELLED :
@@ -642,19 +657,21 @@ export class OrderBookService {
       const history = allOrders.slice(offset, offset + limit);
 
       return history.map((orderData: UnifiedOrder) => {
-        const [tokenIn, tokenOut] = (orderData.pair || '/').split('/');
+        const pairParts = (orderData.pair ?? '/').split('/');
+        const tokenIn = pairParts[0] ?? '';
+        const tokenOut = pairParts[1] ?? '';
         return {
           orderId: orderData.id,
           maker: orderData.userId,
-          tokenIn: tokenIn || '',
-          tokenOut: tokenOut || '',
-          amountIn: BigInt(orderData.quantity || '0'),
-          amountRemaining: BigInt(orderData.remaining || '0'),
-          amountFilled: BigInt(orderData.filled || '0'),
+          tokenIn,
+          tokenOut,
+          amountIn: BigInt(orderData.quantity ?? '0'),
+          amountRemaining: BigInt(orderData.remaining ?? '0'),
+          amountFilled: BigInt(orderData.filled ?? '0'),
           amountOutMin: BigInt(0),
           type: OrderType.LIMIT,
           side: orderData.side === 'BUY' ? OrderSide.BUY : OrderSide.SELL,
-          price: Number(orderData.price || 0),
+          price: Number(orderData.price ?? '0'),
           status: orderData.status === 'OPEN' ? OrderStatus.OPEN : 
                  orderData.status === 'FILLED' ? OrderStatus.FILLED :
                  orderData.status === 'CANCELLED' ? OrderStatus.CANCELLED :
@@ -678,6 +695,7 @@ export class OrderBookService {
    * Subscribe to order fill events
    * @param orderId - Order ID to monitor
    * @param callback - Callback function for fill events
+   * @returns void
    */
   subscribeToFillEvents(orderId: string, callback: (event: OrderFillEvent) => void): void {
     this.orderSubscriptions.set(orderId, callback);
@@ -686,6 +704,7 @@ export class OrderBookService {
   /**
    * Unsubscribe from order fill events
    * @param orderId - Order ID to stop monitoring
+   * @returns void
    */
   unsubscribeFromFillEvents(orderId: string): void {
     this.orderSubscriptions.delete(orderId);
@@ -700,7 +719,7 @@ export class OrderBookService {
    * @private
    */
   private aggregateOrdersByPrice(
-    orders: any[],
+    orders: Array<UnifiedOrder>,
     maxLevels: number,
     descending: boolean
   ): DepthLevel[] {
@@ -708,9 +727,11 @@ export class OrderBookService {
 
     // Aggregate by price
     for (const order of orders) {
-      const existing = priceMap.get(order.price) || { amount: BigInt(0), count: 0 };
-      priceMap.set(order.price, {
-        amount: existing.amount + order.amountRemaining,
+      const price = Number(order.price ?? 0);
+      const existing = priceMap.get(price) ?? { amount: BigInt(0), count: 0 };
+      const remaining = BigInt(order.remaining ?? '0');
+      priceMap.set(price, {
+        amount: existing.amount + remaining,
         count: existing.count + 1
       });
     }
@@ -742,34 +763,35 @@ export class OrderBookService {
    * @private
    */
   private subscribeToOrderEvents(orderId: string): void {
-    if (this.orderBook) {
+    if (this.orderBook !== undefined) {
       // In production, would set up WebSocket subscription
       // For now, poll for updates
-      const checkOrder = async () => {
+      const checkOrder = (): void => {
         try {
-          const orderData = await this.orderBook!.getOrder(orderId);
-          if (orderData) {
+          if (this.orderBook === undefined) return;
+          const orderData = this.orderBook.getOrder(orderId);
+          if (orderData !== undefined && orderData !== null) {
             const order = this.userOrders.get(orderId);
-            if (order && orderData.status !== order.status) {
+            if (order !== undefined && orderData.status !== undefined && orderData.status !== order.status) {
               // Update order
               order.status = orderData.status === 'OPEN' ? OrderStatus.OPEN : 
                            orderData.status === 'FILLED' ? OrderStatus.FILLED :
                            orderData.status === 'CANCELLED' ? OrderStatus.CANCELLED :
                            orderData.status === 'EXPIRED' ? OrderStatus.EXPIRED : OrderStatus.PENDING;
-              order.amountRemaining = BigInt(orderData.remaining);
-              order.amountFilled = BigInt(orderData.filled);
+              order.amountRemaining = BigInt(orderData.remaining ?? '0');
+              order.amountFilled = BigInt(orderData.filled ?? '0');
               order.updatedAt = Date.now();
               this.userOrders.set(orderId, order);
 
               // Trigger callback if subscribed
               const callback = this.orderSubscriptions.get(orderId);
-              if (callback && order.amountFilled > BigInt(0)) {
+              if (callback !== undefined && order.amountFilled > BigInt(0)) {
                 callback({
                   orderId,
                   taker: 'unknown',
                   amountFilled: order.amountFilled,
                   amountOut: BigInt(0), // Would need calculation
-                  executionPrice: Number(orderData.price || 0) || order.price,
+                  executionPrice: orderData.price !== undefined && orderData.price !== '' ? Number(orderData.price) : order.price,
                   txHash: '0x' + '0'.repeat(64),
                   timestamp: Date.now()
                 });
@@ -782,10 +804,13 @@ export class OrderBookService {
       };
 
       // Poll every 5 seconds
-      const interval = setInterval(checkOrder, 5000);
+      const interval = setInterval(() => {
+        void checkOrder();
+      }, 5000);
       
       // Store interval for cleanup
-      (this as any)[`interval_${orderId}`] = interval;
+      const intervalKey = `interval_${orderId}`;
+      (this as unknown as Record<string, NodeJS.Timeout>)[intervalKey] = interval;
     }
   }
 
@@ -795,10 +820,11 @@ export class OrderBookService {
    * @private
    */
   private unsubscribeFromOrderEvents(orderId: string): void {
-    const interval = (this as any)[`interval_${orderId}`];
-    if (interval) {
+    const intervalKey = `interval_${orderId}`;
+    const interval = (this as unknown as Record<string, NodeJS.Timeout>)[intervalKey];
+    if (interval !== undefined) {
       clearInterval(interval);
-      delete (this as any)[`interval_${orderId}`];
+      delete (this as unknown as Record<string, NodeJS.Timeout>)[intervalKey];
     }
   }
 
@@ -808,25 +834,25 @@ export class OrderBookService {
    */
   private async loadUserOrders(): Promise<void> {
     try {
-      if (this.orderBook) {
+      if (this.orderBook !== undefined) {
         const userAddress = await this.getUserAddress();
-        const orders = await this.orderBook.getUserOrders(userAddress);
+        const orders = this.orderBook.getUserOrders(userAddress);
         
         this.userOrders.clear();
         for (const orderData of orders) {
-          const [tokenIn, tokenOut] = (orderData.pair || '/').split('/');
+          const [tokenIn, tokenOut] = (orderData.pair ?? '/').split('/');
           const order: Order = {
             orderId: orderData.id,
             maker: orderData.userId,
-            tokenIn: tokenIn || '',
-            tokenOut: tokenOut || '',
-            amountIn: BigInt(orderData.quantity || '0'),
-            amountRemaining: BigInt(orderData.remaining || '0'),
-            amountFilled: BigInt(orderData.filled || '0'),
+            tokenIn: tokenIn ?? '',
+            tokenOut: tokenOut ?? '',
+            amountIn: BigInt(orderData.quantity ?? '0'),
+            amountRemaining: BigInt(orderData.remaining ?? '0'),
+            amountFilled: BigInt(orderData.filled ?? '0'),
             amountOutMin: BigInt(0),
             type: OrderType.LIMIT,
             side: orderData.side === 'BUY' ? OrderSide.BUY : OrderSide.SELL,
-            price: Number(orderData.price || 0),
+            price: Number(orderData.price ?? '0'),
             status: orderData.status === 'OPEN' ? OrderStatus.OPEN : 
                    orderData.status === 'FILLED' ? OrderStatus.FILLED :
                    orderData.status === 'CANCELLED' ? OrderStatus.CANCELLED :
@@ -853,9 +879,9 @@ export class OrderBookService {
    * @private
    */
   private async getUserAddress(): Promise<string> {
-    if (this.walletService) {
+    if (this.walletService !== undefined) {
       return await this.walletService.getAddress();
-    } else if (this.provider) {
+    } else if (this.provider !== undefined) {
       const signer = await this.provider.getSigner();
       return await signer.getAddress();
     } else {
@@ -865,20 +891,17 @@ export class OrderBookService {
 
   /**
    * Cleanup service and release resources
+   * @returns Promise that resolves when cleanup is complete
    */
-  async cleanup(): Promise<void> {
-    try {
-      // Clear all intervals
-      for (const orderId of this.userOrders.keys()) {
-        this.unsubscribeFromOrderEvents(orderId);
-      }
-      
-      this.userOrders.clear();
-      this.orderSubscriptions.clear();
-      // Reset services (keeping them defined for type safety)
-      this.isInitialized = false;
-    } catch (error) {
-      // Fail silently on cleanup
+  cleanup(): void {
+    // Clear all intervals
+    for (const orderId of this.userOrders.keys()) {
+      this.unsubscribeFromOrderEvents(orderId);
     }
+    
+    this.userOrders.clear();
+    this.orderSubscriptions.clear();
+    // Reset services (keeping them defined for type safety)
+    this.isInitialized = false;
   }
 }

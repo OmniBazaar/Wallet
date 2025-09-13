@@ -20,12 +20,24 @@ interface Logger {
 
 const logger: Logger = {
   warn: (message: string, ...args: unknown[]) => {
-    // eslint-disable-next-line no-console
-    console.warn(message, ...args);
+    if (typeof chrome !== 'undefined' && chrome.storage?.local !== undefined) {
+      const log = { level: 'warn', message, args, timestamp: Date.now() };
+      void chrome.storage.local.get(['logs'], (result) => {
+        const logs = (result.logs as unknown[] | undefined) ?? [];
+        logs.push(log);
+        void chrome.storage.local.set({ logs: logs.slice(-100) }); // Keep last 100 logs
+      });
+    }
   },
   error: (message: string, ...args: unknown[]) => {
-    // eslint-disable-next-line no-console
-    console.error(message, ...args);
+    if (typeof chrome !== 'undefined' && chrome.storage?.local !== undefined) {
+      const log = { level: 'error', message, args, timestamp: Date.now() };
+      void chrome.storage.local.get(['logs'], (result) => {
+        const logs = (result.logs as unknown[] | undefined) ?? [];
+        logs.push(log);
+        void chrome.storage.local.set({ logs: logs.slice(-100) }); // Keep last 100 logs
+      });
+    }
   }
 };
 

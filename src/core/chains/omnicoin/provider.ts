@@ -185,7 +185,6 @@ export class OmniCoinProvider extends CotiProvider {
       ...config
     };
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     this.provider = new ethers.JsonRpcProvider(this.config.rpcUrl, {
       chainId: this.config.chainId,
       name: this.config.name

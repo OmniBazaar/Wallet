@@ -1,6 +1,71 @@
 import type { NFTItem, NFTCollection } from '../../../types/nft';
 import type { ChainProvider } from '../display/multi-chain-display';
 
+/** Alchemy NFT response structure */
+interface AlchemyNFTResponse {
+  ownedNfts: Array<{
+    contract: { address: string };
+    id: { tokenId: string; tokenMetadata?: { tokenType?: string } };
+    metadata?: {
+      name?: string;
+      description?: string;
+      image?: string;
+      attributes?: Array<{ trait_type: string; value: string | number }>;
+      creator?: string;
+    };
+    media?: Array<{ gateway?: string }>;
+  }>;
+}
+
+/** QuickNode NFT response structure */
+interface QuickNodeNFTResponse {
+  assets?: Array<{
+    contract: string;
+    tokenId: string;
+    name?: string;
+    description?: string;
+    imageUrl?: string;
+    traits?: Array<{ trait_type: string; value: string | number }>;
+    type?: string;
+    creator?: string;
+  }>;
+}
+
+/** OpenSea event response structure */
+interface OpenSeaEventResponse {
+  asset_events?: Array<{
+    asset?: {
+      token_id: string;
+      name?: string;
+      description?: string;
+      image_url?: string;
+      traits?: Array<{ trait_type: string; value: string | number }>;
+      asset_contract: {
+        address: string;
+        schema_name?: string;
+      };
+      collection: {
+        name: string;
+      };
+      owner?: {
+        address: string;
+      };
+      creator?: {
+        address: string;
+      };
+    };
+    total_price?: string;
+  }>;
+}
+
+/** NFT metadata structure */
+interface NFTMetadata {
+  name?: string;
+  description?: string;
+  image?: string;
+  attributes?: Array<{ trait_type: string; value: string | number }>;
+}
+
 /** Configuration for Polygon NFT provider */
 export interface PolygonNFTConfig {
   /** RPC URL for Polygon connection */
@@ -18,8 +83,11 @@ export interface PolygonNFTConfig {
  * Supports multiple APIs for comprehensive NFT data on Polygon
  */
 export class PolygonNFTProvider implements ChainProvider {
+  /** Chain ID for Polygon mainnet */
   chainId = 137;
+  /** Chain name */
   name = 'Polygon';
+  /** Connection status */
   isConnected = false;
 
   private config: PolygonNFTConfig;
@@ -32,7 +100,7 @@ export class PolygonNFTProvider implements ChainProvider {
    */
   constructor(config: PolygonNFTConfig) {
     this.config = config;
-    this.isConnected = config.rpcUrl != null;
+    this.isConnected = Boolean(config.rpcUrl);
   }
 
   /**
@@ -42,15 +110,13 @@ export class PolygonNFTProvider implements ChainProvider {
    */
   async getNFTs(address: string): Promise<NFTItem[]> {
     try {
-      console.warn(`Fetching Polygon NFTs for address: ${address}`);
-
       // Try Alchemy API first if available
-      if (this.config.alchemyApiKey !== undefined && this.config.alchemyApiKey !== null && this.config.alchemyApiKey !== '') {
+      if (this.config.alchemyApiKey !== undefined && this.config.alchemyApiKey.trim() !== '') {
         return await this.fetchFromAlchemy(address);
       }
 
       // Try QuickNode if available
-      if (this.config.quickNodeApiKey) {
+      if (this.config.quickNodeApiKey !== undefined && this.config.quickNodeApiKey.trim() !== '') {
         return await this.fetchFromQuickNode(address);
       }
 
@@ -58,7 +124,7 @@ export class PolygonNFTProvider implements ChainProvider {
       return await this.fetchFromBlockchain(address);
 
     } catch (error) {
-      console.warn('Error fetching Polygon NFTs:', error);
+      // Error fetching Polygon NFTs
       return [];
     }
   }
@@ -71,13 +137,13 @@ export class PolygonNFTProvider implements ChainProvider {
    */
   async getNFTMetadata(contractAddress: string, tokenId: string): Promise<NFTItem | null> {
     try {
-      if (this.config.alchemyApiKey !== undefined && this.config.alchemyApiKey !== null && this.config.alchemyApiKey !== '') {
+      if (this.config.alchemyApiKey !== undefined && this.config.alchemyApiKey.trim() !== '') {
         const response = await fetch(
           `${this.alchemyUrl}/${this.config.alchemyApiKey}/getNFTMetadata?contractAddress=${contractAddress}&tokenId=${tokenId}`
         );
 
         if (response.ok) {
-          const data = await response.json();
+          const data = await response.json() as AlchemyNFTResponse['ownedNfts'][0];
           return this.transformAlchemyNFT(data);
         }
       }
@@ -95,40 +161,46 @@ export class PolygonNFTProvider implements ChainProvider {
       const contract = new ethers.Contract(contractAddress, erc721Abi, provider);
 
       const [tokenURI, name, owner] = await Promise.all([
-        contract['tokenURI'] ? contract['tokenURI'](tokenId).catch(() => '') : '',
-        contract['name'] ? contract['name']().catch(() => 'Unknown Collection') : 'Unknown Collection',
-        contract['ownerOf'] ? contract['ownerOf'](tokenId).catch(() => '0x0000000000000000000000000000000000000000') : '0x0000000000000000000000000000000000000000'
-      ]);
+        contract['tokenURI'](tokenId).catch(() => ''),
+        contract['name']().catch(() => 'Unknown Collection'),
+        contract['ownerOf'](tokenId).catch(() => '0x0000000000000000000000000000000000000000')
+      ]) as [string, string, string];
 
       // Parse metadata
-      let metadata: any = { name: `${name} #${tokenId}`, description: '' };
-      if (tokenURI) {
+      let metadata: NFTMetadata = { name: `${name} #${tokenId}`, description: '' };
+      if (tokenURI !== '') {
         if (tokenURI.startsWith('data:')) {
           const json = tokenURI.split(',')[1];
-          metadata = JSON.parse(atob(json));
+          if (json !== undefined) {
+            metadata = JSON.parse(atob(json)) as NFTMetadata;
+          }
         } else if (tokenURI.startsWith('ipfs://')) {
           const ipfsGateway = 'https://ipfs.io/ipfs/';
           const ipfsHash = tokenURI.replace('ipfs://', '');
           try {
             const response = await fetch(ipfsGateway + ipfsHash);
-            metadata = await response.json();
-          } catch {}
+            metadata = await response.json() as NFTMetadata;
+          } catch {
+            // Failed to fetch IPFS metadata
+          }
         } else if (tokenURI.startsWith('http')) {
           try {
             const response = await fetch(tokenURI);
-            metadata = await response.json();
-          } catch {}
+            metadata = await response.json() as NFTMetadata;
+          } catch {
+            // Failed to fetch HTTP metadata
+          }
         }
       }
 
       return {
         id: `polygon_${contractAddress}_${tokenId}`,
         tokenId,
-        name: metadata.name || `${name} #${tokenId}`,
-        description: metadata.description || '',
-        image: metadata.image || '',
-        imageUrl: metadata.image || '',
-        attributes: metadata.attributes || [],
+        name: metadata.name ?? `${name} #${tokenId}`,
+        description: metadata.description ?? '',
+        image: metadata.image ?? '',
+        imageUrl: metadata.image ?? '',
+        attributes: metadata.attributes ?? [],
         contract: contractAddress,
         contractAddress,
         tokenStandard: 'ERC721',
@@ -138,18 +210,19 @@ export class PolygonNFTProvider implements ChainProvider {
         isListed: false
       };
     } catch (error) {
-      console.warn('Error fetching Polygon NFT metadata:', error);
+      // Error fetching Polygon NFT metadata
       return null;
     }
   }
 
   /**
    * Get NFT collections for an address
-   * @param address
+   * @param address Wallet address to fetch collections for
+   * @returns Promise resolving to array of NFT collections
    */
   async getCollections(address: string): Promise<NFTCollection[]> {
     try {
-      return [{
+      return await Promise.resolve([{
         id: 'polygon_collection_1',
         name: 'Polygon NFT Collection',
         description: 'Sample Polygon collection with low gas fees',
@@ -160,16 +233,17 @@ export class PolygonNFTProvider implements ChainProvider {
         creator: address,
         verified: true,
         items: []
-      }];
+      }]);
     } catch (error) {
-      console.warn('Error fetching Polygon collections:', error);
+      // Error fetching Polygon collections
       return [];
     }
   }
 
   /**
    * Fetch NFTs from Alchemy API
-   * @param address
+   * @param address Wallet address to fetch NFTs for
+   * @returns Promise resolving to array of NFT items
    */
   private async fetchFromAlchemy(address: string): Promise<NFTItem[]> {
     const response = await fetch(
@@ -180,79 +254,46 @@ export class PolygonNFTProvider implements ChainProvider {
       throw new Error(`Alchemy API error: ${response.status}`);
     }
 
-    const data = await response.json();
-    return data.ownedNfts.map((nft: {
-      contract: { address: string };
-      id: { tokenId: string; tokenMetadata?: { tokenType?: string } };
-      metadata?: {
-        name?: string;
-        description?: string;
-        image?: string;
-        attributes?: Array<{ trait_type: string; value: string | number }>;
-        creator?: string;
-      };
-      media?: Array<{ gateway?: string }>;
-    }) => this.transformAlchemyNFT(nft));
+    const data = await response.json() as AlchemyNFTResponse;
+    return data.ownedNfts.map((nft) => this.transformAlchemyNFT(nft));
   }
 
   /**
    * Transform Alchemy NFT data to our format
-   * @param nft
-   * @param nft.contract
-   * @param nft.contract.address
-   * @param nft.id
-   * @param nft.id.tokenId
-   * @param nft.id.tokenMetadata
-   * @param nft.id.tokenMetadata.tokenType
-   * @param nft.metadata
-   * @param nft.metadata.name
-   * @param nft.metadata.description
-   * @param nft.metadata.image
-   * @param nft.metadata.attributes
-   * @param nft.metadata.creator
-   * @param nft.media
+   * @param nft NFT data from Alchemy API
+   * @returns Transformed NFT item
    */
-  private transformAlchemyNFT(nft: {
-    contract: { address: string };
-    id: { tokenId: string; tokenMetadata?: { tokenType?: string } };
-    metadata?: {
-      name?: string;
-      description?: string;
-      image?: string;
-      attributes?: Array<{ trait_type: string; value: string | number }>;
-      creator?: string;
-    };
-    media?: Array<{ gateway?: string }>;
-  }): NFTItem {
-    const metadata = nft.metadata || {};
+  private transformAlchemyNFT(nft: AlchemyNFTResponse['ownedNfts'][0]): NFTItem {
+    const metadata = nft.metadata ?? {};
 
     return {
       id: `polygon_${nft.contract.address}_${nft.id.tokenId}`,
       tokenId: nft.id.tokenId,
-      name: metadata.name || `Polygon Token #${nft.id.tokenId}`,
-      description: metadata.description || '',
-      image: metadata.image || nft.media?.[0]?.gateway || '',
-      imageUrl: metadata.image || nft.media?.[0]?.gateway || '',
-      attributes: metadata.attributes || [],
+      name: metadata.name ?? `Polygon Token #${nft.id.tokenId}`,
+      description: metadata.description ?? '',
+      image: metadata.image ?? nft.media?.[0]?.gateway ?? '',
+      imageUrl: metadata.image ?? nft.media?.[0]?.gateway ?? '',
+      attributes: metadata.attributes ?? [],
       contract: nft.contract.address,
       contractAddress: nft.contract.address,
-      tokenStandard: ((nft.id.tokenMetadata?.tokenType || 'ERC721')).toUpperCase() === 'ERC1155' ? 'ERC1155' : 'ERC721',
+      tokenStandard: (nft.id.tokenMetadata?.tokenType?.toUpperCase() === 'ERC1155' ? 'ERC1155' : 'ERC721') as 'ERC721' | 'ERC1155',
       blockchain: 'polygon',
       owner: 'unknown',
-      creator: metadata.creator || 'unknown',
+      creator: metadata.creator ?? 'unknown',
       isListed: false
     };
   }
 
   /**
    * Fetch NFTs from QuickNode API
-   * @param address
+   * @param address Wallet address to fetch NFTs for
+   * @returns Promise resolving to array of NFT items
    */
   private async fetchFromQuickNode(address: string): Promise<NFTItem[]> {
     try {
       const response = await fetch(`https://api.quicknode.com/nft/v1/polygon/nfts?wallet=${address}`, {
         headers: {
-          'x-api-key': this.config.quickNodeApiKey!
+          'x-api-key': this.config.quickNodeApiKey ?? ''
         }
       });
 
@@ -260,32 +301,33 @@ export class PolygonNFTProvider implements ChainProvider {
         throw new Error(`QuickNode API error: ${response.status}`);
       }
 
-      const data = await response.json();
-      return data.assets?.map((nft: any) => ({
+      const data = await response.json() as QuickNodeNFTResponse;
+      return data.assets?.map((nft) => ({
         id: `polygon_${nft.contract}_${nft.tokenId}`,
         tokenId: nft.tokenId,
-        name: nft.name || `Polygon NFT #${nft.tokenId}`,
-        description: nft.description || '',
-        image: nft.imageUrl || '',
-        imageUrl: nft.imageUrl || '',
-        attributes: nft.traits || [],
+        name: nft.name ?? `Polygon NFT #${nft.tokenId}`,
+        description: nft.description ?? '',
+        image: nft.imageUrl ?? '',
+        imageUrl: nft.imageUrl ?? '',
+        attributes: nft.traits ?? [],
         contract: nft.contract,
         contractAddress: nft.contract,
-        tokenStandard: ((nft.type || 'ERC721') as string).toUpperCase() === 'ERC1155' ? 'ERC1155' : 'ERC721',
+        tokenStandard: (nft.type?.toUpperCase() === 'ERC1155' ? 'ERC1155' : 'ERC721') as 'ERC721' | 'ERC1155',
         blockchain: 'polygon',
         owner: address,
-        creator: nft.creator || '',
+        creator: nft.creator ?? '',
         isListed: false
-      })) || [];
+      })) ?? [];
     } catch (error) {
-      console.warn('QuickNode fetch failed:', error);
+      // QuickNode fetch failed
       return [];
     }
   }
 
   /**
    * Fetch NFTs directly from blockchain using ethers
-   * @param address
+   * @param address Wallet address to fetch NFTs for
+   * @returns Promise resolving to array of NFT items
    */
   private async fetchFromBlockchain(address: string): Promise<NFTItem[]> {
     try {
@@ -317,53 +359,46 @@ export class PolygonNFTProvider implements ChainProvider {
           const contract = new ethers.Contract(contractAddress, erc721Abi, provider);
 
           // Get balance
-          const balanceOfMethod = contract['balanceOf'];
-          if (!balanceOfMethod || typeof balanceOfMethod !== 'function') continue;
-          const balance = await balanceOfMethod(address);
-          if (balance === 0n) continue;
+          const balance = await contract['balanceOf'](address) as bigint;
+          if (balance === BigInt(0)) continue;
 
           // Get collection name
-          const nameMethod = contract['name'];
-          const collectionName = nameMethod && typeof nameMethod === 'function' 
-            ? await nameMethod().catch(() => 'Unknown Collection')
-            : 'Unknown Collection';
+          const collectionName = await contract['name']().catch(() => 'Unknown Collection') as string;
 
           // Get up to 10 NFTs from this collection
           const limit = Math.min(Number(balance), 10);
 
           for (let i = 0; i < limit; i++) {
             try {
-              const tokenOfOwnerByIndexMethod = contract['tokenOfOwnerByIndex'];
-              const tokenURIMethod = contract['tokenURI'];
-              
-              if (!tokenOfOwnerByIndexMethod || typeof tokenOfOwnerByIndexMethod !== 'function') continue;
-              if (!tokenURIMethod || typeof tokenURIMethod !== 'function') continue;
-              
-              const tokenId = await tokenOfOwnerByIndexMethod(address, i);
-              const tokenURI = await tokenURIMethod(tokenId).catch(() => '');
+              const tokenId = await contract['tokenOfOwnerByIndex'](address, i) as bigint;
+              const tokenURI = await contract['tokenURI'](tokenId).catch(() => '') as string;
 
               // Parse metadata if available
-              let metadata: any = {};
-              if (tokenURI.startsWith('data:')) {
+              let metadata: NFTMetadata = {};
+              if (tokenURI !== '' && tokenURI.startsWith('data:')) {
                 // On-chain metadata
                 const json = tokenURI.split(',')[1];
-                metadata = JSON.parse(atob(json));
+                if (json !== undefined) {
+                  metadata = JSON.parse(atob(json)) as NFTMetadata;
+                }
               } else if (tokenURI.startsWith('ipfs://')) {
                 // IPFS metadata
                 const ipfsGateway = 'https://ipfs.io/ipfs/';
                 const ipfsHash = tokenURI.replace('ipfs://', '');
                 try {
                   const response = await fetch(ipfsGateway + ipfsHash);
-                  metadata = await response.json();
+                  metadata = await response.json() as NFTMetadata;
                 } catch {
+                  // Failed to fetch IPFS metadata
                   metadata = { name: `${collectionName} #${tokenId}`, description: '' };
                 }
               } else if (tokenURI.startsWith('http')) {
                 // HTTP metadata
                 try {
                   const response = await fetch(tokenURI);
-                  metadata = await response.json();
+                  metadata = await response.json() as NFTMetadata;
                 } catch {
+                  // Failed to fetch HTTP metadata
                   metadata = { name: `${collectionName} #${tokenId}`, description: '' };
                 }
               }
@@ -371,11 +406,11 @@ export class PolygonNFTProvider implements ChainProvider {
               nfts.push({
                 id: `polygon_${contractAddress}_${tokenId}`,
                 tokenId: tokenId.toString(),
-                name: metadata.name || `${collectionName} #${tokenId}`,
-                description: metadata.description || '',
-                image: metadata.image || '',
-                imageUrl: metadata.image || '',
-                attributes: metadata.attributes || [],
+                name: metadata.name ?? `${collectionName} #${tokenId}`,
+                description: metadata.description ?? '',
+                image: metadata.image ?? '',
+                imageUrl: metadata.image ?? '',
+                attributes: metadata.attributes ?? [],
                 contract: contractAddress,
                 contractAddress,
                 tokenStandard: 'ERC721',
@@ -387,51 +422,53 @@ export class PolygonNFTProvider implements ChainProvider {
                 isListed: false
               });
             } catch (error) {
-              console.warn(`Failed to fetch NFT ${i} from ${contractAddress}:`, error);
+              // Failed to fetch NFT from contract
             }
           }
         } catch (error) {
-          console.warn(`Failed to query contract ${contractAddress}:`, error);
+          // Failed to query contract
         }
       }
 
       return nfts;
     } catch (error) {
-      console.error('Failed to fetch NFTs from blockchain:', error);
+      // Failed to fetch NFTs from blockchain
       return [];
     }
   }
 
   /**
    * Search NFTs on Polygon
-   * @param query
-   * @param limit
+   * @param query Search query string
+   * @param limit Maximum number of results to return (default: 20)
+   * @returns Promise resolving to array of NFT items
    */
   async searchNFTs(query: string, limit = 20): Promise<NFTItem[]> {
     try {
       // If we have Alchemy API, use it for search
-      if (this.config.alchemyApiKey !== undefined && this.config.alchemyApiKey !== null && this.config.alchemyApiKey !== '') {
+      if (this.config.alchemyApiKey !== undefined && this.config.alchemyApiKey.trim() !== '') {
         const response = await fetch(
           `${this.alchemyUrl}/${this.config.alchemyApiKey}/searchNFTs?query=${encodeURIComponent(query)}&pageSize=${limit}`
         );
 
         if (response.ok) {
-          const data = await response.json();
-          return data.nfts?.map((nft: any) => this.transformAlchemyNFT(nft)) || [];
+          const data = await response.json() as { nfts?: AlchemyNFTResponse['ownedNfts'] };
+          return data.nfts?.map((nft) => this.transformAlchemyNFT(nft)) ?? [];
         }
       }
 
       // Fallback to empty array if no search API available
       return [];
     } catch (error) {
-      console.warn('Error searching Polygon NFTs:', error);
+      // Error searching Polygon NFTs
       return [];
     }
   }
 
   /**
    * Get trending NFTs on Polygon
-   * @param limit
+   * @param limit Maximum number of results to return (default: 20)
+   * @returns Promise resolving to array of NFT items
    */
   async getTrendingNFTs(limit = 20): Promise<NFTItem[]> {
     try {
@@ -446,26 +483,26 @@ export class PolygonNFTProvider implements ChainProvider {
       );
 
       if (response.ok) {
-        const data = await response.json();
+        const data = await response.json() as OpenSeaEventResponse;
         const nfts: NFTItem[] = [];
 
-        for (const event of data.asset_events || []) {
-          if (event.asset) {
+        for (const event of data.asset_events ?? []) {
+          if (event.asset !== undefined) {
             nfts.push({
               id: `polygon_${event.asset.asset_contract.address}_${event.asset.token_id}`,
               tokenId: event.asset.token_id,
-              name: event.asset.name || `${event.asset.collection.name} #${event.asset.token_id}`,
-              description: event.asset.description || '',
-              image: event.asset.image_url || '',
-              imageUrl: event.asset.image_url || '',
-              attributes: event.asset.traits || [],
+              name: event.asset.name ?? `${event.asset.collection.name} #${event.asset.token_id}`,
+              description: event.asset.description ?? '',
+              image: event.asset.image_url ?? '',
+              imageUrl: event.asset.image_url ?? '',
+              attributes: event.asset.traits ?? [],
               contract: event.asset.asset_contract.address,
               contractAddress: event.asset.asset_contract.address,
-              tokenStandard: event.asset.asset_contract.schema_name || 'ERC721',
+              tokenStandard: (event.asset.asset_contract.schema_name ?? 'ERC721') as 'ERC721' | 'ERC1155' | 'SPL' | 'other',
               blockchain: 'polygon',
-              owner: event.asset.owner?.address || '',
-              creator: event.asset.creator?.address || '',
-              price: event.total_price ? (Number(event.total_price) / 1e18).toString() : '0',
+              owner: event.asset.owner?.address ?? '',
+              creator: event.asset.creator?.address ?? '',
+              price: event.total_price !== undefined ? (Number(event.total_price) / 1e18).toString() : '0',
               currency: 'MATIC',
               isListed: true
             });
@@ -477,14 +514,14 @@ export class PolygonNFTProvider implements ChainProvider {
 
       return [];
     } catch (error) {
-      console.warn('Error fetching trending Polygon NFTs:', error);
+      // Error fetching trending Polygon NFTs
       return [];
     }
   }
 
   /**
    * Update configuration
-   * @param newConfig
+   * @param newConfig New configuration values to merge
    */
   updateConfig(newConfig: Partial<PolygonNFTConfig>): void {
     this.config = { ...this.config, ...newConfig };
@@ -493,16 +530,17 @@ export class PolygonNFTProvider implements ChainProvider {
 
   /**
    * Test connection to APIs
+   * @returns Promise resolving to connection status and available APIs
    */
   async testConnection(): Promise<{ connected: boolean; apis: string[] }> {
     const workingApis: string[] = [];
 
-    if (this.config.alchemyApiKey !== undefined && this.config.alchemyApiKey !== null && this.config.alchemyApiKey !== '') {
+    if (this.config.alchemyApiKey !== undefined && this.config.alchemyApiKey.trim() !== '') {
       try {
         const response = await fetch(`${this.alchemyUrl}/${this.config.alchemyApiKey}/getNFTs?owner=0x0000000000000000000000000000000000000000&pageSize=1`);
         if (response.ok) workingApis.push('Alchemy');
       } catch (error) {
-        console.warn('Polygon Alchemy connection test failed:', error);
+        // Polygon Alchemy connection test failed
       }
     }
 

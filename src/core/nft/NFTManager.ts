@@ -182,15 +182,27 @@ export class NFTManager {
     }
     
     // Send transaction via the provider
-    // @ts-expect-error - Provider type mismatch
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-    const tx = await nftProvider.sendTransaction({
-      to: nft.contract_address,
-      data,
-      value: '0x0'
-    }) as string;
-
-    return tx;
+    // For NFT transfers, we need to use the provider directly
+    if (nftProvider && 'getSigner' in nftProvider && typeof nftProvider.getSigner === 'function') {
+      const signer = await nftProvider.getSigner();
+      const tx = await signer.sendTransaction({
+        to: nft.contract_address,
+        data,
+        value: '0x0'
+      });
+      return tx.hash;
+    } else if ('sendTransaction' in nftProvider && typeof nftProvider.sendTransaction === 'function') {
+      // Use the ProviderManager sendTransaction method
+      const result = await providerManager.sendTransaction(
+        nft.contract_address,
+        '0', // No ETH value for NFT transfers
+        nft.chain as ChainType,
+        data
+      );
+      return typeof result === 'string' ? result : result.hash;
+    } else {
+      throw new Error(`Provider for chain ${nft.chain} does not support sending transactions`);
+    }
   }
 
   /**

@@ -11,9 +11,9 @@ interface HDKeyInstance {
   derive(path: string): HDKeyInstance;
 }
 
-// Use require for hdkey to avoid type declaration issues
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const HDKey = require("hdkey") as new () => HDKeyInstance;
+// Import hdkey with proper typing
+import hdkey from "hdkey";
+const HDKey = hdkey as unknown as new () => HDKeyInstance;
 import type { CreateTransactionArg } from "@ledgerhq/hw-app-btc/lib/createTransaction";
 import { serializeTransactionOutputs } from "@ledgerhq/hw-app-btc/lib/serializeTransaction";
 import { bufferToHex } from "../../../types/enkrypt-types";
@@ -351,7 +351,6 @@ class LedgerBitcoin implements HWWalletProvider {
    * @returns Promise that resolves when the connection is closed
    */
   close(): Promise<void> {
-    // eslint-disable-next-line @typescript-eslint/no-empty-function
     return this.transport?.close().catch(() => {}) ?? Promise.resolve();
   }
 

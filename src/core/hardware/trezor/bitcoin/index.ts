@@ -1,12 +1,13 @@
 import { HWwalletCapabilities } from "../../../types/enkrypt-types";
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const HDKey = require("hdkey") as new () => HDKeyInstance;
+import hdkey from "hdkey";
 
 interface HDKeyInstance {
   publicKey: Buffer;
   chainCode: Buffer;
   derive(path: string): HDKeyInstance;
 }
+
+const HDKey = hdkey as unknown as new () => HDKeyInstance;
 
 import { bufferToHex } from "../../../types/enkrypt-types";
 import type { TrezorConnect } from "@trezor/connect-web";

@@ -31,54 +31,101 @@ interface IDatabase {
   query(sql: string, params: unknown[]): Promise<QueryResult>;
 }
 
-/** Mock cache service */
+/**
+ * Mock cache service for development/testing
+ * @internal
+ */
 class MockCacheService implements ICacheService {
   private cache = new Map<string, { value: string; expires?: number }>();
 
+  /**
+   * Set a value in the cache
+   * @param key - Cache key
+   * @param value - Value to cache
+   * @param ttl - Time to live in seconds
+   */
   async set(key: string, value: string, ttl?: number): Promise<void> {
-    const expires = ttl ? Date.now() + (ttl * 1000) : undefined;
+    const expires = ttl !== undefined ? Date.now() + (ttl * 1000) : undefined;
     this.cache.set(key, { value, ...(expires !== undefined && { expires }) });
+    await Promise.resolve();
   }
 
+  /**
+   * Get a value from the cache
+   * @param key - Cache key
+   * @returns Cached value or null if not found/expired
+   */
   async get(key: string): Promise<string | null> {
+    await Promise.resolve(); // Required for async method
     const entry = this.cache.get(key);
-    if (!entry) return null;
-    if (entry.expires && Date.now() > entry.expires) {
+    if (entry === undefined) return null;
+    if (entry.expires !== undefined && Date.now() > entry.expires) {
       this.cache.delete(key);
       return null;
     }
     return entry.value;
   }
 
+  /**
+   * Delete a value from the cache
+   * @param key - Cache key to delete
+   */
   async delete(key: string): Promise<void> {
     this.cache.delete(key);
+    await Promise.resolve();
   }
 }
 
-/** Mock secure storage service */
+/**
+ * Mock secure storage service for development/testing
+ * @internal
+ */
 class MockSecureStorageService implements ISecureStorageService {
   private storage = new Map<string, string>();
 
+  /**
+   * Store a value securely
+   * @param key - Storage key
+   * @param value - Value to store
+   */
   async store(key: string, value: string): Promise<void> {
     this.storage.set(key, value);
+    await Promise.resolve();
   }
 
+  /**
+   * Retrieve a value from secure storage
+   * @param key - Storage key
+   * @returns Stored value or null if not found
+   */
   async retrieve(key: string): Promise<string | null> {
-    return this.storage.get(key) ?? null;
+    await Promise.resolve(); // Required for async method
+    const value = this.storage.get(key);
+    return value !== undefined ? value : null;
   }
 }
 
-/** Mock database implementation */
+/**
+ * Mock database implementation for development/testing
+ * @internal
+ */
 class MockDatabase implements IDatabase {
   private tables = new Map<string, Map<string, Record<string, unknown>>>();
 
+  /**
+   * Execute a database query
+   * @param _sql - SQL query string
+   * @param _params - Query parameters
+   * @returns Query result
+   */
   async query(_sql: string, _params: unknown[]): Promise<QueryResult> {
     // Mock database queries - in production would use actual database
     // Suppress unused parameter warnings
+    await Promise.resolve();
     return { rows: [] };
   }
 }
-import jwt from 'jsonwebtoken';
+import * as jwt from 'jsonwebtoken';
 import { randomBytes, createHash } from 'crypto';
 
 /**
@@ -244,7 +291,7 @@ export class SessionService {
       refreshTokenLifetime: config?.refreshTokenLifetime ?? 7 * 24 * 60 * 60, // 7 days
       maxSessionsPerUser: config?.maxSessionsPerUser ?? 5,
       idleTimeout: config?.idleTimeout ?? 60 * 60, // 1 hour
-      jwtSecret: config?.jwtSecret || process.env.JWT_SECRET || this.generateSecret()
+      jwtSecret: (config?.jwtSecret !== undefined && config.jwtSecret !== '') ? config.jwtSecret : ((process.env.JWT_SECRET !== undefined && process.env.JWT_SECRET !== '') ? process.env.JWT_SECRET : this.generateSecret())
     };
   }
 
@@ -319,14 +366,14 @@ export class SessionService {
       let session = await this.getCachedSession(payload.sid);
       
       // If not in cache, get from database
-      if (!session) {
+      if (session === null) {
         session = await this.getSession(payload.sid);
-        if (session) {
+        if (session !== null) {
           await this.cacheSession(session);
         }
       }
       
-      if (!session) {
+      if (session === null) {
         return {
           valid: false,
           error: 'Session not found'
@@ -342,7 +389,7 @@ export class SessionService {
       }
       
       // Verify device fingerprint if provided
-      if (deviceFingerprint && payload.dfp) {
+      if (deviceFingerprint !== undefined && payload.dfp !== undefined) {
         const currentFingerprintHash = this.hashDeviceFingerprint(deviceFingerprint);
         if (currentFingerprintHash !== payload.dfp) {
           // Log potential security issue
@@ -414,12 +461,12 @@ export class SessionService {
       
       // Get session
       const session = await this.getSession(payload.sid);
-      if (!session || !session.isActive) {
+      if (session === null || !session.isActive) {
         return null;
       }
       
       // Verify device fingerprint if provided
-      if (deviceFingerprint && payload.dfp) {
+      if (deviceFingerprint !== undefined && payload.dfp !== undefined) {
         const currentFingerprintHash = this.hashDeviceFingerprint(deviceFingerprint);
         if (currentFingerprintHash !== payload.dfp) {
           await this.logSecurityEvent(session.userId, 'refresh_fingerprint_mismatch', {
@@ -520,13 +567,13 @@ export class SessionService {
     // Combine all components
     const components = [
       data.userAgent,
-      data.screenResolution || '',
-      data.timezoneOffset?.toString() || '',
-      (data.languages || []).join(','),
-      data.platform || '',
-      data.canvasFingerprint || '',
-      data.webglInfo || '',
-      data.audioFingerprint || ''
+      data.screenResolution !== undefined ? data.screenResolution : '',
+      data.timezoneOffset !== undefined ? data.timezoneOffset.toString() : '',
+      data.languages !== undefined ? data.languages.join(',') : '',
+      data.platform !== undefined ? data.platform : '',
+      data.canvasFingerprint !== undefined ? data.canvasFingerprint : '',
+      data.webglInfo !== undefined ? data.webglInfo : '',
+      data.audioFingerprint !== undefined ? data.audioFingerprint : ''
     ];
     
     // Create hash
@@ -604,7 +651,7 @@ export class SessionService {
    */
   private hashDeviceFingerprint(fingerprint: string): string {
     return createHash('sha256')
-      .update(fingerprint + (process.env.FINGERPRINT_SALT || 'default_salt'))
+      .update(fingerprint + ((process.env.FINGERPRINT_SALT !== undefined && process.env.FINGERPRINT_SALT !== '') ? process.env.FINGERPRINT_SALT : 'default_salt'))
       .digest('hex');
   }
 
@@ -632,7 +679,7 @@ export class SessionService {
       session.accessTokenExpiresAt,
       session.refreshTokenExpiresAt,
       session.isActive,
-      JSON.stringify(session.metadata || {})
+      JSON.stringify(session.metadata !== undefined ? session.metadata : {})
     ]);
   }
 
@@ -649,7 +696,7 @@ export class SessionService {
     
     const result = await this.db.query(query, [sessionId]);
     
-    if (!result.rows[0]) {
+    if (result.rows.length === 0) {
       return null;
     }
     
@@ -696,7 +743,7 @@ export class SessionService {
   private async getCachedSession(sessionId: string): Promise<Session | null> {
     const cached = await this.cache.get(`session:${sessionId}`);
     
-    if (!cached) {
+    if (cached === null || cached === '') {
       return null;
     }
     
@@ -729,7 +776,7 @@ export class SessionService {
     
     // Update cache
     const session = await this.getCachedSession(sessionId);
-    if (session) {
+    if (session !== null) {
       session.lastActivityAt = now;
       await this.cacheSession(session);
     }
@@ -808,6 +855,7 @@ export class SessionService {
 
   /**
    * Clean up expired sessions (should be called periodically)
+   * @description Marks all sessions as inactive where the refresh token has expired
    */
   public async cleanupExpiredSessions(): Promise<void> {
     const query = `

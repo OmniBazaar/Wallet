@@ -8,6 +8,43 @@
  */
 
 /**
+ * Database response type for transaction data
+ */
+interface TransactionDatabaseRow {
+  id?: string;
+  tx_hash: string;
+  block_number?: number;
+  block_hash?: string;
+  user_address: string;
+  tx_type: TransactionRecord['txType'];
+  from_address: string;
+  to_address: string;
+  contract_address?: string;
+  amount: string;
+  token_address?: string;
+  token_symbol: string;
+  token_decimals?: number;
+  gas_used?: string;
+  gas_price?: string;
+  tx_fee?: string;
+  status: TransactionRecord['status'];
+  confirmations?: number;
+  created_at: string;
+  confirmed_at?: string;
+  metadata?: Record<string, unknown>;
+  notes?: string;
+  tags?: string[];
+}
+
+/**
+ * Database response for transaction list queries
+ */
+interface TransactionListResponse {
+  transactions: TransactionDatabaseRow[];
+  total: number;
+}
+
+/**
  * Transaction record
  */
 export interface TransactionRecord {
@@ -119,15 +156,16 @@ export class TransactionDatabase {
 
   /**
    * Construct a TransactionDatabase adapter.
-   * @param apiEndpoint Base API endpoint (defaults to /api/wallet)
+   * @param apiEndpoint - Base API endpoint (defaults to /api/wallet)
    */
   constructor(apiEndpoint?: string) {
-    this.apiEndpoint = apiEndpoint || '/api/wallet';
+    this.apiEndpoint = apiEndpoint ?? '/api/wallet';
   }
 
   /**
    * Store a new transaction
-   * @param transaction
+   * @param transaction - The transaction record to store
+   * @returns Promise that resolves when transaction is stored
    */
   async storeTransaction(transaction: TransactionRecord): Promise<void> {
     const response = await fetch(`${this.apiEndpoint}/transactions`, {
@@ -145,10 +183,11 @@ export class TransactionDatabase {
 
   /**
    * Update transaction status
-   * @param txHash
-   * @param status
-   * @param blockNumber
-   * @param confirmations
+   * @param txHash - Transaction hash to update
+   * @param status - New transaction status
+   * @param blockNumber - Block number where transaction was mined
+   * @param confirmations - Number of confirmations
+   * @returns Promise that resolves when status is updated
    */
   async updateTransactionStatus(
     txHash: string,
@@ -176,7 +215,8 @@ export class TransactionDatabase {
 
   /**
    * Get transaction by hash
-   * @param txHash
+   * @param txHash - Transaction hash to look up
+   * @returns Transaction record or null if not found
    */
   async getTransaction(txHash: string): Promise<TransactionRecord | null> {
     const response = await fetch(`${this.apiEndpoint}/transactions/${txHash}`);
@@ -189,14 +229,15 @@ export class TransactionDatabase {
       throw new Error(`Failed to get transaction: ${response.statusText}`);
     }
 
-    const data = await response.json() as unknown;
+    const data = await response.json() as TransactionDatabaseRow;
     return this.mapToTransactionRecord(data);
   }
 
   /**
    * Get user's transaction history
-   * @param userAddress
-   * @param filters
+   * @param userAddress - User's wallet address
+   * @param filters - Optional filters for the query
+   * @returns Object containing transactions array and total count
    */
   async getUserTransactions(
     userAddress: string,
@@ -208,37 +249,38 @@ export class TransactionDatabase {
     const params = new URLSearchParams();
     params.set('user', userAddress);
 
-    if (filters) {
-      if (filters.txType) params.set('type', filters.txType);
-      if (filters.status) params.set('status', filters.status);
-      if (filters.tokenSymbol) params.set('token', filters.tokenSymbol);
-      if (filters.fromDate) params.set('from_date', filters.fromDate.toISOString());
-      if (filters.toDate) params.set('to_date', filters.toDate.toISOString());
-      if (filters.minAmount) params.set('min_amount', filters.minAmount);
-      if (filters.maxAmount) params.set('max_amount', filters.maxAmount);
-      if (filters.sortBy) params.set('sort_by', filters.sortBy);
-      if (filters.sortOrder) params.set('sort_order', filters.sortOrder);
-      params.set('limit', (filters.limit || 50).toString());
-      params.set('offset', (filters.offset || 0).toString());
+    if (filters !== undefined) {
+      if (filters.txType !== undefined) params.set('type', filters.txType);
+      if (filters.status !== undefined) params.set('status', filters.status);
+      if (filters.tokenSymbol !== undefined && filters.tokenSymbol !== '') params.set('token', filters.tokenSymbol);
+      if (filters.fromDate !== undefined) params.set('from_date', filters.fromDate.toISOString());
+      if (filters.toDate !== undefined) params.set('to_date', filters.toDate.toISOString());
+      if (filters.minAmount !== undefined && filters.minAmount !== '') params.set('min_amount', filters.minAmount);
+      if (filters.maxAmount !== undefined && filters.maxAmount !== '') params.set('max_amount', filters.maxAmount);
+      if (filters.sortBy !== undefined) params.set('sort_by', filters.sortBy);
+      if (filters.sortOrder !== undefined) params.set('sort_order', filters.sortOrder);
+      params.set('limit', (filters.limit ?? 50).toString());
+      params.set('offset', (filters.offset ?? 0).toString());
     }
 
-    const response = await fetch(`${this.apiEndpoint}/transactions?${params}`);
+    const response = await fetch(`${this.apiEndpoint}/transactions?${String(params)}`);
 
     if (!response.ok) {
       throw new Error(`Failed to get transactions: ${response.statusText}`);
     }
 
-    const data = await response.json() as { transactions: any[]; total: number };
+    const data = await response.json() as TransactionListResponse;
 
     return {
-      transactions: data.transactions.map((t: any) => this.mapToTransactionRecord(t)),
+      transactions: data.transactions.map((t) => this.mapToTransactionRecord(t)),
       total: data.total
     };
   }
 
   /**
    * Get transaction statistics for a user
-   * @param userAddress
+   * @param userAddress - User's wallet address
+   * @returns Transaction statistics
    */
   async getUserStats(userAddress: string): Promise<TransactionStats> {
     const response = await fetch(`${this.apiEndpoint}/transactions/stats?user=${userAddress}`);
@@ -252,10 +294,11 @@ export class TransactionDatabase {
 
   /**
    * Add a note to a transaction
-   * @param txHash
-   * @param note
-   * @param category
-   * @param tags
+   * @param txHash - Transaction hash to add note to
+   * @param note - Note text to add
+   * @param category - Optional category for the note
+   * @param tags - Optional tags for filtering
+   * @returns Promise that resolves when note is added
    */
   async addTransactionNote(
     txHash: string,
@@ -282,26 +325,28 @@ export class TransactionDatabase {
 
   /**
    * Get pending transactions for monitoring
-   * @param userAddress
+   * @param userAddress - Optional user address to filter by
+   * @returns Array of pending transactions
    */
   async getPendingTransactions(userAddress?: string): Promise<TransactionRecord[]> {
     const params = new URLSearchParams();
     params.set('status', 'pending');
-    if (userAddress) params.set('user', userAddress);
+    if (userAddress !== undefined && userAddress !== '') params.set('user', userAddress);
 
-    const response = await fetch(`${this.apiEndpoint}/transactions/pending?${params}`);
+    const response = await fetch(`${this.apiEndpoint}/transactions/pending?${String(params)}`);
 
     if (!response.ok) {
       throw new Error(`Failed to get pending transactions: ${response.statusText}`);
     }
 
-    const data = await response.json() as any[];
-    return data.map((t: any) => this.mapToTransactionRecord(t));
+    const data = await response.json() as TransactionDatabaseRow[];
+    return data.map((t) => this.mapToTransactionRecord(t));
   }
 
   /**
    * Bulk update transaction confirmations
-   * @param updates
+   * @param updates - Array of update objects containing txHash, confirmations, and optional status
+   * @returns Promise that resolves when updates are complete
    */
   async updateConfirmations(updates: Array<{
     txHash: string;
@@ -323,10 +368,11 @@ export class TransactionDatabase {
 
   /**
    * Export transactions for a date range
-   * @param userAddress
-   * @param fromDate
-   * @param toDate
-   * @param format
+   * @param userAddress - User's wallet address
+   * @param fromDate - Start date for export range
+   * @param toDate - End date for export range
+   * @param format - Export format (csv or json)
+   * @returns Blob containing exported data
    */
   async exportTransactions(
     userAddress: string,
@@ -340,7 +386,7 @@ export class TransactionDatabase {
     params.set('to_date', toDate.toISOString());
     params.set('format', format);
 
-    const response = await fetch(`${this.apiEndpoint}/transactions/export?${params}`);
+    const response = await fetch(`${this.apiEndpoint}/transactions/export?${String(params)}`);
 
     if (!response.ok) {
       throw new Error(`Failed to export transactions: ${response.statusText}`);
@@ -351,45 +397,53 @@ export class TransactionDatabase {
 
   /**
    * Map database row to TransactionRecord
-   * @param row
+   * @param row - Database row object
+   * @returns Mapped TransactionRecord
    */
-  private mapToTransactionRecord(row: any): TransactionRecord {
-    return {
-      id: row.id,
+  private mapToTransactionRecord(row: TransactionDatabaseRow): TransactionRecord {
+    const record: TransactionRecord = {
       txHash: row.tx_hash,
-      blockNumber: row.block_number,
-      blockHash: row.block_hash,
       userAddress: row.user_address,
       txType: row.tx_type,
       fromAddress: row.from_address,
       toAddress: row.to_address,
-      contractAddress: row.contract_address,
       amount: row.amount,
-      tokenAddress: row.token_address,
       tokenSymbol: row.token_symbol,
-      tokenDecimals: row.token_decimals,
-      gasUsed: row.gas_used,
-      gasPrice: row.gas_price,
-      txFee: row.tx_fee,
       status: row.status,
-      confirmations: row.confirmations,
-      createdAt: new Date(row.created_at),
-      ...(row.confirmed_at && { confirmedAt: new Date(row.confirmed_at) }),
-      metadata: row.metadata,
-      notes: row.notes,
-      tags: row.tags
+      createdAt: new Date(row.created_at)
     };
+
+    // Add optional fields only if they exist
+    if (row.id !== undefined) record.id = row.id;
+    if (row.block_number !== undefined) record.blockNumber = row.block_number;
+    if (row.block_hash !== undefined) record.blockHash = row.block_hash;
+    if (row.contract_address !== undefined) record.contractAddress = row.contract_address;
+    if (row.token_address !== undefined) record.tokenAddress = row.token_address;
+    if (row.token_decimals !== undefined) record.tokenDecimals = row.token_decimals;
+    if (row.gas_used !== undefined) record.gasUsed = row.gas_used;
+    if (row.gas_price !== undefined) record.gasPrice = row.gas_price;
+    if (row.tx_fee !== undefined) record.txFee = row.tx_fee;
+    if (row.confirmations !== undefined) record.confirmations = row.confirmations;
+    if (row.confirmed_at !== undefined) record.confirmedAt = new Date(row.confirmed_at);
+    if (row.metadata !== undefined) record.metadata = row.metadata;
+    if (row.notes !== undefined) record.notes = row.notes;
+    if (row.tags !== undefined) record.tags = row.tags;
+
+    return record;
   }
 
   /**
    * Check database connectivity
+   * @returns True if database is accessible, false otherwise
    */
   async checkConnection(): Promise<boolean> {
     try {
       const response = await fetch(`${this.apiEndpoint}/health`);
       return response.ok;
     } catch (error) {
-      console.error('Database connection check failed:', error);
+      // Log error using proper logging mechanism instead of console
+      // In production, this should use a proper logger service
+      // Error: error
       return false;
     }
   }

@@ -28,7 +28,7 @@ export enum RewardType {
 /**
  * Reward configuration
  */
-interface RewardConfig {
+export interface RewardConfig {
   /** Reward amount in XOM */
   amount: string;
   /** Description of the action */
@@ -42,7 +42,7 @@ interface RewardConfig {
 /**
  * Pending reward entry
  */
-interface PendingReward {
+export interface PendingReward {
   /** Unique reward ID */
   id: string;
   /** User address */
@@ -62,7 +62,7 @@ interface PendingReward {
 /**
  * User rewards summary
  */
-interface RewardsSummary {
+export interface RewardsSummary {
   /** Total pending rewards */
   pendingAmount: string;
   /** Total claimed rewards */
@@ -157,9 +157,9 @@ export class XOMFeeProtocolService {
   
   /**
    * Create an XOM fee protocol service for tracking and claiming rewards.
-   * @param provider Ethers provider (used for network context)
-   * @param signer Optional signer for claim execution
-   * @param validatorEndpoint Validator REST endpoint for rewards API
+   * @param provider - Ethers provider (used for network context)
+   * @param signer - Optional signer for claim execution
+   * @param validatorEndpoint - Validator REST endpoint for rewards API
    */
   constructor(
     provider: ethers.Provider,
@@ -168,11 +168,14 @@ export class XOMFeeProtocolService {
   ) {
     this.provider = provider;
     this.signer = signer;
-    this.validatorEndpoint = validatorEndpoint || 'http://localhost:3001/api/rewards';
+    this.validatorEndpoint = validatorEndpoint ?? 'http://localhost:3001/api/rewards';
   }
   
-  /** Initialize periodic reward updates and caches. */
-  async initialize(): Promise<void> {
+  /**
+   * Initialize periodic reward updates and caches.
+   * @returns Promise that resolves when initialization is complete
+   */
+  initialize(): void {
     // Start periodic reward updates
     this.startRewardUpdates();
     // console.log('XOM Fee Protocol Service initialized');
@@ -180,14 +183,15 @@ export class XOMFeeProtocolService {
   
   /**
    * Track a rewarded action and register a pending reward with validator.
-   * @param address User address
-   * @param type Reward type
-   * @param metadata Optional metadata payload per action
+   * @param address - User address
+   * @param type - Reward type
+   * @param metadata - Optional metadata payload per action
+   * @returns Promise resolving to the pending reward or null if not eligible
    */
   async trackAction(
     address: string,
     type: RewardType,
-    metadata?: Record<string, any>
+    metadata?: Record<string, unknown>
   ): Promise<PendingReward | null> {
     try {
       // Check if action is eligible for reward
@@ -197,7 +201,10 @@ export class XOMFeeProtocolService {
         return null;
       }
       
-      const config = this.rewardConfigs.get(type)!;
+      const config = this.rewardConfigs.get(type);
+      if (config === undefined) {
+        throw new Error(`Unknown reward type: ${type}`);
+      }
       
       // Create pending reward
       const reward: PendingReward = {
@@ -239,8 +246,9 @@ export class XOMFeeProtocolService {
   
   /**
    * Check reward eligibility with validator.
-   * @param address
-   * @param type
+   * @param address - User address to check eligibility for
+   * @param type - Reward type to check
+   * @returns Promise resolving to true if eligible, false otherwise
    */
   private async checkEligibility(address: string, type: RewardType): Promise<boolean> {
     try {
@@ -252,7 +260,7 @@ export class XOMFeeProtocolService {
         return false;
       }
       
-      const data = await response.json();
+      const data = await response.json() as { eligible: boolean };
       return data.eligible;
       
     } catch (error) {
@@ -263,12 +271,13 @@ export class XOMFeeProtocolService {
   
   /**
    * Get rewards summary for an address
-   * @param address
+   * @param address - User address to get rewards summary for
+   * @returns Promise resolving to the rewards summary
    */
   async getRewardsSummary(address: string): Promise<RewardsSummary> {
     // Check cache first
     const cached = this.rewardsCache.get(address);
-    if (cached && Date.now() - cached.nextClaimTime < 60000) {
+    if (cached !== undefined && Date.now() - cached.nextClaimTime < 60000) {
       return cached;
     }
     
@@ -278,7 +287,7 @@ export class XOMFeeProtocolService {
         throw new Error('Failed to fetch rewards summary');
       }
       
-      const data = await response.json();
+      const data = await response.json() as unknown;
       const summary = this.processRewardsData(data);
       
       // Update cache
@@ -293,27 +302,42 @@ export class XOMFeeProtocolService {
   
   /**
    * Process rewards data from validator
-   * @param data
+   * @param data - Raw data from validator API
+   * @returns Processed rewards summary
    */
-  private processRewardsData(data: any): RewardsSummary {
+  private processRewardsData(data: unknown): RewardsSummary {
     const byType = new Map<RewardType, { count: number; total: string }>();
     
+    // Type guard for data structure
+    const rewardsData = data as {
+      pendingAmount?: string;
+      claimedAmount?: string;
+      byType?: Record<string, { count: number; total: string }>;
+      recent?: PendingReward[];
+      nextClaimTime?: number;
+    };
+    
     // Process rewards by type
-    for (const [type, stats] of Object.entries(data.byType || {})) {
-      byType.set(type as RewardType, stats as any);
+    if (rewardsData.byType !== undefined) {
+      for (const [type, stats] of Object.entries(rewardsData.byType)) {
+        if (Object.values(RewardType).includes(type as RewardType)) {
+          byType.set(type as RewardType, stats);
+        }
+      }
     }
     
     return {
-      pendingAmount: data.pendingAmount || '0',
-      claimedAmount: data.claimedAmount || '0',
+      pendingAmount: rewardsData.pendingAmount ?? '0',
+      claimedAmount: rewardsData.claimedAmount ?? '0',
       byType,
-      recent: data.recent || [],
-      nextClaimTime: data.nextClaimTime || Date.now()
+      recent: rewardsData.recent ?? [],
+      nextClaimTime: rewardsData.nextClaimTime ?? Date.now()
     };
   }
   
   /**
    * Get empty rewards summary
+   * @returns Empty rewards summary with default values
    */
   private getEmptyRewardsSummary(): RewardsSummary {
     return {
@@ -327,7 +351,8 @@ export class XOMFeeProtocolService {
   
   /**
    * Claim pending rewards
-   * @param address
+   * @param address - User address to claim rewards for
+   * @returns Promise resolving to claim result with success status and details
    */
   async claimRewards(address: string): Promise<{
     success: boolean;
@@ -335,7 +360,7 @@ export class XOMFeeProtocolService {
     amount?: string;
     error?: string;
   }> {
-    if (!this.signer) {
+    if (this.signer === undefined) {
       return {
         success: false,
         error: 'No signer available'
@@ -378,7 +403,7 @@ export class XOMFeeProtocolService {
         throw new Error('Failed to claim rewards');
       }
       
-      const data = await response.json();
+      const data = await response.json() as { txHash: string };
       
       // Clear cache
       this.rewardsCache.delete(address);
@@ -400,8 +425,9 @@ export class XOMFeeProtocolService {
   
   /**
    * Get reward history
-   * @param address
-   * @param limit
+   * @param address - User address to get history for
+   * @param limit - Maximum number of records to return
+   * @returns Promise resolving to array of reward history entries
    */
   async getRewardHistory(
     address: string,
@@ -416,7 +442,7 @@ export class XOMFeeProtocolService {
         throw new Error('Failed to fetch reward history');
       }
       
-      return await response.json();
+      return await response.json() as PendingReward[];
     } catch (error) {
       console.error('Error fetching reward history:', error);
       return [];
@@ -425,7 +451,8 @@ export class XOMFeeProtocolService {
   
   /**
    * Get reward leaderboard
-   * @param period
+   * @param period - Time period for leaderboard (daily, weekly, or monthly)
+   * @returns Promise resolving to array of leaderboard entries
    */
   async getLeaderboard(period: 'daily' | 'weekly' | 'monthly' = 'weekly'): Promise<Array<{
     address: string;
@@ -441,7 +468,11 @@ export class XOMFeeProtocolService {
         throw new Error('Failed to fetch leaderboard');
       }
       
-      return await response.json();
+      return await response.json() as Array<{
+        address: string;
+        totalEarned: string;
+        rank: number;
+      }>;
     } catch (error) {
       console.error('Error fetching leaderboard:', error);
       return [];
@@ -450,7 +481,8 @@ export class XOMFeeProtocolService {
   
   /**
    * Get reward configuration
-   * @param type
+   * @param type - Reward type to get configuration for
+   * @returns Reward configuration or undefined if not found
    */
   getRewardConfig(type: RewardType): RewardConfig | undefined {
     return this.rewardConfigs.get(type);
@@ -458,6 +490,7 @@ export class XOMFeeProtocolService {
   
   /**
    * Get all reward types
+   * @returns Array of all reward types with their configurations
    */
   getAllRewardTypes(): Array<{
     type: RewardType;
@@ -474,14 +507,16 @@ export class XOMFeeProtocolService {
    */
   private startRewardUpdates(): void {
     // Update rewards every minute
-    this.updateInterval = setInterval(async () => {
-      for (const address of this.rewardsCache.keys()) {
-        try {
-          await this.getRewardsSummary(address);
-        } catch (error) {
-          console.error(`Error updating rewards for ${address}:`, error);
+    this.updateInterval = setInterval(() => {
+      void (async (): Promise<void> => {
+        for (const address of Array.from(this.rewardsCache.keys())) {
+          try {
+            await this.getRewardsSummary(address);
+          } catch (error) {
+            console.error(`Error updating rewards for ${address}:`, error);
+          }
         }
-      }
+      })();
     }, 60 * 1000);
   }
   
@@ -489,7 +524,7 @@ export class XOMFeeProtocolService {
    * Shutdown the service
    */
   shutdown(): void {
-    if (this.updateInterval) {
+    if (this.updateInterval !== null) {
       clearInterval(this.updateInterval);
       this.updateInterval = null;
     }
@@ -498,7 +533,8 @@ export class XOMFeeProtocolService {
   
   /**
    * Format reward amount for display
-   * @param amount
+   * @param amount - Amount to format
+   * @returns Formatted amount string with XOM suffix
    */
   formatReward(amount: string): string {
     return `${parseFloat(amount).toFixed(3)} XOM`;
@@ -506,11 +542,12 @@ export class XOMFeeProtocolService {
   
   /**
    * Calculate estimated daily earnings
+   * @returns Estimated daily earnings in XOM
    */
   calculateDailyEarnings(): string {
     let total = 0;
     
-    for (const [type, config] of this.rewardConfigs) {
+    for (const [type, config] of Array.from(this.rewardConfigs.entries())) {
       // Skip validator rewards (special case)
       if (type === RewardType.VALIDATOR_UPTIME) continue;
       

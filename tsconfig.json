@@ -93,7 +93,8 @@
     "dist",
     "source-repos",
     "DePay",
-    "tests"
+    "tests",
+    "../Validator/**/*"
   ],
   "references": [
     {

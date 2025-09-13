@@ -16,12 +16,24 @@ interface Logger {
 
 const logger: Logger = {
   warn: (message: string, ...args: unknown[]) => {
-    // eslint-disable-next-line no-console
-    console.warn(message, ...args);
+    // In content scripts, we can send logs to the background script
+    void chrome.runtime.sendMessage({
+      type: 'LOG',
+      level: 'warn',
+      message,
+      args,
+      timestamp: Date.now()
+    });
   },
   error: (message: string, ...args: unknown[]) => {
-    // eslint-disable-next-line no-console
-    console.error(message, ...args);
+    // In content scripts, we can send logs to the background script
+    void chrome.runtime.sendMessage({
+      type: 'LOG',
+      level: 'error',
+      message,
+      args,
+      timestamp: Date.now()
+    });
   }
 };
 

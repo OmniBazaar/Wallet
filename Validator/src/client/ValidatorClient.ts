@@ -20,23 +20,23 @@ export class ValidatorClient {
     return;
   }
 
-  getBlockchain() {
+  getBlockchain(): unknown {
     // Lazy import to prevent circulars
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const { OmniCoinBlockchain } = require('../services/blockchain/OmniCoinBlockchain');
-    return new OmniCoinBlockchain({ rpcUrl: this.endpoint });
+    const { OmniCoinBlockchain } = require('../services/blockchain/OmniCoinBlockchain') as { OmniCoinBlockchain: unknown };
+    return new (OmniCoinBlockchain as any)({ rpcUrl: this.endpoint });
   }
 
-  getFeeDistribution() {
+  getFeeDistribution(): unknown {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const { FeeDistributionEngine } = require('../services/fees/FeeDistributionEngine');
-    return new FeeDistributionEngine();
+    const { FeeDistributionEngine } = require('../services/fees/FeeDistributionEngine') as { FeeDistributionEngine: unknown };
+    return new (FeeDistributionEngine as any)();
   }
 
-  getStorage() {
+  getStorage(): unknown {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const { IPFSStorageNetwork } = require('../services/storage/IPFSStorageNetwork');
-    return new IPFSStorageNetwork();
+    const { IPFSStorageNetwork } = require('../services/storage/IPFSStorageNetwork') as { IPFSStorageNetwork: unknown };
+    return new (IPFSStorageNetwork as any)();
   }
 
   async query(request: GraphQLRequest): Promise<{ data: any }> {

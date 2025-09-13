@@ -292,12 +292,9 @@ export class OmniCoinNFTMinter {
         this.config.contractAddress,
         OMNICOIN_NFT_ABI
       );
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-      const nextTokenIdMethod = contract['nextTokenId'];
+      const nextTokenIdMethod = contract['nextTokenId'] as (() => Promise<{ toString: () => string }>) | undefined;
       if (typeof nextTokenIdMethod === 'function') {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-assignment
         const nextId = await nextTokenIdMethod();
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return
         return nextId.toString();
       } else {
         throw new Error('nextTokenId method not available');
@@ -341,26 +338,24 @@ export class OmniCoinNFTMinter {
       );
 
       // Estimate gas
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-      const mintMethod = contract['mint'];
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      type MintMethod = {
+        (to: string, tokenId: string, uri: string, options?: { gasLimit: number }): Promise<{ wait: () => Promise<{ transactionHash: string }> }>;
+        estimateGas: (to: string, tokenId: string, uri: string) => Promise<bigint>;
+      };
+      const mintMethod = contract['mint'] as MintMethod | undefined;
       if (mintMethod === undefined || mintMethod === null || mintMethod.estimateGas === undefined) {
         throw new Error('mint method not found');
       }
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
       const gasEstimate = await mintMethod.estimateGas(toAddress, tokenId, tokenURI);
       const gasLimit = Math.floor(Number(gasEstimate) * 1.2); // 20% buffer
 
       // Send transaction
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-assignment
       const tx = await mintMethod(toAddress, tokenId, tokenURI, {
         gasLimit
       });
 
       // Wait for confirmation
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-assignment
       const receipt = await tx.wait();
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
       const txHash = receipt.transactionHash;
 
       return {

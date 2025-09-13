@@ -10,6 +10,7 @@
 
 import { ethers } from 'ethers';
 import { EventEmitter } from 'events';
+import type { TransactionResponse } from 'ethers';
 
 /** Configuration for oracle node */
 interface NodeConfig {
@@ -40,13 +41,75 @@ interface OracleMetrics {
   earnedRewards: number;
 }
 
-/** Oracle node service for bridging name data between COTI and Ethereum */
+// Event types are defined for future use but not currently referenced
+
+/** Event emitted when a single name is updated */
+interface NameUpdatedEvent {
+  type: 'name-updated';
+  username: string;
+  address: string;
+  txHash: string;
+  gasUsed: bigint;
+  reward: number;
+}
+
+/** Event emitted when batch updates complete */
+interface BatchUpdatedEvent {
+  type: 'batch-updated';
+  count: number;
+  txHash: string;
+  gasUsed: bigint;
+  totalReward: number;
+}
+
+// Oracle event types are defined above but not currently used in the implementation
+
+/**
+ * Oracle node service for bridging name data between COTI and Ethereum.
+ * Monitors COTI blockchain for name registrations and updates Ethereum oracle contracts.
+ */
 export class OracleNodeService extends EventEmitter {
+  /** 
+   * Emit started event - signals service startup
+   * @internal
+   */
+  public override emit(event: 'started'): boolean;
+  /** 
+   * Emit stopped event - signals service shutdown
+   * @internal
+   */
+  public override emit(event: 'stopped'): boolean;
+  /** 
+   * Emit updates-processed event - signals batch processing completion
+   * @internal
+   */
+  public override emit(event: 'updates-processed', data: { count: number; remaining: number }): boolean;
+  /** 
+   * Emit name-updated event - signals single name update completion
+   * @internal
+   */
+  public override emit(event: 'name-updated', data: Omit<NameUpdatedEvent, 'type'>): boolean;
+  /** 
+   * Emit batch-updated event - signals batch update completion
+   * @internal
+   */
+  public override emit(event: 'batch-updated', data: Omit<BatchUpdatedEvent, 'type'>): boolean;
+  /**
+   * Generic event emitter for oracle service events
+   * @internal
+   * @param event - Event name
+   * @param args - Event arguments
+   * @returns True if event had listeners
+   */
+  public override emit(event: string, ...args: unknown[]): boolean {
+    return super.emit(event, ...args);
+  }
   private cotiProvider!: ethers.Provider;
   private ethereumProvider!: ethers.Provider;
   private signer!: ethers.Wallet;
   private registryContract!: ethers.Contract;
   private oracleContract!: ethers.Contract;
+  private updateInterval?: NodeJS.Timeout;
   private isRunning = false;
   private updateQueue: NameUpdate[] = [];
   private metrics: OracleMetrics;
@@ -115,7 +178,11 @@ export class OracleNodeService extends EventEmitter {
    * Ensure providers are initialized
    */
   private ensureInitialized(): void {
-    if (this.cotiProvider === undefined || this.ethereumProvider === undefined || this.signer === undefined || this.registryContract === undefined || this.oracleContract === undefined) {
+    if (this.cotiProvider === undefined || 
+        this.ethereumProvider === undefined || 
+        this.signer === undefined || 
+        this.registryContract === undefined || 
+        this.oracleContract === undefined) {
       throw new Error('Oracle node service not properly initialized');
     }
   }
@@ -124,11 +191,11 @@ export class OracleNodeService extends EventEmitter {
   public async start(): Promise<void> {
     this.ensureInitialized();
     if (this.isRunning) {
-      console.warn('Oracle node service is already running');
+      // Service is already running
       return;
     }
 
-    console.warn('🚀 Starting Oracle Node Service...');
+    // Starting Oracle Node Service...
 
     try {
       // Test connections
@@ -141,30 +208,33 @@ export class OracleNodeService extends EventEmitter {
       this.startUpdateScheduler();
 
       this.isRunning = true;
-      console.warn('✅ Oracle Node Service started successfully');
+      // Oracle Node Service started successfully
 
       this.emit('started');
     } catch (error) {
-      console.warn('❌ Failed to start Oracle Node Service:', error);
-      throw error;
+      throw new Error(`Failed to start Oracle Node Service: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
   /** Stop the oracle node service and flush the queue. */
   public async stop(): Promise<void> {
     if (!this.isRunning) {
-      console.warn('Oracle node service is not running');
+      // Service is not running
       return;
     }
 
-    console.warn('🛑 Stopping Oracle Node Service...');
+    // Stopping Oracle Node Service...
 
     this.isRunning = false;
 
     // Process remaining updates
     await this.processUpdateQueue();
 
-    console.warn('✅ Oracle Node Service stopped');
+    // Oracle Node Service stopped
+    if (this.updateInterval !== undefined) {
+      clearInterval(this.updateInterval);
+      delete this.updateInterval;
+    }
     this.emit('stopped');
   }
 
@@ -173,69 +243,83 @@ export class OracleNodeService extends EventEmitter {
    */
   private async testConnections(): Promise<void> {
     this.ensureInitialized();
-    console.warn('🔍 Testing network connections...');
+    // Testing network connections...
 
     // Test COTI connection
     try {
-      const cotiBlockNumber = await this.cotiProvider.getBlockNumber();
-      console.warn(`✅ COTI connection OK (block: ${cotiBlockNumber})`);
+      const _cotiBlockNumber = await this.cotiProvider.getBlockNumber();
+      // COTI connection OK
     } catch (error) {
       throw new Error(`COTI connection failed: ${(error as Error).message}`);
     }
 
     // Test Ethereum connection
     try {
-      const ethBlockNumber = await this.ethereumProvider.getBlockNumber();
-      console.warn(`✅ Ethereum connection OK (block: ${ethBlockNumber})`);
+      const _ethBlockNumber = await this.ethereumProvider.getBlockNumber();
+      // Ethereum connection OK
     } catch (error) {
       throw new Error(`Ethereum connection failed: ${(error as Error).message}`);
     }
 
     // Test oracle health
     try {
-      const isHealthy = await this.oracleContract?.['isHealthy']?.();
-      console.warn(`✅ Oracle health: ${isHealthy}`);
+      const _isHealthy = await this.oracleContract['isHealthy']() as boolean;
+      // Oracle health check complete
     } catch (error) {
-      console.warn(`⚠️  Oracle health check failed: ${(error as Error).message}`);
+      // Oracle health check failed - non-critical
     }
   }
 
-  /** Begin listening to COTI registry events for name changes. */
+  /**
+   * Begin listening to COTI registry events for name changes.
+   * Sets up event listeners for name registrations and transfers.
+   */
   private startCotiMonitoring(): void {
-    console.warn('👁️  Starting COTI blockchain monitoring...');
+    // Starting COTI blockchain monitoring...
 
     // Listen for name registrations
-    this.registryContract.on('NameRegistered', (username, owner, timestamp, event) => {
-      console.warn(`📝 Name registered: ${username} -> ${owner}`);
-
-      this.queueUpdate({
-        username,
-        address: owner,
-        timestamp: Number(timestamp),
-        blockNumber: event.blockNumber
-      });
-    });
+    void this.registryContract.on('NameRegistered', 
+      (username: string, owner: string, timestamp: bigint, event: ethers.EventPayload<unknown>) => {
+        // Name registered
+        const eventWithLog = event as unknown as { log?: { blockNumber?: number } };
+        const log = eventWithLog.log;
+        const blockNumber = log?.blockNumber ?? 0;
+        this.queueUpdate({
+          username,
+          address: owner,
+          timestamp: Number(timestamp),
+          blockNumber
+        });
+      }
+    );
 
     // Listen for name transfers
-    this.registryContract.on('NameTransferred', (username, from, to, event) => {
-      console.warn(`🔄 Name transferred: ${username} (${from} -> ${to})`);
-
-      this.queueUpdate({
-        username,
-        address: to,
-        timestamp: Date.now(),
-        blockNumber: event.blockNumber
-      });
-    });
+    void this.registryContract.on('NameTransferred', 
+      (username: string, from: string, to: string, event: ethers.EventPayload<unknown>) => {
+        // Name transferred
+        const eventWithLog = event as unknown as { log?: { blockNumber?: number } };
+        const log = eventWithLog.log;
+        const blockNumber = log?.blockNumber ?? 0;
+        this.queueUpdate({
+          username,
+          address: to,
+          timestamp: Date.now(),
+          blockNumber
+        });
+      }
+    );
   }
 
-  /** Start periodic scheduler to process the update queue. */
+  /**
+   * Start periodic scheduler to process the update queue.
+   * Runs at intervals specified in config.
+   */
   private startUpdateScheduler(): void {
-    console.warn('⏰ Starting update scheduler...');
+    // Starting update scheduler...
 
-    setInterval(async () => {
+    this.updateInterval = setInterval(() => {
       if (this.isRunning && this.updateQueue.length > 0) {
-        await this.processUpdateQueue();
+        void this.processUpdateQueue();
       }
     }, this.config.updateInterval * 1000);
   }
@@ -256,7 +340,7 @@ export class OracleNodeService extends EventEmitter {
       this.updateQueue.push(update);
     }
 
-    console.warn(`📥 Queued update: ${update.username} (queue size: ${this.updateQueue.length})`);
+    // Update queued
   }
 
   /** Process queued name updates (single or batch). */
@@ -266,7 +350,7 @@ export class OracleNodeService extends EventEmitter {
       return;
     }
 
-    console.warn(`🔄 Processing ${this.updateQueue.length} updates...`);
+    // Processing updates...
 
     try {
       // Process in batches
@@ -276,10 +360,10 @@ export class OracleNodeService extends EventEmitter {
       if (batch.length === 1) {
         // Single update
         const firstUpdate = batch[0];
-        if (firstUpdate) {
+        if (firstUpdate !== undefined) {
           await this.updateSingleName(firstUpdate);
         }
-      } else {
+      } else if (batch.length > 1) {
         // Batch update
         await this.updateBatchNames(batch);
       }
@@ -287,7 +371,7 @@ export class OracleNodeService extends EventEmitter {
       this.metrics.successfulUpdates += batch.length;
       this.metrics.lastUpdateTime = Date.now();
 
-      console.warn(`✅ Processed ${batch.length} updates successfully`);
+      // Updates processed successfully
 
       // Emit progress
       this.emit('updates-processed', {
@@ -296,14 +380,8 @@ export class OracleNodeService extends EventEmitter {
       });
 
     } catch (error) {
-      console.warn('❌ Failed to process updates:', error);
       this.metrics.failedUpdates++;
-
-      // Re-queue failed updates (with limit)
-      if (this.metrics.failedUpdates < 3) {
-        console.warn('🔄 Re-queuing failed updates...');
-        // Could implement retry logic here
-      }
+      // Failed to process updates - retry logic could be implemented here
     }
 
     this.metrics.totalUpdates++;
@@ -311,20 +389,19 @@ export class OracleNodeService extends EventEmitter {
 
   /**
    * Update a single name entry in the oracle contract.
-   * @param update
+   * @param update - The name update record containing username and address
    */
   private async updateSingleName(update: NameUpdate): Promise<void> {
-    console.warn(`🔄 Updating single name: ${update.username} -> ${update.address}`);
+    // Updating single name...
 
     try {
-      if (!this.oracleContract) {
-        throw new Error('Oracle contract not initialized');
-      }
-      
-      const tx = await this.oracleContract['updateName'](update.username, update.address);
+      // Call updateName on the contract
+      type UpdateNameFn = (username: string, address: string) => Promise<TransactionResponse>;
+      const updateName = this.oracleContract['updateName'] as UpdateNameFn;
+      const tx = await updateName(update.username, update.address);
       const receipt = await tx.wait();
 
-      console.warn(`✅ Single update completed (gas: ${receipt.gasUsed})`);
+      // Single update completed
 
       // Calculate reward
       const reward = this.config.rewardAmount;
@@ -333,36 +410,34 @@ export class OracleNodeService extends EventEmitter {
       this.emit('name-updated', {
         username: update.username,
         address: update.address,
-        txHash: receipt.hash,
-        gasUsed: receipt.gasUsed,
+        txHash: receipt?.hash ?? '',
+        gasUsed: receipt?.gasUsed ?? 0n,
         reward
       });
 
     } catch (error) {
-      console.warn(`❌ Single update failed: ${(error as Error).message}`);
-      throw error;
+      throw new Error(`Single update failed: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
   /**
    * Batch update multiple name entries in the oracle contract.
-   * @param updates
+   * @param updates - Array of name update records
    */
   private async updateBatchNames(updates: NameUpdate[]): Promise<void> {
-    console.warn(`🔄 Updating batch of ${updates.length} names...`);
+    // Updating batch of names...
 
     try {
       const usernames = updates.map(u => u.username);
       const addresses = updates.map(u => u.address);
 
-      if (!this.oracleContract) {
-        throw new Error('Oracle contract not initialized');
-      }
-      
-      const tx = await this.oracleContract['batchUpdateNames'](usernames, addresses);
+      // Call batchUpdateNames on the contract
+      type BatchUpdateNamesFn = (usernames: string[], addresses: string[]) => Promise<TransactionResponse>;
+      const batchUpdateNames = this.oracleContract['batchUpdateNames'] as BatchUpdateNamesFn;
+      const tx = await batchUpdateNames(usernames, addresses);
       const receipt = await tx.wait();
 
-      console.warn(`✅ Batch update completed (gas: ${receipt.gasUsed})`);
+      // Batch update completed
 
       // Calculate rewards
       const totalReward = this.config.rewardAmount * updates.length;
@@ -370,39 +445,36 @@ export class OracleNodeService extends EventEmitter {
 
       this.emit('batch-updated', {
         count: updates.length,
-        txHash: receipt.hash,
-        gasUsed: receipt.gasUsed,
+        txHash: receipt?.hash ?? '',
+        gasUsed: receipt?.gasUsed ?? 0n,
         totalReward
       });
 
     } catch (error) {
-      console.warn(`❌ Batch update failed: ${(error as Error).message}`);
-      throw error;
+      throw new Error(`Batch update failed: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
-  /** Return a snapshot of current node metrics. */
+  /**
+   * Return a snapshot of current node metrics.
+   * @returns A copy of the current oracle metrics
+   */
   public getMetrics(): OracleMetrics {
     return { ...this.metrics };
   }
 
-  /** Get current service status including queue size and metrics. */
+  /**
+   * Get current service status including queue size and metrics.
+   * @returns Status object with running state, queue size, and metrics
+   */
   public getStatus(): {
-    /**
-     *
-     */
+    /** Whether the service is currently running */
     isRunning: boolean;
-    /**
-     *
-     */
+    /** Number of updates waiting in queue */
     queueSize: number;
-    /**
-     *
-     */
+    /** Current performance metrics */
     metrics: OracleMetrics;
-    /**
-     *
-     */
+    /** Last error message if any */
     lastError?: string;
   } {
     return {
@@ -414,50 +486,54 @@ export class OracleNodeService extends EventEmitter {
 
   /**
    * Query a name from the COTI registry contract.
-   * @param username
+   * @param username - The username to query
+   * @returns The resolved address or zero address if not found
    */
   public async queryCotiName(username: string): Promise<string> {
     this.ensureInitialized();
     try {
-      if (!this.registryContract) {
-        throw new Error('Registry contract not initialized');
-      }
-      
-      const address = await this.registryContract['resolve'](username);
+      // Call resolve on the contract
+      type ResolveFn = (username: string) => Promise<string>;
+      const resolve = this.registryContract['resolve'] as ResolveFn;
+      const address = await resolve(username);
       return address;
     } catch (error) {
-      console.warn(`❌ Failed to query COTI name: ${(error as Error).message}`);
+      // Failed to query COTI name
       return ethers.ZeroAddress;
     }
   }
 
   /**
    * Query a name from the Ethereum oracle contract.
-   * @param username
+   * @param username - The username to query
+   * @returns The resolved address or zero address if not found
    */
   public async queryEthereumName(username: string): Promise<string> {
     this.ensureInitialized();
     try {
-      const address = await this.oracleContract['queryName'](username);
+      // Call queryName on the contract
+      type QueryNameFn = (username: string) => Promise<string>;
+      const queryName = this.oracleContract['queryName'] as QueryNameFn;
+      const address = await queryName(username);
       return address;
     } catch (error) {
-      console.warn(`❌ Failed to query Ethereum name: ${(error as Error).message}`);
+      // Failed to query Ethereum name
       return ethers.ZeroAddress;
     }
   }
 
   /**
-   * Force a sync for a specific username from COTI → Ethereum.
-   * @param username
+   * Force a sync for a specific username from COTI to Ethereum.
+   * @param username - The username to force sync
    */
   public async forceSyncName(username: string): Promise<void> {
     this.ensureInitialized();
-    console.warn(`🔄 Force syncing name: ${username}`);
+    // Force syncing name...
 
     try {
       const cotiAddress = await this.queryCotiName(username);
 
-      if (cotiAddress && cotiAddress !== ethers.ZeroAddress) {
+      if (cotiAddress !== ethers.ZeroAddress) {
         await this.updateSingleName({
           username,
           address: cotiAddress,
@@ -465,18 +541,20 @@ export class OracleNodeService extends EventEmitter {
           blockNumber: await this.cotiProvider.getBlockNumber()
         });
 
-        console.warn(`✅ Force sync completed for ${username}`);
+        // Force sync completed
       } else {
-        console.warn(`⚠️  Name ${username} not found on COTI`);
+        throw new Error(`Name ${username} not found on COTI`);
       }
 
     } catch (error) {
-      console.warn(`❌ Force sync failed: ${(error as Error).message}`);
-      throw error;
+      throw new Error(`Force sync failed: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
-  /** Perform a health check across providers and recent activity. */
+  /**
+   * Perform a health check across providers and recent activity.
+   * @returns True if the service is healthy, false otherwise
+   */
   public async healthCheck(): Promise<boolean> {
     this.ensureInitialized();
     try {
@@ -486,16 +564,18 @@ export class OracleNodeService extends EventEmitter {
       }
 
       // Check oracle health
-      const oracleHealthy = await this.oracleContract?.['isHealthy']?.();
+      // Call isHealthy on the contract
+      const isHealthy = this.oracleContract['isHealthy'] as () => Promise<boolean>;
+      const oracleHealthy = await isHealthy();
 
       // Check recent activity
       const timeSinceLastUpdate = Date.now() - this.metrics.lastUpdateTime;
       const isRecentlyActive = timeSinceLastUpdate < (this.config.updateInterval * 2 * 1000);
 
-      return oracleHealthy && isRecentlyActive;
+      return Boolean(oracleHealthy && isRecentlyActive);
 
     } catch (error) {
-      console.warn(`❌ Health check failed: ${(error as Error).message}`);
+      // Health check failed
       return false;
     }
   }

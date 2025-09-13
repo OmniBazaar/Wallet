@@ -305,7 +305,7 @@ export class OTPService {
       // Get OTP session
       const session = await this.getOTPSession(sessionId);
       
-      if (!session) {
+      if (session === null) {
         return {
           valid: false,
           error: 'Invalid or expired OTP session.'
@@ -407,7 +407,7 @@ export class OTPService {
    */
   private hashOTP(otp: string): string {
     return createHash('sha256')
-      .update(otp + process.env.OTP_SALT || 'default_salt')
+      .update(otp + (process.env.OTP_SALT !== undefined && process.env.OTP_SALT !== '' ? process.env.OTP_SALT : 'default_salt'))
       .digest('hex');
   }
 
@@ -519,7 +519,7 @@ export class OTPService {
     const rateLimit = result.rows[0] as unknown as RateLimitData;
     
     // Check if locked out
-    if (rateLimit.lockedUntil && new Date() < rateLimit.lockedUntil) {
+    if (rateLimit.lockedUntil !== null && rateLimit.lockedUntil !== undefined && new Date() < rateLimit.lockedUntil) {
       const retryAfter = Math.ceil((rateLimit.lockedUntil.getTime() - Date.now()) / 1000);
       return { allowed: false, retryAfter };
     }

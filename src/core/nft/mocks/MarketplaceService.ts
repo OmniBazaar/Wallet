@@ -78,9 +78,8 @@ export class MarketplaceService {
    * @returns Promise resolving to transaction hash
    */
   purchaseNFT(_listingId: string): Promise<PurchaseResult> {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-unsafe-assignment
-    const { generateSecureMockTxHash } = require('../../utils/secure-random');
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { generateSecureMockTxHash } = require('../../utils/secure-random') as { generateSecureMockTxHash: () => string };
     return Promise.resolve({ hash: generateSecureMockTxHash() });
   }
 }

@@ -2,8 +2,8 @@ import type { TrezorConnect } from "@trezor/connect-web";
 import { HWwalletCapabilities } from "../../../types/enkrypt-types";
 // HDKey type not used in Solana provider
 type HDKeyInstance = { publicKey: Buffer; chainCode: Buffer; derive(path: string): HDKeyInstance };
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const base58 = require("bs58") as { encode: (buffer: Buffer | Uint8Array) => string; decode: (str: string) => Buffer };
+import bs58 from "bs58";
+const base58 = bs58 as unknown as { encode: (buffer: Buffer | Uint8Array) => string; decode: (str: string) => Buffer };
 import { bufferToHex } from "../../../types/enkrypt-types";
 import {
   AddressResponse,

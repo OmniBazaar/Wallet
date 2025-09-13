@@ -132,7 +132,6 @@ class LedgerSubstrate implements HWWalletProvider {
    * @returns Promise that resolves when the transport is closed
    */
   close(): Promise<void> {
-    // eslint-disable-next-line @typescript-eslint/no-empty-function
     return this.transport?.close().catch(() => {}) ?? Promise.resolve();
   }
 

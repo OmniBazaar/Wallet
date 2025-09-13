@@ -925,13 +925,14 @@ export class LiquidityService {
 
       // Check current allowance and approve if needed
       try {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any
-        const walletAny = wallet as any;
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-        const currentBalance = await walletAny.getTokenBalance(tokenAddress) as bigint;
+        type WalletWithTokenMethods = {
+          getTokenBalance: (tokenAddress: string) => Promise<bigint>;
+          approveToken: (tokenAddress: string, spender: string, amount: bigint) => Promise<unknown>;
+        };
+        const walletWithMethods = wallet as unknown as WalletWithTokenMethods;
+        const currentBalance = await walletWithMethods.getTokenBalance(tokenAddress);
         if (currentBalance >= amount) {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-          await walletAny.approveToken(tokenAddress, spender, amount) as unknown;
+          await walletWithMethods.approveToken(tokenAddress, spender, amount);
         }
       } catch (error) {
         // Silently handle allowance errors

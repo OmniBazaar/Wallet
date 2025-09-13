@@ -99,6 +99,82 @@ interface DecayConfig {
 }
 
 /**
+ * API response data structure for participation components
+ */
+interface ParticipationAPIData {
+  referrals?: {
+    count?: number;
+    points?: number;
+  };
+  publishing?: {
+    listingsPublished?: number;
+    points?: number;
+  };
+  forumActivity?: {
+    questionsAnswered?: number;
+    helpfulVotes?: number;
+    lastActivityDate?: number;
+    points?: number;
+  };
+  marketplaceActivity?: {
+    buyTransactions?: number;
+    sellTransactions?: number;
+    lastTransactionDate?: number;
+    points?: number;
+  };
+  communityPolicing?: {
+    reportsSubmitted?: number;
+    reportsVerified?: number;
+    lastReportDate?: number;
+    points?: number;
+  };
+  reliability?: {
+    successfulValidations?: number;
+    failedValidations?: number;
+    disputesAsArbitrator?: number;
+    disputesResolved?: number;
+    lastActivityDate?: number;
+    points?: number;
+  };
+}
+
+/**
+ * Activity update types
+ */
+interface ReferralActivity {
+  type: 'new_referral';
+  referred: string;
+}
+
+interface PublishingActivity {
+  type: 'listing_published';
+  listingId: string;
+}
+
+interface ForumActivity {
+  type: 'answer' | 'helpful_vote';
+  [key: string]: unknown;
+}
+
+interface MarketplaceActivity {
+  type: 'buy' | 'sell';
+  transactionId: string;
+}
+
+interface CommunityPolicingActivity {
+  type: 'report';
+  reportId: string;
+  verified: boolean;
+}
+
+interface ReliabilityActivity {
+  type: 'validation_success' | 'validation_failure' | 'dispute_resolved' | 'dispute_failed';
+  [key: string]: unknown;
+}
+
+type ActivityUpdate = ReferralActivity | PublishingActivity | ForumActivity | MarketplaceActivity | CommunityPolicingActivity | ReliabilityActivity;
+
+/**
  * Participation Service
  */
 export class ParticipationService {
@@ -177,7 +253,10 @@ export class ParticipationService {
         return this.getDefaultScore(address);
       }
       
-      const data = await response.json();
+      const data = await response.json() as unknown;
+      if (!this.isParticipationAPIData(data)) {
+        throw new Error('Invalid response data');
+      }
       const score = this.calculateScore(address, data);
       
       // Update cache
@@ -185,55 +264,55 @@ export class ParticipationService {
       
       return score;
     } catch (error) {
-      console.error('Error fetching participation score:', error);
+      // Log error internally but return default score
+      // In production, this would be logged to a monitoring service
       return this.getDefaultScore(address);
     }
   }
   
   /**
    * Update an activity component and return the updated score.
-   * @param address Wallet address
-   * @param component Component key to update
-   * @param activity Component-specific payload
+   * @param address - Wallet address
+   * @param component - Component key to update
+   * @param activity - Component-specific payload
+   * @returns Updated participation score
    */
   async updateActivity(
     address: string,
     component: keyof ParticipationComponents,
-    activity: any
+    activity: ActivityUpdate
   ): Promise<ParticipationScore> {
-    try {
-      const response = await fetch(`${this.validatorEndpoint}/update`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          address,
-          component,
-          activity,
-          timestamp: Date.now()
-        })
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to update activity');
-      }
-      
-      const data = await response.json();
-      const score = this.calculateScore(address, data);
-      
-      // Clear cache
-      this.scoreCache.delete(address);
-      
-      return score;
-    } catch (error) {
-      console.error('Error updating activity:', error);
-      throw error;
+    const response = await fetch(`${this.validatorEndpoint}/update`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        address,
+        component,
+        activity,
+        timestamp: Date.now()
+      })
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to update activity');
     }
+    
+    const data = await response.json() as unknown;
+    if (!this.isParticipationAPIData(data)) {
+      throw new Error('Invalid response data');
+    }
+    const score = this.calculateScore(address, data);
+    
+    // Clear cache
+    this.scoreCache.delete(address);
+    
+    return score;
   }
   
   /**
    * Track referral
-   * @param referrer
-   * @param referred
+   * @param referrer Address of the referrer
+   * @param referred Address of the referred user
    */
   async trackReferral(referrer: string, referred: string): Promise<void> {
     await this.updateActivity(referrer, 'referrals', {
@@ -244,8 +323,8 @@ export class ParticipationService {
   
   /**
    * Track listing publication
-   * @param publisher
-   * @param listingId
+   * @param publisher Address of the publisher
+   * @param listingId ID of the published listing
    */
   async trackListingPublished(publisher: string, listingId: string): Promise<void> {
     await this.updateActivity(publisher, 'publishing', {
@@ -256,26 +335,26 @@ export class ParticipationService {
   
   /**
    * Track forum activity
-   * @param user
-   * @param activityType
-   * @param metadata
+   * @param user User address
+   * @param activityType Type of forum activity
+   * @param metadata Additional metadata for the activity
    */
   async trackForumActivity(
     user: string,
     activityType: 'answer' | 'helpful_vote',
-    metadata?: any
+    metadata?: Record<string, unknown>
   ): Promise<void> {
     await this.updateActivity(user, 'forumActivity', {
       type: activityType,
-      ...metadata
-    });
+      ...(metadata ?? {})
+    } as ForumActivity);
   }
   
   /**
    * Track marketplace transaction
-   * @param user
-   * @param transactionType
-   * @param transactionId
+   * @param user User address
+   * @param transactionType Type of transaction (buy or sell)
+   * @param transactionId ID of the transaction
    */
   async trackMarketplaceTransaction(
     user: string,
@@ -290,9 +369,9 @@ export class ParticipationService {
   
   /**
    * Track community policing
-   * @param reporter
-   * @param reportId
-   * @param verified
+   * @param reporter Address of the reporter
+   * @param reportId ID of the report
+   * @param verified Whether the report was verified
    */
   async trackCommunityPolicing(
     reporter: string,
@@ -308,24 +387,25 @@ export class ParticipationService {
   
   /**
    * Update reliability score
-   * @param user
-   * @param action
-   * @param metadata
+   * @param user User address
+   * @param action Type of reliability action
+   * @param metadata Additional metadata for the action
    */
   async updateReliability(
     user: string,
     action: 'validation_success' | 'validation_failure' | 'dispute_resolved' | 'dispute_failed',
-    metadata?: any
+    metadata?: Record<string, unknown>
   ): Promise<void> {
     await this.updateActivity(user, 'reliability', {
       type: action,
-      ...metadata
-    });
+      ...(metadata ?? {})
+    } as ReliabilityActivity);
   }
   
   /**
    * Check validator qualification
-   * @param address
+   * @param address Wallet address to check
+   * @returns Qualification status and requirements
    */
   async checkValidatorQualification(address: string): Promise<{
     qualified: boolean;
@@ -361,7 +441,8 @@ export class ParticipationService {
   
   /**
    * Check listing node qualification
-   * @param address
+   * @param address Wallet address to check
+   * @returns Qualification status and requirements
    */
   async checkListingNodeQualification(address: string): Promise<{
     qualified: boolean;
@@ -379,7 +460,8 @@ export class ParticipationService {
   
   /**
    * Get leaderboard
-   * @param limit
+   * @param limit Maximum number of entries to return (default 100)
+   * @returns Array of leaderboard entries
    */
   async getLeaderboard(limit = 100): Promise<Array<{
     rank: number;
@@ -397,17 +479,27 @@ export class ParticipationService {
         return [];
       }
       
-      const data = await response.json();
+      const data = await response.json() as unknown;
+      if (!Array.isArray(data)) {
+        throw new Error('Invalid leaderboard data');
+      }
       
-      return data.map((entry: any, index: number) => ({
-        rank: index + 1,
-        address: entry.address,
-        score: entry.score,
-        isValidator: entry.score >= 50,
-        isListingNode: entry.score >= 25
-      }));
+      return data.map((entry: unknown, index: number) => {
+        const leaderboardEntry = entry as {
+          address?: string;
+          score?: number;
+        };
+        return {
+          rank: index + 1,
+          address: leaderboardEntry.address ?? '',
+          score: leaderboardEntry.score ?? 0,
+          isValidator: (leaderboardEntry.score ?? 0) >= 50,
+          isListingNode: (leaderboardEntry.score ?? 0) >= 25
+        };
+      });
     } catch (error) {
-      console.error('Error fetching leaderboard:', error);
+      // Return empty array on error
+      // In production, this would be logged to a monitoring service
       return [];
     }
   }
@@ -416,49 +508,50 @@ export class ParticipationService {
   
   /**
    * Calculate total score from components
-   * @param address
-   * @param data
+   * @param address - Wallet address
+   * @param data - API response data
+   * @returns Calculated participation score
    */
-  private calculateScore(address: string, data: any): ParticipationScore {
+  private calculateScore(address: string, data: ParticipationAPIData): ParticipationScore {
     const now = Date.now();
     
     // Calculate referral points (max 10)
-    const referralPoints = Math.min(data.referrals?.count || 0, 10);
+    const referralPoints = Math.min(data.referrals?.count ?? 0, 10);
     
     // Calculate publishing points (0-4 based on thresholds)
     const publishingPoints = this.calculatePublishingPoints(
-      data.publishing?.listingsPublished || 0
+      data.publishing?.listingsPublished ?? 0
     );
     
     // Calculate forum points with decay (max 5)
     const forumPoints = this.applyDecay(
-      data.forumActivity?.points || 0,
-      data.forumActivity?.lastActivityDate || 0,
-      this.DECAY_CONFIGS['forum'],
+      data.forumActivity?.points ?? 0,
+      data.forumActivity?.lastActivityDate ?? 0,
+      this.DECAY_CONFIGS.forum,
       5
     );
     
     // Calculate marketplace points with decay (max 5)
     const marketplacePoints = this.applyDecay(
-      data.marketplaceActivity?.points || 0,
-      data.marketplaceActivity?.lastTransactionDate || 0,
-      this.DECAY_CONFIGS['marketplace'],
+      data.marketplaceActivity?.points ?? 0,
+      data.marketplaceActivity?.lastTransactionDate ?? 0,
+      this.DECAY_CONFIGS.marketplace,
       5
     );
     
     // Calculate community policing points with decay (max 5)
     const policingPoints = this.applyDecay(
-      data.communityPolicing?.points || 0,
-      data.communityPolicing?.lastReportDate || 0,
-      this.DECAY_CONFIGS['communityPolicing'],
+      data.communityPolicing?.points ?? 0,
+      data.communityPolicing?.lastReportDate ?? 0,
+      this.DECAY_CONFIGS.communityPolicing,
       5
     );
     
     // Calculate reliability points with decay (-5 to +5)
     const reliabilityPoints = this.applyDecay(
-      data.reliability?.points || 0,
-      data.reliability?.lastActivityDate || 0,
-      this.DECAY_CONFIGS['reliability'],
+      data.reliability?.points ?? 0,
+      data.reliability?.lastActivityDate ?? 0,
+      this.DECAY_CONFIGS.reliability,
       5,
       -5
     );
@@ -478,37 +571,37 @@ export class ParticipationService {
       totalScore,
       components: {
         referrals: {
-          count: data.referrals?.count || 0,
+          count: data.referrals?.count ?? 0,
           points: referralPoints
         },
         publishing: {
-          listingsPublished: data.publishing?.listingsPublished || 0,
+          listingsPublished: data.publishing?.listingsPublished ?? 0,
           points: publishingPoints
         },
         forumActivity: {
-          questionsAnswered: data.forumActivity?.questionsAnswered || 0,
-          helpfulVotes: data.forumActivity?.helpfulVotes || 0,
-          lastActivityDate: data.forumActivity?.lastActivityDate || 0,
+          questionsAnswered: data.forumActivity?.questionsAnswered ?? 0,
+          helpfulVotes: data.forumActivity?.helpfulVotes ?? 0,
+          lastActivityDate: data.forumActivity?.lastActivityDate ?? 0,
           points: forumPoints
         },
         marketplaceActivity: {
-          buyTransactions: data.marketplaceActivity?.buyTransactions || 0,
-          sellTransactions: data.marketplaceActivity?.sellTransactions || 0,
-          lastTransactionDate: data.marketplaceActivity?.lastTransactionDate || 0,
+          buyTransactions: data.marketplaceActivity?.buyTransactions ?? 0,
+          sellTransactions: data.marketplaceActivity?.sellTransactions ?? 0,
+          lastTransactionDate: data.marketplaceActivity?.lastTransactionDate ?? 0,
           points: marketplacePoints
         },
         communityPolicing: {
-          reportsSubmitted: data.communityPolicing?.reportsSubmitted || 0,
-          reportsVerified: data.communityPolicing?.reportsVerified || 0,
-          lastReportDate: data.communityPolicing?.lastReportDate || 0,
+          reportsSubmitted: data.communityPolicing?.reportsSubmitted ?? 0,
+          reportsVerified: data.communityPolicing?.reportsVerified ?? 0,
+          lastReportDate: data.communityPolicing?.lastReportDate ?? 0,
           points: policingPoints
         },
         reliability: {
-          successfulValidations: data.reliability?.successfulValidations || 0,
-          failedValidations: data.reliability?.failedValidations || 0,
-          disputesAsArbitrator: data.reliability?.disputesAsArbitrator || 0,
-          disputesResolved: data.reliability?.disputesResolved || 0,
-          lastActivityDate: data.reliability?.lastActivityDate || 0,
+          successfulValidations: data.reliability?.successfulValidations ?? 0,
+          failedValidations: data.reliability?.failedValidations ?? 0,
+          disputesAsArbitrator: data.reliability?.disputesAsArbitrator ?? 0,
+          disputesResolved: data.reliability?.disputesResolved ?? 0,
+          lastActivityDate: data.reliability?.lastActivityDate ?? 0,
           points: reliabilityPoints
         }
       },
@@ -521,7 +614,8 @@ export class ParticipationService {
   
   /**
    * Calculate publishing points based on thresholds
-   * @param listingsPublished
+   * @param listingsPublished - Number of listings published
+   * @returns Publishing points (0-4)
    */
   private calculatePublishingPoints(listingsPublished: number): number {
     let points = 0;
@@ -539,11 +633,12 @@ export class ParticipationService {
   
   /**
    * Apply time-based decay to points
-   * @param currentPoints
-   * @param lastActivityDate
-   * @param config
-   * @param maxPoints
-   * @param minPoints
+   * @param currentPoints - Current points value
+   * @param lastActivityDate - Timestamp of last activity
+   * @param config - Decay configuration
+   * @param maxPoints - Maximum allowed points
+   * @param minPoints - Minimum allowed points (default 0)
+   * @returns Decayed points value
    */
   private applyDecay(
     currentPoints: number,
@@ -552,7 +647,7 @@ export class ParticipationService {
     maxPoints: number,
     minPoints = 0
   ): number {
-    if (!lastActivityDate || currentPoints === 0) {
+    if (lastActivityDate === 0 || currentPoints === 0) {
       return currentPoints;
     }
     
@@ -576,7 +671,8 @@ export class ParticipationService {
   
   /**
    * Get default score for new user
-   * @param address
+   * @param address - Wallet address
+   * @returns Default participation score
    */
   private getDefaultScore(address: string): ParticipationScore {
     return {
@@ -620,21 +716,48 @@ export class ParticipationService {
   }
   
   /**
-   * Get staking amount (mock - would query blockchain)
-   * @param address
+   * Type guard to validate API response data
+   * @param data - Data to validate
+   * @returns True if data matches expected structure
    */
-  private async getStakingAmount(address: string): Promise<string> {
+  private isParticipationAPIData(data: unknown): data is ParticipationAPIData {
+    if (typeof data !== 'object' || data === null) {
+      return false;
+    }
+    
+    // Basic structure validation
+    const obj = data as Record<string, unknown>;
+    
+    // Check optional fields if present
+    const fields = ['referrals', 'publishing', 'forumActivity', 'marketplaceActivity', 'communityPolicing', 'reliability'];
+    
+    for (const field of fields) {
+      if (field in obj && typeof obj[field] !== 'object') {
+        return false;
+      }
+    }
+    
+    return true;
+  }
+  
+  /**
+   * Get staking amount (mock - would query blockchain)
+   * @param _address - Wallet address (unused in mock)
+   * @returns Staking amount as string
+   */
+  private getStakingAmount(_address: string): Promise<string> {
     // In production, would query staking contract
-    return '0';
+    return Promise.resolve('0');
   }
   
   /**
    * Check KYC status (mock - would query KYC service)
-   * @param address
+   * @param _address - Wallet address (unused in mock)
+   * @returns KYC verification status
    */
-  private async checkKYCStatus(address: string): Promise<boolean> {
+  private checkKYCStatus(_address: string): Promise<boolean> {
     // In production, would query KYC service for top-tier verification
-    return false;
+    return Promise.resolve(false);
   }
 }
 

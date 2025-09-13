@@ -1,5 +1,6 @@
 import type { NFTItem, NFTCollection } from '../../../types/nft';
 import type { ChainProvider } from '../display/multi-chain-display';
+import type { Contract } from 'ethers';
 
 /** Configuration for Optimism NFT provider */
 export interface OptimismNFTConfig {
@@ -18,14 +19,14 @@ export interface OptimismNFTConfig {
  * Supports Optimistic Etherscan, Alchemy, and SimpleHash APIs for comprehensive NFT data
  */
 export class OptimismNFTProvider implements ChainProvider {
-  chainId = 10; // Optimism mainnet
-  name = 'Optimism';
-  isConnected = false;
+  public readonly chainId = 10; // Optimism mainnet
+  public readonly name = 'Optimism';
+  public isConnected = false;
   
   private config: OptimismNFTConfig;
-  private optimisticEtherscanUrl = 'https://api-optimistic.etherscan.io/api';
-  private alchemyUrl = 'https://opt-mainnet.g.alchemy.com/nft/v2';
-  private simplehashUrl = 'https://api.simplehash.com/api/v0';
+  private readonly optimisticEtherscanUrl = 'https://api-optimistic.etherscan.io/api';
+  private readonly alchemyUrl = 'https://opt-mainnet.g.alchemy.com/nft/v2';
+  private readonly simplehashUrl = 'https://api.simplehash.com/api/v0';
 
   /**
    * Create Optimism NFT provider
@@ -41,17 +42,15 @@ export class OptimismNFTProvider implements ChainProvider {
    * @param address Wallet address to fetch NFTs for
    * @returns Promise resolving to array of NFT items
    */
-  async getNFTs(address: string): Promise<NFTItem[]> {
+  public async getNFTs(address: string): Promise<NFTItem[]> {
     try {
-      console.warn(`Fetching Optimism NFTs for address: ${address}`);
-      
       // Try Alchemy API first if available
-      if (this.config.alchemyApiKey !== undefined && this.config.alchemyApiKey !== null && this.config.alchemyApiKey !== '') {
+      if (this.config.alchemyApiKey !== undefined && this.config.alchemyApiKey.length > 0) {
         return await this.fetchFromAlchemy(address);
       }
       
       // Try SimpleHash API if available
-      if (this.config.simplehashApiKey !== undefined && this.config.simplehashApiKey !== null && this.config.simplehashApiKey !== '') {
+      if (this.config.simplehashApiKey !== undefined && this.config.simplehashApiKey.length > 0) {
         return await this.fetchFromSimpleHash(address);
       }
       
@@ -59,7 +58,7 @@ export class OptimismNFTProvider implements ChainProvider {
       return await this.fetchFromBlockchain(address);
       
     } catch (error) {
-      console.warn('Error fetching Optimism NFTs:', error);
+      // Silent fail, return empty array
       return [];
     }
   }
@@ -70,15 +69,15 @@ export class OptimismNFTProvider implements ChainProvider {
    * @param tokenId Token ID to fetch metadata for
    * @returns Promise resolving to NFT item or null
    */
-  async getNFTMetadata(contractAddress: string, tokenId: string): Promise<NFTItem | null> {
+  public async getNFTMetadata(contractAddress: string, tokenId: string): Promise<NFTItem | null> {
     try {
-      if (this.config.alchemyApiKey !== undefined && this.config.alchemyApiKey !== null && this.config.alchemyApiKey !== '') {
+      if (this.config.alchemyApiKey !== undefined && this.config.alchemyApiKey.length > 0) {
         const response = await fetch(
           `${this.alchemyUrl}/${this.config.alchemyApiKey}/getNFTMetadata?contractAddress=${contractAddress}&tokenId=${tokenId}`
         );
         
         if (response.ok) {
-          const data = await response.json();
+          const data: unknown = await response.json();
           return this.transformAlchemyNFT(data);
         }
       }
@@ -95,61 +94,53 @@ export class OptimismNFTProvider implements ChainProvider {
       
       const contract = new ethers.Contract(contractAddress, erc721Abi, provider);
       
-      const c: any = contract;
       const [tokenURI, name, owner] = await Promise.all([
-        c?.['tokenURI']?.(tokenId).catch(() => ''),
-        c?.['name']?.().catch(() => 'Unknown Collection'),
-        c?.['ownerOf']?.(tokenId).catch(() => '0x0000000000000000000000000000000000000000')
+        this.safeCallContract(contract, 'tokenURI', [tokenId], ''),
+        this.safeCallContract(contract, 'name', [], 'Unknown Collection'),
+        this.safeCallContract(contract, 'ownerOf', [tokenId], '0x0000000000000000000000000000000000000000')
       ]);
       
       // Parse metadata
-      let metadata: any = { name: `${name} #${tokenId}`, description: '' };
-      if (tokenURI) {
-        if (tokenURI.startsWith('data:')) {
-          const json = tokenURI.split(',')[1];
-          metadata = JSON.parse(atob(json));
-        } else if (tokenURI.startsWith('ipfs://')) {
-          const ipfsGateway = 'https://ipfs.io/ipfs/';
-          const ipfsHash = tokenURI.replace('ipfs://', '');
-          try {
-            const response = await fetch(ipfsGateway + ipfsHash);
-            metadata = await response.json();
-          } catch {}
-        } else if (tokenURI.startsWith('http')) {
-          try {
-            const response = await fetch(tokenURI);
-            metadata = await response.json();
-          } catch {}
-        }
+      interface NFTMetadata {
+        name?: string;
+        description?: string;
+        image?: string;
+        attributes?: Array<{ trait_type: string; value: string | number }>;
+      }
+      
+      let metadata: NFTMetadata = { name: `${name} #${tokenId}`, description: '' };
+      if (typeof tokenURI === 'string' && tokenURI.length > 0) {
+        metadata = await this.parseTokenURI(tokenURI, name, tokenId);
       }
       
       return {
         id: `optimism_${contractAddress}_${tokenId}`,
         tokenId,
-        name: metadata.name || `${name} #${tokenId}`,
-        description: metadata.description || '',
-        image: metadata.image || '',
-        imageUrl: metadata.image || '',
-        attributes: metadata.attributes || [],
+        name: metadata.name ?? `${name} #${tokenId}`,
+        description: metadata.description ?? '',
+        image: metadata.image ?? '',
+        imageUrl: metadata.image ?? '',
+        attributes: metadata.attributes ?? [],
         contract: contractAddress,
         contractAddress,
         tokenStandard: 'ERC721',
         blockchain: 'optimism',
-        owner,
+        owner: String(owner),
         creator: '',
         isListed: false
       };
     } catch (error) {
-      console.warn('Error fetching Optimism NFT metadata:', error);
+      // Silent fail
       return null;
     }
   }
 
   /**
    * Get NFT collections for an address
-   * @param address
+   * @param address Wallet address to fetch collections for
+   * @returns Promise resolving to array of NFT collections
    */
-  async getCollections(address: string): Promise<NFTCollection[]> {
+  public async getCollections(address: string): Promise<NFTCollection[]> {
     try {
       const nfts = await this.getNFTs(address);
       const collectionMap = new Map<string, NFTCollection>();
@@ -158,30 +149,34 @@ export class OptimismNFTProvider implements ChainProvider {
         if (!collectionMap.has(nft.contractAddress)) {
           collectionMap.set(nft.contractAddress, {
             id: `optimism_collection_${nft.contractAddress}`,
-            name: (nft.name || 'Unknown Collection').split('#')[0]?.trim() || 'Unknown Collection',
+            name: ((nft.name ?? 'Unknown Collection').split('#')[0])?.trim() ?? 'Unknown Collection',
             description: '',
             contract: nft.contractAddress,
             contractAddress: nft.contractAddress,
             tokenStandard: nft.tokenStandard,
             blockchain: 'optimism',
-            creator: nft.creator || address,
+            creator: nft.creator ?? address,
             verified: false,
             items: []
           });
         }
-        collectionMap.get(nft.contractAddress)!.items.push(nft);
+        const collection = collectionMap.get(nft.contractAddress);
+        if (collection !== undefined) {
+          collection.items.push(nft);
+        }
       }
       
       return Array.from(collectionMap.values());
     } catch (error) {
-      console.warn('Error fetching Optimism collections:', error);
+      // Silent fail
       return [];
     }
   }
 
   /**
    * Fetch NFTs from Alchemy API
-   * @param address
+   * @param address Wallet address to fetch NFTs for
+   * @returns Promise resolving to array of NFT items
    */
   private async fetchFromAlchemy(address: string): Promise<NFTItem[]> {
     const response = await fetch(
@@ -192,20 +187,24 @@ export class OptimismNFTProvider implements ChainProvider {
       throw new Error(`Alchemy API error: ${response.status}`);
     }
     
-    const data = await response.json();
-    return data.ownedNfts?.map((nft: any) => this.transformAlchemyNFT(nft)) || [];
+    const data: unknown = await response.json();
+    if (!this.isAlchemyResponse(data)) {
+      return [];
+    }
+    return data.ownedNfts.map((nft) => this.transformAlchemyNFT(nft));
   }
 
   /**
    * Fetch NFTs from SimpleHash API
-   * @param address
+   * @param address Wallet address to fetch NFTs for
+   * @returns Promise resolving to array of NFT items
    */
   private async fetchFromSimpleHash(address: string): Promise<NFTItem[]> {
     const response = await fetch(
       `${this.simplehashUrl}/nfts/owners?chains=optimism&wallet_addresses=${address}&limit=100`,
       {
         headers: {
-          'X-API-KEY': this.config.simplehashApiKey!
+          'X-API-KEY': this.config.simplehashApiKey ?? ''
         }
       }
     );
@@ -214,65 +213,79 @@ export class OptimismNFTProvider implements ChainProvider {
       throw new Error(`SimpleHash API error: ${response.status}`);
     }
     
-    const data = await response.json();
-    return data.nfts?.map((nft: any) => this.transformSimpleHashNFT(nft)) || [];
+    const data: unknown = await response.json();
+    if (!this.isSimpleHashResponse(data)) {
+      return [];
+    }
+    return data.nfts.map((nft) => this.transformSimpleHashNFT(nft));
   }
 
   /**
    * Transform Alchemy NFT data to our format
-   * @param nft
+   * @param nft Raw NFT data from Alchemy API
+   * @returns Transformed NFT item
    */
-  private transformAlchemyNFT(nft: any): NFTItem {
-    const metadata = nft.metadata || {};
+  private transformAlchemyNFT(nft: unknown): NFTItem {
+    if (!this.isAlchemyNFT(nft)) {
+      throw new Error('Invalid Alchemy NFT data');
+    }
+    
+    const metadata = nft.metadata ?? {};
     
     return {
       id: `optimism_${nft.contract.address}_${nft.id.tokenId}`,
       tokenId: nft.id.tokenId,
-      name: metadata.name || nft.title || `Optimism NFT #${nft.id.tokenId}`,
-      description: metadata.description || nft.description || '',
-      image: metadata.image || nft.media?.[0]?.gateway || '',
-      imageUrl: metadata.image || nft.media?.[0]?.gateway || '',
-      attributes: metadata.attributes || [],
+      name: metadata.name ?? nft.title ?? `Optimism NFT #${nft.id.tokenId}`,
+      description: metadata.description ?? nft.description ?? '',
+      image: metadata.image ?? nft.media?.[0]?.gateway ?? '',
+      imageUrl: metadata.image ?? nft.media?.[0]?.gateway ?? '',
+      attributes: metadata.attributes ?? [],
       contract: nft.contract.address,
       contractAddress: nft.contract.address,
-      tokenStandard: nft.id.tokenMetadata?.tokenType || 'ERC721',
+      tokenStandard: (nft.id.tokenMetadata?.tokenType === 'ERC721' || nft.id.tokenMetadata?.tokenType === 'ERC1155') ? nft.id.tokenMetadata.tokenType : 'ERC721',
       blockchain: 'optimism',
       owner: '',
-      creator: metadata.creator || '',
+      creator: metadata.creator ?? '',
       isListed: false
     };
   }
 
   /**
    * Transform SimpleHash NFT data to our format
-   * @param nft
+   * @param nft Raw NFT data from SimpleHash API
+   * @returns Transformed NFT item
    */
-  private transformSimpleHashNFT(nft: any): NFTItem {
+  private transformSimpleHashNFT(nft: unknown): NFTItem {
+    if (!this.isSimpleHashNFT(nft)) {
+      throw new Error('Invalid SimpleHash NFT data');
+    }
+    
     return {
       id: `optimism_${nft.contract_address}_${nft.token_id}`,
       tokenId: nft.token_id,
-      name: nft.name || `Optimism NFT #${nft.token_id}`,
-      description: nft.description || '',
-      image: nft.image_url || nft.previews?.image_medium_url || '',
-      imageUrl: nft.image_url || nft.previews?.image_medium_url || '',
-      attributes: nft.extra_metadata?.attributes || [],
+      name: nft.name ?? `Optimism NFT #${nft.token_id}`,
+      description: nft.description ?? '',
+      image: nft.image_url ?? nft.previews?.image_medium_url ?? '',
+      imageUrl: nft.image_url ?? nft.previews?.image_medium_url ?? '',
+      attributes: nft.extra_metadata?.attributes ?? [],
       contract: nft.contract_address,
       contractAddress: nft.contract_address,
-      tokenStandard: nft.contract?.type || 'ERC721',
+      tokenStandard: (nft.contract?.type === 'ERC721' || nft.contract?.type === 'ERC1155') ? nft.contract.type : 'ERC721',
       blockchain: 'optimism',
-      owner: nft.owners?.[0]?.owner_address || '',
-      creator: nft.contract?.deployed_by || '',
-      price: nft.last_sale?.unit_price ? 
+      owner: nft.owners?.[0]?.owner_address ?? '',
+      creator: nft.contract?.deployed_by ?? '',
+      price: (nft.last_sale?.unit_price !== undefined && nft.last_sale.unit_price !== null) ? 
         (Number(nft.last_sale.unit_price) / 1e18).toString() : '0',
       currency: 'ETH',
       isListed: Boolean(nft.listings?.length),
-      marketplaceUrl: nft.external_url
+      ...(nft.external_url !== undefined && { marketplaceUrl: nft.external_url })
     };
   }
 
   /**
    * Fetch NFTs directly from blockchain using ethers
-   * @param address
+   * @param address Wallet address to fetch NFTs for
+   * @returns Promise resolving to array of NFT items
    */
   private async fetchFromBlockchain(address: string): Promise<NFTItem[]> {
     try {
@@ -304,54 +317,35 @@ export class OptimismNFTProvider implements ChainProvider {
           const contract = new ethers.Contract(contractAddress, erc721Abi, provider);
           
           // Get balance
-          const balance = await (contract as any)?.['balanceOf']?.(address);
-          if (balance === 0n) continue;
+          const balance = await this.safeCallContract(contract, 'balanceOf', [address], BigInt(0));
+          if (typeof balance === 'bigint' && balance === BigInt(0)) continue;
           
           // Get collection name
-          const collectionName = await (contract as any)?.['name']?.().catch(() => 'Unknown Collection');
+          const collectionName = await this.safeCallContract(contract, 'name', [], 'Unknown Collection');
           
           // Get up to 10 NFTs from this collection
           const limit = Math.min(Number(balance), 10);
           
           for (let i = 0; i < limit; i++) {
             try {
-              const tokenId = await (contract as any)?.['tokenOfOwnerByIndex']?.(address, i);
-              const tokenURI = await (contract as any)?.['tokenURI']?.(tokenId).catch(() => '');
+              const tokenId = await this.safeCallContract(contract, 'tokenOfOwnerByIndex', [address, i], BigInt(0));
+              const tokenURI = await this.safeCallContract(contract, 'tokenURI', [tokenId], '');
               
               // Parse metadata if available
-              let metadata: any = {};
-              if (tokenURI.startsWith('data:')) {
-                // On-chain metadata
-                const json = tokenURI.split(',')[1];
-                metadata = JSON.parse(atob(json));
-              } else if (tokenURI.startsWith('ipfs://')) {
-                // IPFS metadata
-                const ipfsGateway = 'https://ipfs.io/ipfs/';
-                const ipfsHash = tokenURI.replace('ipfs://', '');
-                try {
-                  const response = await fetch(ipfsGateway + ipfsHash);
-                  metadata = await response.json();
-                } catch {
-                  metadata = { name: `${collectionName} #${tokenId}`, description: '' };
-                }
-              } else if (tokenURI.startsWith('http')) {
-                // HTTP metadata
-                try {
-                  const response = await fetch(tokenURI);
-                  metadata = await response.json();
-                } catch {
-                  metadata = { name: `${collectionName} #${tokenId}`, description: '' };
-                }
-              }
+              const metadata = await this.parseTokenURI(
+                String(tokenURI), 
+                String(collectionName), 
+                String(tokenId)
+              );
               
               nfts.push({
                 id: `optimism_${contractAddress}_${tokenId}`,
-                tokenId: tokenId.toString(),
-                name: metadata.name || `${collectionName} #${tokenId}`,
-                description: metadata.description || '',
-                image: metadata.image || '',
-                imageUrl: metadata.image || '',
-                attributes: metadata.attributes || [],
+                tokenId: String(tokenId),
+                name: metadata.name ?? `${collectionName} #${tokenId}`,
+                description: metadata.description ?? '',
+                image: metadata.image ?? '',
+                imageUrl: metadata.image ?? '',
+                attributes: metadata.attributes ?? [],
                 contract: contractAddress,
                 contractAddress,
                 tokenStandard: 'ERC721',
@@ -363,73 +357,81 @@ export class OptimismNFTProvider implements ChainProvider {
                 isListed: false
               });
             } catch (error) {
-              console.warn(`Failed to fetch NFT ${i} from ${contractAddress}:`, error);
+              // Skip failed NFT
             }
           }
         } catch (error) {
-          console.warn(`Failed to query contract ${contractAddress}:`, error);
+          // Skip failed contract
         }
       }
       
       return nfts;
     } catch (error) {
-      console.error('Failed to fetch NFTs from blockchain:', error);
+      // Silent fail
       return [];
     }
   }
 
   /**
    * Search NFTs on Optimism
-   * @param query
-   * @param limit
+   * @param query Search query string
+   * @param limit Maximum number of results to return
+   * @returns Promise resolving to array of NFT items
    */
-  async searchNFTs(query: string, limit = 20): Promise<NFTItem[]> {
+  public async searchNFTs(query: string, limit = 20): Promise<NFTItem[]> {
     try {
       // If we have Alchemy API, use it for search
-      if (this.config.alchemyApiKey !== undefined && this.config.alchemyApiKey !== null && this.config.alchemyApiKey !== '') {
+      if (this.config.alchemyApiKey !== undefined && this.config.alchemyApiKey.length > 0) {
         const response = await fetch(
           `${this.alchemyUrl}/${this.config.alchemyApiKey}/getNFTs?contractAddresses[]=${query}&withMetadata=true&pageSize=${limit}`
         );
         
         if (response.ok) {
-          const data = await response.json();
-          return data.ownedNfts?.map((nft: any) => this.transformAlchemyNFT(nft)) || [];
+          const data: unknown = await response.json();
+          if (this.isAlchemyResponse(data)) {
+            return data.ownedNfts.map((nft) => this.transformAlchemyNFT(nft));
+          }
+          return [];
         }
       }
       
       // If we have SimpleHash API, use it for search
-      if (this.config.simplehashApiKey !== undefined && this.config.simplehashApiKey !== null && this.config.simplehashApiKey !== '') {
+      if (this.config.simplehashApiKey !== undefined && this.config.simplehashApiKey.length > 0) {
         const response = await fetch(
           `${this.simplehashUrl}/nfts/collection/${query}?chains=optimism&limit=${limit}`,
           {
             headers: {
-              'X-API-KEY': this.config.simplehashApiKey
+              'X-API-KEY': this.config.simplehashApiKey ?? ''
             }
           }
         );
         
         if (response.ok) {
-          const data = await response.json();
-          return data.nfts?.map((nft: any) => this.transformSimpleHashNFT(nft)) || [];
+          const data: unknown = await response.json();
+          if (this.isSimpleHashResponse(data)) {
+            return data.nfts.map((nft) => this.transformSimpleHashNFT(nft));
+          }
+          return [];
         }
       }
       
       return [];
     } catch (error) {
-      console.warn('Error searching Optimism NFTs:', error);
+      // Silent fail
       return [];
     }
   }
 
   /**
    * Get trending NFTs on Optimism
-   * @param limit
+   * @param limit Maximum number of results to return
+   * @returns Promise resolving to array of NFT items
    */
-  async getTrendingNFTs(limit = 20): Promise<NFTItem[]> {
+  public async getTrendingNFTs(limit = 20): Promise<NFTItem[]> {
     try {
       // Fetch from Quixotic or other Optimism NFT marketplaces
       // For now, return NFTs from popular collections
-      if (this.config.alchemyApiKey !== undefined && this.config.alchemyApiKey !== null && this.config.alchemyApiKey !== '') {
+      if (this.config.alchemyApiKey !== undefined && this.config.alchemyApiKey.length > 0) {
         // Get NFTs from popular collections
         const popularContracts = [
           '0x52782699900dF91b58eCd618E77847C5774dcaBe', // Optimism Quests
@@ -450,9 +452,11 @@ export class OptimismNFTProvider implements ChainProvider {
             );
             
             if (nftResponse.ok) {
-              const data = await nftResponse.json();
-              const collectionNfts = data.nfts?.map((nft: any) => this.transformAlchemyNFT(nft)) || [];
-              nfts.push(...collectionNfts);
+              const data: unknown = await nftResponse.json();
+              if (this.isAlchemyCollectionResponse(data)) {
+                const collectionNfts = data.nfts.map((nft) => this.transformAlchemyNFT(nft));
+                nfts.push(...collectionNfts);
+              }
             }
           }
         }
@@ -461,35 +465,41 @@ export class OptimismNFTProvider implements ChainProvider {
       }
       
       // SimpleHash trending
-      if (this.config.simplehashApiKey !== undefined && this.config.simplehashApiKey !== null && this.config.simplehashApiKey !== '') {
+      if (this.config.simplehashApiKey !== undefined && this.config.simplehashApiKey.length > 0) {
         const response = await fetch(
           `${this.simplehashUrl}/nfts/trending_collections?chains=optimism&time_period=24h&limit=${limit}`,
           {
             headers: {
-              'X-API-KEY': this.config.simplehashApiKey
+              'X-API-KEY': this.config.simplehashApiKey ?? ''
             }
           }
         );
         
         if (response.ok) {
-          const data = await response.json();
+          const data: unknown = await response.json();
           const nfts: NFTItem[] = [];
           
+          if (!this.isTrendingCollectionsResponse(data)) {
+            return [];
+          }
+          
           // Get sample NFTs from trending collections
-          for (const collection of data.collections || []) {
+          for (const collection of data.collections) {
             const nftResponse = await fetch(
               `${this.simplehashUrl}/nfts/collection/${collection.collection_id}?chains=optimism&limit=5`,
               {
                 headers: {
-                  'X-API-KEY': this.config.simplehashApiKey
+                  'X-API-KEY': this.config.simplehashApiKey ?? ''
                 }
               }
             );
             
             if (nftResponse.ok) {
-              const nftData = await nftResponse.json();
-              const collectionNfts = nftData.nfts?.map((nft: any) => this.transformSimpleHashNFT(nft)) || [];
-              nfts.push(...collectionNfts);
+              const nftData: unknown = await nftResponse.json();
+              if (this.isSimpleHashResponse(nftData)) {
+                const collectionNfts = nftData.nfts.map((nft) => this.transformSimpleHashNFT(nft));
+                nfts.push(...collectionNfts);
+              }
             }
             
             if (nfts.length >= limit) break;
@@ -501,54 +511,55 @@ export class OptimismNFTProvider implements ChainProvider {
       
       return [];
     } catch (error) {
-      console.warn('Error fetching trending Optimism NFTs:', error);
+      // Silent fail
       return [];
     }
   }
 
   /**
    * Update configuration
-   * @param newConfig
+   * @param newConfig Partial configuration to merge with existing config
    */
-  updateConfig(newConfig: Partial<OptimismNFTConfig>): void {
+  public updateConfig(newConfig: Partial<OptimismNFTConfig>): void {
     this.config = { ...this.config, ...newConfig };
     this.isConnected = Boolean(this.config.rpcUrl);
   }
 
   /**
    * Test connection to APIs
+   * @returns Promise resolving to connection status and list of working APIs
    */
-  async testConnection(): Promise<{ connected: boolean; apis: string[] }> {
+  public async testConnection(): Promise<{ connected: boolean; apis: string[] }> {
     const workingApis: string[] = [];
 
-    if (this.config.alchemyApiKey !== undefined && this.config.alchemyApiKey !== null && this.config.alchemyApiKey !== '') {
+    if (this.config.alchemyApiKey !== undefined && this.config.alchemyApiKey.length > 0) {
       try {
         const response = await fetch(`${this.alchemyUrl}/${this.config.alchemyApiKey}/isHolderOfCollection?wallet=0x0000000000000000000000000000000000000000&contractAddress=0x0000000000000000000000000000000000000000`);
         if (response.ok) workingApis.push('Alchemy');
       } catch (error) {
-        console.warn('Alchemy connection test failed:', error);
+        // Connection test failed
       }
     }
 
-    if (this.config.simplehashApiKey !== undefined && this.config.simplehashApiKey !== null && this.config.simplehashApiKey !== '') {
+    if (this.config.simplehashApiKey !== undefined && this.config.simplehashApiKey.length > 0) {
       try {
         const response = await fetch(`${this.simplehashUrl}/nfts/owners?chains=optimism&wallet_addresses=0x0000000000000000000000000000000000000000&limit=1`, {
           headers: { 'X-API-KEY': this.config.simplehashApiKey }
         });
         if (response.ok) workingApis.push('SimpleHash');
       } catch (error) {
-        console.warn('SimpleHash connection test failed:', error);
+        // Connection test failed
       }
     }
 
-    if (this.config.optimisticEtherscanApiKey) {
+    if (this.config.optimisticEtherscanApiKey !== undefined && this.config.optimisticEtherscanApiKey.length > 0) {
       try {
         const response = await fetch(
           `${this.optimisticEtherscanUrl}?module=account&action=tokennfttx&address=0x0000000000000000000000000000000000000000&apikey=${this.config.optimisticEtherscanApiKey}`
         );
         if (response.ok) workingApis.push('Optimistic Etherscan');
       } catch (error) {
-        console.warn('Optimistic Etherscan connection test failed:', error);
+        // Connection test failed
       }
     }
 
@@ -556,5 +567,349 @@ export class OptimismNFTProvider implements ChainProvider {
       connected: workingApis.length > 0 || Boolean(this.config.rpcUrl),
       apis: workingApis
     };
+  }
+
+  /**
+   * Safely call a contract method with error handling
+   * @param contract Ethers contract instance
+   * @param method Method name to call
+   * @param args Arguments to pass to the method
+   * @param defaultValue Default value to return on error
+   * @returns Promise resolving to the result or default value
+   */
+  private async safeCallContract<T>(
+    contract: Contract,
+    method: string,
+    args: unknown[],
+    defaultValue: T
+  ): Promise<T> {
+    try {
+      // Check if method exists on contract
+      if (!(method in contract)) {
+        return defaultValue;
+      }
+      
+      // Get the method function
+      const fn = contract[method];
+      if (typeof fn !== 'function') {
+        return defaultValue;
+      }
+      
+      // Call the method
+      const result: unknown = await fn(...args);
+      return result as T;
+    } catch {
+      return defaultValue;
+    }
+  }
+
+  /**
+   * Parse token URI to extract metadata
+   * @param tokenURI Token URI to parse
+   * @param collectionName Fallback collection name
+   * @param tokenId Token ID for fallback name
+   * @returns Promise resolving to NFT metadata
+   */
+  private async parseTokenURI(
+    tokenURI: string,
+    collectionName: string,
+    tokenId: string
+  ): Promise<{
+    name?: string;
+    description?: string;
+    image?: string;
+    attributes?: Array<{ trait_type: string; value: string | number }>;
+  }> {
+    try {
+      if (tokenURI.startsWith('data:')) {
+        // On-chain metadata
+        const json = tokenURI.split(',')[1];
+        if (json === undefined || json.length === 0) {
+          return { name: `${collectionName} #${tokenId}`, description: '' };
+        }
+        
+        const decoded = atob(json);
+        const parsed: unknown = JSON.parse(decoded);
+        
+        if (this.isNFTMetadata(parsed)) {
+          return parsed;
+        }
+      } else if (tokenURI.startsWith('ipfs://')) {
+        // IPFS metadata
+        const ipfsGateway = 'https://ipfs.io/ipfs/';
+        const ipfsHash = tokenURI.replace('ipfs://', '');
+        
+        try {
+          const response = await fetch(ipfsGateway + ipfsHash);
+          const metadata: unknown = await response.json();
+          
+          if (this.isNFTMetadata(metadata)) {
+            return metadata;
+          }
+        } catch {
+          // Failed to fetch IPFS metadata
+        }
+      } else if (tokenURI.startsWith('http')) {
+        // HTTP metadata
+        try {
+          const response = await fetch(tokenURI);
+          const metadata: unknown = await response.json();
+          
+          if (this.isNFTMetadata(metadata)) {
+            return metadata;
+          }
+        } catch {
+          // Failed to fetch HTTP metadata
+        }
+      }
+    } catch {
+      // Failed to parse metadata
+    }
+    
+    return { name: `${collectionName} #${tokenId}`, description: '' };
+  }
+
+  /**
+   * Type guard for NFT metadata
+   * @param data Unknown data to check
+   * @returns True if data matches NFT metadata structure
+   */
+  private isNFTMetadata(data: unknown): data is {
+    name?: string;
+    description?: string;
+    image?: string;
+    attributes?: Array<{ trait_type: string; value: string | number }>;
+  } {
+    if (typeof data !== 'object' || data === null) {
+      return false;
+    }
+    
+    const obj = data as Record<string, unknown>;
+    
+    // Check optional fields
+    if ('name' in obj && typeof obj.name !== 'string') {
+      return false;
+    }
+    
+    if ('description' in obj && typeof obj.description !== 'string') {
+      return false;
+    }
+    
+    if ('image' in obj && typeof obj.image !== 'string') {
+      return false;
+    }
+    
+    if ('attributes' in obj && !Array.isArray(obj.attributes)) {
+      return false;
+    }
+    
+    return true;
+  }
+
+  /**
+   * Type guard for Alchemy NFT response
+   * @param data Unknown data to check
+   * @returns True if data matches Alchemy response structure
+   */
+  private isAlchemyResponse(data: unknown): data is {
+    ownedNfts: Array<{
+      id: { tokenId: string; tokenMetadata?: { tokenType?: string } };
+      title?: string;
+      description?: string;
+      contract: { address: string };
+      metadata?: {
+        name?: string;
+        description?: string;
+        image?: string;
+        attributes?: Array<{ trait_type: string; value: string | number }>;
+        creator?: string;
+      };
+      media?: Array<{ gateway: string }>;
+    }>;
+  } {
+    if (typeof data !== 'object' || data === null) {
+      return false;
+    }
+    
+    const obj = data as Record<string, unknown>;
+    
+    if (!('ownedNfts' in obj) || !Array.isArray(obj.ownedNfts)) {
+      return false;
+    }
+    
+    return true;
+  }
+
+  /**
+   * Type guard for Alchemy collection response
+   * @param data Unknown data to check
+   * @returns True if data matches Alchemy collection response structure
+   */
+  private isAlchemyCollectionResponse(data: unknown): data is {
+    nfts: Array<{
+      id: { tokenId: string; tokenMetadata?: { tokenType?: string } };
+      title?: string;
+      description?: string;
+      contract: { address: string };
+      metadata?: {
+        name?: string;
+        description?: string;
+        image?: string;
+        attributes?: Array<{ trait_type: string; value: string | number }>;
+        creator?: string;
+      };
+      media?: Array<{ gateway: string }>;
+    }>;
+  } {
+    if (typeof data !== 'object' || data === null) {
+      return false;
+    }
+    
+    const obj = data as Record<string, unknown>;
+    
+    if (!('nfts' in obj) || !Array.isArray(obj.nfts)) {
+      return false;
+    }
+    
+    return true;
+  }
+
+  /**
+   * Type guard for Alchemy NFT data
+   * @param data Unknown data to check
+   * @returns True if data matches Alchemy NFT structure
+   */
+  private isAlchemyNFT(data: unknown): data is {
+    id: { tokenId: string; tokenMetadata?: { tokenType?: string } };
+    title?: string;
+    description?: string;
+    contract: { address: string };
+    metadata?: {
+      name?: string;
+      description?: string;
+      image?: string;
+      attributes?: Array<{ trait_type: string; value: string | number }>;
+      creator?: string;
+    };
+    media?: Array<{ gateway: string }>;
+  } {
+    if (typeof data !== 'object' || data === null) {
+      return false;
+    }
+    
+    const obj = data as Record<string, unknown>;
+    
+    // Required fields
+    if (!('id' in obj) || typeof obj.id !== 'object' || obj.id === null) {
+      return false;
+    }
+    
+    const id = obj.id as Record<string, unknown>;
+    if (!('tokenId' in id) || typeof id.tokenId !== 'string') {
+      return false;
+    }
+    
+    if (!('contract' in obj) || typeof obj.contract !== 'object' || obj.contract === null) {
+      return false;
+    }
+    
+    const contract = obj.contract as Record<string, unknown>;
+    if (!('address' in contract) || typeof contract.address !== 'string') {
+      return false;
+    }
+    
+    return true;
+  }
+
+  /**
+   * Type guard for SimpleHash NFT response
+   * @param data Unknown data to check
+   * @returns True if data matches SimpleHash response structure
+   */
+  private isSimpleHashResponse(data: unknown): data is {
+    nfts: Array<{
+      token_id: string;
+      name?: string;
+      description?: string;
+      image_url?: string;
+      contract_address: string;
+      previews?: { image_medium_url?: string };
+      extra_metadata?: { attributes?: Array<{ trait_type: string; value: string | number }> };
+      contract?: { type?: string; deployed_by?: string };
+      owners?: Array<{ owner_address: string }>;
+      last_sale?: { unit_price?: string };
+      listings?: unknown[];
+      external_url?: string;
+    }>;
+  } {
+    if (typeof data !== 'object' || data === null) {
+      return false;
+    }
+    
+    const obj = data as Record<string, unknown>;
+    
+    if (!('nfts' in obj) || !Array.isArray(obj.nfts)) {
+      return false;
+    }
+    
+    return true;
+  }
+
+  /**
+   * Type guard for SimpleHash NFT data
+   * @param data Unknown data to check
+   * @returns True if data matches SimpleHash NFT structure
+   */
+  private isSimpleHashNFT(data: unknown): data is {
+    token_id: string;
+    name?: string;
+    description?: string;
+    image_url?: string;
+    contract_address: string;
+    previews?: { image_medium_url?: string };
+    extra_metadata?: { attributes?: Array<{ trait_type: string; value: string | number }> };
+    contract?: { type?: string; deployed_by?: string };
+    owners?: Array<{ owner_address: string }>;
+    last_sale?: { unit_price?: string };
+    listings?: unknown[];
+    external_url?: string;
+  } {
+    if (typeof data !== 'object' || data === null) {
+      return false;
+    }
+    
+    const obj = data as Record<string, unknown>;
+    
+    // Required fields
+    if (!('token_id' in obj) || typeof obj.token_id !== 'string') {
+      return false;
+    }
+    
+    if (!('contract_address' in obj) || typeof obj.contract_address !== 'string') {
+      return false;
+    }
+    
+    return true;
+  }
+
+  /**
+   * Type guard for trending collections response
+   * @param data Unknown data to check
+   * @returns True if data matches trending collections structure
+   */
+  private isTrendingCollectionsResponse(data: unknown): data is {
+    collections: Array<{ collection_id: string }>;
+  } {
+    if (typeof data !== 'object' || data === null) {
+      return false;
+    }
+    
+    const obj = data as Record<string, unknown>;
+    
+    if (!('collections' in obj) || !Array.isArray(obj.collections)) {
+      return false;
+    }
+    
+    return true;
   }
 }

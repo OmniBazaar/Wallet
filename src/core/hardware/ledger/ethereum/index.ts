@@ -27,9 +27,9 @@ interface HDKeyInstance {
   derive(path: string): HDKeyInstance;
 }
 
-// Use require for hdkey to avoid type declaration issues
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const HDKey = require("hdkey") as new () => HDKeyInstance;
+// Import hdkey with proper typing
+import hdkey from "hdkey";
+const HDKey = hdkey as unknown as new () => HDKeyInstance;
 import { bufferToHex, hexToBuffer } from "../../../types/enkrypt-types";
 import { RLP } from "@ethereumjs/rlp";
 import { toRpcSig, publicToAddress } from "@ethereumjs/util";
@@ -275,7 +275,6 @@ class LedgerEthereum implements HWWalletProvider {
     if (this.transport === null) {
       return Promise.resolve();
     }
-    // eslint-disable-next-line @typescript-eslint/no-empty-function
     return this.transport.close().catch(() => {});
   }
 

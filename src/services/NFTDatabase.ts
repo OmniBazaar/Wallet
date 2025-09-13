@@ -126,7 +126,8 @@ export class NFTDatabase {
   constructor() {}
 
   /**
-   *
+   * Initialize the NFT database
+   * @returns Promise that resolves when database is initialized
    */
   async init(): Promise<void> {
     if (this.isInitialized) return;
@@ -178,14 +179,14 @@ export class NFTDatabase {
    * @returns Success status
    */
   async saveNFT(nft: NFTData): Promise<boolean> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (this.db === null) throw new Error('Database not initialized');
 
     try {
       // Ensure NFT has an ID and timestamps
       const nftToSave = {
         ...nft,
-        id: nft.id || `${nft.contractAddress}-${nft.tokenId}`,
-        createdAt: nft.createdAt || Date.now(),
+        id: nft.id ?? `${nft.contractAddress}-${nft.tokenId}`,
+        createdAt: nft.createdAt ?? Date.now(),
         updatedAt: Date.now()
       };
       
@@ -206,23 +207,26 @@ export class NFTDatabase {
   }
 
   /**
-   *
-   * @param id
+   * Get NFT by ID
+   * @param id - NFT ID
+   * @returns NFT data or null if not found
    */
   async getNFT(id: string): Promise<NFTData | null>;
   /**
    * Get NFT by contract and token ID (overload)
    * @param contractAddress - Contract address
    * @param tokenId - Token ID
+   * @returns NFT data or null if not found
    */
   async getNFT(contractAddress: string, tokenId: string): Promise<NFTData | null>;
   /**
-   *
-   * @param idOrContract
-   * @param tokenId
+   * Get NFT implementation
+   * @param idOrContract - NFT ID or contract address
+   * @param tokenId - Token ID (optional, required when using contract address)
+   * @returns NFT data or null if not found
    */
   async getNFT(idOrContract: string, tokenId?: string): Promise<NFTData | null> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (this.db === null) throw new Error('Database not initialized');
 
     try {
       const tx = this.db.transaction(['nfts'], 'readonly');
@@ -232,7 +236,7 @@ export class NFTDatabase {
         // Get by ID
         return new Promise<NFTData | null>((resolve, reject) => {
           const request = store.get(idOrContract);
-          request.onsuccess = () => resolve(request.result || null);
+          request.onsuccess = () => resolve(request.result as NFTData | null ?? null);
           request.onerror = () => reject(request.error);
         });
       } else {
@@ -240,7 +244,7 @@ export class NFTDatabase {
         const index = store.index('contractAndToken');
         return new Promise<NFTData | null>((resolve, reject) => {
           const request = index.get([idOrContract, tokenId]);
-          request.onsuccess = () => resolve(request.result || null);
+          request.onsuccess = () => resolve(request.result as NFTData | null ?? null);
           request.onerror = () => reject(request.error);
         });
       }
@@ -251,11 +255,12 @@ export class NFTDatabase {
   }
 
   /**
-   *
-   * @param filters
+   * Get NFTs with optional filters
+   * @param filters - Optional filters to apply
+   * @returns Array of NFT data
    */
-  async getNFTs(filters?: any): Promise<NFTData[]> {
-    if (!this.db) throw new Error('Database not initialized');
+  async getNFTs(filters?: Record<string, unknown>): Promise<NFTData[]> {
+    if (this.db === null) throw new Error('Database not initialized');
 
     try {
       const tx = this.db.transaction(['nfts'], 'readonly');
@@ -264,19 +269,19 @@ export class NFTDatabase {
       return new Promise<NFTData[]>((resolve, reject) => {
         const request = store.getAll();
         request.onsuccess = () => {
-          let results = request.result || [];
+          let results: NFTData[] = (request.result as NFTData[]) ?? [];
           
           // Apply filters if provided
-          if (filters) {
-            results = results.filter(nft => {
+          if (filters !== undefined) {
+            results = results.filter((nft: NFTData) => {
               return Object.entries(filters).every(([key, value]) => {
-                return (nft)[key] === value;
+                return (nft as unknown as Record<string, unknown>)[key] === value;
               });
             });
           }
 
           // Sort by updated timestamp (newest first)
-          results.sort((a, b) => b.updatedAt - a.updatedAt);
+          results.sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0));
           resolve(results);
         };
         request.onerror = () => reject(request.error);
@@ -288,12 +293,13 @@ export class NFTDatabase {
   }
 
   /**
-   *
-   * @param owner
-   * @param chainId
+   * Get NFTs by owner
+   * @param owner - Owner address
+   * @param chainId - Optional chain ID filter
+   * @returns Array of NFT data
    */
   async getNFTsByOwner(owner: string, chainId?: number): Promise<NFTData[]> {
-    const filters: any = { owner };
+    const filters: Record<string, unknown> = { owner };
     if (chainId !== undefined) {
       filters.chainId = chainId;
     }
@@ -301,20 +307,22 @@ export class NFTDatabase {
   }
 
   /**
-   *
-   * @param contractAddress
-   * @param chainId
+   * Get NFTs by collection
+   * @param contractAddress - Contract address
+   * @param chainId - Chain ID
+   * @returns Array of NFT data
    */
   async getNFTsByCollection(contractAddress: string, chainId: number): Promise<NFTData[]> {
     return await this.getNFTs({ contractAddress, chainId });
   }
 
   /**
-   *
-   * @param collection
+   * Save collection to database
+   * @param collection - Collection data to save
+   * @returns Success status
    */
   async saveCollection(collection: NFTCollection): Promise<boolean> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (this.db === null) throw new Error('Database not initialized');
 
     try {
       collection.updatedAt = Date.now();
@@ -336,21 +344,24 @@ export class NFTDatabase {
   }
 
   /**
-   *
-   * @param id
+   * Get collection by ID
+   * @param id - Collection ID
+   * @returns Collection data or null if not found
    */
   async getCollection(id: string): Promise<NFTCollection | null>;
   /**
    * Get collection by contract address (overload for compatibility)
    * @param contractAddress - Contract address
+   * @returns Collection data or null if not found
    */
   async getCollection(contractAddress: string): Promise<NFTCollection | null>;
   /**
-   *
-   * @param idOrAddress
+   * Get collection implementation
+   * @param idOrAddress - Collection ID or contract address
+   * @returns Collection data or null if not found
    */
   async getCollection(idOrAddress: string): Promise<NFTCollection | null> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (this.db === null) throw new Error('Database not initialized');
 
     try {
       const tx = this.db.transaction(['collections'], 'readonly');
@@ -359,22 +370,22 @@ export class NFTDatabase {
       // First try to get by ID
       let result = await new Promise<NFTCollection | null>((resolve, reject) => {
         const request = store.get(idOrAddress);
-        request.onsuccess = () => resolve(request.result || null);
+        request.onsuccess = () => resolve(request.result as NFTCollection | null ?? null);
         request.onerror = () => reject(request.error);
       });
 
       // If not found by ID, try to find by contract address
-      if (!result) {
+      if (result === null) {
         const index = store.index('contractAddress');
         result = await new Promise<NFTCollection | null>((resolve, reject) => {
           const request = index.get(idOrAddress);
-          request.onsuccess = () => resolve(request.result || null);
+          request.onsuccess = () => resolve(request.result as NFTCollection | null ?? null);
           request.onerror = () => reject(request.error);
         });
       }
 
       // Add address alias for compatibility
-      if (result) {
+      if (result !== null) {
         result.address = result.contractAddress;
       }
 
@@ -386,11 +397,12 @@ export class NFTDatabase {
   }
 
   /**
-   *
-   * @param filters
+   * Get collections with optional filters
+   * @param filters - Optional filters to apply
+   * @returns Array of collection data
    */
-  async getCollections(filters?: any): Promise<NFTCollection[]> {
-    if (!this.db) throw new Error('Database not initialized');
+  async getCollections(filters?: Record<string, unknown>): Promise<NFTCollection[]> {
+    if (this.db === null) throw new Error('Database not initialized');
 
     try {
       const tx = this.db.transaction(['collections'], 'readonly');
@@ -399,19 +411,19 @@ export class NFTDatabase {
       return new Promise<NFTCollection[]>((resolve, reject) => {
         const request = store.getAll();
         request.onsuccess = () => {
-          let results = request.result || [];
+          let results: NFTCollection[] = (request.result as NFTCollection[]) ?? [];
           
           // Apply filters if provided
-          if (filters) {
-            results = results.filter(collection => {
+          if (filters !== undefined) {
+            results = results.filter((collection: NFTCollection) => {
               return Object.entries(filters).every(([key, value]) => {
-                return (collection)[key] === value;
+                return (collection as unknown as Record<string, unknown>)[key] === value;
               });
             });
           }
 
           // Sort by updated timestamp (newest first)
-          results.sort((a, b) => b.updatedAt - a.updatedAt);
+          results.sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0));
           resolve(results);
         };
         request.onerror = () => reject(request.error);
@@ -423,11 +435,12 @@ export class NFTDatabase {
   }
 
   /**
-   *
-   * @param id
+   * Delete NFT from database
+   * @param id - NFT ID to delete
+   * @returns Success status
    */
   async deleteNFT(id: string): Promise<boolean> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (this.db === null) throw new Error('Database not initialized');
 
     try {
       const tx = this.db.transaction(['nfts'], 'readwrite');
@@ -447,17 +460,19 @@ export class NFTDatabase {
   }
 
   /**
-   *
+   * Clear all NFT and collection data (alias for clearAll)
+   * @returns Success status
    */
   async clear(): Promise<boolean> {
     return await this.clearAll();
   }
 
   /**
-   *
+   * Clear all NFT and collection data from database
+   * @returns Success status
    */
   async clearAll(): Promise<boolean> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (this.db === null) throw new Error('Database not initialized');
 
     try {
       const tx = this.db.transaction(['nfts', 'collections'], 'readwrite');
@@ -483,11 +498,11 @@ export class NFTDatabase {
   }
 
   /**
-   *
+   * Cleanup database connections and resources
    */
-  async cleanup(): Promise<void> {
+  cleanup(): void {
     try {
-      if (this.db) {
+      if (this.db !== null) {
         this.db.close();
         this.db = null;
       }
@@ -512,11 +527,11 @@ export class NFTDatabase {
     fromAddress: string, 
     toAddress: string
   ): Promise<boolean> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (this.db === null) throw new Error('Database not initialized');
 
     try {
       const nft = await this.getNFT(contractAddress, tokenId);
-      if (!nft || nft.owner.toLowerCase() !== fromAddress.toLowerCase()) {
+      if (nft === null || nft.owner.toLowerCase() !== fromAddress.toLowerCase()) {
         return false;
       }
 
@@ -553,33 +568,47 @@ export class NFTDatabase {
   async cacheMetadata(
     contractAddress: string, 
     tokenId: string, 
-    metadata: any
+    metadata: Record<string, unknown>
   ): Promise<boolean> {
     try {
       const nft = await this.getNFT(contractAddress, tokenId);
       
-      if (nft) {
+      if (nft !== null) {
         // Update existing NFT with metadata
+        const { name, description, image, attributes, ...otherMetadata } = metadata;
         const updated = {
           ...nft,
-          ...metadata,
-          metadata: { ...nft.metadata, ...metadata },
+          name: name !== undefined ? name as string : nft.name,
+          description: description !== undefined ? description as string : nft.description,
+          image: image !== undefined ? image as string : nft.image,
+          attributes: attributes !== undefined && Array.isArray(attributes) ? attributes as NFTData['attributes'] : nft.attributes,
+          metadata: { ...nft.metadata, ...otherMetadata },
           updatedAt: Date.now()
-        };
+        } as NFTData;
         return await this.saveNFT(updated);
       } else {
         // Create new NFT with metadata
-        const newNFT: NFTData = {
+        const { name, description, image, attributes, ...otherMetadata } = metadata;
+        const newNFT = {
           id: `${contractAddress}-${tokenId}`,
           contractAddress,
           tokenId,
           chainId: 1, // Default chain ID
           owner: '', // Will be updated when owner is known
-          ...metadata,
-          metadata: metadata || {},
+          name: name !== undefined ? name as string : undefined,
+          description: description !== undefined ? description as string : undefined,
+          image: image !== undefined ? image as string : undefined,
+          imageOriginal: undefined,
+          externalUrl: undefined,
+          animationUrl: undefined,
+          attributes: attributes !== undefined && Array.isArray(attributes) ? attributes as NFTData['attributes'] : undefined,
+          collection: undefined,
+          lastPrice: undefined,
+          rarity: undefined,
+          metadata: otherMetadata,
           createdAt: Date.now(),
           updatedAt: Date.now()
-        };
+        } as unknown as NFTData;
         return await this.saveNFT(newNFT);
       }
     } catch (error) {
@@ -597,17 +626,17 @@ export class NFTDatabase {
   async getCachedMetadata(
     contractAddress: string, 
     tokenId: string
-  ): Promise<any | null> {
+  ): Promise<Record<string, unknown> | null> {
     try {
       const nft = await this.getNFT(contractAddress, tokenId);
-      if (!nft) return null;
+      if (nft === null) return null;
 
       // Return metadata in expected format
       return {
         name: nft.name,
         description: nft.description,
         image: nft.image,
-        attributes: nft.attributes || [],
+        attributes: nft.attributes ?? [],
         ...nft.metadata
       };
     } catch (error) {
@@ -619,7 +648,7 @@ export class NFTDatabase {
   /**
    * Close database connection (alias for cleanup)
    */
-  async close(): Promise<void> {
-    return this.cleanup();
+  close(): void {
+    this.cleanup();
   }
 }
