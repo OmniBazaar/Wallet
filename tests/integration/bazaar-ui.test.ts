@@ -18,7 +18,7 @@ describe('Bazaar/UI Integration', () => {
     // Create mock provider
     const mockProvider = createMockProvider('ethereum');
     
-    walletService = new WalletService({
+    walletService = new WalletService(undefined, {
       providers: {
         1: {
           chainId: 1,
@@ -89,8 +89,8 @@ describe('Bazaar/UI Integration', () => {
       await bazaarIntegration.restoreSession();
       const session2 = await bazaarIntegration.getSession();
       
-      expect(session2.walletAddress).toBe(session1.walletAddress);
-      expect(session2.isActive).toBe(true);
+      expect(session2?.walletAddress).toBe(session1?.walletAddress);
+      expect(session2?.isActive).toBe(true);
     });
 
     it('should handle wallet disconnection', async () => {
@@ -145,7 +145,8 @@ describe('Bazaar/UI Integration', () => {
     it('should update listing details', async () => {
       const listing = await bazaarIntegration.createListing({
         title: 'Original Title',
-        price: '100'
+        price: '100',
+        currency: 'XOM'
       }, mockWallet.address);
 
       // Add small delay to ensure different timestamps
@@ -164,7 +165,8 @@ describe('Bazaar/UI Integration', () => {
     it('should delete listing', async () => {
       const listing = await bazaarIntegration.createListing({
         title: 'To Delete',
-        price: '100'
+        price: '100',
+        currency: 'XOM'
       }, mockWallet.address);
 
       const deleted = await bazaarIntegration.deleteListing(listing.id, mockWallet.address);
@@ -320,7 +322,7 @@ describe('Bazaar/UI Integration', () => {
 
       const updated = await bazaarIntegration.updateProfile(mockWallet.address, settings);
       expect(updated.displayName).toBe('TestUser');
-      expect(updated.preferences.notifications).toBe(true);
+      expect((updated.preferences as any).notifications).toBe(true);
     });
 
     it('should retrieve user listings', async () => {
@@ -461,7 +463,7 @@ describe('Bazaar/UI Integration', () => {
       // Simulate network failure
       await bazaarIntegration.simulateNetworkError(true);
       
-      const result = await bazaarIntegration.getListings().catch(err => err);
+      const result = await bazaarIntegration.getListings().catch((err: Error) => err);
       expect(result).toBeInstanceOf(Error);
       expect(result.message).toContain('Network error');
       

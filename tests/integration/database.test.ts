@@ -196,6 +196,7 @@ describe('Wallet Database Integration', () => {
 
     it('should return default preferences for new user', async () => {
       const preferences = await walletDB.getPreferences('new-user');
+      expect(preferences).toBeDefined();
       expect(preferences.defaultCurrency).toBe('USD');
       expect(preferences.language).toBe('en');
       expect(preferences.theme).toBe('auto');

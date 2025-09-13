@@ -39,7 +39,8 @@ describe('KYCService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    
+    jest.useFakeTimers();
+
     mockProvider = {} as any;
     mockFetch = global.fetch as jest.MockedFunction<typeof fetch>;
     
@@ -55,6 +56,7 @@ describe('KYCService', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
+    jest.useRealTimers();
   });
 
   describe('Initialization', () => {
@@ -189,25 +191,29 @@ describe('KYCService', () => {
     });
 
     it('should refresh cache after expiry', async () => {
+      // Reset mock to ensure clean state
+      mockFetch.mockClear();
+
       // First call
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({ currentTier: KYCTier.TIER_1 })
       } as Response);
-      
+
       await kycService.getUserKYCStatus(testAddress);
-      
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+
       // Simulate cache expiry
       jest.advanceTimersByTime(61000); // 61 seconds
-      
+
       // Second call should fetch again
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({ currentTier: KYCTier.TIER_2 })
       } as Response);
-      
+
       const status = await kycService.getUserKYCStatus(testAddress);
-      
+
       expect(mockFetch).toHaveBeenCalledTimes(2);
       expect(status.currentTier).toBe(KYCTier.TIER_2);
     });

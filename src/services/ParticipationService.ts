@@ -17,10 +17,9 @@
  */
 
 import { ethers } from 'ethers';
-import { ParticipationScoreService } from '../../../Validator/src/services/ParticipationScoreService';
-import { MasterMerkleEngine } from '../../../Validator/src/engines/MasterMerkleEngine';
-import { KYCService } from '../../../Validator/src/services/KYCService';
-import { StakingService } from '../../../Validator/src/services/StakingService';
+import { OmniValidatorClient, createOmniValidatorClient } from '../../../Validator/dist/client/index';
+import { StakingService } from './StakingService';
+import { KYCService } from './KYCService';
 
 /**
  * Participation score components

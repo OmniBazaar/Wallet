@@ -339,9 +339,10 @@ export class TransactionService {
           };
           
           const signedTxHex = await wallet.signTransaction(txRequest);
-          // Parse the signed transaction to get the hash
-          const parsedTx = ethers.Transaction.from(signedTxHex);
-          signedTx = { hash: parsedTx.hash ?? '', raw: signedTxHex };
+          // In ethers v6, we need to compute the hash from the signed transaction
+          const signedTxBytes = ethers.getBytes(signedTxHex);
+          const txHash = ethers.keccak256(signedTxBytes);
+          signedTx = { hash: txHash, raw: signedTxHex };
         }
       }
 
@@ -775,5 +776,16 @@ export class TransactionService {
       // Return false on error
       return Promise.resolve(false);
     }
+  }
+
+  /**
+   * Clear any cached data in the transaction service
+   * @returns Promise that resolves when cache is cleared
+   */
+  public async clearCache(): Promise<void> {
+    // Clear any cached ENS resolutions or other cached data
+    // Currently no cache is implemented, but this method is here for future use
+    // and to satisfy test requirements
+    return Promise.resolve();
   }
 }

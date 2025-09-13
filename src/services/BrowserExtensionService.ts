@@ -481,6 +481,24 @@ export class BrowserExtensionService extends EventEmitter {
   }
 
   /**
+   * Grant permission to a site for specific methods
+   * @param origin - Site origin
+   * @param permissions - Array of method names or '*' for all methods
+   */
+  grantPermission(origin: string, permissions: string[]): void {
+    this.permissionedSites.set(origin, permissions);
+  }
+
+  /**
+   * Revoke permission from a site
+   * @param origin - Site origin to revoke permissions from
+   */
+  revokePermission(origin: string): void {
+    this.permissionedSites.delete(origin);
+    this.connectedSites.delete(origin);
+  }
+
+  /**
    * Clear all permissions and connections
    * @returns Promise that resolves when cleared
    */

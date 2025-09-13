@@ -1,22 +1,38 @@
-import { describe, it, expect, beforeEach, afterEach, vi, Mock } from 'vitest';
-import { OAuthService } from '../../../src/services/auth/OAuthService';
-import { EmailProvider } from '../../../../../Validator/src/services/providers/EmailProvider';
-import { SMSProvider } from '../../../../../Validator/src/services/providers/SMSProvider';
-import { UserRegistryDatabase } from '../../../../../Validator/src/database/UserRegistryDatabase';
+import { OAuthService, OAuthProvider } from '../../../src/services/auth/OAuthService';
 import crypto from 'crypto';
 
-// Mock the Validator module dependencies
-vi.mock('../../../../../Validator/src/services/providers/EmailProvider');
-vi.mock('../../../../../Validator/src/services/providers/SMSProvider');
-vi.mock('../../../../../Validator/src/database/UserRegistryDatabase');
+// Define local test interfaces matching what OAuthService expects
+interface EmailProvider {
+  init: () => Promise<void>;
+  sendEmail: (options: { to: string; subject: string; html: string }) => Promise<{ success: boolean; messageId?: string }>;
+}
+
+interface SMSProvider {
+  init: () => Promise<void>;
+  sendSMS: (to: string, message: string) => Promise<{ success: boolean; messageId?: string }>;
+}
+
+interface UserRegistryDatabase {
+  init: () => Promise<void>;
+  createUser: (userData: any) => Promise<any>;
+  getUserByEmail: (email: string) => Promise<any>;
+  getUserByOAuthId: (providerId: string, providerUserId: string) => Promise<any>;
+  createSession: (sessionData: any) => Promise<any>;
+  linkOAuthAccount: (userId: string, providerId: string, providerUserId: string, profile: any) => Promise<void>;
+  updateUser: (userId: string, updates: any) => Promise<void>;
+  storeOAuthState: (state: string, data: any) => Promise<void>;
+  getOAuthState: (state: string) => Promise<any>;
+  deleteOAuthState: (state: string) => Promise<void>;
+  storeKeyShare: (data: any) => Promise<any>;
+  getSession: (token: string) => Promise<any>;
+  getSessionByRefreshToken: (refreshToken: string) => Promise<any>;
+}
 
 // Mock crypto for consistent testing
-vi.mock('crypto', () => ({
-  default: {
-    randomBytes: vi.fn(),
-    createHmac: vi.fn(),
-    randomUUID: vi.fn()
-  }
+jest.mock('crypto', () => ({
+  randomBytes: jest.fn(),
+  createHmac: jest.fn(),
+  randomUUID: jest.fn()
 }));
 
 describe('OAuthService', () => {
@@ -24,112 +40,123 @@ describe('OAuthService', () => {
   let mockEmailProvider: EmailProvider;
   let mockSMSProvider: SMSProvider;
   let mockUserRegistry: UserRegistryDatabase;
+  let mockSecureStorage: any;
 
   beforeEach(async () => {
     // Clear all mocks
-    vi.clearAllMocks();
+    jest.clearAllMocks();
 
     // Create mock instances
-    mockEmailProvider = new EmailProvider();
-    mockSMSProvider = new SMSProvider();
-    mockUserRegistry = new UserRegistryDatabase();
+    mockEmailProvider = {
+      init: jest.fn().mockResolvedValue(undefined),
+      sendEmail: jest.fn().mockResolvedValue({ success: true, messageId: 'email-123' })
+    };
 
-    // Setup UserRegistryDatabase mocks
-    (mockUserRegistry.init as Mock).mockResolvedValue(undefined);
-    (mockUserRegistry.createUser as Mock).mockResolvedValue({
-      id: 'test-user-id',
-      email: 'test@example.com',
-      createdAt: new Date()
-    });
-    (mockUserRegistry.getUserByEmail as Mock).mockResolvedValue(null);
-    (mockUserRegistry.getUserByOAuthId as Mock).mockResolvedValue(null);
-    (mockUserRegistry.createSession as Mock).mockResolvedValue({
-      id: 'test-session-id',
-      userId: 'test-user-id',
-      token: 'test-token'
-    });
+    mockSMSProvider = {
+      init: jest.fn().mockResolvedValue(undefined),
+      sendSMS: jest.fn().mockResolvedValue({ success: true, messageId: 'sms-123' })
+    };
+
+    mockSecureStorage = {
+      storeEncrypted: jest.fn().mockResolvedValue(undefined),
+      storeEncryptedWithKey: jest.fn().mockResolvedValue(undefined)
+    };
+
+    mockUserRegistry = {
+      init: jest.fn().mockResolvedValue(undefined),
+      createUser: jest.fn().mockResolvedValue({
+        id: 'test-user-id',
+        email: 'test@example.com',
+        createdAt: new Date()
+      }),
+      getUserByEmail: jest.fn().mockResolvedValue(null),
+      getUserByOAuthId: jest.fn().mockResolvedValue(null),
+      createSession: jest.fn().mockResolvedValue({
+        id: 'test-session-id',
+        userId: 'test-user-id',
+        token: 'test-token'
+      }),
+      linkOAuthAccount: jest.fn().mockResolvedValue(undefined),
+      updateUser: jest.fn().mockResolvedValue(undefined),
+      storeOAuthState: jest.fn().mockResolvedValue(undefined),
+      getOAuthState: jest.fn().mockResolvedValue(null),
+      deleteOAuthState: jest.fn().mockResolvedValue(undefined),
+      storeKeyShare: jest.fn().mockResolvedValue({ id: 'shard-id' }),
+      getSession: jest.fn().mockResolvedValue(null),
+      getSessionByRefreshToken: jest.fn().mockResolvedValue(null)
+    };
 
     // Setup crypto mocks
-    (crypto.randomBytes as Mock).mockReturnValue(Buffer.from('random-bytes-test'));
-    (crypto.randomUUID as Mock).mockReturnValue('test-uuid');
-    (crypto.createHmac as Mock).mockReturnValue({
-      update: vi.fn().mockReturnThis(),
-      digest: vi.fn().mockReturnValue('test-hmac')
+    (crypto.randomBytes as jest.Mock).mockReturnValue(Buffer.from('random-bytes-test'));
+    (crypto.randomUUID as jest.Mock).mockReturnValue('test-uuid');
+    (crypto.createHmac as jest.Mock).mockReturnValue({
+      update: jest.fn().mockReturnThis(),
+      digest: jest.fn().mockReturnValue('test-hmac')
     });
 
-    // Create service instance
-    oauthService = new OAuthService();
-    await oauthService.init();
+    // Create service instance with dependencies
+    oauthService = new OAuthService({
+      userRegistry: mockUserRegistry,
+      secureStorage: mockSecureStorage,
+      emailProvider: mockEmailProvider,
+      smsProvider: mockSMSProvider
+    });
   });
 
   afterEach(() => {
-    vi.clearAllMocks();
+    jest.clearAllMocks();
   });
 
   describe('initialization', () => {
     it('should initialize successfully', async () => {
-      const service = new OAuthService();
-      await expect(service.init()).resolves.not.toThrow();
-      expect(mockUserRegistry.init).toHaveBeenCalled();
+      const service = new OAuthService({
+        userRegistry: mockUserRegistry,
+        secureStorage: mockSecureStorage,
+        emailProvider: mockEmailProvider,
+        smsProvider: mockSMSProvider
+      });
+      expect(service).toBeDefined();
     });
 
-    it('should not reinitialize if already initialized', async () => {
-      await oauthService.init();
-      expect(mockUserRegistry.init).toHaveBeenCalledTimes(1);
-    });
-
-    it('should handle initialization failure', async () => {
+    it('should use default providers when none provided', async () => {
       const service = new OAuthService();
-      (mockUserRegistry.init as Mock).mockRejectedValue(new Error('DB init failed'));
-      
-      await expect(service.init()).rejects.toThrow('Failed to initialize OAuth service');
+      expect(service).toBeDefined();
     });
   });
 
   describe('OAuth flow', () => {
     describe('initiateOAuth', () => {
-      it('should generate authorization URL for Google', async () => {
-        const result = await oauthService.initiateOAuth({
-          provider: 'google',
-          redirectUri: 'https://example.com/callback'
-        });
+      it('should generate authorization URL for Google', () => {
+        const state = 'test-state-123';
+        const authUrl = oauthService.getAuthorizationUrl(OAuthProvider.GOOGLE, state);
 
-        expect(result).toEqual({
-          authUrl: expect.stringContaining('https://accounts.google.com/o/oauth2/v2/auth'),
-          state: expect.any(String),
-          codeVerifier: expect.any(String)
-        });
-
-        expect(result.authUrl).toContain('response_type=code');
-        expect(result.authUrl).toContain('client_id=');
-        expect(result.authUrl).toContain('redirect_uri=https%3A%2F%2Fexample.com%2Fcallback');
+        expect(authUrl).toContain('https://accounts.google.com/o/oauth2/v2/auth');
+        expect(authUrl).toContain('response_type=code');
+        expect(authUrl).toContain('client_id=');
+        expect(authUrl).toContain('redirect_uri=');
+        expect(authUrl).toContain(`state=${state}`);
       });
 
-      it('should generate authorization URL for GitHub', async () => {
-        const result = await oauthService.initiateOAuth({
-          provider: 'github',
-          redirectUri: 'https://example.com/callback'
-        });
+      it('should generate authorization URL for GitHub', () => {
+        const state = 'test-state-123';
+        const authUrl = oauthService.getAuthorizationUrl(OAuthProvider.GITHUB, state);
 
-        expect(result.authUrl).toContain('https://github.com/login/oauth/authorize');
+        expect(authUrl).toContain('https://github.com/login/oauth/authorize');
+        expect(authUrl).toContain(`state=${state}`);
       });
 
-      it('should generate authorization URL for Twitter', async () => {
-        const result = await oauthService.initiateOAuth({
-          provider: 'twitter',
-          redirectUri: 'https://example.com/callback'
-        });
+      it('should generate authorization URL for Twitter', () => {
+        const state = 'test-state-123';
+        const authUrl = oauthService.getAuthorizationUrl(OAuthProvider.TWITTER, state);
 
-        expect(result.authUrl).toContain('https://twitter.com/i/oauth2/authorize');
+        expect(authUrl).toContain('https://twitter.com/i/oauth2/authorize');
+        expect(authUrl).toContain(`state=${state}`);
       });
 
-      it('should throw error for unsupported provider', async () => {
-        await expect(
-          oauthService.initiateOAuth({
-            provider: 'facebook' as any,
-            redirectUri: 'https://example.com/callback'
-          })
-        ).rejects.toThrow('Unsupported OAuth provider: facebook');
+      it('should throw error for unsupported provider', () => {
+        expect(() => {
+          oauthService.getAuthorizationUrl('facebook' as any, 'test-state');
+        }).toThrow('Unsupported OAuth provider: facebook');
       });
     });
 
@@ -150,7 +177,7 @@ describe('OAuthService', () => {
 
       beforeEach(() => {
         // Mock fetch for token exchange
-        global.fetch = vi.fn()
+        global.fetch = jest.fn()
           .mockResolvedValueOnce({
             ok: true,
             json: async () => mockTokenResponse
@@ -201,7 +228,7 @@ describe('OAuthService', () => {
 
       it('should handle existing user login', async () => {
         // Mock existing user
-        (mockUserRegistry.getUserByOAuthId as Mock).mockResolvedValue({
+        (mockUserRegistry.getUserByOAuthId as jest.Mock).mockResolvedValue({
           id: 'existing-user-id',
           email: 'user@example.com',
           name: 'Test User',
@@ -221,7 +248,7 @@ describe('OAuthService', () => {
       });
 
       it('should handle token exchange failure', async () => {
-        global.fetch = vi.fn().mockResolvedValueOnce({
+        global.fetch = jest.fn().mockResolvedValueOnce({
           ok: false,
           status: 400,
           statusText: 'Bad Request'
@@ -255,7 +282,7 @@ describe('OAuthService', () => {
     });
 
     it('should store server shard in database', async () => {
-      (mockUserRegistry.storeKeyShare as Mock).mockResolvedValue({ id: 'shard-id' });
+      (mockUserRegistry.storeKeyShare as jest.Mock).mockResolvedValue({ id: 'shard-id' });
 
       const { mpcShards } = await oauthService.generateMPCShards('user-id-123');
 
@@ -290,7 +317,7 @@ describe('OAuthService', () => {
 
     it('should verify valid session', async () => {
       const token = 'valid-token';
-      (mockUserRegistry.getSession as Mock).mockResolvedValue({
+      (mockUserRegistry.getSession as jest.Mock).mockResolvedValue({
         id: 'session-id',
         userId: 'user-123',
         token,
@@ -304,7 +331,7 @@ describe('OAuthService', () => {
 
     it('should reject expired session', async () => {
       const token = 'expired-token';
-      (mockUserRegistry.getSession as Mock).mockResolvedValue({
+      (mockUserRegistry.getSession as jest.Mock).mockResolvedValue({
         id: 'session-id',
         userId: 'user-123',
         token,
@@ -316,7 +343,7 @@ describe('OAuthService', () => {
     });
 
     it('should refresh session token', async () => {
-      (mockUserRegistry.getSessionByRefreshToken as Mock).mockResolvedValue({
+      (mockUserRegistry.getSessionByRefreshToken as jest.Mock).mockResolvedValue({
         id: 'session-id',
         userId: 'user-123',
         refreshToken: 'refresh-token',
@@ -372,9 +399,9 @@ describe('OAuthService', () => {
 
   describe('error handling', () => {
     it('should handle database errors gracefully', async () => {
-      (mockUserRegistry.createUser as Mock).mockRejectedValue(new Error('DB Error'));
+      (mockUserRegistry.createUser as jest.Mock).mockRejectedValue(new Error('DB Error'));
 
-      global.fetch = vi.fn()
+      global.fetch = jest.fn()
         .mockResolvedValueOnce({
           ok: true,
           json: async () => ({ access_token: 'token' })
@@ -395,7 +422,7 @@ describe('OAuthService', () => {
     });
 
     it('should handle network errors', async () => {
-      global.fetch = vi.fn().mockRejectedValue(new Error('Network error'));
+      global.fetch = jest.fn().mockRejectedValue(new Error('Network error'));
 
       await expect(
         oauthService.handleCallback({

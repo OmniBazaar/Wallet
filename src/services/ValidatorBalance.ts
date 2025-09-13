@@ -7,10 +7,7 @@
 import { ethers } from 'ethers';
 import { ref, Ref } from 'vue';
 import { DebugLogger } from '../core/utils/debug-logger';
-import { OmniWalletService } from '../../../Validator/src/services/OmniWalletService';
-import { PriceOracleService } from '../../../Validator/src/services/PriceOracleService';
-import { MasterMerkleEngine } from '../../../Validator/src/engines/MasterMerkleEngine';
-import { CacheService } from '../../../Validator/src/services/CacheService';
+import { OmniValidatorClient, createOmniValidatorClient } from '../../../Validator/dist/client/index';
 
 // Create logger for this service
 const logger = new DebugLogger('services:validator-balance');

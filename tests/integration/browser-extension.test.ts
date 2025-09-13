@@ -1,16 +1,18 @@
 /**
  * Browser Extension Integration Tests
- * 
+ *
  * Tests the browser extension functionality including content script communication,
  * background service worker operations, and web page provider injection.
  */
 
+/// <reference types="chrome"/>
+
 import { describe, it, expect, beforeEach, afterEach, beforeAll } from '@jest/globals';
 import { jest } from '@jest/globals';
 import { WalletService } from '../../src/services/WalletService';
-import { keyringService as KeyringService } from '../../src/core/keyring/KeyringService';
+import { KeyringService } from '../../src/core/keyring/KeyringService';
 import { BrowserExtensionService } from '../../src/services/BrowserExtensionService';
-import { ethers } from 'ethers';
+// import { ethers } from 'ethers'; // Not used in this file
 import {
   TEST_MNEMONIC,
   TEST_ADDRESSES,
@@ -41,24 +43,24 @@ const mockBrowser = {
   },
   storage: {
     local: {
-      get: jest.fn().mockResolvedValue({}),
-      set: jest.fn().mockResolvedValue(undefined),
-      remove: jest.fn().mockResolvedValue(undefined),
-      clear: jest.fn().mockResolvedValue(undefined)
+      get: jest.fn(() => Promise.resolve({})),
+      set: jest.fn(() => Promise.resolve()),
+      remove: jest.fn(() => Promise.resolve()),
+      clear: jest.fn(() => Promise.resolve())
     },
     sync: {
-      get: jest.fn().mockResolvedValue({}),
-      set: jest.fn().mockResolvedValue(undefined)
+      get: jest.fn(() => Promise.resolve({})),
+      set: jest.fn(() => Promise.resolve())
     }
   },
   tabs: {
-    query: jest.fn().mockResolvedValue([]),
+    query: jest.fn(() => Promise.resolve([])),
     sendMessage: jest.fn(),
     executeScript: jest.fn(),
     insertCSS: jest.fn()
   },
   windows: {
-    create: jest.fn().mockResolvedValue({ id: 1 })
+    create: jest.fn(() => Promise.resolve({ id: 1 }))
   },
   action: {
     setBadgeText: jest.fn(),
@@ -67,8 +69,8 @@ const mockBrowser = {
 };
 
 // Mock chrome/browser globals
-global.chrome = mockBrowser as any;
-global.browser = mockBrowser as any;
+(global as any).chrome = mockBrowser;
+(global as any).browser = mockBrowser;
 
 // Mock window.ethereum provider injection
 const mockEthereum = {
@@ -84,7 +86,7 @@ const mockEthereum = {
   removeListener: jest.fn(),
   removeAllListeners: jest.fn(),
   isConnected: jest.fn(() => true),
-  enable: jest.fn().mockResolvedValue([TEST_ADDRESSES.ethereum])
+  enable: jest.fn(() => Promise.resolve([TEST_ADDRESSES.ethereum]))
 };
 
 // Mock DOM for content script tests
@@ -105,9 +107,27 @@ global.document = mockDocument as any;
 
 describe('Browser Extension Integration Tests', () => {
   let walletService: WalletService;
-  let keyringService: KeyringService;
+  let keyringInstance: KeyringService;
   let browserExtensionService: BrowserExtensionService;
   let mockProvider: any;
+
+  // Helper function to create a mock MessageSender
+  const createMockSender = (url: string): chrome.runtime.MessageSender => ({
+    tab: {
+      id: 1,
+      url,
+      index: 0,
+      pinned: false,
+      highlighted: false,
+      windowId: 1,
+      active: true,
+      incognito: false,
+      audible: false,
+      mutedInfo: { muted: false }
+    } as chrome.tabs.Tab,
+    origin: url,
+    id: 'test-sender-id'
+  });
 
   beforeAll(async () => {
     mockProvider = createMockProvider('ethereum');
@@ -138,20 +158,20 @@ describe('Browser Extension Integration Tests', () => {
     walletService = new WalletService(mockProvider, multiChainConfig);
     await walletService.init();
 
-    const keyringInstance = KeyringService;
+    keyringInstance = KeyringService.getInstance();
     await keyringInstance.initialize();
 
     // Create wallet with test mnemonic
     await keyringInstance.restoreWallet(TEST_MNEMONIC, 'test-password');
     
     // Create a default ethereum account
-    await keyringInstance.createAccount('ethereum', 'Main Account');
+    await keyringInstance.createAccount('ethereum' as any, 'Main Account');
     
-    keyringService = keyringInstance;
+    // keyringInstance is already declared above
     await walletService.connect();
 
     // Initialize browser extension service
-    browserExtensionService = new BrowserExtensionService(walletService, KeyringService);
+    browserExtensionService = new BrowserExtensionService(walletService, keyringInstance);
     
     // Grant permissions to test origins
     browserExtensionService.grantPermission('https://dapp.example.com', ['*']);
@@ -165,7 +185,7 @@ describe('Browser Extension Integration Tests', () => {
 
   afterEach(async () => {
     await walletService.cleanup();
-    await KeyringService.cleanup();
+    await keyringInstance.cleanup();
     browserExtensionService.clearAll();
     cleanupTest();
   });
@@ -181,10 +201,7 @@ describe('Browser Extension Integration Tests', () => {
           origin: 'https://dapp.example.com'
         };
 
-        const mockSender = {
-          tab: { id: 1, url: 'https://dapp.example.com' },
-          origin: 'https://dapp.example.com'
-        };
+        const mockSender = createMockSender('https://dapp.example.com');
 
         // Step 2: Handle the request directly through browserExtensionService
         const response = await browserExtensionService.handleProviderRequest(
@@ -197,8 +214,8 @@ describe('Browser Extension Integration Tests', () => {
         expect(response.jsonrpc).toBe('2.0');
         expect(response.result).toBeDefined();
         expect(Array.isArray(response.result)).toBe(true);
-        expect(response.result.length).toBeGreaterThan(0);
-        expect(response.result[0]).toMatch(/^0x[a-fA-F0-9]{40}$/);
+        expect((response.result as unknown[]).length).toBeGreaterThan(0);
+        expect((response.result as string[])[0]).toMatch(/^0x[a-fA-F0-9]{40}$/);
 
         // Step 4: Verify connected sites
         const connectedSites = browserExtensionService.getConnectedSites();
@@ -221,10 +238,7 @@ describe('Browser Extension Integration Tests', () => {
           origin: 'https://dapp.example.com'
         };
 
-        const mockSender = {
-          tab: { id: 1, url: 'https://dapp.example.com' },
-          origin: 'https://dapp.example.com'
-        };
+        const mockSender = createMockSender('https://dapp.example.com');
 
         // Step 2: Handle transaction request
         const response = await browserExtensionService.handleProviderRequest(
@@ -252,10 +266,7 @@ describe('Browser Extension Integration Tests', () => {
           origin: 'https://dapp.example.com'
         };
 
-        const mockSender = {
-          tab: { id: 1, url: 'https://dapp.example.com' },
-          origin: 'https://dapp.example.com'
-        };
+        const mockSender = createMockSender('https://dapp.example.com');
 
         // Step 2: Handle sign request
         const response = await browserExtensionService.handleProviderRequest(
@@ -282,10 +293,7 @@ describe('Browser Extension Integration Tests', () => {
           origin: 'https://dapp.example.com'
         };
 
-        const mockSender = {
-          tab: { id: 1, url: 'https://dapp.example.com' },
-          origin: 'https://dapp.example.com'
-        };
+        const mockSender = createMockSender('https://dapp.example.com');
 
         // Step 2: Handle chain switch
         const response = await browserExtensionService.handleProviderRequest(
@@ -317,10 +325,8 @@ describe('Browser Extension Integration Tests', () => {
         };
 
         // Step 2: Store state in extension storage
-        mockBrowser.storage.local.set.mockResolvedValue(undefined);
-        await new Promise(resolve => {
-          mockBrowser.storage.local.set({ walletState: backgroundState }, resolve);
-        });
+        (mockBrowser.storage.local.set as jest.Mock).mockImplementation(() => Promise.resolve());
+        await (mockBrowser.storage.local.set as jest.Mock)({ walletState: backgroundState });
 
         // Step 3: Verify storage was called
         expect(mockBrowser.storage.local.set).toHaveBeenCalledWith({
@@ -328,10 +334,8 @@ describe('Browser Extension Integration Tests', () => {
         });
 
         // Step 4: Simulate background script restart and state restoration
-        mockBrowser.storage.local.get.mockResolvedValue({ walletState: backgroundState });
-        const restoredState = await new Promise(resolve => {
-          mockBrowser.storage.local.get(['walletState'], resolve);
-        });
+        (mockBrowser.storage.local.get as jest.Mock).mockImplementation(() => Promise.resolve({ walletState: backgroundState }));
+        const restoredState = await (mockBrowser.storage.local.get as jest.Mock)(['walletState']) as any;
 
         // Step 5: Verify state was restored correctly
         expect(restoredState).toEqual({ walletState: backgroundState });
@@ -357,10 +361,10 @@ describe('Browser Extension Integration Tests', () => {
           name: 'popup'
         };
 
-        mockBrowser.runtime.connect.mockReturnValue(mockPort);
+        (mockBrowser.runtime.connect as jest.Mock).mockReturnValue(mockPort);
 
         // Step 2: Create connection
-        const popupConnection = mockBrowser.runtime.connect({ name: 'popup' });
+        const popupConnection = (mockBrowser.runtime.connect as jest.Mock)({ name: 'popup' }) as any;
         
         // Step 3: Send wallet state to popup
         const walletState = {
@@ -369,7 +373,7 @@ describe('Browser Extension Integration Tests', () => {
           chainId: await walletService.getChainId()
         };
 
-        popupConnection.postMessage({
+        (popupConnection as any).postMessage({
           type: 'WALLET_STATE',
           payload: walletState
         });
@@ -441,7 +445,7 @@ describe('Browser Extension Integration Tests', () => {
     it('should inject ethereum provider into web pages', async () => {
       await withTimeout(async () => {
         // Step 1: Mock window object
-        const mockWindow = {
+        const mockWindow: { ethereum?: any; addEventListener: jest.Mock; dispatchEvent: jest.Mock } = {
           ethereum: undefined,
           addEventListener: jest.fn(),
           dispatchEvent: jest.fn()
@@ -450,7 +454,7 @@ describe('Browser Extension Integration Tests', () => {
         // Step 2: Simulate content script injection
         mockWindow.ethereum = {
           ...mockEthereum,
-          request: jest.fn().mockImplementation(async ({ method, params }) => {
+          request: jest.fn().mockImplementation(async ({ method }: any) => {
             switch (method) {
               case 'eth_requestAccounts':
                 return [TEST_ADDRESSES.ethereum];
@@ -467,32 +471,32 @@ describe('Browser Extension Integration Tests', () => {
         };
 
         // Step 3: Test provider methods
-        const accounts = await mockWindow.ethereum.request({ method: 'eth_requestAccounts' });
+        const accounts = await mockWindow.ethereum!.request({ method: 'eth_requestAccounts' });
         expect(accounts).toEqual([TEST_ADDRESSES.ethereum]);
 
-        const chainId = await mockWindow.ethereum.request({ method: 'eth_chainId' });
+        const chainId = await mockWindow.ethereum!.request({ method: 'eth_chainId' });
         expect(chainId).toBe('0x1');
 
         // Step 4: Test provider events
         const eventHandler = jest.fn();
-        mockWindow.ethereum.on('accountsChanged', eventHandler);
+        mockWindow.ethereum!.on('accountsChanged', eventHandler);
         
         // Step 5: Simulate account change
-        mockWindow.ethereum.selectedAddress = '0x742d35Cc6634C0532925a3b8D5C1e1B3c5b5B5b5';
+        mockWindow.ethereum!.selectedAddress = '0x742d35Cc6634C0532925a3b8D5C1e1B3c5b5B5b5';
         if (eventHandler.mock.calls.length > 0) {
           expect(eventHandler).toHaveBeenCalledWith(['0x742d35Cc6634C0532925a3b8D5C1e1B3c5b5B5b5']);
         }
 
         // Step 6: Verify provider identification
-        expect(mockWindow.ethereum.isOmniBazaar).toBe(true);
-        expect(mockWindow.ethereum.isMetaMask).toBe(false);
+        expect(mockWindow.ethereum!.isOmniBazaar).toBe(true);
+        expect(mockWindow.ethereum!.isMetaMask).toBe(false);
       });
     });
 
     it('should handle multiple provider coexistence', async () => {
       await withTimeout(async () => {
         // Step 1: Simulate existing MetaMask provider
-        const mockWindow = {
+        const mockWindow: { ethereum: any } = {
           ethereum: {
             isMetaMask: true,
             isOmniBazaar: false,
@@ -503,7 +507,7 @@ describe('Browser Extension Integration Tests', () => {
         // Step 2: Inject OmniBazaar provider alongside MetaMask
         const omniBazaarProvider = {
           ...mockEthereum,
-          request: jest.fn().mockResolvedValue([TEST_ADDRESSES.ethereum])
+          request: jest.fn(() => Promise.resolve([TEST_ADDRESSES.ethereum]))
         };
 
         // Step 3: Test provider selection logic
@@ -512,18 +516,18 @@ describe('Browser Extension Integration Tests', () => {
             ...mockWindow.ethereum,
             providers: [
               { isMetaMask: true, isOmniBazaar: false },
-              { isMetaMask: false, isOmniBazaar: true, ...omniBazaarProvider }
+              { ...omniBazaarProvider, isMetaMask: false, isOmniBazaar: true }
             ]
           };
         }
 
         // Step 4: Verify both providers are accessible
         expect(mockWindow.ethereum.providers).toHaveLength(2);
-        expect(mockWindow.ethereum.providers[0].isMetaMask).toBe(true);
-        expect(mockWindow.ethereum.providers[1].isOmniBazaar).toBe(true);
+        expect(mockWindow.ethereum.providers![0].isMetaMask).toBe(true);
+        expect(mockWindow.ethereum.providers![1].isOmniBazaar).toBe(true);
 
         // Step 5: Test switching to OmniBazaar provider
-        const omniProvider = mockWindow.ethereum.providers.find((p: any) => p.isOmniBazaar);
+        const omniProvider = mockWindow.ethereum.providers!.find((p: any) => p.isOmniBazaar);
         const accounts = await omniProvider.request({ method: 'eth_requestAccounts' });
         expect(accounts).toEqual([TEST_ADDRESSES.ethereum]);
       });
@@ -589,7 +593,7 @@ describe('Browser Extension Integration Tests', () => {
           origin: allowedOrigins[0]
         };
 
-        const isAllowed = allowedOrigins.includes(allowedRequest.origin);
+        const isAllowed = allowedOrigins.includes(allowedRequest.origin ?? '');
         expect(isAllowed).toBe(true);
 
         if (isAllowed) {
@@ -608,7 +612,7 @@ describe('Browser Extension Integration Tests', () => {
           origin: blockedOrigins[0]
         };
 
-        const isBlocked = blockedOrigins.includes(blockedRequest.origin);
+        const isBlocked = blockedOrigins.includes(blockedRequest.origin ?? '');
         expect(isBlocked).toBe(true);
 
         // Step 3: Test permission storage

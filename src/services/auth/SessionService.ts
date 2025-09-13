@@ -269,6 +269,18 @@ interface SessionConfig {
 }
 
 /**
+ * Service dependencies for dependency injection
+ */
+export interface SessionServiceDependencies {
+  /** Cache service instance */
+  cacheService?: ICacheService;
+  /** Secure storage service instance */
+  secureStorage?: ISecureStorageService;
+  /** Database instance */
+  database?: IDatabase;
+}
+
+/**
  * Service for managing user sessions
  */
 export class SessionService {
@@ -280,11 +292,13 @@ export class SessionService {
   /**
    * Initialize session service with configuration
    * @param config Optional session configuration overrides
+   * @param deps Optional service dependencies for testing
    */
-  constructor(config?: Partial<SessionConfig>) {
-    this.cache = new MockCacheService();
-    this.secureStorage = new MockSecureStorageService();
-    this.db = new MockDatabase();
+  constructor(config?: Partial<SessionConfig>, deps?: SessionServiceDependencies) {
+    // Use injected dependencies or create defaults
+    this.cache = deps?.cacheService ?? new MockCacheService();
+    this.secureStorage = deps?.secureStorage ?? new MockSecureStorageService();
+    this.db = deps?.database ?? new MockDatabase();
     
     this.config = {
       accessTokenLifetime: config?.accessTokenLifetime ?? 24 * 60 * 60, // 24 hours

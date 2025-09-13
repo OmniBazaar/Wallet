@@ -7,11 +7,10 @@
  * @module OrderBookService
  */
 
-import { DecentralizedOrderBook } from '../../../Validator/src/services/dex/DecentralizedOrderBook';
-import { MEVProtection } from '../../../Validator/src/services/dex/mev/MEVProtection';
-import type { UnifiedOrder } from '../../../Validator/src/types/config';
 import { WalletService } from './WalletService';
 import { OmniProvider } from '../core/providers/OmniProvider';
+import { OmniValidatorClient, createOmniValidatorClient } from '../../../Validator/dist/client/index';
+import { ValidatorDEXService } from '../../../DEX/dist/services/ValidatorDEXService';
 
 /** Order types */
 export enum OrderType {
@@ -189,8 +188,8 @@ export interface OrderFillEvent {
 export class OrderBookService {
   private walletService?: WalletService;
   private provider?: OmniProvider;
-  private orderBook?: DecentralizedOrderBook;
-  private mevProtection?: MEVProtection;
+  private validatorClient?: OmniValidatorClient;
+  private validatorDEXService?: ValidatorDEXService;
   private isInitialized = false;
   private userOrders: Map<string, Order> = new Map();
   private orderSubscriptions: Map<string, (event: OrderFillEvent) => void> = new Map();
@@ -222,32 +221,32 @@ export class OrderBookService {
         await this.walletService.init();
       }
 
-      // Initialize order book and MEV protection
-      // Create order book with default config
-      const orderBookConfig = {
-        maxOrdersPerUser: 100,
-        maxOrderBookDepth: 100,
-        tickSize: '0.01',
-        minOrderSize: '0.001',
-        maxOrderSize: '1000',
-        enableAutoMatching: true,
-        feeRate: 30 // 0.3%
-      };
-      
-      this.orderBook = new DecentralizedOrderBook(orderBookConfig);
-      this.mevProtection = new MEVProtection({
-        commitRevealDelay: 1000,
-        maxCommitAge: 300000,
-        privateMempoolEnabled: false,
-        minBlockDelay: 1,
-        maxPriceImpact: 100,
-        decoyOrderProbability: 0.1,
-        orderingWindow: 5000,
-        priorityFeeThreshold: BigInt('1000000000000000') // 0.001 ETH
-      });
-      
-      // Initialize order book
-      await this.orderBook.initialize();
+      // Initialize validator client
+      try {
+        this.validatorClient = createOmniValidatorClient({
+          validatorEndpoint: process.env.VALIDATOR_ENDPOINT || 'http://localhost:4000',
+          wsEndpoint: process.env.VALIDATOR_WS_ENDPOINT || 'ws://localhost:4000/graphql'
+        });
+        // Note: OmniValidatorClient doesn't have a connect() method - it connects automatically
+        this.validatorDEXService = new ValidatorDEXService({
+          validatorEndpoint: process.env.VALIDATOR_ENDPOINT || 'http://localhost:4000',
+          wsEndpoint: process.env.VALIDATOR_WS_ENDPOINT || 'ws://localhost:4000/graphql',
+          networkId: 'omni-testnet',
+          tradingPairs: ['XOM/USDT', 'XOM/ETH', 'XOM/BTC'],
+          feeStructure: {
+            maker: 0.001,
+            taker: 0.003
+          }
+        });
+        await this.validatorDEXService.initialize();
+      } catch (error) {
+        console.warn('Failed to connect to validator client, order book features may be limited', error);
+        // Continue without validator client - some features may be unavailable
+      }
+
+      // Get provider
+      // TODO: WalletService doesn't have getOmniProvider method
+      // this.provider = this.walletService?.getOmniProvider() ?? this.provider;
 
       // Load user orders
       await this.loadUserOrders();
@@ -271,8 +270,8 @@ export class OrderBookService {
     }
 
     try {
-      if (this.orderBook === undefined) {
-        throw new Error('Order book not available');
+      if (!this.validatorDEXService) {
+        throw new Error('DEX service not available');
       }
 
       // Validate parameters
@@ -302,32 +301,21 @@ export class OrderBookService {
         ...(params.reduceOnly !== undefined ? { reduceOnly: params.reduceOnly } : {})
       };
 
-      if (params.mevProtection === true && this.mevProtection !== undefined) {
-        const userAddr = await this.getUserAddress();
-        const protectionResult = this.mevProtection.protectOrder({
-          orderId: Date.now().toString(),
-          userId: userAddr,
-          orderType: 'limit',
-          tokenIn: params.tokenIn,
-          tokenOut: params.tokenOut,
-          amountIn: params.amountIn,
-          expectedAmountOut: params.amountOutMin,
-          maxSlippage: 100, // 1%
-          deadline: Math.floor(Date.now() / 1000) + 3600 // 1 hour from now
-        });
-        // Apply MEV protection recommendations if any
-        if (protectionResult.protected) {
-          // MEV protection is handled internally
-        }
-      }
+      // MEV protection is now handled by the validator
+      // Submit order through validator client
+      const tokenPair = `${params.tokenIn}/${params.tokenOut}`;
+      const orderId = await this.validatorDEXService.placeOrder({
+        type: params.side === OrderSide.BUY ? 'BUY' : 'SELL',
+        tokenPair: tokenPair,
+        price: params.price.toString(),
+        amount: params.amountIn.toString(),
+        maker: userAddress
+      });
 
-      // Submit order to decentralized order book
-      const result = await this.orderBook.submitOrder(orderData);
-
-      if (result.success === true && result.orderId !== undefined && result.orderId !== '') {
+      if (orderId) {
         // Create order object
         const order: Order = {
-          orderId: result.orderId,
+          orderId: orderId,
           maker: userAddress,
           tokenIn: params.tokenIn,
           tokenOut: params.tokenOut,
@@ -347,17 +335,16 @@ export class OrderBookService {
         };
 
         // Store order
-        this.userOrders.set(result.orderId, order);
+        this.userOrders.set(orderId, order);
 
         // Subscribe to order events
-        this.subscribeToOrderEvents(result.orderId);
+        this.subscribeToOrderEvents(orderId);
       }
 
       return {
-        success: result.success,
-        ...(result.orderId !== undefined && { orderId: result.orderId }),
+        success: true,
+        orderId: orderId,
         txHash: '0x' + '0'.repeat(64), // Mock tx hash
-        ...(result.error !== undefined && { error: result.error }),
         gasUsed: BigInt('21000'), // Standard gas used
         ...(params.mevProtection !== undefined && { mevProtected: params.mevProtection })
       };
@@ -382,8 +369,8 @@ export class OrderBookService {
     }
 
     try {
-      if (this.orderBook === undefined) {
-        throw new Error('Order book not available');
+      if (!this.validatorDEXService) {
+        throw new Error('DEX service not available');
       }
 
       // Verify order exists and is cancellable
@@ -396,10 +383,10 @@ export class OrderBookService {
         throw new Error(`Cannot cancel order with status: ${order.status}`);
       }
 
-      // Cancel order in order book
-      const result = await this.orderBook.cancelOrder(orderId, await this.getUserAddress());
+      // Cancel order through validator DEX service
+      const success = await this.validatorDEXService.cancelOrder(orderId);
 
-      if (result.success) {
+      if (success) {
         // Update order status
         order.status = OrderStatus.CANCELLED;
         order.updatedAt = Date.now();
@@ -410,10 +397,9 @@ export class OrderBookService {
       }
 
       return {
-        success: result.success,
+        success: success,
         orderId,
         txHash: '0x' + '0'.repeat(64), // Mock tx hash
-        // Error would be handled in result if available
         gasUsed: BigInt('21000') // Standard gas used
       };
     } catch (error) {
@@ -476,38 +462,33 @@ export class OrderBookService {
     }
 
     try {
-      if (this.orderBook === undefined) {
-        throw new Error('Order book not available');
-      }
-
-      // Get order details
-      const order = this.orderBook.getOrder(orderId);
-      if (order === undefined || order === null) {
+      // Get order details from local cache
+      const order = this.userOrders.get(orderId);
+      if (order === undefined) {
         throw new Error('Order not found');
       }
 
-      if (order.status !== 'OPEN') {
+      if (order.status !== OrderStatus.OPEN && order.status !== OrderStatus.PARTIALLY_FILLED) {
         throw new Error('Order is not fillable');
       }
 
       // Validate fill amount
-      const orderQuantity = order.quantity ?? '0';
-      if (orderQuantity === '') {
-        throw new Error('Order quantity is empty');
-      }
-      const orderAmount = BigInt(orderQuantity);
-      if (fillAmount > orderAmount) {
-        throw new Error('Fill amount exceeds order amount');
+      if (fillAmount > order.amountRemaining) {
+        throw new Error('Fill amount exceeds order remaining amount');
       }
 
-      // Execute fill - would be handled internally by order book
-      const result = { success: true };
+      // In a real implementation, this would submit a matching order
+      // For now, we simulate a successful fill
+      order.amountFilled = order.amountFilled + fillAmount;
+      order.amountRemaining = order.amountRemaining - fillAmount;
+      order.status = order.amountRemaining === BigInt(0) ? OrderStatus.FILLED : OrderStatus.PARTIALLY_FILLED;
+      order.updatedAt = Date.now();
+      this.userOrders.set(orderId, order);
 
       return {
-        success: result.success,
+        success: true,
         orderId,
         txHash: '0x' + '0'.repeat(64), // Mock tx hash
-        // Error would be handled in result if available
         gasUsed: BigInt('21000') // Standard gas used
       };
     } catch (error) {
@@ -537,22 +518,41 @@ export class OrderBookService {
     }
 
     try {
-      if (this.orderBook === undefined) {
-        throw new Error('Order book not available');
+      if (!this.validatorDEXService) {
+        throw new Error('DEX service not available');
       }
 
-      // Get all orders and filter by pair
-      const allOrders = this.orderBook.getUserOrders(await this.getUserAddress());
+      // Get order book from validator
       const pair = `${tokenIn}/${tokenOut}`;
-      const orders = allOrders.filter(o => o.pair === pair || o.pair === `${tokenOut}/${tokenIn}`);
+      const orderBookData = await this.validatorDEXService.getOrderBook(pair, levels);
 
-      // Separate buy and sell orders
-      const buyOrders = orders.filter((o): o is UnifiedOrder => o.side === 'BUY' && o.status === 'OPEN');
-      const sellOrders = orders.filter((o): o is UnifiedOrder => o.side === 'SELL' && o.status === 'OPEN');
+      // Convert to our format
+      const bids: DepthLevel[] = orderBookData.bids.map(bid => ({
+        price: Number(bid.price),
+        amount: BigInt(bid.amount),
+        orderCount: 1, // Validator doesn't provide this
+        cumulative: BigInt(0) // Will calculate below
+      }));
 
-      // Aggregate by price level
-      const bids = this.aggregateOrdersByPrice(buyOrders, levels, true);
-      const asks = this.aggregateOrdersByPrice(sellOrders, levels, false);
+      const asks: DepthLevel[] = orderBookData.asks.map(ask => ({
+        price: Number(ask.price),
+        amount: BigInt(ask.amount),
+        orderCount: 1, // Validator doesn't provide this
+        cumulative: BigInt(0) // Will calculate below
+      }));
+
+      // Calculate cumulative amounts
+      let bidCumulative = BigInt(0);
+      for (const bid of bids) {
+        bidCumulative += bid.amount;
+        bid.cumulative = bidCumulative;
+      }
+
+      let askCumulative = BigInt(0);
+      for (const ask of asks) {
+        askCumulative += ask.amount;
+        ask.cumulative = askCumulative;
+      }
 
       // Calculate mid price and spread
       const bestBid = bids[0]?.price ?? 0;
@@ -580,7 +580,7 @@ export class OrderBookService {
    * @returns Order details or null if not found
    * @throws {Error} When query fails
    */
-  getOrder(orderId: string): Order | null {
+  async getOrder(orderId: string): Promise<Order | null> {
     if (!this.isInitialized) {
       throw new Error('Order book service not initialized');
     }
@@ -592,39 +592,40 @@ export class OrderBookService {
         return cachedOrder;
       }
 
-      // Query from order book
-      if (this.orderBook !== undefined) {
-        const orderData = this.orderBook.getOrder(orderId);
-        if (orderData !== undefined && orderData !== null) {
-          // Map UnifiedOrder to Order
-          const pairParts = (orderData.pair ?? '/').split('/');
-          const tokenIn = pairParts[0] ?? '';
-          const tokenOut = pairParts[1] ?? '';
-          const order: Order = {
-            orderId: orderData.id,
-            maker: orderData.userId,
-            tokenIn,
-            tokenOut,
-            amountIn: BigInt(orderData.quantity ?? '0'),
-            amountRemaining: BigInt(orderData.remaining ?? '0'),
-            amountFilled: BigInt(orderData.filled ?? '0'),
-            amountOutMin: BigInt(0),
-            type: OrderType.LIMIT,
-            side: orderData.side === 'BUY' ? OrderSide.BUY : OrderSide.SELL,
-            price: Number(orderData.price ?? '0'),
-            status: orderData.status === 'OPEN' ? OrderStatus.OPEN : 
-                   orderData.status === 'FILLED' ? OrderStatus.FILLED :
-                   orderData.status === 'CANCELLED' ? OrderStatus.CANCELLED :
-                   orderData.status === 'EXPIRED' ? OrderStatus.EXPIRED : OrderStatus.PENDING,
-            timeInForce: orderData.timeInForce === 'GTC' ? TimeInForce.GTC :
-                        orderData.timeInForce === 'IOC' ? TimeInForce.IOC :
-                        orderData.timeInForce === 'FOK' ? TimeInForce.FOK : TimeInForce.GTC,
-            createdAt: Date.now(),
-            updatedAt: Date.now(),
-            expiration: 0,
-            txHash: '0x' + '0'.repeat(64)
-          };
-          return order;
+      // Query from validator DEX service
+      if (this.validatorDEXService) {
+        try {
+          const orderData = await this.validatorDEXService.getOrder(orderId);
+          if (orderData) {
+            // Map validator order to our Order format
+            const order: Order = {
+              orderId: orderData.id,
+              maker: orderData.maker,
+              tokenIn: orderData.tokenIn,
+              tokenOut: orderData.tokenOut,
+              amountIn: BigInt(orderData.amount),
+              amountRemaining: BigInt(orderData.remainingAmount || orderData.amount),
+              amountFilled: BigInt(orderData.filledAmount || '0'),
+              amountOutMin: BigInt(0),
+              type: OrderType.LIMIT,
+              side: orderData.side === 'BUY' ? OrderSide.BUY : OrderSide.SELL,
+              price: Number(orderData.price),
+              status: orderData.status === 'OPEN' ? OrderStatus.OPEN :
+                     orderData.status === 'FILLED' ? OrderStatus.FILLED :
+                     orderData.status === 'CANCELLED' ? OrderStatus.CANCELLED :
+                     orderData.status === 'EXPIRED' ? OrderStatus.EXPIRED : OrderStatus.PENDING,
+              timeInForce: TimeInForce.GTC,
+              createdAt: orderData.timestamp,
+              updatedAt: Date.now(),
+              expiration: 0,
+              txHash: orderData.txHash || ('0x' + '0'.repeat(64))
+            };
+            // Cache it
+            this.userOrders.set(orderId, order);
+            return order;
+          }
+        } catch (error) {
+          // Order not found on validator, continue to return null
         }
       }
 
@@ -648,43 +649,15 @@ export class OrderBookService {
     }
 
     try {
-      if (this.orderBook === undefined) {
-        throw new Error('Order book not available');
-      }
+      // For now, return orders from local cache
+      // In production, this would query historical orders from the validator
+      const allOrders = Array.from(this.userOrders.values());
 
-      const userAddress = await this.getUserAddress();
-      const allOrders = this.orderBook.getUserOrders(userAddress);
-      const history = allOrders.slice(offset, offset + limit);
+      // Sort by creation time (newest first)
+      allOrders.sort((a, b) => b.createdAt - a.createdAt);
 
-      return history.map((orderData: UnifiedOrder) => {
-        const pairParts = (orderData.pair ?? '/').split('/');
-        const tokenIn = pairParts[0] ?? '';
-        const tokenOut = pairParts[1] ?? '';
-        return {
-          orderId: orderData.id,
-          maker: orderData.userId,
-          tokenIn,
-          tokenOut,
-          amountIn: BigInt(orderData.quantity ?? '0'),
-          amountRemaining: BigInt(orderData.remaining ?? '0'),
-          amountFilled: BigInt(orderData.filled ?? '0'),
-          amountOutMin: BigInt(0),
-          type: OrderType.LIMIT,
-          side: orderData.side === 'BUY' ? OrderSide.BUY : OrderSide.SELL,
-          price: Number(orderData.price ?? '0'),
-          status: orderData.status === 'OPEN' ? OrderStatus.OPEN : 
-                 orderData.status === 'FILLED' ? OrderStatus.FILLED :
-                 orderData.status === 'CANCELLED' ? OrderStatus.CANCELLED :
-                 orderData.status === 'EXPIRED' ? OrderStatus.EXPIRED : OrderStatus.PENDING,
-          timeInForce: orderData.timeInForce === 'GTC' ? TimeInForce.GTC :
-                      orderData.timeInForce === 'IOC' ? TimeInForce.IOC :
-                      orderData.timeInForce === 'FOK' ? TimeInForce.FOK : TimeInForce.GTC,
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
-          expiration: 0,
-          txHash: '0x' + '0'.repeat(64)
-        };
-      });
+      // Apply pagination
+      return allOrders.slice(offset, offset + limit);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       throw new Error(`Failed to get order history: ${errorMessage}`);
@@ -710,52 +683,6 @@ export class OrderBookService {
     this.orderSubscriptions.delete(orderId);
   }
 
-  /**
-   * Aggregate orders by price level
-   * @param orders - Orders to aggregate
-   * @param maxLevels - Maximum number of levels
-   * @param descending - Sort order (true for bids, false for asks)
-   * @returns Aggregated depth levels
-   * @private
-   */
-  private aggregateOrdersByPrice(
-    orders: Array<UnifiedOrder>,
-    maxLevels: number,
-    descending: boolean
-  ): DepthLevel[] {
-    const priceMap = new Map<number, { amount: bigint; count: number }>();
-
-    // Aggregate by price
-    for (const order of orders) {
-      const price = Number(order.price ?? 0);
-      const existing = priceMap.get(price) ?? { amount: BigInt(0), count: 0 };
-      const remaining = BigInt(order.remaining ?? '0');
-      priceMap.set(price, {
-        amount: existing.amount + remaining,
-        count: existing.count + 1
-      });
-    }
-
-    // Convert to array and sort
-    const levels = Array.from(priceMap.entries())
-      .map(([price, data]) => ({
-        price,
-        amount: data.amount,
-        orderCount: data.count,
-        cumulative: BigInt(0)
-      }))
-      .sort((a, b) => descending ? b.price - a.price : a.price - b.price)
-      .slice(0, maxLevels);
-
-    // Calculate cumulative amounts
-    let cumulative = BigInt(0);
-    for (const level of levels) {
-      cumulative += level.amount;
-      level.cumulative = cumulative;
-    }
-
-    return levels;
-  }
 
   /**
    * Subscribe to order events
@@ -763,36 +690,36 @@ export class OrderBookService {
    * @private
    */
   private subscribeToOrderEvents(orderId: string): void {
-    if (this.orderBook !== undefined) {
+    if (this.validatorDEXService) {
       // In production, would set up WebSocket subscription
       // For now, poll for updates
-      const checkOrder = (): void => {
+      const checkOrder = async (): Promise<void> => {
         try {
-          if (this.orderBook === undefined) return;
-          const orderData = this.orderBook.getOrder(orderId);
-          if (orderData !== undefined && orderData !== null) {
+          if (!this.validatorDEXService) return;
+          const orderData = await this.validatorDEXService.getOrder(orderId);
+          if (orderData) {
             const order = this.userOrders.get(orderId);
-            if (order !== undefined && orderData.status !== undefined && orderData.status !== order.status) {
+            if (order && orderData.status !== order.status) {
               // Update order
-              order.status = orderData.status === 'OPEN' ? OrderStatus.OPEN : 
+              order.status = orderData.status === 'OPEN' ? OrderStatus.OPEN :
                            orderData.status === 'FILLED' ? OrderStatus.FILLED :
                            orderData.status === 'CANCELLED' ? OrderStatus.CANCELLED :
                            orderData.status === 'EXPIRED' ? OrderStatus.EXPIRED : OrderStatus.PENDING;
-              order.amountRemaining = BigInt(orderData.remaining ?? '0');
-              order.amountFilled = BigInt(orderData.filled ?? '0');
+              order.amountRemaining = BigInt(orderData.remainingAmount || '0');
+              order.amountFilled = BigInt(orderData.filledAmount || '0');
               order.updatedAt = Date.now();
               this.userOrders.set(orderId, order);
 
               // Trigger callback if subscribed
               const callback = this.orderSubscriptions.get(orderId);
-              if (callback !== undefined && order.amountFilled > BigInt(0)) {
+              if (callback && order.amountFilled > BigInt(0)) {
                 callback({
                   orderId,
                   taker: 'unknown',
                   amountFilled: order.amountFilled,
                   amountOut: BigInt(0), // Would need calculation
-                  executionPrice: orderData.price !== undefined && orderData.price !== '' ? Number(orderData.price) : order.price,
-                  txHash: '0x' + '0'.repeat(64),
+                  executionPrice: Number(orderData.price) || order.price,
+                  txHash: orderData.txHash || ('0x' + '0'.repeat(64)),
                   timestamp: Date.now()
                 });
               }
@@ -807,7 +734,7 @@ export class OrderBookService {
       const interval = setInterval(() => {
         void checkOrder();
       }, 5000);
-      
+
       // Store interval for cleanup
       const intervalKey = `interval_${orderId}`;
       (this as unknown as Record<string, NodeJS.Timeout>)[intervalKey] = interval;
@@ -834,40 +761,9 @@ export class OrderBookService {
    */
   private async loadUserOrders(): Promise<void> {
     try {
-      if (this.orderBook !== undefined) {
-        const userAddress = await this.getUserAddress();
-        const orders = this.orderBook.getUserOrders(userAddress);
-        
-        this.userOrders.clear();
-        for (const orderData of orders) {
-          const [tokenIn, tokenOut] = (orderData.pair ?? '/').split('/');
-          const order: Order = {
-            orderId: orderData.id,
-            maker: orderData.userId,
-            tokenIn: tokenIn ?? '',
-            tokenOut: tokenOut ?? '',
-            amountIn: BigInt(orderData.quantity ?? '0'),
-            amountRemaining: BigInt(orderData.remaining ?? '0'),
-            amountFilled: BigInt(orderData.filled ?? '0'),
-            amountOutMin: BigInt(0),
-            type: OrderType.LIMIT,
-            side: orderData.side === 'BUY' ? OrderSide.BUY : OrderSide.SELL,
-            price: Number(orderData.price ?? '0'),
-            status: orderData.status === 'OPEN' ? OrderStatus.OPEN : 
-                   orderData.status === 'FILLED' ? OrderStatus.FILLED :
-                   orderData.status === 'CANCELLED' ? OrderStatus.CANCELLED :
-                   orderData.status === 'EXPIRED' ? OrderStatus.EXPIRED : OrderStatus.PENDING,
-            timeInForce: orderData.timeInForce === 'GTC' ? TimeInForce.GTC :
-                        orderData.timeInForce === 'IOC' ? TimeInForce.IOC :
-                        orderData.timeInForce === 'FOK' ? TimeInForce.FOK : TimeInForce.GTC,
-            createdAt: Date.now(),
-            updatedAt: Date.now(),
-            expiration: 0,
-            txHash: '0x' + '0'.repeat(64)
-          };
-          this.userOrders.set(order.orderId, order);
-        }
-      }
+      // In production, this would load orders from the validator
+      // For now, we start with an empty order map
+      this.userOrders.clear();
     } catch (error) {
       // Ignore load errors on init
     }
@@ -887,6 +783,15 @@ export class OrderBookService {
     } else {
       throw new Error('No provider available');
     }
+  }
+
+  /**
+   * Clear all cached orders
+   * @returns Promise that resolves when orders are cleared
+   */
+  async clearOrders(): Promise<void> {
+    this.userOrders.clear();
+    this.orderSubscriptions.clear();
   }
 
   /**

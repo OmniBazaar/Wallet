@@ -13,6 +13,13 @@ jest.mock('../../src/core/keyring/KeyringService', () => ({
     getAccounts: jest.fn(),
     init: jest.fn(),
     getState: jest.fn()
+  },
+  KeyringService: {
+    getInstance: jest.fn().mockReturnValue({
+      getAccounts: jest.fn(),
+      init: jest.fn(),
+      getState: jest.fn()
+    })
   }
 }));
 jest.mock('ethers', () => {
@@ -104,7 +111,7 @@ describe('WalletService', () => {
       mockProvider.getBalance.mockRejectedValueOnce(new Error('Network error'));
       
       await expect(walletService.getNativeBalance(TEST_ADDRESS))
-        .rejects.toThrow('Failed to get balance: Error: Network error');
+        .rejects.toThrow('Failed to get balance: Network error');
     });
 
     it('should return zero balance', async () => {

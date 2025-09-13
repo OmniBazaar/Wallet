@@ -40,10 +40,10 @@ describe('BIP39Keyring', () => {
       expect(keyring.isInitialized()).toBe(true);
     });
 
-    it('should reject invalid mnemonic', async () => {
-      await expect(
+    it('should reject invalid mnemonic', () => {
+      expect(() => {
         keyring.initFromMnemonic('invalid mnemonic phrase')
-      ).rejects.toThrow();
+      }).toThrow('Invalid mnemonic phrase');
     });
 
     it('should lock and unlock with password', async () => {

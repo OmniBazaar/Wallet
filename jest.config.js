@@ -65,7 +65,8 @@ export default {
     '^tiny-secp256k1$': '<rootDir>/__mocks__/tiny-secp256k1.js',
     '^ecpair$': '<rootDir>/__mocks__/ecpair.js',
     '^bitcoinjs-lib$': '<rootDir>/__mocks__/bitcoinjs-lib.js',
-    '^uint8array-tools$': '<rootDir>/__mocks__/uint8array-tools.js'
+    '^uint8array-tools$': '<rootDir>/__mocks__/uint8array-tools.js',
+    '^libp2p$': '<rootDir>/__mocks__/libp2p.js'
   },
   setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],
   testPathIgnorePatterns: [

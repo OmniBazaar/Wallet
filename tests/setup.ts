@@ -17,6 +17,13 @@ global.Vue = { createApp };
 process.env.NODE_ENV = 'test';
 process.env.TEST_MNEMONIC = 'test test test test test test test test test test test junk';
 
+// Polyfill for setImmediate (needed by winston in jsdom environment)
+if (typeof global.setImmediate === 'undefined') {
+  global.setImmediate = ((fn: Function, ...args: any[]) => {
+    return setTimeout(fn, 0, ...args);
+  }) as any;
+}
+
 // Mock chrome runtime API for browser extension tests
 global.chrome = {
   runtime: {

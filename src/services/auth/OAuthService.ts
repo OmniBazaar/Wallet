@@ -206,6 +206,13 @@ export interface UserSession {
   deviceFingerprint: string;
 }
 
+interface OAuthServiceDependencies {
+  userRegistry?: IUserRegistryDatabase;
+  secureStorage?: ISecureStorageService;
+  emailProvider?: IEmailProvider;
+  smsProvider?: ISMSProvider;
+}
+
 /**
  * OAuth service for handling authentication flows
  */
@@ -221,11 +228,11 @@ export class OAuthService {
    * Initialize OAuth service with mock providers
    * In production, these would be actual service instances
    */
-  constructor() {
-    this.userRegistry = new MockUserRegistryDatabase();
-    this.secureStorage = new MockSecureStorageService();
-    this.emailProvider = new MockEmailProvider();
-    this.smsProvider = new MockSMSProvider();
+  constructor(deps?: OAuthServiceDependencies) {
+    this.userRegistry = deps?.userRegistry ?? new MockUserRegistryDatabase();
+    this.secureStorage = deps?.secureStorage ?? new MockSecureStorageService();
+    this.emailProvider = deps?.emailProvider ?? new MockEmailProvider();
+    this.smsProvider = deps?.smsProvider ?? new MockSMSProvider();
     this.jwtSecret = process.env.JWT_SECRET ?? this.generateSecureSecret();
     this.configs = this.initializeConfigs();
   }

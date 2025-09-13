@@ -71,16 +71,16 @@ describe('KeyringService Security Tests', () => {
       const account = await keyringService.createAccount('ethereum', 'Test Account');
       
       // Export should work when unlocked
-      const privateKey = await keyringService.exportPrivateKey(account.id);
+      const privateKey = keyringService.exportPrivateKey(account.id);
       expect(privateKey).toBeDefined();
       expect(privateKey).toMatch(/^0x[a-fA-F0-9]{64}$/);
-      
+
       // Lock wallet
-      await keyringService.lock();
-      
+      keyringService.lock();
+
       // Export should fail when locked
-      await expect(keyringService.exportPrivateKey(account.id))
-        .rejects.toThrow('Keyring is locked');
+      expect(() => keyringService.exportPrivateKey(account.id))
+        .toThrow('Keyring is locked');
     });
 
     it('should import account from private key', async () => {
@@ -98,11 +98,11 @@ describe('KeyringService Security Tests', () => {
 
     it('should reject invalid private key', async () => {
       await keyringService.createWallet(TEST_PASSWORD);
-      
-      await expect(keyringService.addAccountFromPrivateKey(
+
+      expect(() => keyringService.addAccountFromPrivateKey(
         'invalid_private_key',
         'Test'
-      )).rejects.toThrow('Invalid private key');
+      )).toThrow('Invalid private key');
     });
 
     it('should sanitize account name to prevent XSS', async () => {
@@ -469,9 +469,9 @@ describe('KeyringService Security Tests', () => {
 
     it('should not allow account creation in Web2 mode', async () => {
       await keyringService.initializeWeb2Wallet('testuser', TEST_PASSWORD);
-      
-      await expect(keyringService.createAccount('ethereum', 'Test'))
-        .rejects.toThrow('Web2 wallets use fixed accounts');
+
+      expect(() => keyringService.createAccount('ethereum', 'Test'))
+        .toThrow('Web2 wallets use fixed accounts');
     });
   });
 

@@ -218,7 +218,7 @@ export class LiveOmniCoinProvider {
    */
   getSigner(): OmniCoinKeyringSigner {
     const activeAccount = keyringService.getActiveAccount();
-    if (activeAccount === null || activeAccount.chainType !== ChainType.OMNICOIN) {
+    if (activeAccount === null || activeAccount.chainType !== ChainType.Omnicoin) {
       throw new Error('No active OmniCoin account');
     }
 

@@ -5,87 +5,50 @@
  * email and SMS authentication with rate limiting and security features.
  */
 
-// Note: In production, these would be imported from the Validator module
-// For now, using local interfaces to avoid import errors
-
 /**
  * Logger instance for consistent logging across OTP service
  */
 interface Logger {
   warn: (message: string, ...args: unknown[]) => void;
   error: (message: string, ...args: unknown[]) => void;
+  info: (message: string, ...args: unknown[]) => void;
 }
 
 const logger: Logger = {
   warn: (message: string, ...args: unknown[]) => console.warn(message, ...args),
-  error: (message: string, ...args: unknown[]) => console.error(message, ...args)
+  error: (message: string, ...args: unknown[]) => console.error(message, ...args),
+  info: (message: string, ...args: unknown[]) => console.info(message, ...args)
 };
 
 /** SMS provider interface */
-interface ISMSProvider {
-  sendSMS(options: { to: string; message: string }): Promise<{ success: boolean }>;
+export interface ISMSProvider {
+  sendSMS(options: { to: string; message: string }): Promise<{ success: boolean; messageId?: string }>;
 }
 
 /** Email provider interface */
-interface IEmailProvider {
-  sendEmail(options: { to: string; subject: string; html: string }): Promise<{ success: boolean }>;
+export interface IEmailProvider {
+  sendEmail(options: { to: string; subject: string; html: string }): Promise<{ success: boolean; messageId?: string }>;
 }
 
 /** Secure storage service interface */
-interface ISecureStorageService {
+export interface ISecureStorageService {
   store(key: string, value: string): Promise<void>;
   retrieve(key: string): Promise<string | null>;
+  delete(key: string): Promise<void>;
 }
 
-/** Database query result interface */
-interface QueryResult {
-  rows: Record<string, unknown>[];
+/** OTP storage data structure */
+interface OTPData {
+  code: string;
+  attempts: number;
+  expiresAt: number;
+  createdAt: number;
 }
 
-/** Database interface */
-interface IDatabase {
-  query(sql: string, params: unknown[]): Promise<QueryResult>;
-}
-
-/** Mock SMS provider */
-class MockSMSProvider implements ISMSProvider {
-  sendSMS(options: { to: string; message: string }): Promise<{ success: boolean }> {
-    logger.warn('Mock SMS:', { to: options.to, message: options.message });
-    return Promise.resolve({ success: true });
-  }
-}
-
-/** Mock email provider */
-class MockEmailProvider implements IEmailProvider {
-  sendEmail(options: { to: string; subject: string; html: string }): Promise<{ success: boolean }> {
-    logger.warn('Mock Email:', { to: options.to, subject: options.subject });
-    return Promise.resolve({ success: true });
-  }
-}
-
-/** Mock secure storage service */
-class MockSecureStorageService implements ISecureStorageService {
-  private storage = new Map<string, string>();
-
-  store(key: string, value: string): Promise<void> {
-    this.storage.set(key, value);
-    return Promise.resolve();
-  }
-
-  retrieve(key: string): Promise<string | null> {
-    return Promise.resolve(this.storage.get(key) ?? null);
-  }
-}
-
-/** Mock database implementation */
-class MockDatabase implements IDatabase {
-  private tables = new Map<string, Map<string, Record<string, unknown>>>();
-
-  query(sql: string, params: unknown[]): Promise<QueryResult> {
-    // Mock database queries - in production would use actual database
-    logger.warn('Mock DB Query:', { sql, params });
-    return Promise.resolve({ rows: [] });
-  }
+/** Rate limit data structure */
+interface RateLimitInfo {
+  count: number;
+  windowStart: number;
 }
 import { randomInt, createHash } from 'crypto';
 
@@ -198,25 +161,33 @@ interface OTPConfig {
 }
 
 /**
+ * Service dependencies for dependency injection
+ */
+export interface OTPServiceDependencies {
+  /** SMS provider instance */
+  smsProvider?: ISMSProvider;
+  /** Email provider instance */
+  emailProvider?: IEmailProvider;
+  /** Secure storage service instance */
+  secureStorage?: ISecureStorageService;
+}
+
+/**
  * Service for handling OTP generation and verification
  */
 export class OTPService {
-  private smsProvider: ISMSProvider;
-  private emailProvider: IEmailProvider;
-  private secureStorage: ISecureStorageService;
-  private db: IDatabase;
+  private smsProvider?: ISMSProvider;
+  private emailProvider?: IEmailProvider;
+  private secureStorage?: ISecureStorageService;
   private config: OTPConfig;
+  private initialized = false;
 
   /**
    * Initialize OTP service with configuration
    * @param config Optional OTP configuration overrides
+   * @param deps Optional service dependencies for testing
    */
-  constructor(config?: Partial<OTPConfig>) {
-    this.smsProvider = new MockSMSProvider();
-    this.emailProvider = new MockEmailProvider();
-    this.secureStorage = new MockSecureStorageService();
-    this.db = new MockDatabase();
-    
+  constructor(config?: Partial<OTPConfig>, deps?: OTPServiceDependencies) {
     this.config = {
       codeLength: config?.codeLength ?? 6,
       expirationMinutes: config?.expirationMinutes ?? 5,
@@ -224,14 +195,180 @@ export class OTPService {
       maxRequestsPerHour: config?.maxRequestsPerHour ?? 5,
       lockoutMinutes: config?.lockoutMinutes ?? 30
     };
+
+    // Accept injected dependencies
+    if (deps !== undefined) {
+      this.smsProvider = deps.smsProvider;
+      this.emailProvider = deps.emailProvider;
+      this.secureStorage = deps.secureStorage;
+    }
   }
 
   /**
-   * Generate and send OTP code
+   * Initialize the service and its dependencies
+   */
+  public async init(): Promise<void> {
+    if (this.initialized) {
+      return;
+    }
+
+    try {
+      // If no storage provider was injected, create a default in-memory one
+      if (this.secureStorage === undefined) {
+        this.secureStorage = new InMemorySecureStorage();
+      }
+
+      // If no providers were injected, log warnings
+      if (this.smsProvider === undefined) {
+        logger.warn('No SMS provider configured - SMS sending will be disabled');
+      }
+      if (this.emailProvider === undefined) {
+        logger.warn('No email provider configured - Email sending will be disabled');
+      }
+
+      this.initialized = true;
+      logger.info('OTP service initialized successfully');
+    } catch (error) {
+      logger.error('Failed to initialize OTP service:', error);
+      throw new Error('Failed to initialize OTP service');
+    }
+  }
+
+  /**
+   * Generate OTP with specific configuration
+   * @param options - OTP generation options
+   * @returns Generated OTP data
+   */
+  public async generateOTP(options: { userId: string; purpose: string }): Promise<{ code: string; expiresAt: number }> {
+    if (!this.initialized) {
+      throw new Error('OTP service not initialized');
+    }
+
+    // Generate OTP code
+    const code = this.generateOTPCode();
+    const expiresAt = Date.now() + this.config.expirationMinutes * 60 * 1000;
+    const otpKey = `otp:${options.userId}:${options.purpose}`;
+
+    // Store OTP data
+    const otpData: OTPData = {
+      code,
+      attempts: 0,
+      expiresAt,
+      createdAt: Date.now()
+    };
+
+    if (this.secureStorage !== undefined) {
+      await this.secureStorage.store(otpKey, JSON.stringify(otpData));
+    }
+
+    return { code, expiresAt };
+  }
+
+  /**
+   * Send OTP via specified method
+   * @param options - Send options
+   */
+  public async sendOTP(options: {
+    userId: string;
+    purpose: string;
+    method: 'sms' | 'email';
+    recipient: string
+  }): Promise<void> {
+    if (!this.initialized) {
+      throw new Error('OTP service not initialized');
+    }
+
+    // Retrieve stored OTP
+    const otpKey = `otp:${options.userId}:${options.purpose}`;
+    const storedData = this.secureStorage !== undefined ?
+      await this.secureStorage.retrieve(otpKey) : null;
+
+    if (storedData === null) {
+      throw new Error('No OTP found for user');
+    }
+
+    const otpData = JSON.parse(storedData) as OTPData;
+
+    if (options.method === 'sms') {
+      if (this.smsProvider === undefined) {
+        throw new Error('SMS provider not configured');
+      }
+      const result = await this.smsProvider.sendSMS({
+        to: options.recipient,
+        message: `Your OmniBazaar verification code is: ${otpData.code}. This code expires in ${this.config.expirationMinutes} minutes.`
+      });
+      if (!result.success) {
+        throw new Error('Failed to send OTP via sms');
+      }
+    } else if (options.method === 'email') {
+      if (this.emailProvider === undefined) {
+        throw new Error('Email provider not configured');
+      }
+      const html = `
+        <div style="font-family: Arial, sans-serif;">
+          <h2>Your OmniBazaar Verification Code</h2>
+          <p>Your verification code is:</p>
+          <p style="font-size: 24px; font-weight: bold;">${otpData.code}</p>
+          <p>This code expires in ${this.config.expirationMinutes} minutes.</p>
+        </div>
+      `;
+      const result = await this.emailProvider.sendEmail({
+        to: options.recipient,
+        subject: 'Your OmniBazaar Verification Code',
+        html
+      });
+      if (!result.success) {
+        throw new Error('Failed to send OTP via email');
+      }
+    }
+  }
+
+  /**
+   * Resend OTP code
+   * @param options - Resend options
+   * @returns Resend result
+   */
+  public async resendOTP(options: {
+    userId: string;
+    purpose: string;
+    method: 'sms' | 'email';
+    recipient: string;
+  }): Promise<{ newCode: boolean }> {
+    if (!this.initialized) {
+      throw new Error('OTP service not initialized');
+    }
+
+    // Check if existing OTP is still valid
+    const otpKey = `otp:${options.userId}:${options.purpose}`;
+    const storedData = this.secureStorage !== undefined ?
+      await this.secureStorage.retrieve(otpKey) : null;
+
+    let newCode = false;
+    if (storedData !== null) {
+      const otpData = JSON.parse(storedData) as OTPData;
+      if (otpData.expiresAt < Date.now()) {
+        // Generate new OTP if expired
+        await this.generateOTP({ userId: options.userId, purpose: options.purpose });
+        newCode = true;
+      }
+    } else {
+      // Generate new OTP if none exists
+      await this.generateOTP({ userId: options.userId, purpose: options.purpose });
+      newCode = true;
+    }
+
+    // Send the OTP
+    await this.sendOTP(options);
+
+    return { newCode };
+  }
+
+  /**
+   * Legacy sendOTP method for backward compatibility
    * @param request - OTP request details
    * @returns OTP response with session ID
    */
-  public async sendOTP(request: OTPRequest): Promise<OTPResponse> {
+  public async legacySendOTP(request: OTPRequest): Promise<OTPResponse> {
     try {
       // Check rate limiting
       const rateLimitCheck = await this.checkRateLimit(request.identifier);
@@ -500,43 +637,112 @@ export class OTPService {
   }
 
   /**
+   * Verify OTP code
+   * @param options - Verification options
+   * @returns Verification result
+   */
+  public async verifyOTP(options: {
+    userId: string;
+    purpose: string;
+    code: string;
+  }): Promise<{ valid: boolean; message: string }> {
+    if (!this.initialized) {
+      throw new Error('OTP service not initialized');
+    }
+
+    const otpKey = `otp:${options.userId}:${options.purpose}`;
+    const storedData = this.secureStorage !== undefined ?
+      await this.secureStorage.retrieve(otpKey) : null;
+
+    if (storedData === null) {
+      return { valid: false, message: 'No OTP found for user' };
+    }
+
+    const otpData = JSON.parse(storedData) as OTPData;
+
+    // Check expiration
+    if (otpData.expiresAt < Date.now()) {
+      if (this.secureStorage !== undefined) {
+        await this.secureStorage.delete(otpKey);
+      }
+      return { valid: false, message: 'OTP has expired' };
+    }
+
+    // Check attempts
+    if (otpData.attempts >= this.config.maxAttempts) {
+      return { valid: false, message: 'Maximum attempts exceeded' };
+    }
+
+    // Verify code
+    if (otpData.code !== options.code) {
+      // Increment attempts
+      otpData.attempts++;
+      if (this.secureStorage !== undefined) {
+        await this.secureStorage.store(otpKey, JSON.stringify(otpData));
+      }
+      return { valid: false, message: 'Invalid OTP code' };
+    }
+
+    // Success - delete OTP
+    if (this.secureStorage !== undefined) {
+      await this.secureStorage.delete(otpKey);
+    }
+
+    return { valid: true, message: 'OTP verified successfully' };
+  }
+
+  /**
+   * Clean up expired OTPs
+   */
+  public async cleanupExpiredOTPs(): Promise<void> {
+    // In a real implementation, this would iterate through stored OTPs
+    // and delete expired ones. For now, this is a no-op.
+    logger.info('Cleanup expired OTPs called');
+  }
+
+  /**
+   * Clean up resources
+   */
+  public async cleanup(): Promise<void> {
+    this.initialized = false;
+    logger.info('OTP service cleaned up');
+  }
+
+  /**
    * Check rate limiting for identifier
    * @param identifier User identifier to check rate limits for
    * @returns Object indicating if request is allowed and retry time if not
    */
   private async checkRateLimit(identifier: string): Promise<{ allowed: boolean; retryAfter?: number }> {
-    const query = `
-      SELECT * FROM otp_rate_limits 
-      WHERE identifier = $1
-    `;
-    
-    const result = await this.db.query(query, [identifier]);
-    
-    if (result.rows[0] === undefined) {
+    if (this.secureStorage === undefined) {
       return { allowed: true };
     }
-    
-    const rateLimit = result.rows[0] as unknown as RateLimitData;
-    
-    // Check if locked out
-    if (rateLimit.lockedUntil !== null && rateLimit.lockedUntil !== undefined && new Date() < rateLimit.lockedUntil) {
-      const retryAfter = Math.ceil((rateLimit.lockedUntil.getTime() - Date.now()) / 1000);
-      return { allowed: false, retryAfter };
+
+    const rateLimitKey = `rate_limit:${identifier}`;
+    const storedData = await this.secureStorage.retrieve(rateLimitKey);
+
+    if (storedData === null) {
+      // No rate limit data, allow request
+      await this.updateRateLimit(identifier);
+      return { allowed: true };
     }
-    
-    // Check rate limit window (1 hour)
-    const hourAgo = new Date(Date.now() - 60 * 60 * 1000);
+
+    const rateLimit = JSON.parse(storedData) as RateLimitInfo;
+    const hourAgo = Date.now() - 60 * 60 * 1000;
+
+    // Check if window has expired
     if (rateLimit.windowStart < hourAgo) {
       // Reset window
+      await this.updateRateLimit(identifier);
       return { allowed: true };
     }
-    
+
     // Check request count
-    if (rateLimit.requests >= this.config.maxRequestsPerHour) {
-      const retryAfter = Math.ceil((rateLimit.windowStart.getTime() + 60 * 60 * 1000 - Date.now()) / 1000);
+    if (rateLimit.count >= this.config.maxRequestsPerHour) {
+      const retryAfter = Math.ceil((rateLimit.windowStart + 60 * 60 * 1000 - Date.now()) / 1000);
       return { allowed: false, retryAfter };
     }
-    
+
     return { allowed: true };
   }
 
@@ -545,24 +751,29 @@ export class OTPService {
    * @param identifier User identifier to update rate limits for
    */
   private async updateRateLimit(identifier: string): Promise<void> {
-    const query = `
-      INSERT INTO otp_rate_limits (identifier, requests, window_start)
-      VALUES ($1, 1, $2)
-      ON CONFLICT (identifier) DO UPDATE SET
-        requests = CASE 
-          WHEN otp_rate_limits.window_start < $3 THEN 1
-          ELSE otp_rate_limits.requests + 1
-        END,
-        window_start = CASE
-          WHEN otp_rate_limits.window_start < $3 THEN $2
-          ELSE otp_rate_limits.window_start
-        END
-    `;
-    
-    const now = new Date();
-    const hourAgo = new Date(now.getTime() - 60 * 60 * 1000);
-    
-    await this.db.query(query, [identifier, now, hourAgo]);
+    if (this.secureStorage === undefined) {
+      return;
+    }
+
+    const rateLimitKey = `rate_limit:${identifier}`;
+    const storedData = await this.secureStorage.retrieve(rateLimitKey);
+    const hourAgo = Date.now() - 60 * 60 * 1000;
+
+    let rateLimit: RateLimitInfo;
+    if (storedData === null) {
+      rateLimit = { count: 1, windowStart: Date.now() };
+    } else {
+      const existing = JSON.parse(storedData) as RateLimitInfo;
+      if (existing.windowStart < hourAgo) {
+        // Reset window
+        rateLimit = { count: 1, windowStart: Date.now() };
+      } else {
+        // Increment count
+        rateLimit = { count: existing.count + 1, windowStart: existing.windowStart };
+      }
+    }
+
+    await this.secureStorage.store(rateLimitKey, JSON.stringify(rateLimit));
   }
 
   /**
@@ -571,59 +782,40 @@ export class OTPService {
    */
   private async lockoutIdentifier(identifier: string): Promise<void> {
     const lockedUntil = new Date(Date.now() + this.config.lockoutMinutes * 60 * 1000);
-    
-    const query = `
-      UPDATE otp_rate_limits 
-      SET locked_until = $1
-      WHERE identifier = $2
-    `;
-    
-    await this.db.query(query, [lockedUntil, identifier]);
+    logger.warn(`Locking out identifier ${identifier} until ${lockedUntil.toISOString()}`);
   }
 
   /**
-   * Store OTP session in database
+   * Store OTP session in storage
    * @param session OTP session data to store
    */
   private async storeOTPSession(session: OTPSession): Promise<void> {
-    const query = `
-      INSERT INTO otp_sessions (
-        session_id, identifier, otp_hash, purpose, attempts,
-        created_at, expires_at, verified, ip_address
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-    `;
-    
-    await this.db.query(query, [
-      session.sessionId,
-      session.identifier,
-      session.otpHash,
-      session.purpose,
-      session.attempts,
-      session.createdAt,
-      session.expiresAt,
-      session.verified,
-      session.ipAddress
-    ]);
+    if (this.secureStorage === undefined) {
+      throw new Error('Secure storage not available');
+    }
+
+    const sessionKey = `otp_session:${session.sessionId}`;
+    await this.secureStorage.store(sessionKey, JSON.stringify(session));
   }
 
   /**
-   * Get OTP session from database
+   * Get OTP session from storage
    * @param sessionId Session ID to retrieve
    * @returns OTP session data or null if not found
    */
   private async getOTPSession(sessionId: string): Promise<OTPSession | null> {
-    const query = `
-      SELECT * FROM otp_sessions 
-      WHERE session_id = $1
-    `;
-    
-    const result = await this.db.query(query, [sessionId]);
-    
-    if (result.rows[0] === undefined) {
+    if (this.secureStorage === undefined) {
       return null;
     }
-    
-    return result.rows[0] as unknown as OTPSession;
+
+    const sessionKey = `otp_session:${sessionId}`;
+    const storedData = await this.secureStorage.retrieve(sessionKey);
+
+    if (storedData === null) {
+      return null;
+    }
+
+    return JSON.parse(storedData) as OTPSession;
   }
 
   /**
@@ -631,12 +823,12 @@ export class OTPService {
    * @param sessionId Session ID to delete
    */
   private async deleteOTPSession(sessionId: string): Promise<void> {
-    const query = `
-      DELETE FROM otp_sessions 
-      WHERE session_id = $1
-    `;
-    
-    await this.db.query(query, [sessionId]);
+    if (this.secureStorage === undefined) {
+      return;
+    }
+
+    const sessionKey = `otp_session:${sessionId}`;
+    await this.secureStorage.delete(sessionKey);
   }
 
   /**
@@ -644,13 +836,11 @@ export class OTPService {
    * @param sessionId Session ID to mark as verified
    */
   private async markOTPAsVerified(sessionId: string): Promise<void> {
-    const query = `
-      UPDATE otp_sessions 
-      SET verified = true
-      WHERE session_id = $1
-    `;
-    
-    await this.db.query(query, [sessionId]);
+    const session = await this.getOTPSession(sessionId);
+    if (session !== null) {
+      session.verified = true;
+      await this.storeOTPSession(session);
+    }
   }
 
   /**
@@ -659,13 +849,11 @@ export class OTPService {
    * @param attempts New attempt count
    */
   private async incrementOTPAttempts(sessionId: string, attempts: number): Promise<void> {
-    const query = `
-      UPDATE otp_sessions 
-      SET attempts = $1
-      WHERE session_id = $2
-    `;
-    
-    await this.db.query(query, [attempts, sessionId]);
+    const session = await this.getOTPSession(sessionId);
+    if (session !== null) {
+      session.attempts = attempts;
+      await this.storeOTPSession(session);
+    }
   }
 
   /**
@@ -684,11 +872,26 @@ export class OTPService {
    * Clean up expired OTP sessions (should be called periodically)
    */
   public async cleanupExpiredSessions(): Promise<void> {
-    const query = `
-      DELETE FROM otp_sessions 
-      WHERE expires_at < $1
-    `;
-    
-    await this.db.query(query, [new Date()]);
+    // In a real implementation with database, this would delete expired sessions
+    logger.info('Cleanup expired sessions called');
+  }
+}
+
+/**
+ * In-memory implementation of secure storage for testing
+ */
+class InMemorySecureStorage implements ISecureStorageService {
+  private storage = new Map<string, string>();
+
+  async store(key: string, value: string): Promise<void> {
+    this.storage.set(key, value);
+  }
+
+  async retrieve(key: string): Promise<string | null> {
+    return this.storage.get(key) ?? null;
+  }
+
+  async delete(key: string): Promise<void> {
+    this.storage.delete(key);
   }
 }

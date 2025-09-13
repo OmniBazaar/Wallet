@@ -4,10 +4,7 @@
  * Provides oracle data and price feed operations.
  */
 
-import { PriceOracleService } from '../../../Validator/src/services/PriceOracleService';
-import { OracleAggregator } from '../../../Validator/src/services/dex/oracles/OracleAggregator';
-import { ValidatorENSOracle } from '../../../Validator/src/services/ens/ValidatorENSOracle';
-import { MasterMerkleEngine } from '../../../Validator/src/engines/MasterMerkleEngine';
+import { OmniValidatorClient, createOmniValidatorClient } from '../../../Validator/dist/client/index';
 
 /** Price data structure */
 export interface PriceData {

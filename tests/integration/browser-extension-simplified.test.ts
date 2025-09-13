@@ -1,8 +1,10 @@
 /**
  * Simplified Browser Extension Integration Tests
- * 
+ *
  * Tests the browser extension service functionality directly
  */
+
+/// <reference types="chrome"/>
 
 import { describe, it, expect, beforeEach, afterEach, beforeAll } from '@jest/globals';
 import { jest } from '@jest/globals';
@@ -23,6 +25,24 @@ describe('Browser Extension Service Integration Tests', () => {
   let keyringService: KeyringService;
   let browserExtensionService: BrowserExtensionService;
   let mockProvider: any;
+
+  // Helper function to create a mock MessageSender
+  const createMockSender = (url: string): chrome.runtime.MessageSender => ({
+    tab: {
+      id: 1,
+      url,
+      index: 0,
+      pinned: false,
+      highlighted: false,
+      windowId: 1,
+      active: true,
+      incognito: false,
+      audible: false,
+      mutedInfo: { muted: false }
+    } as chrome.tabs.Tab,
+    origin: url,
+    id: 'test-sender-id'
+  });
 
   beforeAll(async () => {
     mockProvider = createMockProvider('ethereum');
@@ -56,7 +76,7 @@ describe('Browser Extension Service Integration Tests', () => {
     // Get the keyring service from wallet service (it's a singleton)
     keyringService = (walletService as any).keyringService;
     if (!keyringService) {
-      keyringService = new KeyringService();
+      keyringService = KeyringService.getInstance();
       await keyringService.initialize();
       (walletService as any).keyringService = keyringService;
     }
@@ -103,10 +123,7 @@ describe('Browser Extension Service Integration Tests', () => {
         id: 1
       };
 
-      const mockSender = {
-        tab: { id: 1, url: 'https://dapp.example.com' },
-        origin: 'https://dapp.example.com'
-      };
+      const mockSender = createMockSender('https://dapp.example.com');
 
       const response = await browserExtensionService.handleProviderRequest(
         request,
@@ -116,9 +133,9 @@ describe('Browser Extension Service Integration Tests', () => {
       expect(response).toHaveProperty('result');
       const accounts = response.result;
       expect(Array.isArray(accounts)).toBe(true);
-      expect(accounts.length).toBeGreaterThan(0);
+      expect((accounts as unknown[]).length).toBeGreaterThan(0);
       // Should return ethereum addresses (3 accounts created)
-      expect(accounts).toContain('0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266');
+      expect((accounts as string[])).toContain('0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266');
       expect(response.id).toBe(1);
     });
 
@@ -130,10 +147,7 @@ describe('Browser Extension Service Integration Tests', () => {
         id: 1
       };
 
-      const mockSender = {
-        tab: { id: 1, url: 'https://dapp.example.com' },
-        origin: 'https://dapp.example.com'
-      };
+      const mockSender = createMockSender('https://dapp.example.com');
 
       await browserExtensionService.handleProviderRequest(connectRequest, mockSender);
 
@@ -152,8 +166,8 @@ describe('Browser Extension Service Integration Tests', () => {
       expect(response).toHaveProperty('result');
       const accounts = response.result;
       expect(Array.isArray(accounts)).toBe(true);
-      expect(accounts.length).toBeGreaterThan(0);
-      expect(accounts).toContain('0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266');
+      expect((accounts as unknown[]).length).toBeGreaterThan(0);
+      expect((accounts as string[])).toContain('0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266');
     });
 
     it('should handle eth_accounts for unconnected sites', async () => {
@@ -163,10 +177,7 @@ describe('Browser Extension Service Integration Tests', () => {
         id: 1
       };
 
-      const mockSender = {
-        tab: { id: 1, url: 'https://unknown-site.com' },
-        origin: 'https://unknown-site.com'
-      };
+      const mockSender = createMockSender('https://unknown-site.com');
 
       const response = await browserExtensionService.handleProviderRequest(
         request,
@@ -175,7 +186,7 @@ describe('Browser Extension Service Integration Tests', () => {
 
       expect(response).toHaveProperty('result');
       const accounts = response.result;
-      expect(accounts).toEqual([]);
+      expect((accounts as unknown[])).toEqual([]);
     });
 
     it('should handle eth_sendTransaction', async () => {
@@ -193,10 +204,7 @@ describe('Browser Extension Service Integration Tests', () => {
         id: 2
       };
 
-      const mockSender = {
-        tab: { id: 1, url: 'https://dapp.example.com' },
-        origin: 'https://dapp.example.com'
-      };
+      const mockSender = createMockSender('https://dapp.example.com');
 
       const response = await browserExtensionService.handleProviderRequest(
         request,
@@ -222,10 +230,7 @@ describe('Browser Extension Service Integration Tests', () => {
         id: 3
       };
 
-      const mockSender = {
-        tab: { id: 1, url: 'https://dapp.example.com' },
-        origin: 'https://dapp.example.com'
-      };
+      const mockSender = createMockSender('https://dapp.example.com');
 
       const response = await browserExtensionService.handleProviderRequest(
         request,
@@ -247,10 +252,7 @@ describe('Browser Extension Service Integration Tests', () => {
         id: 4
       };
 
-      const mockSender = {
-        tab: { id: 1, url: 'https://dapp.example.com' },
-        origin: 'https://dapp.example.com'
-      };
+      const mockSender = createMockSender('https://dapp.example.com');
 
       const response = await browserExtensionService.handleProviderRequest(
         request,
@@ -274,10 +276,7 @@ describe('Browser Extension Service Integration Tests', () => {
         id: 5
       };
 
-      const mockSender = {
-        tab: { id: 1, url: 'https://dapp.example.com' },
-        origin: 'https://dapp.example.com'
-      };
+      const mockSender = createMockSender('https://dapp.example.com');
 
       const response = await browserExtensionService.handleProviderRequest(
         request,
@@ -297,10 +296,7 @@ describe('Browser Extension Service Integration Tests', () => {
         id: 6
       };
 
-      const mockSender = {
-        tab: { id: 1, url: 'https://dapp.example.com' },
-        origin: 'https://dapp.example.com'
-      };
+      const mockSender = createMockSender('https://dapp.example.com');
 
       const response = await browserExtensionService.handleProviderRequest(
         request,
@@ -326,10 +322,7 @@ describe('Browser Extension Service Integration Tests', () => {
         id: 1
       };
 
-      const mockSender = {
-        tab: { id: 1, url: 'https://malicious-site.com' },
-        origin: 'https://malicious-site.com'
-      };
+      const mockSender = createMockSender('https://malicious-site.com');
 
       const response = await browserExtensionService.handleProviderRequest(
         request,
@@ -350,7 +343,7 @@ describe('Browser Extension Service Integration Tests', () => {
       expect(permissions.get('https://site2.com')).toEqual(['*']);
 
       // Revoke permission
-      browserExtensionService.revokePermission('https://site1.com');
+      (browserExtensionService as any).revokePermission?.('https://site1.com');
       const updatedPermissions = browserExtensionService.getPermissionedSites();
       expect(updatedPermissions.has('https://site1.com')).toBe(false);
       expect(updatedPermissions.has('https://site2.com')).toBe(true);
@@ -381,10 +374,7 @@ describe('Browser Extension Service Integration Tests', () => {
         id: 1
       };
 
-      const mockSender = {
-        tab: { id: 1, url: 'https://dapp.example.com' },
-        origin: 'https://dapp.example.com'
-      };
+      const mockSender = createMockSender('https://dapp.example.com');
 
       await browserExtensionService.handleProviderRequest(request, mockSender);
 
@@ -404,10 +394,7 @@ describe('Browser Extension Service Integration Tests', () => {
         id: 1
       };
 
-      const mockSender = {
-        tab: { id: 1, url: 'https://dapp.example.com' },
-        origin: 'https://dapp.example.com'
-      };
+      const mockSender = createMockSender('https://dapp.example.com');
 
       await browserExtensionService.handleProviderRequest(request, mockSender);
 

@@ -5,9 +5,7 @@
  * managing, and searching marketplace listings.
  */
 
-import { P2PMarketplaceService } from '../../../Validator/src/services/marketplace/P2PMarketplaceService';
-import { ListingNodeService } from '../../../Validator/src/services/ListingNodeService';
-import type { MarketplaceListing } from '../../../Validator/src/services/marketplace/P2PMarketplaceService';
+import { OmniValidatorClient, createOmniValidatorClient } from '../../../Validator/dist/client/index';
 
 /** Listing data structure */
 export interface Listing {

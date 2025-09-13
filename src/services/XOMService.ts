@@ -8,10 +8,7 @@
 import { WalletService } from './WalletService';
 import { ethers } from 'ethers';
 import { Transaction } from '../core/wallet/Transaction';
-import { StakingService } from '../../../Validator/src/services/StakingService';
-import { BlockRewardService } from '../../../Validator/src/services/BlockRewardService';
-import { MasterMerkleEngine } from '../../../Validator/src/engines/MasterMerkleEngine';
-import { OmniStakingEngine } from '../../../Validator/src/engines/OmniStakingEngine';
+import { StakingService } from './StakingService';
 
 /**
  * XOM-specific service
@@ -20,9 +17,6 @@ export class XOMService {
   private walletService: WalletService;
   private isInitialized = false;
   private stakingService?: StakingService;
-  private blockRewardService?: BlockRewardService;
-  private merkleEngine?: MasterMerkleEngine;
-  private stakingEngine?: OmniStakingEngine;
 
   /**
    * Creates a new XOMService instance
@@ -44,22 +38,9 @@ export class XOMService {
     }
     
     try {
-      // Initialize services
-      this.merkleEngine = new MasterMerkleEngine();
-      this.stakingEngine = new OmniStakingEngine(this.merkleEngine);
-      
-      // Get provider from wallet service
-      const wallet = this.walletService.getWallet();
-      if (wallet === null) throw new Error('Wallet not available');
-      const provider = wallet.provider;
-      
-      this.stakingService = new StakingService(this.merkleEngine, provider);
-      this.blockRewardService = new BlockRewardService(this.merkleEngine);
-      
-      // Start services
-      await this.stakingService.start();
-      await this.blockRewardService.start();
-      
+      // Initialize staking service
+      this.stakingService = new StakingService();
+
       this.isInitialized = true;
     } catch (error) {
       console.error('Failed to initialize XOMService:', error);
@@ -372,17 +353,9 @@ export class XOMService {
    * Cleanup service resources
    */
   async cleanup(): Promise<void> {
-    if (this.stakingService) {
-      await this.stakingService.stop();
-    }
-    if (this.blockRewardService) {
-      await this.blockRewardService.stop();
-    }
-    
+    // StakingService doesn't have a stop method in current implementation
+    // Just clear the reference
     this.stakingService = undefined;
-    this.blockRewardService = undefined;
-    this.stakingEngine = undefined;
-    this.merkleEngine = undefined;
     this.isInitialized = false;
   }
 }

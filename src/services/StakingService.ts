@@ -659,4 +659,68 @@ export class StakingService {
       };
     }
   }
+
+  /**
+   * Get staked balance for an address
+   * @param address - The address to check
+   * @returns The staked balance in wei
+   */
+  public async getStakedBalance(address: string): Promise<bigint> {
+    try {
+      const stakeInfo = await this.getStakeInfo(address);
+      if (!stakeInfo || !stakeInfo.isActive) {
+        return BigInt(0);
+      }
+
+      // The stake info doesn't have amount directly, need to calculate from tier
+      // For now, return a default based on tier
+      const tierAmounts = [
+        ethers.parseEther('1000'),   // Bronze
+        ethers.parseEther('5000'),   // Silver
+        ethers.parseEther('10000'),  // Gold
+        ethers.parseEther('50000'),  // Platinum
+        ethers.parseEther('100000')  // Diamond
+      ];
+
+      return tierAmounts[stakeInfo.tier] || BigInt(0);
+    } catch (error) {
+      console.error('Failed to get staked balance:', error);
+      return BigInt(0);
+    }
+  }
+
+  /**
+   * Get staking positions for an address
+   * @param address - The address to check
+   * @returns Array of staking positions
+   */
+  public async getStakingPositions(address: string): Promise<Array<{
+    id: string;
+    amount: bigint;
+    startTime: number;
+    endTime: number;
+    rewards: bigint;
+    isActive: boolean;
+  }>> {
+    try {
+      const stakeInfo = await this.getStakeInfo(address);
+      if (!stakeInfo || !stakeInfo.isActive) {
+        return [];
+      }
+
+      const rewards = await this.getPendingRewards(address);
+
+      return [{
+        id: '0', // Single position per address in current contract
+        amount: await this.getStakedBalance(address),
+        startTime: stakeInfo.startTime * 1000, // Convert to milliseconds
+        endTime: (stakeInfo.startTime + stakeInfo.commitmentDuration) * 1000,
+        rewards: ethers.parseEther(rewards),
+        isActive: stakeInfo.isActive
+      }];
+    } catch (error) {
+      console.error('Failed to get staking positions:', error);
+      return [];
+    }
+  }
 }

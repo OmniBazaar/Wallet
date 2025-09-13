@@ -37,12 +37,12 @@ import * as nacl from 'tweetnacl';
  * Supported blockchain types
  */
 export enum ChainType {
-  ETHEREUM = 'ethereum',
-  BITCOIN = 'bitcoin',
-  SOLANA = 'solana',
-  SUBSTRATE = 'substrate',
-  COTI = 'coti',
-  OMNICOIN = 'omnicoin'
+  Ethereum = 'ethereum',
+  Bitcoin = 'bitcoin',
+  Solana = 'solana',
+  Substrate = 'substrate',
+  Coti = 'coti',
+  Omnicoin = 'omnicoin'
 }
 
 /**
@@ -103,22 +103,22 @@ export interface EncryptedVault {
 
 // BIP44 coin type constants - not used but kept for reference
 const _COIN_TYPES: Record<ChainType, number> = {
-  [ChainType.ETHEREUM]: 60,
-  [ChainType.BITCOIN]: 0,
-  [ChainType.SOLANA]: 501,
-  [ChainType.SUBSTRATE]: 354,
-  [ChainType.COTI]: 60, // Uses Ethereum's coin type
-  [ChainType.OMNICOIN]: 9999, // Custom coin type
+  [ChainType.Ethereum]: 60,
+  [ChainType.Bitcoin]: 0,
+  [ChainType.Solana]: 501,
+  [ChainType.Substrate]: 354,
+  [ChainType.Coti]: 60, // Uses Ethereum's coin type
+  [ChainType.Omnicoin]: 9999, // Custom coin type
 };
 
 // Derivation paths for different chains (relative paths from root)
 const DERIVATION_PATHS: Record<string, (index: number) => string> = {
-  [ChainType.ETHEREUM]: (index: number) => `44'/60'/0'/0/${index}`,
-  [ChainType.BITCOIN]: (index: number) => `44'/0'/0'/0/${index}`, // BIP44 for standard addresses (test expects this)
-  [ChainType.SOLANA]: (index: number) => `44'/501'/${index}'/0'`,
-  [ChainType.SUBSTRATE]: (index: number) => `44'/354'/0'/0/${index}`,
-  [ChainType.COTI]: (index: number) => `44'/60'/0'/0/${index}`,
-  [ChainType.OMNICOIN]: (index: number) => `44'/9999'/0'/0/${index}`,
+  [ChainType.Ethereum]: (index: number) => `44'/60'/0'/0/${index}`,
+  [ChainType.Bitcoin]: (index: number) => `44'/0'/0'/0/${index}`, // BIP44 for standard addresses (test expects this)
+  [ChainType.Solana]: (index: number) => `44'/501'/${index}'/0'`,
+  [ChainType.Substrate]: (index: number) => `44'/354'/0'/0/${index}`,
+  [ChainType.Coti]: (index: number) => `44'/60'/0'/0/${index}`,
+  [ChainType.Omnicoin]: (index: number) => `44'/9999'/0'/0/${index}`,
   // EVM-compatible chains use same derivation path as Ethereum
   'polygon': (index: number) => `44'/60'/0'/0/${index}`,
   'arbitrum': (index: number) => `44'/60'/0'/0/${index}`,
@@ -408,7 +408,7 @@ export class BIP39Keyring {
       }
     }
 
-    const derivationPathFn = DERIVATION_PATHS[chainType] ?? DERIVATION_PATHS[ChainType.ETHEREUM];
+    const derivationPathFn = DERIVATION_PATHS[chainType] ?? DERIVATION_PATHS[ChainType.Ethereum];
     const derivationPath = derivationPathFn(accountIndex);
     
     if (this.rootNode === null) {
@@ -536,7 +536,8 @@ export class BIP39Keyring {
     }
 
     // Convert chain type string to lowercase for comparison
-    const chainTypeLower = account.chainType.toLowerCase();
+    const chainType = account.chainType || ChainType.Ethereum;
+    const chainTypeLower = chainType.toLowerCase();
     
     if (chainTypeLower === 'bitcoin') {
       return this.exportBitcoinPrivateKey(childNode);
@@ -638,7 +639,8 @@ export class BIP39Keyring {
     }
 
     // Convert chain type string to lowercase for comparison
-    const chainTypeLower = account.chainType.toLowerCase();
+    const chainType = account.chainType || ChainType.Ethereum;
+    const chainTypeLower = chainType.toLowerCase();
     
     if (chainTypeLower === 'ethereum' || chainTypeLower === 'coti' || chainTypeLower === 'omnicoin') {
       return await childNode.signMessage(message);
@@ -684,7 +686,8 @@ export class BIP39Keyring {
     }
 
     // Convert chain type string to lowercase for comparison
-    const chainTypeLower = account.chainType.toLowerCase();
+    const chainType = account.chainType || ChainType.Ethereum;
+    const chainTypeLower = chainType.toLowerCase();
     
     if (chainTypeLower === 'ethereum' || chainTypeLower === 'coti' || chainTypeLower === 'omnicoin') {
       return await childNode.signTransaction(transaction as TransactionRequest);
@@ -706,9 +709,12 @@ export class BIP39Keyring {
    * @returns Address and public key for the chain
    */
   private getAddressForChain(chainType: ChainType | string, hdNode: HDNodeWallet): { address: string; publicKey: string } {
+    // Default to ethereum if chainType is undefined or null
+    const chain = chainType || ChainType.Ethereum;
+
     // Handle EVM-compatible chains
     const evmChains = ['ethereum', 'coti', 'omnicoin', 'polygon', 'arbitrum', 'optimism', 'bsc', 'avalanche'];
-    if (evmChains.includes(chainType.toLowerCase())) {
+    if (evmChains.includes(chain.toLowerCase())) {
       return {
         address: hdNode.address,
         publicKey: hdNode.publicKey
@@ -716,7 +722,7 @@ export class BIP39Keyring {
     }
 
     // Convert chain type string to lowercase for comparison
-    const chainTypeLower = chainType.toLowerCase();
+    const chainTypeLower = chain.toLowerCase();
     
     if (chainTypeLower === 'bitcoin') {
       return this.getBitcoinAddress(hdNode);

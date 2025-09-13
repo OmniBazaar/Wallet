@@ -5,8 +5,7 @@
  * cross-chain token transfers and bridge operations.
  */
 
-import { CrossChainBridge } from '../../../Validator/src/services/dex/crosschain/CrossChainBridge';
-import { MasterMerkleEngine } from '../../../Validator/src/engines/MasterMerkleEngine';
+import { OmniValidatorClient, createOmniValidatorClient } from '../../../Validator/dist/client/index';
 
 /** Bridge parameters */
 interface BridgeParams {
