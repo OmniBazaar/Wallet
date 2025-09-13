@@ -4,6 +4,8 @@
  */
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
+import { tokenService } from '../services/TokenService';
+import { useWallet } from './wallet';
 
 /**
  * Token information interface
@@ -56,38 +58,31 @@ export const useTokenStore = defineStore('tokens', () => {
       isLoading.value = true;
       error.value = null;
 
-      // In real implementation, fetch from blockchain or indexer
-      // Mock data for now
-      await new Promise(resolve => setTimeout(resolve, 100)); // Simulate API call
-      tokens.value = [
-        {
-          address: '0xXOM',
-          symbol: 'XOM',
-          name: 'OmniCoin',
-          decimals: 18,
-          balance: '100',
-          value: 15000,
-          priceUSD: 150
-        },
-        {
-          address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
-          symbol: 'USDC',
-          name: 'USD Coin',
-          decimals: 6,
-          balance: '1000',
-          value: 1000,
-          priceUSD: 1
-        },
-        {
-          address: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
-          symbol: 'ETH',
-          name: 'Ethereum',
-          decimals: 18,
-          balance: '1',
-          value: 2000,
-          priceUSD: 2000
-        }
-      ];
+      // Get current wallet address
+      const walletStore = useWallet();
+      const address = walletStore.currentWalletAddress;
+      
+      if (address === null) {
+        tokens.value = [];
+        return;
+      }
+
+      // Fetch real token balances from TokenService
+      const tokenBalances = await tokenService.getAllTokens(address);
+      
+      // Convert TokenBalance to Token format
+      tokens.value = tokenBalances.map(tb => ({
+        address: tb.token.address,
+        symbol: tb.token.symbol,
+        name: tb.token.name,
+        decimals: tb.token.decimals,
+        balance: tb.balanceFormatted,
+        value: tb.valueUSD ?? 0,
+        priceUSD: tb.valueUSD !== undefined && parseFloat(tb.balanceFormatted) > 0 
+          ? tb.valueUSD / parseFloat(tb.balanceFormatted)
+          : undefined,
+        logoURI: tb.token.logoURI
+      }));
 
     } catch (err) {
       error.value = 'Failed to fetch tokens';
@@ -104,28 +99,22 @@ export const useTokenStore = defineStore('tokens', () => {
    */
   async function addToken(tokenAddress: string): Promise<boolean> {
     try {
-      // In real implementation, fetch token metadata from blockchain
-      // For now, just check if already exists
-      await new Promise(resolve => setTimeout(resolve, 100)); // Simulate metadata fetch
+      // Check if already exists
       const exists = tokens.value.some(t => t.address.toLowerCase() === tokenAddress.toLowerCase());
       if (exists) {
         error.value = 'Token already added';
         return false;
       }
 
-      // Mock adding token
-      tokens.value.push({
-        address: tokenAddress,
-        symbol: 'CUSTOM',
-        name: 'Custom Token',
-        decimals: 18,
-        balance: '0',
-        value: 0
-      });
+      // Add custom token through TokenService
+      await tokenService.addCustomToken({ address: tokenAddress });
+      
+      // Refresh token list to include the new token
+      await fetchTokens();
 
       return true;
     } catch (err) {
-      error.value = 'Failed to add token';
+      error.value = err instanceof Error ? err.message : 'Failed to add token';
       return false;
     }
   }
@@ -147,13 +136,8 @@ export const useTokenStore = defineStore('tokens', () => {
     try {
       isLoading.value = true;
       
-      // In real implementation, fetch updated balances
-      // For now, just simulate random changes
-      await new Promise(resolve => setTimeout(resolve, 200)); // Simulate API call
-      tokens.value = tokens.value.map(token => ({
-        ...token,
-        value: token.value * (0.95 + Math.random() * 0.1)
-      }));
+      // Refresh all token balances from blockchain
+      await fetchTokens();
 
     } catch (err) {
       error.value = 'Failed to update balances';

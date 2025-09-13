@@ -17,6 +17,10 @@
  */
 
 import { ethers } from 'ethers';
+import { ParticipationScoreService } from '../../../Validator/src/services/ParticipationScoreService';
+import { MasterMerkleEngine } from '../../../Validator/src/engines/MasterMerkleEngine';
+import { KYCService } from '../../../Validator/src/services/KYCService';
+import { StakingService } from '../../../Validator/src/services/StakingService';
 
 /**
  * Participation score components
@@ -181,6 +185,10 @@ export class ParticipationService {
   private provider: ethers.Provider;
   private validatorEndpoint: string;
   private scoreCache = new Map<string, ParticipationScore>();
+  private participationScoreService?: ParticipationScoreService;
+  private kycService?: KYCService;
+  private stakingService?: StakingService;
+  private merkleEngine?: MasterMerkleEngine;
   
   // Decay configurations for time-sensitive components
   private readonly DECAY_CONFIGS: Record<string, DecayConfig> = {
@@ -228,9 +236,23 @@ export class ParticipationService {
     this.validatorEndpoint = validatorEndpoint ?? 'http://localhost:3001/api/participation';
   }
   
-  /** Initialize any resources (currently a no-op). */
+  /** Initialize any resources. */
   async initialize(): Promise<void> {
-    // console.log('Participation Service initialized');
+    try {
+      // Initialize services
+      this.merkleEngine = new MasterMerkleEngine();
+      this.participationScoreService = new ParticipationScoreService(this.merkleEngine);
+      this.kycService = new KYCService(this.merkleEngine);
+      this.stakingService = new StakingService(this.merkleEngine, this.provider);
+      
+      // Start services
+      await this.participationScoreService.start();
+      await this.kycService.start();
+      await this.stakingService.start();
+    } catch (error) {
+      console.error('Failed to initialize ParticipationService:', error);
+      throw error;
+    }
   }
   
   /**
@@ -247,7 +269,62 @@ export class ParticipationService {
     }
     
     try {
-      // Fetch components from validator
+      if (this.participationScoreService) {
+        // Get score from real service
+        const scoreData = await this.participationScoreService.getScore(address);
+        
+        // Convert to wallet format
+        const score: ParticipationScore = {
+          address,
+          totalScore: scoreData.score,
+          components: {
+            referrals: {
+              count: scoreData.components.referrals || 0,
+              points: Math.min(scoreData.components.referrals || 0, 10)
+            },
+            publishing: {
+              listingsPublished: scoreData.components.listingsPublished || 0,
+              points: this.calculatePublishingPoints(scoreData.components.listingsPublished || 0)
+            },
+            forumActivity: {
+              questionsAnswered: scoreData.components.forumQuestionsAnswered || 0,
+              helpfulVotes: scoreData.components.forumHelpfulVotes || 0,
+              lastActivityDate: scoreData.components.lastForumActivity || 0,
+              points: scoreData.components.forumParticipation || 0
+            },
+            marketplaceActivity: {
+              buyTransactions: scoreData.components.buyTransactions || 0,
+              sellTransactions: scoreData.components.sellTransactions || 0,
+              lastTransactionDate: scoreData.components.lastTransaction || 0,
+              points: scoreData.components.marketplaceTransactions || 0
+            },
+            communityPolicing: {
+              reportsSubmitted: scoreData.components.reportsSubmitted || 0,
+              reportsVerified: scoreData.components.reportsVerified || 0,
+              lastReportDate: scoreData.components.lastReport || 0,
+              points: scoreData.components.communityModeration || 0
+            },
+            reliability: {
+              successfulValidations: scoreData.components.successfulValidations || 0,
+              failedValidations: scoreData.components.failedValidations || 0,
+              disputesAsArbitrator: scoreData.components.disputesHandled || 0,
+              disputesResolved: scoreData.components.disputesResolved || 0,
+              lastActivityDate: scoreData.components.lastValidation || 0,
+              points: scoreData.components.reliability || 0
+            }
+          },
+          qualifiedAsValidator: scoreData.score >= 50,
+          qualifiedAsListingNode: scoreData.score >= 25,
+          lastCalculated: Date.now(),
+          nextDecayTime: Date.now() + (24 * 60 * 60 * 1000)
+        };
+        
+        // Update cache
+        this.scoreCache.set(address, score);
+        return score;
+      }
+      
+      // Fallback to API if service not available
       const response = await fetch(`${this.validatorEndpoint}/score/${address}`);
       if (!response.ok) {
         return this.getDefaultScore(address);
@@ -282,6 +359,62 @@ export class ParticipationService {
     component: keyof ParticipationComponents,
     activity: ActivityUpdate
   ): Promise<ParticipationScore> {
+    if (this.participationScoreService) {
+      // Update through real service based on component
+      switch (component) {
+        case 'referrals':
+          if (activity.type === 'new_referral') {
+            const referralActivity = activity as ReferralActivity;
+            await this.participationScoreService.recordReferral(address, referralActivity.referred);
+          }
+          break;
+        case 'publishing':
+          if (activity.type === 'listing_published') {
+            await this.participationScoreService.recordListingPublished(address);
+          }
+          break;
+        case 'forumActivity':
+          if (activity.type === 'answer') {
+            await this.participationScoreService.recordForumAnswer(address);
+          } else if (activity.type === 'helpful_vote') {
+            await this.participationScoreService.recordHelpfulVote(address);
+          }
+          break;
+        case 'marketplaceActivity':
+          const marketActivity = activity as MarketplaceActivity;
+          if (marketActivity.type === 'buy' || marketActivity.type === 'sell') {
+            await this.participationScoreService.recordTransaction(address, marketActivity.type);
+          }
+          break;
+        case 'communityPolicing':
+          const policingActivity = activity as CommunityPolicingActivity;
+          if (policingActivity.type === 'report') {
+            await this.participationScoreService.recordCommunityReport(
+              address,
+              policingActivity.verified
+            );
+          }
+          break;
+        case 'reliability':
+          const reliabilityActivity = activity as ReliabilityActivity;
+          if (reliabilityActivity.type === 'validation_success') {
+            await this.participationScoreService.recordValidation(address, true);
+          } else if (reliabilityActivity.type === 'validation_failure') {
+            await this.participationScoreService.recordValidation(address, false);
+          } else if (reliabilityActivity.type === 'dispute_resolved') {
+            await this.participationScoreService.recordDisputeResolution(address, true);
+          } else if (reliabilityActivity.type === 'dispute_failed') {
+            await this.participationScoreService.recordDisputeResolution(address, false);
+          }
+          break;
+      }
+      
+      // Clear cache and get updated score
+      this.scoreCache.delete(address);
+      return await this.getScore(address);
+    }
+    
+    // Fallback to API
     const response = await fetch(`${this.validatorEndpoint}/update`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -741,23 +874,62 @@ export class ParticipationService {
   }
   
   /**
-   * Get staking amount (mock - would query blockchain)
-   * @param _address - Wallet address (unused in mock)
+   * Get staking amount
+   * @param address - Wallet address
    * @returns Staking amount as string
    */
-  private getStakingAmount(_address: string): Promise<string> {
-    // In production, would query staking contract
-    return Promise.resolve('0');
+  private async getStakingAmount(address: string): Promise<string> {
+    if (this.stakingService) {
+      try {
+        const balance = await this.stakingService.getStakedBalance(address);
+        return balance.toString();
+      } catch (error) {
+        console.error('Failed to get staking amount:', error);
+        return '0';
+      }
+    }
+    return '0';
   }
   
   /**
-   * Check KYC status (mock - would query KYC service)
-   * @param _address - Wallet address (unused in mock)
+   * Check KYC status
+   * @param address - Wallet address
    * @returns KYC verification status
    */
-  private checkKYCStatus(_address: string): Promise<boolean> {
-    // In production, would query KYC service for top-tier verification
-    return Promise.resolve(false);
+  private async checkKYCStatus(address: string): Promise<boolean> {
+    if (this.kycService) {
+      try {
+        const status = await this.kycService.getUserKYCStatus(address);
+        // Check for top-tier verification
+        return status.tier === 'professional' && status.verified;
+      } catch (error) {
+        console.error('Failed to check KYC status:', error);
+        return false;
+      }
+    }
+    return false;
+  }
+}
+
+  /**
+   * Cleanup resources and stop services
+   */
+  async cleanup(): Promise<void> {
+    if (this.participationScoreService) {
+      await this.participationScoreService.stop();
+    }
+    if (this.kycService) {
+      await this.kycService.stop();
+    }
+    if (this.stakingService) {
+      await this.stakingService.stop();
+    }
+    
+    this.scoreCache.clear();
+    this.participationScoreService = undefined;
+    this.kycService = undefined;
+    this.stakingService = undefined;
+    this.merkleEngine = undefined;
   }
 }
 

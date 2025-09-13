@@ -8,6 +8,10 @@
 import { WalletService } from './WalletService';
 import { ethers } from 'ethers';
 import { Transaction } from '../core/wallet/Transaction';
+import { StakingService } from '../../../Validator/src/services/StakingService';
+import { BlockRewardService } from '../../../Validator/src/services/BlockRewardService';
+import { MasterMerkleEngine } from '../../../Validator/src/engines/MasterMerkleEngine';
+import { OmniStakingEngine } from '../../../Validator/src/engines/OmniStakingEngine';
 
 /**
  * XOM-specific service
@@ -15,6 +19,10 @@ import { Transaction } from '../core/wallet/Transaction';
 export class XOMService {
   private walletService: WalletService;
   private isInitialized = false;
+  private stakingService?: StakingService;
+  private blockRewardService?: BlockRewardService;
+  private merkleEngine?: MasterMerkleEngine;
+  private stakingEngine?: OmniStakingEngine;
 
   /**
    * Creates a new XOMService instance
@@ -35,8 +43,28 @@ export class XOMService {
       await this.walletService.init();
     }
     
-    this.isInitialized = true;
-    // console.log('XOMService initialized');
+    try {
+      // Initialize services
+      this.merkleEngine = new MasterMerkleEngine();
+      this.stakingEngine = new OmniStakingEngine(this.merkleEngine);
+      
+      // Get provider from wallet service
+      const wallet = this.walletService.getWallet();
+      if (wallet === null) throw new Error('Wallet not available');
+      const provider = wallet.provider;
+      
+      this.stakingService = new StakingService(this.merkleEngine, provider);
+      this.blockRewardService = new BlockRewardService(this.merkleEngine);
+      
+      // Start services
+      await this.stakingService.start();
+      await this.blockRewardService.start();
+      
+      this.isInitialized = true;
+    } catch (error) {
+      console.error('Failed to initialize XOMService:', error);
+      throw error;
+    }
   }
 
   /**
@@ -94,6 +122,19 @@ export class XOMService {
   async getStakedBalance(): Promise<bigint> {
     const wallet = this.walletService.getWallet();
     if (wallet === null) throw new Error('Wallet not available');
+    
+    if (this.stakingService) {
+      try {
+        const address = await wallet.getAddress();
+        const balance = await this.stakingService.getStakedBalance(address);
+        return balance;
+      } catch (error) {
+        console.error('Failed to get staked balance:', error);
+        // Fallback to wallet method
+        return await wallet.getStakedBalance();
+      }
+    }
+    
     return await wallet.getStakedBalance();
   }
 
@@ -176,32 +217,53 @@ export class XOMService {
     apr: number;
     apy?: number;
   }> {
-    // Base APR: 10%
+    if (this.stakingEngine) {
+      try {
+        // Use real staking engine for calculations
+        const rewards = await this.stakingEngine.calculateRewards(
+          amount,
+          duration * 24 * 60 * 60 * 1000 // Convert days to milliseconds
+        );
+        
+        // Get APR from staking service
+        const apr = await this.stakingService?.getCurrentAPR() || 10;
+        
+        return {
+          base: rewards.baseReward,
+          bonus: rewards.bonusReward,
+          total: rewards.totalReward,
+          apr: apr,
+          apy: this.calculateAPY(apr)
+        };
+      } catch (error) {
+        console.error('Failed to calculate rewards:', error);
+      }
+    }
+    
+    // Fallback calculation
     const baseApr = 10;
-    // Bonus APR for longer durations
     const bonusApr = duration >= 365 ? 5 : duration >= 180 ? 3 : duration >= 90 ? 2 : 0;
     const totalApr = baseApr + bonusApr;
     
-    // Calculate rewards
     const daysInYear = 365;
     const baseRewards = (amount * BigInt(baseApr) * BigInt(duration)) / (BigInt(100) * BigInt(daysInYear));
     const bonusRewards = (amount * BigInt(bonusApr) * BigInt(duration)) / (BigInt(100) * BigInt(daysInYear));
     
-    return Promise.resolve({
+    return {
       base: baseRewards,
       bonus: bonusRewards,
       total: baseRewards + bonusRewards,
       apr: totalApr,
-      apy: totalApr // For simplicity, using APR as APY (in reality, APY would account for compounding)
-    });
+      apy: this.calculateAPY(totalApr)
+    };
   }
 
   /**
    * Get staking positions
-   * @param _address - Wallet address
+   * @param address - Wallet address
    * @returns Array of staking positions
    */
-  async getStakingPositions(_address: string): Promise<Array<{
+  async getStakingPositions(address: string): Promise<Array<{
     stakeId: string;
     amount: bigint;
     startDate: Date;
@@ -209,8 +271,24 @@ export class XOMService {
     rewards: bigint;
     status: 'active' | 'completed' | 'pending';
   }>> {
-    // In a real implementation, this would query the blockchain
-    // For now, return mock data for testing
+    if (this.stakingService) {
+      try {
+        const positions = await this.stakingService.getStakingPositions(address);
+        
+        return positions.map(pos => ({
+          stakeId: pos.id,
+          amount: pos.amount,
+          startDate: new Date(pos.startTime),
+          endDate: new Date(pos.endTime),
+          rewards: pos.rewards,
+          status: pos.isActive ? 'active' : pos.endTime < Date.now() ? 'completed' : 'pending'
+        }));
+      } catch (error) {
+        console.error('Failed to get staking positions:', error);
+      }
+    }
+    
+    // Fallback for when service is not available
     const stakedBalance = await this.getStakedBalance();
     
     if (stakedBalance === BigInt(0)) {
@@ -229,12 +307,12 @@ export class XOMService {
 
   /**
    * Unstake XOM tokens
-   * @param _params - Unstaking parameters
-   * @param _params.stakeId - The ID of the stake to unstake
-   * @param _params.address - The address of the staker
+   * @param params - Unstaking parameters
+   * @param params.stakeId - The ID of the stake to unstake
+   * @param params.address - The address of the staker
    * @returns Transaction result
    */
-  async unstake(_params: {
+  async unstake(params: {
     stakeId: string;
     address: string;
   }): Promise<{
@@ -245,7 +323,22 @@ export class XOMService {
     const wallet = this.walletService.getWallet();
     if (wallet === null) throw new Error('Wallet not available');
     
-    // Get staked amount (mock for testing)
+    if (this.stakingService) {
+      try {
+        // Use real staking service
+        const result = await this.stakingService.unstake(params.stakeId);
+        
+        return {
+          txHash: result.transactionHash,
+          amount: result.amount,
+          rewards: result.rewards
+        };
+      } catch (error) {
+        console.error('Failed to unstake:', error);
+      }
+    }
+    
+    // Fallback
     const stakedBalance = await this.getStakedBalance();
     const rewards = stakedBalance / BigInt(10); // 10% rewards
     
@@ -264,10 +357,32 @@ export class XOMService {
   }
 
   /**
+   * Calculate APY from APR
+   * @param apr - Annual percentage rate
+   * @returns Annual percentage yield
+   */
+  private calculateAPY(apr: number): number {
+    // APY = (1 + APR/n)^n - 1, where n is number of compounding periods
+    // Assuming daily compounding
+    const n = 365;
+    return (Math.pow(1 + apr / 100 / n, n) - 1) * 100;
+  }
+
+  /**
    * Cleanup service resources
    */
-  cleanup(): void {
+  async cleanup(): Promise<void> {
+    if (this.stakingService) {
+      await this.stakingService.stop();
+    }
+    if (this.blockRewardService) {
+      await this.blockRewardService.stop();
+    }
+    
+    this.stakingService = undefined;
+    this.blockRewardService = undefined;
+    this.stakingEngine = undefined;
+    this.merkleEngine = undefined;
     this.isInitialized = false;
-    // Clean up XOM service resources
   }
 }

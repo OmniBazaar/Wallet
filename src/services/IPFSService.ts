@@ -4,6 +4,10 @@
  * Provides IPFS storage and retrieval operations.
  */
 
+import { IPFSStorageNetwork } from '../../../Validator/src/services/storage/IPFSStorageNetwork';
+import { IPFSNodeManager } from '../../../Validator/src/services/storage/IPFSNodeManager';
+import { HeliaIPFSService } from '../../../Validator/src/services/storage/HeliaIPFSService';
+
 /** File upload options */
 export interface FileUploadOptions {
   /** File name */
@@ -37,6 +41,9 @@ export interface IPFSFileData {
  */
 export class IPFSService {
   private isInitialized = false;
+  private ipfsNetwork?: IPFSStorageNetwork;
+  private nodeManager?: IPFSNodeManager;
+  private heliaService?: HeliaIPFSService;
 
   /**
    * Creates a new IPFSService instance
@@ -47,11 +54,34 @@ export class IPFSService {
    * Initialize the IPFS service
    * @returns Promise that resolves when initialized
    */
-  init(): Promise<void> {
-    if (this.isInitialized) return Promise.resolve();
-    this.isInitialized = true;
-    // console.log('IPFSService initialized');
-    return Promise.resolve();
+  async init(): Promise<void> {
+    if (this.isInitialized) return;
+    
+    try {
+      // Initialize IPFS services
+      const { MasterMerkleEngine } = await import('../../../Validator/src/engines/MasterMerkleEngine');
+      const merkleEngine = new MasterMerkleEngine();
+      
+      // Create IPFS node manager
+      this.nodeManager = new IPFSNodeManager(merkleEngine);
+      
+      // Create IPFS storage network
+      this.ipfsNetwork = new IPFSStorageNetwork(merkleEngine, {
+        nodeId: 'wallet-node',
+        enablePinning: true,
+        maxStorage: 1024 * 1024 * 1024, // 1GB
+        replicationFactor: 3
+      });
+      
+      // Create Helia IPFS service
+      this.heliaService = new HeliaIPFSService();
+      await this.heliaService.start();
+      
+      this.isInitialized = true;
+    } catch (error) {
+      console.error('Failed to initialize IPFSService:', error);
+      throw error;
+    }
   }
 
   /**
@@ -60,54 +90,138 @@ export class IPFSService {
    */
   async connect(): Promise<void> {
     await this.init();
-    // In production, this would connect to IPFS node
+    
+    if (this.nodeManager) {
+      await this.nodeManager.startNode();
+    }
+    
+    if (this.ipfsNetwork) {
+      await this.ipfsNetwork.start();
+    }
   }
 
   /**
    * Disconnect from IPFS network
    * @returns Promise that resolves when disconnected
    */
-  disconnect(): Promise<void> {
-    // In production, this would disconnect from IPFS node
+  async disconnect(): Promise<void> {
+    if (this.ipfsNetwork) {
+      await this.ipfsNetwork.stop();
+    }
+    
+    if (this.nodeManager) {
+      await this.nodeManager.stopNode();
+    }
+    
+    if (this.heliaService) {
+      await this.heliaService.stop();
+    }
+    
     this.isInitialized = false;
-    return Promise.resolve();
   }
 
   /**
    * Upload file to IPFS
-   * @param _file - File data to upload
-   * @param _options - Upload options
+   * @param file - File data to upload
+   * @param options - Upload options
    * @returns IPFS hash of uploaded file
    */
-  uploadFile(_file: File | ArrayBuffer | string, _options?: FileUploadOptions): Promise<string> {
-    // Generate a mock IPFS hash that looks realistic
-    const randomPart = Math.random().toString(36).substring(2, 15);
-    const hash = 'Qm' + randomPart.padEnd(44, 'a');
-    return Promise.resolve(hash);
+  async uploadFile(file: File | ArrayBuffer | string, options?: FileUploadOptions): Promise<string> {
+    if (!this.heliaService) {
+      throw new Error('IPFS service not initialized');
+    }
+    
+    // Convert file to Uint8Array
+    let data: Uint8Array;
+    if (file instanceof File) {
+      const buffer = await file.arrayBuffer();
+      data = new Uint8Array(buffer);
+    } else if (file instanceof ArrayBuffer) {
+      data = new Uint8Array(file);
+    } else {
+      data = new TextEncoder().encode(file);
+    }
+    
+    // Upload through Helia service
+    const cid = await this.heliaService.add(data);
+    
+    // Store metadata if provided
+    if (options?.metadata && this.ipfsNetwork) {
+      await this.ipfsNetwork.storeFile({
+        content: data,
+        metadata: {
+          name: options.name || 'untitled',
+          type: options.type || 'application/octet-stream',
+          ...options.metadata
+        }
+      });
+    }
+    
+    return cid.toString();
   }
 
   /**
    * Upload metadata to IPFS
-   * @param _metadata - Metadata object to upload
+   * @param metadata - Metadata object to upload
    * @returns IPFS hash
    */
-  uploadMetadata(_metadata: Record<string, unknown>): Promise<string> {
-    // In production, this would serialize metadata and upload to IPFS
-    const randomPart = Math.random().toString(36).substring(2, 15);
-    const hash = 'Qm' + randomPart.padEnd(44, 'b');
-    return Promise.resolve(hash);
+  async uploadMetadata(metadata: Record<string, unknown>): Promise<string> {
+    if (!this.heliaService) {
+      throw new Error('IPFS service not initialized');
+    }
+    
+    // Serialize metadata to JSON
+    const jsonData = JSON.stringify(metadata, null, 2);
+    const data = new TextEncoder().encode(jsonData);
+    
+    // Upload through Helia service
+    const cid = await this.heliaService.add(data);
+    
+    return cid.toString();
   }
 
   /**
    * Download file from IPFS
-   * @param _hash - IPFS hash to download
+   * @param hash - IPFS hash to download
    * @returns File data
    */
-  downloadFile(_hash: string): Promise<IPFSFileData> {
-    return Promise.resolve({ 
-      data: 'mock file data',
-      metadata: {}
-    });
+  async downloadFile(hash: string): Promise<IPFSFileData> {
+    if (!this.heliaService) {
+      throw new Error('IPFS service not initialized');
+    }
+    
+    try {
+      // Get file from IPFS
+      const chunks: Uint8Array[] = [];
+      for await (const chunk of this.heliaService.cat(hash)) {
+        chunks.push(chunk);
+      }
+      
+      // Combine chunks
+      const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
+      const combined = new Uint8Array(totalLength);
+      let offset = 0;
+      for (const chunk of chunks) {
+        combined.set(chunk, offset);
+        offset += chunk.length;
+      }
+      
+      // Try to get metadata from storage network
+      let metadata: Record<string, unknown> = {};
+      if (this.ipfsNetwork) {
+        const storedFile = await this.ipfsNetwork.getFile(hash);
+        if (storedFile?.metadata) {
+          metadata = storedFile.metadata;
+        }
+      }
+      
+      return {
+        data: combined.buffer,
+        metadata
+      };
+    } catch (error) {
+      throw new Error(`Failed to download file: ${error}`);
+    }
   }
 
   /**
@@ -123,9 +237,10 @@ export class IPFSService {
    * Cleanup service and release resources
    * @returns Promise that resolves when cleanup is complete
    */
-  cleanup(): Promise<void> {
-    this.isInitialized = false;
-    // console.log('IPFSService cleanup completed');
-    return Promise.resolve();
+  async cleanup(): Promise<void> {
+    await this.disconnect();
+    this.heliaService = undefined;
+    this.ipfsNetwork = undefined;
+    this.nodeManager = undefined;
   }
 }

@@ -604,26 +604,40 @@ export class TokenService {
 
   /**
    * Get price history for a token
-   * @param _tokenAddress - Token contract address
+   * @param tokenAddress - Token contract address
    * @param _chain - Chain name
    * @param period - Time period (e.g., '7d', '30d')
    * @returns Array of price points
    */
-  getPriceHistory(_tokenAddress: string, _chain: string, period: string): Array<{ timestamp: number; price: number }> {
-    // In a real implementation, this would fetch from a price API
-    // For testing, return mock data
-    const now = Date.now();
-    const points: Array<{ timestamp: number; price: number }> = [];
-    const intervals = period === '7d' ? 7 : period === '30d' ? 30 : 1;
-    
-    for (let i = 0; i < intervals; i++) {
-      points.push({
-        timestamp: now - (i * 24 * 60 * 60 * 1000),
-        price: Math.random() * 100 + 50
+  async getPriceHistory(tokenAddress: string, _chain: string, period: string): Promise<Array<{ timestamp: number; price: number }>> {
+    try {
+      // Get token info to find symbol
+      const tokenInfo = this.supportedTokens.get(tokenAddress.toLowerCase());
+      if (!tokenInfo) {
+        return [];
+      }
+      
+      // Calculate time range
+      const now = Date.now();
+      const days = period === '7d' ? 7 : period === '30d' ? 30 : period === '1d' ? 1 : 7;
+      const from = now - (days * 24 * 60 * 60 * 1000);
+      
+      // Get historical prices from price feed service
+      const historicalData = await priceFeedService.getHistoricalPrices({
+        symbol: tokenInfo.symbol,
+        from,
+        to: now,
+        interval: period === '1d' ? '1h' : '1d'
       });
+      
+      return historicalData.map(point => ({
+        timestamp: point.timestamp,
+        price: point.price
+      }));
+    } catch (error) {
+      console.error('Failed to get price history:', error);
+      return [];
     }
-    
-    return points.reverse();
   }
 
   /**

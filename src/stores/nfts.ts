@@ -4,6 +4,9 @@
  */
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
+import { nftService } from '../background/background';
+import { useWallet } from './wallet';
+import type { NFT as WalletNFT } from '../core/nft/types';
 
 /**
  * Individual NFT interface
@@ -89,55 +92,49 @@ export const useNFTStore = defineStore('nfts', () => {
       isLoading.value = true;
       error.value = null;
 
-      // In real implementation, fetch from blockchain or indexer
-      // Mock data for now
-      await new Promise(resolve => setTimeout(resolve, 100)); // Simulate API call
-      nfts.value = [
-        {
-          id: '1',
-          name: 'Cool NFT #1',
-          description: 'A very cool NFT',
-          image: 'https://via.placeholder.com/300',
-          collectionAddress: '0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D',
-          collectionName: 'Cool Collection',
-          tokenId: '1',
-          owner: '0x742d35Cc6634C0532925a3b844Bc9e7595f80752',
-          attributes: [
-            { trait_type: 'Background', value: 'Blue' },
-            { trait_type: 'Rarity', value: 'Rare' }
-          ]
-        },
-        {
-          id: '2',
-          name: 'Cool NFT #2',
-          description: 'Another cool NFT',
-          image: 'https://via.placeholder.com/300',
-          collectionAddress: '0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D',
-          collectionName: 'Cool Collection',
-          tokenId: '2',
-          owner: '0x742d35Cc6634C0532925a3b844Bc9e7595f80752'
-        },
-        {
-          id: '3',
-          name: 'Awesome NFT #1',
-          description: 'An awesome NFT',
-          image: 'https://via.placeholder.com/300',
-          collectionAddress: '0x60E4d786628Fea6478F785A6d7e704777c86a7c6',
-          collectionName: 'Awesome Collection',
-          tokenId: '1',
-          owner: '0x742d35Cc6634C0532925a3b844Bc9e7595f80752'
-        }
-      ];
+      // Get current wallet address
+      const walletStore = useWallet();
+      const address = walletStore.currentWalletAddress;
+      
+      if (address === null) {
+        nfts.value = [];
+        featuredNFTs.value = [];
+        return;
+      }
 
-      // Update featured NFTs
+      // Initialize NFT service if needed
+      if (!nftService.isNFTServiceInitialized()) {
+        await nftService.initialize();
+      }
+
+      // Fetch real NFTs from NFTService
+      const walletNFTs = await nftService.getNFTs(address);
+      
+      // Convert WalletNFT to NFT format
+      nfts.value = walletNFTs.map((nft: WalletNFT) => ({
+        id: nft.id,
+        name: nft.name ?? nft.metadata?.name ?? `NFT #${nft.token_id}`,
+        description: nft.metadata?.description ?? '',
+        image: nft.metadata?.image ?? '',
+        collectionAddress: nft.contract_address,
+        collectionName: nft.collection?.name,
+        tokenId: nft.token_id,
+        owner: nft.owner ?? address,
+        attributes: nft.metadata?.attributes?.map(attr => ({
+          trait_type: attr.trait_type ?? 'Trait',
+          value: attr.value
+        })) ?? [],
+        externalUrl: nft.metadata?.external_url
+      }));
+
+      // Update featured NFTs (first 3)
       featuredNFTs.value = nfts.value.slice(0, 3);
 
-      // Update collections
-      updateCollections();
+      // Update collections based on fetched NFTs
+      await updateCollectionsFromNFTs();
 
     } catch (err) {
-      error.value = 'Failed to fetch NFTs';
-      // Error already stored in error.value
+      error.value = err instanceof Error ? err.message : 'Failed to fetch NFTs';
     } finally {
       isLoading.value = false;
     }
@@ -147,6 +144,13 @@ export const useNFTStore = defineStore('nfts', () => {
    * Update collections based on owned NFTs
    */
   function updateCollections(): void {
+    updateCollectionsFromNFTs();
+  }
+
+  /**
+   * Update collections based on owned NFTs and fetch real collection data
+   */
+  async function updateCollectionsFromNFTs(): Promise<void> {
     const collectionMap = new Map<string, NFTCollection>();
 
     // Group NFTs by collection
@@ -155,24 +159,45 @@ export const useNFTStore = defineStore('nfts', () => {
       if (existing !== undefined) {
         existing.ownedCount++;
       } else {
-        const collectionName = nft.collectionName ?? '';
-        if (collectionName !== '') {
-          collectionMap.set(nft.collectionAddress, {
-            address: nft.collectionAddress,
-            name: collectionName,
-            ownedCount: 1,
-            floorPrice: 0.1 // Mock floor price
-          });
-        } else {
-          collectionMap.set(nft.collectionAddress, {
-            address: nft.collectionAddress,
-            name: 'Unknown Collection',
-            ownedCount: 1,
-            floorPrice: 0.1 // Mock floor price
-          });
-        }
+        collectionMap.set(nft.collectionAddress, {
+          address: nft.collectionAddress,
+          name: nft.collectionName ?? 'Unknown Collection',
+          ownedCount: 1
+        });
       }
     });
+
+    // Get current wallet address
+    const walletStore = useWallet();
+    const address = walletStore.currentWalletAddress;
+    
+    if (address !== null) {
+      try {
+        // Fetch real collection data from NFTService
+        const collectionsData = await nftService.getCollections(address);
+        
+        // Update collection info with real data
+        for (const collectionData of collectionsData) {
+          const collection = collectionData as {
+            address: string;
+            name: string;
+            symbol?: string;
+            floorPrice?: number;
+            totalSupply?: number;
+          };
+          
+          const existing = collectionMap.get(collection.address);
+          if (existing !== undefined) {
+            existing.name = collection.name;
+            existing.symbol = collection.symbol;
+            existing.floorPrice = collection.floorPrice;
+            existing.totalSupply = collection.totalSupply;
+          }
+        }
+      } catch (_err) {
+        // If fetching collection data fails, continue with basic info
+      }
+    }
 
     collections.value = Array.from(collectionMap.values());
   }
@@ -209,12 +234,36 @@ export const useNFTStore = defineStore('nfts', () => {
         throw new Error('NFT not found');
       }
 
-      // In real implementation, fetch fresh metadata
-      await new Promise(resolve => setTimeout(resolve, 50)); // Simulate API call
-      // Mock metadata refresh logic would go here
+      // Get current chain ID from wallet
+      const walletStore = useWallet();
+      const chainId = walletStore.currentNetwork?.chainId ?? 1;
+
+      // Fetch fresh metadata from NFTService
+      const metadata = await nftService.getNFTMetadata(
+        nft.collectionAddress,
+        nft.tokenId,
+        chainId
+      );
+
+      if (metadata !== null) {
+        // Update the NFT in our store with fresh metadata
+        const index = nfts.value.findIndex(n => n.id === nftId);
+        if (index >= 0) {
+          nfts.value[index] = {
+            ...nfts.value[index],
+            name: metadata.name ?? metadata.metadata?.name ?? nfts.value[index].name,
+            description: metadata.metadata?.description ?? nfts.value[index].description,
+            image: metadata.metadata?.image ?? nfts.value[index].image,
+            attributes: metadata.metadata?.attributes?.map(attr => ({
+              trait_type: attr.trait_type ?? 'Trait',
+              value: attr.value
+            })) ?? nfts.value[index].attributes
+          };
+        }
+      }
 
     } catch (err) {
-      error.value = 'Failed to refresh NFT metadata';
+      error.value = err instanceof Error ? err.message : 'Failed to refresh NFT metadata';
       throw err;
     }
   }
@@ -225,7 +274,7 @@ export const useNFTStore = defineStore('nfts', () => {
    * @param _toAddress - The destination address
    * @returns Promise that resolves to true if successful, false otherwise
    */
-  async function transferNFT(nftId: string, _toAddress: string): Promise<boolean> {
+  async function transferNFT(nftId: string, toAddress: string): Promise<boolean> {
     try {
       const nft = getNFTById(nftId);
       if (nft === undefined) {
@@ -233,17 +282,36 @@ export const useNFTStore = defineStore('nfts', () => {
         return false;
       }
 
-      // In real implementation, call NFT contract transfer method
-      await new Promise(resolve => setTimeout(resolve, 100)); // Simulate blockchain transaction
-      // Mock transfer logic would go here
+      // Get current wallet address and chain ID
+      const walletStore = useWallet();
+      const fromAddress = walletStore.currentWalletAddress;
+      const chainId = walletStore.currentNetwork?.chainId ?? 1;
+      
+      if (fromAddress === null) {
+        error.value = 'No wallet connected';
+        return false;
+      }
 
-      // Remove from local state
-      nfts.value = nfts.value.filter(n => n.id !== nftId);
-      updateCollections();
+      // Transfer NFT through NFTService
+      const result = await nftService.transferNFT({
+        contractAddress: nft.collectionAddress,
+        tokenId: nft.tokenId,
+        from: fromAddress,
+        to: toAddress,
+        chainId: chainId
+      });
 
-      return true;
+      if (result.success) {
+        // Remove from local state after successful transfer
+        nfts.value = nfts.value.filter(n => n.id !== nftId);
+        await updateCollectionsFromNFTs();
+        return true;
+      } else {
+        error.value = result.error ?? 'Transfer failed';
+        return false;
+      }
     } catch (err) {
-      error.value = 'Failed to transfer NFT';
+      error.value = err instanceof Error ? err.message : 'Failed to transfer NFT';
       throw err;
     }
   }

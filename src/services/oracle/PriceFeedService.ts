@@ -3,8 +3,8 @@
  * Provides aggregated price data from multiple oracle sources with caching
  */
 
-import { PriceOracleService } from './mocks/PriceOracleService';
-import { OracleAggregator } from './mocks/OracleAggregator';
+import { PriceOracleService } from '../../../../Validator/src/services/PriceOracleService';
+import { OracleAggregator } from '../../../../Validator/src/services/dex/oracles/OracleAggregator';
 
 /**
  * Price data structure
@@ -100,17 +100,25 @@ export class PriceFeedService {
    * @returns Promise that resolves when initialization is complete
    * @throws {Error} When initialization fails
    */
-  init(): Promise<void> {
+  async init(): Promise<void> {
     if (this.isInitialized) {
       return Promise.resolve();
     }
     
     try {
-      // Initialize oracle services using constructor pattern  
-      this.priceOracle = new PriceOracleService();
+      // Initialize oracle services from Validator module
+      const { MasterMerkleEngine } = await import('../../../../Validator/src/engines/MasterMerkleEngine');
+      const merkleEngine = new MasterMerkleEngine();
+      this.priceOracle = new PriceOracleService(merkleEngine);
       this.oracleAggregator = new OracleAggregator();
       
-      // Services are ready to use (no init needed for mock implementations)
+      // Initialize the oracle services
+      if (typeof this.priceOracle.initialize === 'function') {
+        await this.priceOracle.initialize();
+      }
+      if (typeof this.oracleAggregator.initialize === 'function') {
+        await this.oracleAggregator.initialize();
+      }
       
       this.isInitialized = true;
       return Promise.resolve();
@@ -314,27 +322,34 @@ export class PriceFeedService {
    * @returns Promise resolving to price data
    * @private
    */
-  private getAggregatedPrice(symbol: string, _chain?: string): Promise<PriceData> {
+  private async getAggregatedPrice(symbol: string, chain?: string): Promise<PriceData> {
     if (this.oracleAggregator === undefined) {
       throw new Error('Oracle aggregator not initialized');
     }
     
-    // Mock aggregated price for development
-    const aggregatedData = {
-      price: 100.0 + Math.random() * 20,
-      change24h: (Math.random() - 0.5) * 10,
-      timestamp: Date.now(),
-      sources: ['mock-oracle']
-    };
-    
-    return Promise.resolve({
-      symbol,
-      priceUSD: aggregatedData.price,
-      change24h: aggregatedData.change24h !== 0 ? aggregatedData.change24h : 0,
-      timestamp: aggregatedData.timestamp,
-      source: aggregatedData.sources.join(','),
-      confidence: 0.95
-    });
+    try {
+      // Get real aggregated price from OracleAggregator
+      const aggregatedPrice = await this.oracleAggregator.getPrice(symbol, chain);
+      
+      return {
+        symbol,
+        priceUSD: aggregatedPrice.price,
+        change24h: aggregatedPrice.change24h ?? 0,
+        timestamp: aggregatedPrice.timestamp ?? Date.now(),
+        source: aggregatedPrice.sources?.join(',') ?? 'oracle-aggregator',
+        confidence: aggregatedPrice.confidence ?? 0.95
+      };
+    } catch (error) {
+      // If aggregation fails, return a default price
+      return {
+        symbol,
+        priceUSD: 0,
+        change24h: 0,
+        timestamp: Date.now(),
+        source: 'error',
+        confidence: 0
+      };
+    }
   }
   
   /**
@@ -343,19 +358,32 @@ export class PriceFeedService {
    * @returns Promise resolving to price data for OmniCoin
    * @private
    */
-  private getOmniPrice(symbol: string): Promise<PriceData> {
-    // Use the general price oracle for XOM/pXOM
+  private async getOmniPrice(symbol: string): Promise<PriceData> {
+    // Use the real price oracle for XOM/pXOM
     if (this.priceOracle !== undefined) {
-      // Mock price for development
-      const price = symbol === 'XOM' ? 1.0 : 0.95;
-      return Promise.resolve({
-        symbol,
-        priceUSD: price,
-        change24h: 0,
-        timestamp: Date.now(),
-        source: 'price-oracle',
-        confidence: 0.9
-      });
+      try {
+        const price = await this.priceOracle.getPrice(symbol);
+        
+        return {
+          symbol,
+          priceUSD: price,
+          change24h: 0, // Price oracle doesn't provide 24h change
+          timestamp: Date.now(),
+          source: 'price-oracle',
+          confidence: 0.9
+        };
+      } catch (error) {
+        // If price oracle fails, use default XOM prices
+        const defaultPrice = symbol === 'XOM' ? 1.0 : 0.95;
+        return {
+          symbol,
+          priceUSD: defaultPrice,
+          change24h: 0,
+          timestamp: Date.now(),
+          source: 'default',
+          confidence: 0.5
+        };
+      }
     }
     
     return Promise.reject(new Error('Price oracle not initialized'));
@@ -368,22 +396,42 @@ export class PriceFeedService {
    * @returns Promise resolving to price data from fallback source
    * @private
    */
-  private getFallbackPrice(symbol: string, _chain?: string): Promise<PriceData> {
-    // Try primary price oracle
+  private async getFallbackPrice(symbol: string, chain?: string): Promise<PriceData> {
+    // Try primary price oracle as fallback
     if (this.priceOracle !== undefined) {
       try {
-        // Mock fallback price for development
-        const price = 50.0 + Math.random() * 100;
-        return Promise.resolve({
+        // Use real price oracle for fallback
+        const price = await this.priceOracle.getPrice(symbol);
+        return {
           symbol,
           priceUSD: price,
           change24h: 0,
           timestamp: Date.now(),
-          source: 'fallback',
+          source: 'fallback-oracle',
           confidence: 0.8
-        });
+        };
       } catch (error) {
-        // Fallback price oracle failed
+        // Price oracle failed, try a default price for common tokens
+        const defaultPrices: Record<string, number> = {
+          'ETH': 2000,
+          'BTC': 40000,
+          'USDT': 1,
+          'USDC': 1,
+          'DAI': 1,
+          'XOM': 1
+        };
+        
+        const defaultPrice = defaultPrices[symbol.toUpperCase()];
+        if (defaultPrice !== undefined) {
+          return {
+            symbol,
+            priceUSD: defaultPrice,
+            change24h: 0,
+            timestamp: Date.now(),
+            source: 'static-default',
+            confidence: 0.5
+          };
+        }
       }
     }
     

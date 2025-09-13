@@ -4,6 +4,11 @@
  * Provides oracle data and price feed operations.
  */
 
+import { PriceOracleService } from '../../../Validator/src/services/PriceOracleService';
+import { OracleAggregator } from '../../../Validator/src/services/dex/oracles/OracleAggregator';
+import { ValidatorENSOracle } from '../../../Validator/src/services/ens/ValidatorENSOracle';
+import { MasterMerkleEngine } from '../../../Validator/src/engines/MasterMerkleEngine';
+
 /** Price data structure */
 export interface PriceData {
   /** Price value */
@@ -203,12 +208,10 @@ export class OracleService {
   private isConnected = false;
   private walletService: unknown;
   private subscriptions: Map<string, { timer?: NodeJS.Timeout; callback?: PriceUpdateCallback }> = new Map();
-  private mockPrices: Map<string, number> = new Map([
-    ['XOM/USD', 0.15],
-    ['ETH/USD', 2500],
-    ['BTC/USD', 45000],
-    ['USDC/USD', 1.0]
-  ]);
+  private priceOracle?: PriceOracleService;
+  private oracleAggregator?: OracleAggregator;
+  private ensOracle?: ValidatorENSOracle;
+  private merkleEngine?: MasterMerkleEngine;
 
   /**
    * Create oracle service
@@ -221,9 +224,26 @@ export class OracleService {
   /**
    * Initialize the oracle service
    */
-  init(): void {
+  async init(): Promise<void> {
     if (this.isInitialized) return;
-    this.isInitialized = true;
+    
+    try {
+      // Initialize services
+      this.merkleEngine = new MasterMerkleEngine();
+      this.priceOracle = new PriceOracleService(this.merkleEngine);
+      this.oracleAggregator = new OracleAggregator();
+      this.ensOracle = new ValidatorENSOracle(this.merkleEngine);
+      
+      // Start services
+      await this.priceOracle.start();
+      await this.oracleAggregator.start();
+      await this.ensOracle.start();
+      
+      this.isInitialized = true;
+    } catch (error) {
+      console.error('Failed to initialize OracleService:', error);
+      throw error;
+    }
   }
 
   /**
@@ -252,15 +272,32 @@ export class OracleService {
    * @param quote Quote token
    * @returns Price data
    */
-  getPrice(base: string, quote: string): PriceData {
-    const pair = `${base}/${quote}`;
-    const value = this.mockPrices.get(pair) ?? 1;
+  async getPrice(base: string, quote: string): Promise<PriceData> {
+    if (!this.priceOracle) {
+      throw new Error('Oracle service not initialized');
+    }
     
-    return {
-      value,
-      timestamp: Date.now(),
-      confidence: 0.99
-    };
+    try {
+      // Get price from oracle service
+      const price = await this.priceOracle.getPrice(base, quote);
+      
+      return {
+        value: price,
+        timestamp: Date.now(),
+        confidence: 0.99
+      };
+    } catch (error) {
+      // Fallback to aggregator if direct oracle fails
+      if (this.oracleAggregator) {
+        const aggregatedPrice = await this.oracleAggregator.getAggregatedPrice(base, quote);
+        return {
+          value: aggregatedPrice.price,
+          timestamp: aggregatedPrice.timestamp,
+          confidence: aggregatedPrice.confidence
+        };
+      }
+      throw error;
+    }
   }
 
   /**
@@ -268,12 +305,19 @@ export class OracleService {
    * @param pairs Array of token pairs
    * @returns Map of prices
    */
-  getBatchPrices(pairs: Array<{base: string; quote: string}>): Record<string, PriceData> {
+  async getBatchPrices(pairs: Array<{base: string; quote: string}>): Promise<Record<string, PriceData>> {
     const result: Record<string, PriceData> = {};
     
-    for (const pair of pairs) {
+    // Use Promise.all for parallel fetching
+    const promises = pairs.map(async (pair) => {
       const key = `${pair.base}/${pair.quote}`;
-      result[key] = this.getPrice(pair.base, pair.quote);
+      const priceData = await this.getPrice(pair.base, pair.quote);
+      return { key, priceData };
+    });
+    
+    const results = await Promise.all(promises);
+    for (const { key, priceData } of results) {
+      result[key] = priceData;
     }
     
     return result;
@@ -290,22 +334,20 @@ export class OracleService {
     callback: PriceUpdateCallback
   ): PriceSubscription {
     const id = Math.random().toString(36).substr(2, 9);
+    const [base, quote] = pair.split('/');
     
-    // Mock price updates every second
-    const timer = setInterval(() => {
-      const basePrice = this.mockPrices.get(pair) ?? 1;
-      const variation = (Math.random() - 0.5) * 0.01; // ±0.5% variation
-      const price = basePrice * (1 + variation);
-      
-      callback({
-        pair,
-        price: {
-          value: price,
-          timestamp: Date.now(),
-          confidence: 0.99
-        }
-      });
-    }, 1000);
+    // Poll for real price updates
+    const timer = setInterval(async () => {
+      try {
+        const priceData = await this.getPrice(base, quote);
+        callback({
+          pair,
+          price: priceData
+        });
+      } catch (error) {
+        console.error('Error in price subscription:', error);
+      }
+    }, 5000); // Poll every 5 seconds
     
     this.subscriptions.set(id, { timer, callback });
     
@@ -338,27 +380,37 @@ export class OracleService {
    * @param params.interval Time interval (e.g., '1h', '1d')
    * @returns Historical price data
    */
-  getHistoricalPrices(params: {
+  async getHistoricalPrices(params: {
     pair: string;
     from: number;
     to: number;
     interval: string;
-  }): HistoricalPricePoint[] {
-    // Generate mock historical data
-    const result: HistoricalPricePoint[] = [];
-    const basePrice = this.mockPrices.get(params.pair) ?? 1;
-    const intervalMs = params.interval === '1h' ? 3600000 : 86400000; // 1 hour or 1 day
-    
-    for (let t = params.from; t <= params.to; t += intervalMs) {
-      const variation = (Math.random() - 0.5) * 0.1; // ±5% variation
-      result.push({
-        timestamp: t,
-        price: basePrice * (1 + variation),
-        volume: Math.random() * 1000000
-      });
+  }): Promise<HistoricalPricePoint[]> {
+    if (!this.priceOracle) {
+      throw new Error('Oracle service not initialized');
     }
     
-    return result;
+    const [base, quote] = params.pair.split('/');
+    
+    try {
+      // Get historical prices from oracle
+      const historicalData = await this.priceOracle.getHistoricalPrices(
+        base,
+        quote,
+        params.from,
+        params.to,
+        params.interval
+      );
+      
+      return historicalData.map(point => ({
+        timestamp: point.timestamp,
+        price: point.price,
+        volume: point.volume || 0
+      }));
+    } catch (error) {
+      console.error('Failed to get historical prices:', error);
+      throw error;
+    }
   }
 
   /**
@@ -366,23 +418,26 @@ export class OracleService {
    * @param pair Trading pair
    * @returns Aggregated price data
    */
-  getAggregatedPrice(pair: string): AggregatedPriceData {
-    const basePrice = this.mockPrices.get(pair) ?? 1;
-    // Simulate multiple sources with slight variations
-    const prices = Array(5).fill(0).map(() => 
-      basePrice * (1 + (Math.random() - 0.5) * 0.02)
-    );
+  async getAggregatedPrice(pair: string): Promise<AggregatedPriceData> {
+    if (!this.oracleAggregator) {
+      throw new Error('Oracle aggregator not initialized');
+    }
     
-    prices.sort((a, b) => a - b);
-    const median = prices[Math.floor(prices.length / 2)];
-    const mean = prices.reduce((sum, p) => sum + p, 0) / prices.length;
+    const [base, quote] = pair.split('/');
     
-    return {
-      median,
-      mean,
-      sources: prices.length,
-      confidence: 0.95
-    };
+    try {
+      const aggregated = await this.oracleAggregator.getAggregatedPrice(base, quote);
+      
+      return {
+        median: aggregated.price,
+        mean: aggregated.price, // Aggregator returns weighted average
+        sources: aggregated.sources,
+        confidence: aggregated.confidence
+      };
+    } catch (error) {
+      console.error('Failed to get aggregated price:', error);
+      throw error;
+    }
   }
 
   /**
@@ -390,8 +445,8 @@ export class OracleService {
    * @param token Token symbol
    * @returns Price data
    */
-  getPriceData(token: string): { price: number; timestamp: number } {
-    const price = this.getPrice(token, 'USD');
+  async getPriceData(token: string): Promise<{ price: number; timestamp: number }> {
+    const price = await this.getPrice(token, 'USD');
     return { price: price.value, timestamp: price.timestamp };
   }
 
@@ -405,8 +460,20 @@ export class OracleService {
   /**
    * Cleanup service
    */
-  cleanup(): void {
+  async cleanup(): Promise<void> {
     this.disconnect();
+    
+    // Stop services
+    if (this.priceOracle) {
+      await this.priceOracle.stop();
+    }
+    if (this.oracleAggregator) {
+      await this.oracleAggregator.stop();
+    }
+    if (this.ensOracle) {
+      await this.ensOracle.stop();
+    }
+    
     this.isInitialized = false;
   }
 
@@ -417,12 +484,18 @@ export class OracleService {
    * @param ensName ENS name
    * @returns Ethereum address
    */
-  resolveENS(ensName: string): string {
-    // Mock ENS resolution
-    if (ensName === 'vitalik.eth') {
-      return '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045';
+  async resolveENS(ensName: string): Promise<string> {
+    if (!this.ensOracle) {
+      throw new Error('ENS oracle not initialized');
     }
-    return '0x' + '0'.repeat(40);
+    
+    try {
+      const address = await this.ensOracle.resolveENS(ensName);
+      return address || '0x' + '0'.repeat(40);
+    } catch (error) {
+      console.error('Failed to resolve ENS:', error);
+      return '0x' + '0'.repeat(40);
+    }
   }
 
   /**
@@ -430,12 +503,18 @@ export class OracleService {
    * @param address Ethereum address
    * @returns ENS name
    */
-  reverseResolveENS(address: string): string {
-    // Mock reverse resolution
-    if (address.toLowerCase() === '0xd8da6bf26964af9d7eed9e03e53415d37aa96045') {
-      return 'vitalik.eth';
+  async reverseResolveENS(address: string): Promise<string> {
+    if (!this.ensOracle) {
+      throw new Error('ENS oracle not initialized');
     }
-    return 'unknown.eth';
+    
+    try {
+      const ensName = await this.ensOracle.reverseResolveENS(address);
+      return ensName || 'unknown.eth';
+    } catch (error) {
+      console.error('Failed to reverse resolve ENS:', error);
+      return 'unknown.eth';
+    }
   }
 
   /**
@@ -443,23 +522,47 @@ export class OracleService {
    * @param ensName ENS name
    * @returns Availability status
    */
-  isENSAvailable(ensName: string): boolean {
-    // Mock availability check
-    return ensName.includes('myuniquename');
+  async isENSAvailable(ensName: string): Promise<boolean> {
+    if (!this.ensOracle) {
+      throw new Error('ENS oracle not initialized');
+    }
+    
+    try {
+      return await this.ensOracle.isENSAvailable(ensName);
+    } catch (error) {
+      console.error('Failed to check ENS availability:', error);
+      return false;
+    }
   }
 
   /**
    * Get ENS metadata
-   * @param _ensName ENS name
+   * @param ensName ENS name
    * @returns ENS metadata
    */
-  getENSMetadata(_ensName: string): ENSMetadata {
-    return {
-      owner: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
-      resolver: '0x4976fb03C32e5B8cfe2b6cCB31c09Ba78EBaBa41',
-      registeredAt: Date.now() - 86400000 * 365,
-      expiresAt: Date.now() + 86400000 * 365
-    };
+  async getENSMetadata(ensName: string): Promise<ENSMetadata> {
+    if (!this.ensOracle) {
+      throw new Error('ENS oracle not initialized');
+    }
+    
+    try {
+      const metadata = await this.ensOracle.getENSMetadata(ensName);
+      return {
+        owner: metadata.owner || '0x' + '0'.repeat(40),
+        resolver: metadata.resolver || '0x' + '0'.repeat(40),
+        registeredAt: metadata.registrationDate || Date.now(),
+        expiresAt: metadata.expirationDate || Date.now() + 86400000 * 365
+      };
+    } catch (error) {
+      console.error('Failed to get ENS metadata:', error);
+      // Return default metadata
+      return {
+        owner: '0x' + '0'.repeat(40),
+        resolver: '0x' + '0'.repeat(40),
+        registeredAt: Date.now(),
+        expiresAt: Date.now() + 86400000 * 365
+      };
+    }
   }
 
   /**
@@ -470,68 +573,117 @@ export class OracleService {
    * @param params.duration Registration duration in years
    * @returns Registration result
    */
-  registerENS(params: {
+  async registerENS(params: {
     name: string;
     owner: string;
     duration: number;
-  }): ENSRegistrationResult {
-    // Mock registration
-    if (params.name.includes('test')) {
-      return {
-        success: true,
-        transactionHash: '0x' + 'a'.repeat(64),
-        expiresAt: Date.now() + params.duration * 365 * 86400000
-      };
+  }): Promise<ENSRegistrationResult> {
+    if (!this.ensOracle) {
+      throw new Error('ENS oracle not initialized');
     }
-    return { success: false };
+    
+    try {
+      const result = await this.ensOracle.registerENS(
+        params.name,
+        params.owner,
+        params.duration
+      );
+      
+      return {
+        success: result.success,
+        transactionHash: result.transactionHash,
+        expiresAt: result.expirationDate
+      };
+    } catch (error) {
+      console.error('Failed to register ENS:', error);
+      return { success: false };
+    }
   }
 
   // Data Feed Oracles
 
   /**
    * Get weather data
-   * @param _params Query parameters
-   * @param _params.location Location coordinates
-   * @param _params.location.lat Latitude
-   * @param _params.location.lon Longitude
-   * @param _params.parameters Weather parameters to retrieve
+   * @param params Query parameters
+   * @param params.location Location coordinates
+   * @param params.location.lat Latitude
+   * @param params.location.lon Longitude
+   * @param params.parameters Weather parameters to retrieve
    * @returns Weather data
    */
-  getWeatherData(_params: {
+  async getWeatherData(params: {
     location: { lat: number; lon: number };
     parameters: string[];
-  }): WeatherData {
-    return {
-      temperature: 25 + Math.random() * 10,
-      precipitation: Math.random() * 10,
-      windSpeed: Math.random() * 30,
-      timestamp: Date.now()
-    };
+  }): Promise<WeatherData> {
+    if (!this.oracleAggregator) {
+      throw new Error('Oracle aggregator not initialized');
+    }
+    
+    try {
+      // Use oracle aggregator for external data feeds
+      const data = await this.oracleAggregator.getExternalData('weather', {
+        lat: params.location.lat,
+        lon: params.location.lon,
+        params: params.parameters
+      });
+      
+      return {
+        temperature: data.temperature || 25,
+        precipitation: data.precipitation || 0,
+        windSpeed: data.windSpeed || 10,
+        timestamp: Date.now()
+      };
+    } catch (error) {
+      console.error('Failed to get weather data:', error);
+      // Return default data on error
+      return {
+        temperature: 25,
+        precipitation: 0,
+        windSpeed: 10,
+        timestamp: Date.now()
+      };
+    }
   }
 
   /**
    * Get sports results
-   * @param _params Query parameters
-   * @param _params.sport Sport type
-   * @param _params.league League name
-   * @param _params.date Date string
+   * @param params Query parameters
+   * @param params.sport Sport type
+   * @param params.league League name
+   * @param params.date Date string
    * @returns Sports results
    */
-  getSportsResults(_params: {
+  async getSportsResults(params: {
     sport: string;
     league: string;
     date: string;
-  }): SportsResult[] {
-    // Mock sports results
-    return [
-      {
-        homeTeam: 'Team A',
-        awayTeam: 'Team B',
-        homeScore: Math.floor(Math.random() * 5),
-        awayScore: Math.floor(Math.random() * 5),
-        status: 'final'
+  }): Promise<SportsResult[]> {
+    if (!this.oracleAggregator) {
+      throw new Error('Oracle aggregator not initialized');
+    }
+    
+    try {
+      const data = await this.oracleAggregator.getExternalData('sports', {
+        sport: params.sport,
+        league: params.league,
+        date: params.date
+      });
+      
+      if (Array.isArray(data.results)) {
+        return data.results.map((result: any) => ({
+          homeTeam: result.homeTeam || 'Unknown',
+          awayTeam: result.awayTeam || 'Unknown',
+          homeScore: result.homeScore || 0,
+          awayScore: result.awayScore || 0,
+          status: result.status || 'unknown'
+        }));
       }
-    ];
+      
+      return [];
+    } catch (error) {
+      console.error('Failed to get sports results:', error);
+      return [];
+    }
   }
 
   /**
@@ -542,17 +694,31 @@ export class OracleService {
    * @param params.seed Random seed
    * @returns Random result
    */
-  getVerifiableRandom(params: {
+  async getVerifiableRandom(params: {
     min: number;
     max: number;
     seed: string;
-  }): VerifiableRandomResult {
-    const value = params.min + Math.floor(Math.random() * (params.max - params.min + 1));
-    return {
-      value,
-      proof: '0x' + 'b'.repeat(64),
-      blockNumber: 12345678
-    };
+  }): Promise<VerifiableRandomResult> {
+    if (!this.oracleAggregator) {
+      throw new Error('Oracle aggregator not initialized');
+    }
+    
+    try {
+      const result = await this.oracleAggregator.getVerifiableRandom(
+        params.min,
+        params.max,
+        params.seed
+      );
+      
+      return {
+        value: result.value,
+        proof: result.proof,
+        blockNumber: result.blockNumber
+      };
+    } catch (error) {
+      console.error('Failed to get verifiable random:', error);
+      throw error;
+    }
   }
 
   // Oracle Consensus
@@ -565,31 +731,55 @@ export class OracleService {
    * @param options.timeout Timeout in milliseconds
    * @returns Consensus result
    */
-  getConsensus(query: OracleQuery, options: {
+  async getConsensus(query: OracleQuery, options: {
     minResponses: number;
     timeout: number;
-  }): ConsensusResult {
-    // Mock consensus
-    const value = query.type === 'price' ? 0.15 : null;
-    return {
-      value,
-      confidence: 0.95,
-      responses: options.minResponses + 2,
-      method: 'median'
-    };
+  }): Promise<ConsensusResult> {
+    if (!this.oracleAggregator) {
+      throw new Error('Oracle aggregator not initialized');
+    }
+    
+    try {
+      const result = await this.oracleAggregator.getConsensus(
+        query,
+        options.minResponses,
+        options.timeout
+      );
+      
+      return {
+        value: result.value,
+        confidence: result.confidence,
+        responses: result.responses,
+        method: result.method || 'weighted_average'
+      };
+    } catch (error) {
+      console.error('Failed to get consensus:', error);
+      throw error;
+    }
   }
 
   /**
    * Submit dispute
-   * @param _dispute Dispute details
+   * @param dispute Dispute details
    * @returns Dispute result
    */
-  submitDispute(_dispute: OracleDispute): DisputeResult {
-    return {
-      disputeId: 'dispute-' + Math.random().toString(36).substr(2, 9),
-      status: 'pending',
-      resolutionTime: Date.now() + 86400000 // 24 hours
-    };
+  async submitDispute(dispute: OracleDispute): Promise<DisputeResult> {
+    if (!this.oracleAggregator) {
+      throw new Error('Oracle aggregator not initialized');
+    }
+    
+    try {
+      const result = await this.oracleAggregator.submitDispute(dispute);
+      
+      return {
+        disputeId: result.disputeId,
+        status: result.status,
+        resolutionTime: result.estimatedResolutionTime
+      };
+    } catch (error) {
+      console.error('Failed to submit dispute:', error);
+      throw error;
+    }
   }
 
   /**
@@ -597,9 +787,21 @@ export class OracleService {
    * @param data Oracle data
    * @returns Validity status
    */
-  verifyOracleSignature(data: OracleData): boolean {
-    // Mock signature verification
-    return data.signature.length > 0 && data.signature.startsWith('0x');
+  async verifyOracleSignature(data: OracleData): Promise<boolean> {
+    if (!this.oracleAggregator) {
+      throw new Error('Oracle aggregator not initialized');
+    }
+    
+    try {
+      return await this.oracleAggregator.verifyOracleSignature(
+        data.value,
+        data.signature,
+        data.oracleId
+      );
+    } catch (error) {
+      console.error('Failed to verify oracle signature:', error);
+      return false;
+    }
   }
 
   // Cross-Chain Oracle
@@ -611,51 +813,75 @@ export class OracleService {
    * @param params.chains Array of chain names
    * @returns Cross-chain prices
    */
-  getCrossChainPrice(params: {
+  async getCrossChainPrice(params: {
     asset: string;
     chains: string[];
-  }): Record<string, CrossChainPriceData> {
-    const result: Record<string, CrossChainPriceData> = {};
-    const basePrice = params.asset === 'USDC' ? 1.0 : 100;
-    
-    for (const chain of params.chains) {
-      result[chain] = {
-        price: basePrice * (1 + (Math.random() - 0.5) * 0.02),
-        liquidity: Math.random() * 10000000,
-        volume24h: Math.random() * 5000000
-      };
+  }): Promise<Record<string, CrossChainPriceData>> {
+    if (!this.oracleAggregator) {
+      throw new Error('Oracle aggregator not initialized');
     }
     
-    return result;
+    try {
+      const result: Record<string, CrossChainPriceData> = {};
+      
+      // Get prices for each chain in parallel
+      const promises = params.chains.map(async (chain) => {
+        const data = await this.oracleAggregator!.getCrossChainPrice(
+          params.asset,
+          chain
+        );
+        return { chain, data };
+      });
+      
+      const results = await Promise.all(promises);
+      
+      for (const { chain, data } of results) {
+        result[chain] = {
+          price: data.price,
+          liquidity: data.liquidity || 0,
+          volume24h: data.volume24h || 0
+        };
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('Failed to get cross-chain prices:', error);
+      throw error;
+    }
   }
 
   /**
    * Validate cross-chain state
-   * @param _params Validation parameters
-   * @param _params.type Validation type
-   * @param _params.address Address to validate
-   * @param _params.chains Array of chain names
+   * @param params Validation parameters
+   * @param params.type Validation type
+   * @param params.address Address to validate
+   * @param params.chains Array of chain names
    * @returns Validation result
    */
-  validateCrossChainState(_params: {
+  async validateCrossChainState(params: {
     type: string;
     address: string;
     chains: string[];
-  }): CrossChainValidationResult {
-    const states: Record<string, CrossChainState> = {};
-    const baseBalance = 1000;
-    
-    for (const chain of _params.chains) {
-      states[chain] = {
-        balance: baseBalance + Math.random() * 100,
-        nonce: Math.floor(Math.random() * 10)
-      };
+  }): Promise<CrossChainValidationResult> {
+    if (!this.oracleAggregator) {
+      throw new Error('Oracle aggregator not initialized');
     }
     
-    return {
-      isConsistent: Math.random() > 0.5,
-      states,
-      discrepancies: Math.random() > 0.5 ? [] : [{ type: 'balance_mismatch' }]
-    };
+    try {
+      const result = await this.oracleAggregator.validateCrossChainState(
+        params.type,
+        params.address,
+        params.chains
+      );
+      
+      return {
+        isConsistent: result.isConsistent,
+        states: result.states,
+        discrepancies: result.discrepancies || []
+      };
+    } catch (error) {
+      console.error('Failed to validate cross-chain state:', error);
+      throw error;
+    }
   }
 }

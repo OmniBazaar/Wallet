@@ -5,6 +5,9 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import type { BigNumberish } from 'ethers';
+import { swapService } from '../services/SwapService';
+import { tokenService } from '../services/TokenService';
+import { useWallet } from './wallet';
 
 /**
  * Token interface for swap operations
@@ -120,28 +123,35 @@ export const useSwapStore = defineStore('swap', () => {
    */
   const fetchAvailableTokens = async (): Promise<void> => {
     try {
-      // In real implementation, this would fetch from DEX or token list
-      await new Promise(resolve => setTimeout(resolve, 100)); // Simulate API call
-      availableTokens.value = [
-        {
-          address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
-          symbol: 'USDC',
-          decimals: 6,
-          name: 'USD Coin'
-        },
-        {
-          address: '0xdAC17F958D2ee523a2206206994597C13D831ec7',
-          symbol: 'USDT',
-          decimals: 6,
-          name: 'Tether USD'
-        },
-        {
-          address: '0xXOM',
-          symbol: 'XOM',
-          decimals: 18,
-          name: 'OmniCoin'
+      // Get chain ID from wallet
+      const walletStore = useWallet();
+      const chainId = walletStore.currentNetwork?.chainId ?? 1;
+      
+      // Get supported tokens from SwapService
+      const tokens = swapService.getSupportedTokens(chainId);
+      
+      // Map to SwapToken format
+      availableTokens.value = tokens.map(token => ({
+        address: token.address,
+        symbol: token.symbol,
+        decimals: token.decimals,
+        name: token.name,
+        logoURI: token.logoURI
+      }));
+      
+      // Also add popular tokens from TokenService
+      const popularTokens = tokenService.getPopularTokens('ethereum');
+      for (const token of popularTokens) {
+        if (!availableTokens.value.some(t => t.address.toLowerCase() === token.address.toLowerCase())) {
+          availableTokens.value.push({
+            address: token.address,
+            symbol: token.symbol,
+            decimals: token.decimals,
+            name: token.name,
+            logoURI: token.logoURI
+          });
         }
-      ];
+      }
     } catch (err) {
       error.value = 'Failed to fetch tokens';
       throw err;
@@ -157,24 +167,33 @@ export const useSwapStore = defineStore('swap', () => {
     try {
       error.value = '';
       
-      // In real implementation, this would call DEX aggregator API
-      // Simulating quote calculation
-      const mockQuote: SwapQuote = {
-        amountOut: BigInt(Math.floor(Number(params.amountIn) * 0.9)),
-        priceImpact: 0.5,
-        route: [params.tokenIn, params.tokenOut],
-        rate: 0.9,
-        estimatedGas: BigInt(100000)
+      // Get quote from SwapService
+      const route = await swapService.getQuote({
+        tokenIn: params.tokenIn,
+        tokenOut: params.tokenOut,
+        amountIn: BigInt(params.amountIn),
+        slippage: params.slippage
+      });
+      
+      // Calculate rate
+      const rate = Number(route.amountOut) / Number(params.amountIn);
+      
+      const swapQuote: SwapQuote = {
+        amountOut: route.amountOut,
+        priceImpact: route.priceImpact,
+        route: route.path,
+        rate: rate,
+        estimatedGas: route.gasEstimate
       };
       
-      quote.value = mockQuote;
+      quote.value = swapQuote;
       
       // Check if approval needed
       needsApproval.value = await checkApproval(params.tokenIn, params.amountIn);
       
-      return mockQuote;
+      return swapQuote;
     } catch (err) {
-      error.value = 'Failed to get quote';
+      error.value = err instanceof Error ? err.message : 'Failed to get quote';
       return null;
     }
   };
@@ -185,11 +204,37 @@ export const useSwapStore = defineStore('swap', () => {
    * @param _amount - Amount to be approved (unused in mock)
    * @returns Promise that resolves to true if approval is needed
    */
-  const checkApproval = async (tokenAddress: string, _amount: BigNumberish): Promise<boolean> => {
-    // In real implementation, check allowance against DEX router
-    // For now, simulate that native tokens don't need approval
-    await new Promise(resolve => setTimeout(resolve, 50)); // Simulate async check
-    return tokenAddress !== '0x0000000000000000000000000000000000000000';
+  const checkApproval = async (tokenAddress: string, amount: BigNumberish): Promise<boolean> => {
+    // Native tokens don't need approval
+    if (tokenAddress === '0x0000000000000000000000000000000000000000') {
+      return false;
+    }
+    
+    try {
+      // Get current wallet address
+      const walletStore = useWallet();
+      const address = walletStore.currentWalletAddress;
+      if (address === null) return false;
+      
+      // Get chain ID
+      const chainId = walletStore.currentNetwork?.chainId ?? 1;
+      
+      // Get router address for current chain
+      const routers: Record<number, string> = {
+        1: '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D', // Uniswap V2
+        137: '0xa5E0829CaCEd8fFDD4De3c43696c57F7D7A678ff', // QuickSwap
+        56: '0x10ED43C718714eb63d5aA57B78B54704E256024E' // PancakeSwap
+      };
+      const routerAddress = routers[chainId];
+      if (routerAddress === undefined) return false;
+      
+      // Check allowance
+      const allowance = await tokenService.getAllowance(tokenAddress, address, routerAddress);
+      return allowance < BigInt(amount);
+    } catch (_err) {
+      // If check fails, assume approval is needed
+      return true;
+    }
   };
 
   /**
@@ -197,19 +242,36 @@ export const useSwapStore = defineStore('swap', () => {
    * @param _tokenAddress - Token contract address (unused in mock)
    * @returns Promise that resolves to true if approval succeeds
    */
-  const approveToken = async (_tokenAddress: string): Promise<boolean> => {
+  const approveToken = async (tokenAddress: string): Promise<boolean> => {
     try {
       transactionStatus.value = 'pending';
       error.value = '';
       
-      // In real implementation, call token contract approve method
-      await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate tx
+      // Get wallet and chain info
+      const walletStore = useWallet();
+      const chainId = walletStore.currentNetwork?.chainId ?? 1;
+      
+      // Get router address
+      const routers: Record<number, string> = {
+        1: '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D',
+        137: '0xa5E0829CaCEd8fFDD4De3c43696c57F7D7A678ff',
+        56: '0x10ED43C718714eb63d5aA57B78B54704E256024E'
+      };
+      const routerAddress = routers[chainId];
+      if (routerAddress === undefined) {
+        throw new Error('No router for chain');
+      }
+      
+      // Approve max amount
+      const maxAmount = BigInt('0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff');
+      const txHash = await tokenService.approveToken(tokenAddress, routerAddress, maxAmount);
+      transactionHash.value = txHash;
       
       needsApproval.value = false;
       transactionStatus.value = 'success';
       return true;
     } catch (err) {
-      error.value = 'Approval failed';
+      error.value = err instanceof Error ? err.message : 'Approval failed';
       transactionStatus.value = 'failed';
       return false;
     }
@@ -225,13 +287,31 @@ export const useSwapStore = defineStore('swap', () => {
       transactionStatus.value = 'pending';
       error.value = '';
       
-      // In real implementation, call DEX router contract
-      const randomHex = Math.random().toString(16).substring(2, 66);
-      const mockHash = '0x' + randomHex;
-      transactionHash.value = mockHash;
+      // Get current wallet address
+      const walletStore = useWallet();
+      const address = walletStore.currentWalletAddress;
+      if (address === null) {
+        throw new Error('No wallet connected');
+      }
       
-      // Simulate transaction
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      // Execute swap through SwapService
+      const result = await swapService.executeSwap({
+        tokenIn: params.tokenIn,
+        tokenOut: params.tokenOut,
+        amountIn: BigInt(params.amountIn),
+        amountOutMin: quote.value?.amountOut ? 
+          quote.value.amountOut - (quote.value.amountOut * BigInt(params.slippage ?? 50)) / BigInt(10000) :
+          BigInt(0),
+        slippage: params.slippage ?? 50,
+        to: address,
+        deadline: params.deadline ?? Math.floor(Date.now() / 1000) + 1200
+      });
+      
+      if (!result.success) {
+        throw new Error(result.error ?? 'Swap failed');
+      }
+      
+      transactionHash.value = result.txHash ?? '';
       
       // Add to recent swaps
       const swap: RecentSwap = {
@@ -239,9 +319,9 @@ export const useSwapStore = defineStore('swap', () => {
         tokenIn: params.tokenIn,
         tokenOut: params.tokenOut,
         amountIn: params.amountIn.toString(),
-        amountOut: quote.value?.amountOut?.toString() ?? '0',
+        amountOut: result.amountOut?.toString() ?? quote.value?.amountOut?.toString() ?? '0',
         timestamp: Date.now(),
-        txHash: mockHash
+        txHash: result.txHash
       };
       
       recentSwaps.value.unshift(swap);
@@ -250,9 +330,9 @@ export const useSwapStore = defineStore('swap', () => {
       }
       
       transactionStatus.value = 'success';
-      return { hash: mockHash, success: true };
+      return { hash: result.txHash ?? '', success: true };
     } catch (err) {
-      error.value = 'Swap failed';
+      error.value = err instanceof Error ? err.message : 'Swap failed';
       transactionStatus.value = 'failed';
       return null;
     }
@@ -265,13 +345,28 @@ export const useSwapStore = defineStore('swap', () => {
    */
   const updateBalances = async (tokens: string[]): Promise<void> => {
     try {
-      // In real implementation, fetch actual balances
-      await new Promise(resolve => setTimeout(resolve, 100)); // Simulate API call
-      const mockBalances: Record<string, string> = {};
-      for (const token of tokens) {
-        mockBalances[token] = '1000000000'; // Mock balance
+      // Get current wallet address
+      const walletStore = useWallet();
+      const address = walletStore.currentWalletAddress;
+      if (address === null) {
+        balances.value = {};
+        return;
       }
-      balances.value = mockBalances;
+      
+      // Fetch real balances from TokenService
+      const tokenBalances: Record<string, string> = {};
+      
+      for (const tokenAddress of tokens) {
+        try {
+          const balance = await tokenService.getTokenBalance(tokenAddress, address);
+          tokenBalances[tokenAddress] = balance.toString();
+        } catch (_err) {
+          // If balance fetch fails, set to 0
+          tokenBalances[tokenAddress] = '0';
+        }
+      }
+      
+      balances.value = tokenBalances;
     } catch (err) {
       error.value = 'Failed to update balances';
     }
@@ -282,15 +377,31 @@ export const useSwapStore = defineStore('swap', () => {
    * @param _params - Swap parameters (unused in mock)
    * @returns Promise that resolves when gas estimate is complete
    */
-  const estimateGas = async (_params: SwapParams): Promise<void> => {
+  const estimateGas = async (params: SwapParams): Promise<void> => {
     try {
-      // In real implementation, estimate actual gas
-      await new Promise(resolve => setTimeout(resolve, 100)); // Simulate estimation
+      // Get quote first to get gas estimate
+      const route = await swapService.getQuote({
+        tokenIn: params.tokenIn,
+        tokenOut: params.tokenOut,
+        amountIn: BigInt(params.amountIn),
+        slippage: params.slippage
+      });
+      
+      // Convert gas estimate to readable format
+      const gasLimit = route.gasEstimate.toString();
+      const gasPrice = '30'; // Default gas price in gwei
+      const gasCostWei = route.gasEstimate * BigInt(gasPrice) * BigInt('1000000000');
+      const totalCostEth = Number(gasCostWei) / 1e18;
+      
+      // Estimate USD cost (assuming ETH price of $2000)
+      const ethPrice = 2000; // In production, get from price oracle
+      const totalCostUSD = totalCostEth * ethPrice;
+      
       gasEstimate.value = {
-        gasLimit: '100000',
-        gasPrice: '30',
-        totalCost: '0.003',
-        totalCostUSD: '6.00'
+        gasLimit,
+        gasPrice,
+        totalCost: totalCostEth.toFixed(6),
+        totalCostUSD: totalCostUSD.toFixed(2)
       };
     } catch (err) {
       error.value = 'Failed to estimate gas';

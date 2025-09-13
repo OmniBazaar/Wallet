@@ -9,6 +9,7 @@ import { EthereumNetworks } from '../core/chains/ethereum/provider';
 import { KeyringService } from '../core/keyring/KeyringService';
 import { NFTService } from '../core/nft/NFTService';
 import { secureStorage, SecureIndexedDB } from '../core/storage/SecureIndexedDB';
+import { validatorTransaction } from '../services/ValidatorTransaction';
 
 /**
  * Logger instance for consistent logging across background script
@@ -295,6 +296,24 @@ async function getWalletState(): Promise<{
       logger.warn('Failed to get NFT collections:', error);
     }
   }
+  
+  // Get transaction history if account is active
+  let transactions: unknown[] = [];
+  if (activeAccount !== null) {
+    try {
+      const txHistory = await validatorTransaction.getTransactionHistory();
+      transactions = txHistory.map(tx => ({
+        hash: tx.hash,
+        from: tx.from,
+        to: tx.to,
+        value: tx.value,
+        timestamp: tx.timestamp,
+        status: tx.status
+      }));
+    } catch (error) {
+      logger.warn('Failed to get transaction history:', error);
+    }
+  }
 
   const state = {
     isUnlocked: !keyringState.isLocked,
@@ -306,7 +325,7 @@ async function getWalletState(): Promise<{
     supportedNetworks: Array.from(providers.keys()) as string[],
     nftCollections,
     balance,
-    transactions: [] // TODO: Implement transaction history
+    transactions
   };
 
   logger.warn('📊 Wallet state requested:', state);

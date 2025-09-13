@@ -7,6 +7,10 @@
 import { ethers } from 'ethers';
 import { ref, Ref } from 'vue';
 import { DebugLogger } from '../core/utils/debug-logger';
+import { OmniWalletService } from '../../../Validator/src/services/OmniWalletService';
+import { PriceOracleService } from '../../../Validator/src/services/PriceOracleService';
+import { MasterMerkleEngine } from '../../../Validator/src/engines/MasterMerkleEngine';
+import { CacheService } from '../../../Validator/src/services/CacheService';
 
 // Create logger for this service
 const logger = new DebugLogger('services:validator-balance');
@@ -119,8 +123,10 @@ export interface PriceData {
  * Provides caching, history tracking, and reactive state management for wallet balances.
  */
 export class ValidatorBalanceService {
-  private validatorClient: unknown; // Will be properly typed when validator client is integrated
-  private ipfsStorage: unknown;
+  private walletService?: OmniWalletService;
+  private priceOracle?: PriceOracleService;
+  private cacheService?: CacheService;
+  private merkleEngine?: MasterMerkleEngine;
   private config: ValidatorBalanceConfig;
   private balanceCache: BalanceCache = {};
   private priceCache: Map<string, PriceData> = new Map();
@@ -140,8 +146,6 @@ export class ValidatorBalanceService {
    */
   constructor(config: ValidatorBalanceConfig) {
     this.config = config;
-    // TODO: Integrate with OmniValidatorClient when available
-    this.validatorClient = null;
   }
 
   /**
@@ -163,10 +167,18 @@ export class ValidatorBalanceService {
   /**
    * Initialize the balance service (validator client, caches, history).
    */
-  initialize(): void {
+  async initialize(): Promise<void> {
     try {
-      // Initialize validator client
-      // TODO: await this.validatorClient.connect();
+      // Initialize services
+      this.merkleEngine = new MasterMerkleEngine();
+      this.walletService = new OmniWalletService(this.merkleEngine);
+      this.priceOracle = new PriceOracleService(this.merkleEngine);
+      this.cacheService = new CacheService(this.merkleEngine);
+      
+      // Start services
+      await this.walletService.start();
+      await this.priceOracle.start();
+      await this.cacheService.start();
       
       // Load cached data
       if (this.config.enableCaching) {
@@ -211,13 +223,20 @@ export class ValidatorBalanceService {
       // Await to maintain async behavior for future GraphQL integration
       await Promise.resolve();
 
-      // Get native balance using GraphQL query
-      // TODO: Implement actual GraphQL query
-      const nativeBalance = BigInt(0);
+      // Get native balance from wallet service
+      let nativeBalance = BigInt(0);
+      if (this.walletService) {
+        try {
+          const balanceData = await this.walletService.getBalance(address, 'XOM');
+          nativeBalance = BigInt(balanceData.balance);
+        } catch (error) {
+          logger.error('Failed to get native balance:', error);
+        }
+      }
       const nativeBalanceFormatted = ethers.formatEther(nativeBalance);
 
       // Get token balances
-      const tokens = this.getTokenBalances(address);
+      const tokens = await this.getTokenBalances(address);
 
       // Calculate total USD value
       let totalValueUSD = '0';
@@ -271,49 +290,50 @@ export class ValidatorBalanceService {
   /**
    * Get token balances for an address by iterating the validator token list.
    *
-   * @param _address - Account address
+   * @param address - Account address
    * @returns Array of token balances with USD values when available
    */
-  getTokenBalances(_address: string): TokenBalance[] {
+  async getTokenBalances(address: string): Promise<TokenBalance[]> {
     try {
-      // Get token list from validator - for now returning empty array
-      // TODO: Implement token list query through GraphQL
-      const tokenList: Array<{address: string; symbol: string; name: string; decimals: number}> = [];
-      
-      if (tokenList.length === 0) {
+      if (!this.walletService) {
         return [];
       }
-
+      
+      // Get token list from wallet service
+      const balances = await this.walletService.getAllBalances(address);
       const tokenBalances: TokenBalance[] = [];
 
-      // Get balance for each token
-      for (const token of tokenList) {
+      // Process each token balance
+      for (const [tokenAddress, balanceData] of Object.entries(balances)) {
+        if (tokenAddress === 'native' || tokenAddress === 'XOM') {
+          continue; // Skip native balance
+        }
+        
         try {
-          // TODO: Implement token balance query through GraphQL
-          const balance = BigInt(0);
+          const balance = BigInt(balanceData.balance);
           
           if (BigInt(balance) > BigInt(0)) {
             const balanceFormatted = ethers.formatUnits(balance, token.decimals);
             
             // Get price data
-            const priceData = this.getTokenPrice(token.symbol);
+            const priceData = await this.getTokenPrice(balanceData.symbol);
             const priceUSD = priceData?.price ?? '0';
-            const valueUSD = (parseFloat(balanceFormatted) * parseFloat(priceUSD)).toFixed(2);
+            const valueUSD = (parseFloat(balanceData.formattedBalance) * parseFloat(priceUSD)).toFixed(2);
 
             tokenBalances.push({
-              address: token.address,
-              symbol: token.symbol,
-              name: token.name,
-              decimals: token.decimals,
+              address: tokenAddress,
+              symbol: balanceData.symbol,
+              name: balanceData.name || balanceData.symbol,
+              decimals: balanceData.decimals,
               balance: balance.toString(),
-              balanceFormatted,
+              balanceFormatted: balanceData.formattedBalance,
               priceUSD,
               valueUSD,
               lastUpdated: Date.now()
             });
           }
         } catch (error) {
-          logger.error(`Error getting balance for token ${token.symbol}:`, error);
+          logger.error(`Error getting balance for token ${tokenAddress}:`, error);
         }
       }
 
@@ -374,7 +394,7 @@ export class ValidatorBalanceService {
    * @param symbol - Token symbol to get price for
    * @returns Price data or null if not available
    */
-  getTokenPrice(symbol: string): PriceData | null {
+  async getTokenPrice(symbol: string): Promise<PriceData | null> {
     try {
       // Check cache first
       const cached = this.priceCache.get(symbol);
@@ -382,22 +402,22 @@ export class ValidatorBalanceService {
         return cached;
       }
 
-      // Get price from validator oracle - for now returning null
-      // TODO: Implement price query through GraphQL
-      const priceInfo: unknown = null;
+      // Get price from price oracle
+      if (!this.priceOracle) {
+        return null;
+      }
       
-      if (priceInfo === null || priceInfo === undefined) {
+      const price = await this.priceOracle.getPrice(symbol, 'USD');
+      const change24h = await this.priceOracle.get24hChange(symbol);
+      
+      if (price === 0) {
         return null;
       }
 
       const priceData: PriceData = {
         symbol,
-        price: typeof priceInfo === 'string' ? priceInfo : 
-               (typeof priceInfo === 'object' && priceInfo !== null && 'price' in priceInfo && typeof (priceInfo as {price: unknown}).price === 'string') ? 
-               (priceInfo as {price: string}).price : '0',
-        change24h: typeof priceInfo === 'string' ? '0' : 
-                   (typeof priceInfo === 'object' && priceInfo !== null && 'change24h' in priceInfo && typeof (priceInfo as {change24h: unknown}).change24h === 'string') ?
-                   (priceInfo as {change24h: string}).change24h : '0',
+        price: price.toString(),
+        change24h: change24h.toString(),
         lastUpdated: Date.now()
       };
 
@@ -481,8 +501,16 @@ export class ValidatorBalanceService {
       }
 
       const history = this.balanceHistory.get(address) ?? [];
-      // TODO: Implement block number query through GraphQL
-      const currentBlock = 0;
+      
+      // Get current block number from wallet service
+      let currentBlock = 0;
+      if (this.walletService) {
+        try {
+          currentBlock = await this.walletService.getCurrentBlockNumber();
+        } catch (error) {
+          logger.error('Failed to get current block number:', error);
+        }
+      }
       
       // Only add if balance has changed
       const lastEntry = history[history.length - 1];
@@ -625,7 +653,7 @@ export class ValidatorBalanceService {
   /**
    * Disconnect from Validator services
    */
-  disconnect(): void {
+  async disconnect(): Promise<void> {
     try {
       // Stop all balance updates
       this.stopBalanceUpdates();
@@ -640,13 +668,45 @@ export class ValidatorBalanceService {
         this.saveAllBalanceHistory();
       }
       
-      // Disconnect from validator client
-      // TODO: await this.validatorClient.disconnect();
+      // Stop services
+      if (this.walletService) {
+        await this.walletService.stop();
+      }
+      if (this.priceOracle) {
+        await this.priceOracle.stop();
+      }
+      if (this.cacheService) {
+        await this.cacheService.stop();
+      }
       
       logger.info('Validator Balance Service disconnected');
     } catch (error) {
       logger.error('Error disconnecting balance service:', error);
     }
+  }
+
+  /**
+   * Cleanup resources and stop services
+   */
+  async cleanup(): Promise<void> {
+    await this.disconnect();
+    
+    // Clear all data
+    this.balanceCache = {};
+    this.priceCache.clear();
+    this.balanceHistory.clear();
+    this.updateIntervals.clear();
+    
+    // Clear reactive references
+    this.balancesRef.value = {};
+    this.pricesRef.value = {};
+    this.historyRef.value = {};
+    
+    // Clear service references
+    this.walletService = undefined;
+    this.priceOracle = undefined;
+    this.cacheService = undefined;
+    this.merkleEngine = undefined;
   }
 
   // Private helper methods

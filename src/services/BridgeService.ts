@@ -5,26 +5,8 @@
  * cross-chain token transfers and bridge operations.
  */
 
-// Import will be available when core bridge module is implemented
-// import { BridgeService as CoreBridgeService } from '../core/bridge/BridgeService';
-
-/** Temporary interface for core bridge service */
-interface CoreBridgeService {
-  /** Initialize the bridge service */
-  initialize(): Promise<void>;
-  /** Bridge tokens between chains */
-  bridge(params: BridgeParams): Promise<BridgeResult>;
-  /** Get supported chains */
-  getSupportedChains(): Promise<ChainInfo[]>;
-  /** Get bridge routes */
-  getBridgeRoutes(fromChain: string, toChain: string, token: string, amount: string): Promise<RouteInfo[]>;
-  /** Get bridge transaction status */
-  getBridgeStatus(txHash: string): Promise<TransactionStatus>;
-  /** Clear cache if available */
-  clearCache?(): Promise<void>;
-  /** Cleanup if available */
-  cleanup?(): Promise<void>;
-}
+import { CrossChainBridge } from '../../../Validator/src/services/dex/crosschain/CrossChainBridge';
+import { MasterMerkleEngine } from '../../../Validator/src/engines/MasterMerkleEngine';
 
 /** Bridge parameters */
 interface BridgeParams {
@@ -88,45 +70,34 @@ interface TransactionStatus {
  * Bridge service wrapper
  */
 export class BridgeService {
-  private coreService: CoreBridgeService;
+  private crossChainBridge?: CrossChainBridge;
+  private merkleEngine?: MasterMerkleEngine;
   private isInitialized = false;
 
   /**
    * Creates a new BridgeService instance
    */
-  constructor() {
-    // Temporary mock implementation until core bridge service is available
-    this.coreService = {
-      async initialize(): Promise<void> {
-        // Mock initialization
-      },
-      async bridge(_params: BridgeParams): Promise<BridgeResult> {
-        await Promise.resolve(); // Mock async operation
-        throw new Error('Bridge service not yet implemented');
-      },
-      async getSupportedChains(): Promise<ChainInfo[]> {
-        await Promise.resolve(); // Mock async operation
-        return [];
-      },
-      async getBridgeRoutes(_fromChain: string, _toChain: string, _token: string, _amount: string): Promise<RouteInfo[]> {
-        await Promise.resolve(); // Mock async operation
-        return [];
-      },
-      async getBridgeStatus(_txHash: string): Promise<TransactionStatus> {
-        await Promise.resolve(); // Mock async operation
-        return { status: 'pending' };
-      }
-    };
-  }
+  constructor() {}
 
   /**
    * Initialize the bridge service
    */
   async init(): Promise<void> {
     if (this.isInitialized) return;
-    await this.coreService.initialize();
-    this.isInitialized = true;
-    // console.log('BridgeService initialized');
+    
+    try {
+      // Initialize services
+      this.merkleEngine = new MasterMerkleEngine();
+      this.crossChainBridge = new CrossChainBridge(this.merkleEngine);
+      
+      // Start the bridge service
+      await this.crossChainBridge.start();
+      
+      this.isInitialized = true;
+    } catch (error) {
+      console.error('Failed to initialize BridgeService:', error);
+      throw error;
+    }
   }
 
   /**
@@ -135,7 +106,29 @@ export class BridgeService {
    * @returns Bridge result
    */
   async bridge(params: BridgeParams): Promise<BridgeResult> {
-    return await this.coreService.bridge(params);
+    if (!this.crossChainBridge) {
+      throw new Error('Bridge service not initialized');
+    }
+    
+    try {
+      // Initiate cross-chain transfer
+      const result = await this.crossChainBridge.initiateTransfer({
+        sourceChain: params.fromChain,
+        destinationChain: params.toChain,
+        token: params.token,
+        amount: BigInt(params.amount),
+        recipient: params.recipient
+      });
+      
+      return {
+        txHash: result.transactionHash,
+        status: result.status,
+        estimatedTime: result.estimatedTime
+      };
+    } catch (error) {
+      console.error('Bridge transfer failed:', error);
+      throw error;
+    }
   }
 
   /**
@@ -143,16 +136,30 @@ export class BridgeService {
    * @returns Array of supported chain information
    */
   async getSupportedChains(): Promise<ChainInfo[]> {
-    return await this.coreService.getSupportedChains();
+    if (!this.crossChainBridge) {
+      throw new Error('Bridge service not initialized');
+    }
+    
+    try {
+      const chains = await this.crossChainBridge.getSupportedChains();
+      
+      return chains.map(chain => ({
+        chainId: chain.chainId.toString(),
+        name: chain.name,
+        nativeToken: chain.nativeToken
+      }));
+    } catch (error) {
+      console.error('Failed to get supported chains:', error);
+      return [];
+    }
   }
 
   /**
    * Clear cached bridge data
    */
   async clearCache(): Promise<void> {
-    if (this.coreService.clearCache !== undefined) {
-      await this.coreService.clearCache();
-    }
+    // CrossChainBridge doesn't have a specific clear cache method
+    // but we can reset the service if needed
   }
 
   /**
@@ -170,7 +177,28 @@ export class BridgeService {
     token: string;
     amount: string;
   }): Promise<RouteInfo[]> {
-    return await this.coreService.getBridgeRoutes(params.fromChain, params.toChain, params.token, params.amount);
+    if (!this.crossChainBridge) {
+      throw new Error('Bridge service not initialized');
+    }
+    
+    try {
+      const routes = await this.crossChainBridge.getAvailableRoutes(
+        params.fromChain,
+        params.toChain,
+        params.token
+      );
+      
+      return routes.map(route => ({
+        id: route.id,
+        fee: route.bridgeFee?.toString(),
+        gasFee: route.gasFee?.toString(),
+        totalFee: route.totalFee?.toString(),
+        estimatedTime: route.estimatedTime
+      }));
+    } catch (error) {
+      console.error('Failed to get bridge routes:', error);
+      return [];
+    }
   }
 
   /**
@@ -183,7 +211,22 @@ export class BridgeService {
     confirmations?: number;
     estimatedTime?: number;
   }> {
-    return await this.coreService.getBridgeStatus(txHash);
+    if (!this.crossChainBridge) {
+      throw new Error('Bridge service not initialized');
+    }
+    
+    try {
+      const status = await this.crossChainBridge.getTransferStatus(txHash);
+      
+      return {
+        status: status.status,
+        confirmations: status.confirmations,
+        estimatedTime: status.estimatedCompletionTime
+      };
+    } catch (error) {
+      console.error('Failed to get transaction status:', error);
+      return { status: 'unknown' };
+    }
   }
 
   /**
@@ -230,10 +273,12 @@ export class BridgeService {
    * Cleanup bridge service resources
    */
   async cleanup(): Promise<void> {
-    if (this.coreService.cleanup !== undefined) {
-      await this.coreService.cleanup();
+    if (this.crossChainBridge) {
+      await this.crossChainBridge.stop();
     }
+    
+    this.crossChainBridge = undefined;
+    this.merkleEngine = undefined;
     this.isInitialized = false;
-    // console.log('BridgeService cleanup completed');
   }
 }
