@@ -15,6 +15,7 @@ import { LivePolkadotProvider } from '../chains/polkadot';
 import { LiveSolanaProvider } from '../chains/solana';
 import { keyringService } from '../keyring/KeyringService';
 import { ChainType } from '../keyring/BIP39Keyring';
+import { DebugLogger } from '../utils/debug-logger';
 
 /** Network type for blockchain environments */
 export type NetworkType = 'mainnet' | 'testnet';
@@ -127,8 +128,11 @@ export class ProviderManager {
   private activeNetwork = 'ethereum'; // For EVM chain switching
   private networkType: NetworkType = 'mainnet';
   private initialized = false;
+  private logger: DebugLogger;
 
-  private constructor() { }
+  private constructor() {
+    this.logger = new DebugLogger('provider:manager');
+  }
 
   /**
    * Get the singleton instance of ProviderManager
@@ -236,7 +240,7 @@ export class ProviderManager {
 
       this.initialized = true;
     } catch (error) {
-      console.error('Error initializing providers:', error);
+      this.logger.error('Error initializing providers:', error);
       throw error;
     }
   }
@@ -371,8 +375,17 @@ export class ProviderManager {
     }
 
     if (chainType === ChainType.ETHEREUM) {
-      // Return all EVM networks including ethereum mainnet and specific chains
-      return ['ethereum', 'polygon', 'arbitrum', 'optimism', 'base', 'bsc', 'avalanche', 'fantom', 'celo', 'moonbeam', 'aurora', 'cronos', 'gnosis', 'klaytn', 'metis', 'moonriver', 'boba', 'harmony', 'heco', 'okex'];
+      // Return all EVM networks from ALL_NETWORKS
+      const evmNetworks = Object.keys(ALL_NETWORKS).filter(key => {
+        const network = ALL_NETWORKS[key];
+        // Filter out testnets if in mainnet mode
+        return this.networkType === 'testnet' || network.testnet !== true;
+      });
+      // Add ethereum mainnet as it's not in ALL_NETWORKS
+      if (!evmNetworks.includes('ethereum')) {
+        evmNetworks.unshift('ethereum');
+      }
+      return evmNetworks;
     }
 
     if (chainType === ChainType.SOLANA) {
@@ -594,7 +607,7 @@ export class ProviderManager {
           return '0';
       }
     } catch (error) {
-      console.error(`Error getting balance for ${chain}:`, error);
+      this.logger.error(`Error getting balance for ${chain}:`, error);
       return '0';
     }
   }
@@ -610,7 +623,7 @@ export class ProviderManager {
       try {
         balances[chainType] = await this.getBalance(chainType);
       } catch (error) {
-        console.error(`Error getting balance for ${chainType}:`, error);
+        this.logger.error(`Error getting balance for ${chainType}:`, error);
         balances[chainType] = '0';
       }
     }
@@ -641,7 +654,10 @@ export class ProviderManager {
 
     // Handle Bitcoin separately
     if (chain === ChainType.BITCOIN) {
-      throw new Error('Bitcoin transactions not implemented');
+      const btcProvider = provider as LiveBitcoinProvider;
+      // Bitcoin amounts are in satoshis (1 BTC = 100,000,000 satoshis)
+      const satoshis = Math.floor(parseFloat(amount) * 1e8).toString();
+      return await btcProvider.sendBitcoin(to, satoshis);
     }
 
     // Handle Polkadot/Substrate separately
@@ -741,35 +757,39 @@ export class ProviderManager {
       decimals: number;
     };
   } {
-    // Handle Ethereum chain (default mainnet)
+    // Handle Ethereum chain and all EVM networks
     if (this.activeChain === ChainType.ETHEREUM) {
-      if (this.activeNetwork === 'ethereum' || this.activeNetwork === '') {
-        return {
-          name: 'Ethereum Mainnet',
-          chainId: 1,
-          nativeCurrency: {
-            name: 'Ether',
-            symbol: 'ETH',
-            decimals: 18
+      // First, try to get network details for the active network
+      if (this.activeNetwork !== '') {
+        try {
+          const networkDetails = this.getNetworkDetails(this.activeNetwork);
+          if (networkDetails !== undefined && networkDetails !== null && networkDetails.chainId !== undefined && networkDetails.currency !== undefined && networkDetails.currency !== '') {
+            return {
+              name: networkDetails.name,
+              chainId: networkDetails.chainId,
+              nativeCurrency: {
+                name: networkDetails.currency,
+                symbol: networkDetails.currency,
+                decimals: networkDetails.nativeCurrency.decimals
+              }
+            };
           }
-        };
-      }
-      
-      // Check if it's a specific EVM network
-      if (this.evmProviders.has(this.activeNetwork)) {
-        const networkDetails = this.getNetworkDetails(this.activeNetwork);
-        if (networkDetails !== undefined && networkDetails !== null && networkDetails.chainId !== undefined && networkDetails.currency !== undefined && networkDetails.currency !== '') {
-          return {
-            name: networkDetails.name,
-            chainId: networkDetails.chainId,
-            nativeCurrency: {
-              name: networkDetails.currency,
-              symbol: networkDetails.currency,
-              decimals: networkDetails.nativeCurrency.decimals
-            }
-          };
+        } catch (error) {
+          // Fall through to default handling
+          this.logger.warn(`Failed to get network details for ${this.activeNetwork}:`, error);
         }
       }
+
+      // Default to Ethereum mainnet if activeNetwork is 'ethereum' or empty
+      return {
+        name: 'Ethereum Mainnet',
+        chainId: 1,
+        nativeCurrency: {
+          name: 'Ether',
+          symbol: 'ETH',
+          decimals: 18
+        }
+      };
     }
 
     // Handle other chains
@@ -880,16 +900,16 @@ export class ProviderManager {
 
   /**
    * Get transaction history
-   * @param _address Address to get history for
+   * @param address Address to get history for
    * @param chainType Chain type to query
-   * @param _limit Maximum number of transactions to return
+   * @param limit Maximum number of transactions to return
    * @returns Array of transaction records
    */
-  getTransactionHistory(
-    _address?: string,
+  async getTransactionHistory(
+    address?: string,
     chainType?: ChainType,
-    _limit = 10
-  ): unknown[] {
+    limit = 10
+  ): Promise<unknown[]> {
     const chain = chainType ?? this.activeChain;
     const provider = this.getProvider(chain);
 
@@ -897,10 +917,25 @@ export class ProviderManager {
       throw new Error(`No provider for chain: ${chain}`);
     }
 
-    // This would typically use an indexing service or block explorer API
-    // For now, return empty array
-    console.warn('Transaction history not yet implemented');
-    return [];
+    // Use the active account address if not provided
+    const targetAddress = address ?? this.getActiveAccount()?.address;
+    if (targetAddress === null || targetAddress === undefined || targetAddress === '') {
+      return [];
+    }
+
+    try {
+      // Call the provider's getTransactionHistory method if available
+      if ('getTransactionHistory' in provider && typeof (provider as any).getTransactionHistory === 'function') {
+        return await (provider as any).getTransactionHistory(targetAddress, limit);
+      }
+
+      // Fallback for providers without transaction history
+      this.logger.warn(`Transaction history not available for ${chain}`);
+      return [];
+    } catch (error) {
+      this.logger.error(`Error fetching transaction history for ${chain}:`, error);
+      return [];
+    }
   }
 
   /**

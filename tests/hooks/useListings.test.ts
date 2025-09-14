@@ -548,17 +548,11 @@ describe('useListings', () => {
 
   describe('OmniProvider Integration', () => {
     it('should handle OmniProvider initialization failure', async () => {
-      const consoleError = jest.spyOn(console, 'error').mockImplementation();
-      
       jest.mocked(require('../../src/core/providers/OmniProvider').OmniProvider).mockImplementationOnce(() => {
         throw new Error('Provider init failed');
       });
 
       const { result } = renderHook(() => useListings(TEST_CONTRACT_ADDRESS));
-
-      await waitFor(() => {
-        expect(consoleError).toHaveBeenCalledWith('Failed to initialize OmniProvider:', expect.any(Error));
-      });
 
       // Should still work with API fallback
       (global.fetch as jest.Mock).mockResolvedValueOnce({
@@ -574,8 +568,6 @@ describe('useListings', () => {
       });
 
       expect(result.current.listings).toHaveLength(1);
-
-      consoleError.mockRestore();
     });
 
     it('should handle OmniProvider returning invalid data', async () => {

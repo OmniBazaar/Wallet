@@ -18,6 +18,9 @@ import { ethers } from 'ethers';
 const { solidityPacked, keccak256 } = ethers;
 import { BIP39Keyring } from '../../src/core/keyring/BIP39Keyring';
 import * as crypto from 'crypto';
+
+// Use actual bip39 module for security tests - unmock it
+jest.unmock('bip39');
 import * as bip39 from 'bip39';
 
 describe('Financial Operations Security Tests', () => {
@@ -414,23 +417,21 @@ describe('Financial Operations Security Tests', () => {
 
   describe('Recovery Mechanism Security', () => {
     test('should validate recovery phrase security', () => {
-      const recoveryPhrases = [
-        'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about', // Valid
-        'invalid recovery phrase text here now test phrase test test', // Invalid words not in BIP39 wordlist
-        '', // Empty
-        'notaword '.repeat(12).trim(), // Invalid words not in BIP39 wordlist
-        'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon' // Wrong checksum (13 words)
-      ];
+      // Test valid mnemonic
+      const validMnemonic = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
+      expect(bip39.validateMnemonic(validMnemonic)).toBe(true);
 
-      recoveryPhrases.forEach((phrase, index) => {
-        const isValid = bip39.validateMnemonic(phrase);
-        
-        if (index === 0) {
-          expect(isValid).toBe(true); // First should be valid BIP39
-        } else {
-          expect(isValid).toBe(false); // Others should be invalid
-        }
-      });
+      // Test empty mnemonic
+      expect(bip39.validateMnemonic('')).toBe(false);
+
+      // Test too short mnemonic
+      expect(bip39.validateMnemonic('abandon')).toBe(false);
+
+      // Test wrong word count (11 words)
+      expect(bip39.validateMnemonic('abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon')).toBe(false);
+
+      // Test with an invalid word
+      expect(bip39.validateMnemonic('abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon invalidword123')).toBe(false);
     });
 
     test('should validate recovery process authentication', async () => {

@@ -6,6 +6,12 @@
 
 import { OmniValidatorClient, createOmniValidatorClient } from '../../../Validator/dist/client/index';
 
+// Import real service integrations
+import { PriceOracleIntegration } from './oracle/PriceOracleIntegration';
+import { OracleAggregatorIntegration } from './oracle/OracleAggregatorIntegration';
+import { ENSOracleIntegration } from './oracle/ENSOracleIntegration';
+import { MasterMerkleService } from './oracle/MasterMerkleService';
+
 /** Price data structure */
 export interface PriceData {
   /** Price value */
@@ -205,10 +211,10 @@ export class OracleService {
   private isConnected = false;
   private walletService: unknown;
   private subscriptions: Map<string, { timer?: NodeJS.Timeout; callback?: PriceUpdateCallback }> = new Map();
-  private priceOracle?: PriceOracleService;
-  private oracleAggregator?: OracleAggregator;
-  private ensOracle?: ValidatorENSOracle;
-  private merkleEngine?: MasterMerkleEngine;
+  private priceOracle?: PriceOracleIntegration;
+  private oracleAggregator?: OracleAggregatorIntegration;
+  private ensOracle?: ENSOracleIntegration;
+  private merkleEngine?: MasterMerkleService;
 
   /**
    * Create oracle service
@@ -225,16 +231,19 @@ export class OracleService {
     if (this.isInitialized) return;
     
     try {
-      // Initialize services
-      this.merkleEngine = new MasterMerkleEngine();
-      this.priceOracle = new PriceOracleService(this.merkleEngine);
-      this.oracleAggregator = new OracleAggregator();
-      this.ensOracle = new ValidatorENSOracle(this.merkleEngine);
-      
-      // Start services
-      await this.priceOracle.start();
-      await this.oracleAggregator.start();
-      await this.ensOracle.start();
+      // Initialize real service integrations
+      this.merkleEngine = MasterMerkleService.getInstance();
+      this.priceOracle = PriceOracleIntegration.getInstance();
+      this.oracleAggregator = OracleAggregatorIntegration.getInstance();
+      this.ensOracle = ENSOracleIntegration.getInstance();
+
+      // Initialize all services
+      await Promise.all([
+        this.merkleEngine.initialize(),
+        this.priceOracle.initialize(),
+        this.oracleAggregator.initialize(),
+        this.ensOracle.initialize()
+      ]);
       
       this.isInitialized = true;
     } catch (error) {
@@ -246,8 +255,14 @@ export class OracleService {
   /**
    * Connect to oracle network
    */
-  connect(): void {
+  async connect(): Promise<void> {
     if (this.isConnected) return;
+
+    // Initialize if not already done
+    if (!this.isInitialized) {
+      await this.init();
+    }
+
     this.isConnected = true;
   }
 
@@ -276,20 +291,16 @@ export class OracleService {
     
     try {
       // Get price from oracle service
-      const price = await this.priceOracle.getPrice(base, quote);
-      
-      return {
-        value: price,
-        timestamp: Date.now(),
-        confidence: 0.99
-      };
+      const priceData = await this.priceOracle.getPrice(base, quote);
+
+      return priceData;
     } catch (error) {
       // Fallback to aggregator if direct oracle fails
       if (this.oracleAggregator) {
-        const aggregatedPrice = await this.oracleAggregator.getAggregatedPrice(base, quote);
+        const aggregatedPrice = await this.oracleAggregator.getAggregatedPrice(`${base}/${quote}`);
         return {
-          value: aggregatedPrice.price,
-          timestamp: aggregatedPrice.timestamp,
+          value: aggregatedPrice.median,
+          timestamp: Date.now(),
           confidence: aggregatedPrice.confidence
         };
       }
@@ -333,6 +344,16 @@ export class OracleService {
     const id = Math.random().toString(36).substr(2, 9);
     const [base, quote] = pair.split('/');
     
+    // Send initial price immediately
+    this.getPrice(base, quote).then(priceData => {
+      callback({
+        pair,
+        price: priceData
+      });
+    }).catch(error => {
+      console.error('Error in initial price fetch:', error);
+    });
+
     // Poll for real price updates
     const timer = setInterval(async () => {
       try {
@@ -391,13 +412,7 @@ export class OracleService {
     
     try {
       // Get historical prices from oracle
-      const historicalData = await this.priceOracle.getHistoricalPrices(
-        base,
-        quote,
-        params.from,
-        params.to,
-        params.interval
-      );
+      const historicalData = await this.priceOracle.getHistoricalPrices(params);
       
       return historicalData.map(point => ({
         timestamp: point.timestamp,
@@ -420,14 +435,12 @@ export class OracleService {
       throw new Error('Oracle aggregator not initialized');
     }
     
-    const [base, quote] = pair.split('/');
-    
     try {
-      const aggregated = await this.oracleAggregator.getAggregatedPrice(base, quote);
+      const aggregated = await this.oracleAggregator.getAggregatedPrice(pair);
       
       return {
-        median: aggregated.price,
-        mean: aggregated.price, // Aggregator returns weighted average
+        median: aggregated.median,
+        mean: aggregated.mean,
         sources: aggregated.sources,
         confidence: aggregated.confidence
       };
@@ -459,16 +472,19 @@ export class OracleService {
    */
   async cleanup(): Promise<void> {
     this.disconnect();
-    
-    // Stop services
+
+    // Shutdown services
     if (this.priceOracle) {
-      await this.priceOracle.stop();
+      await this.priceOracle.shutdown();
     }
     if (this.oracleAggregator) {
-      await this.oracleAggregator.stop();
+      await this.oracleAggregator.shutdown();
     }
     if (this.ensOracle) {
-      await this.ensOracle.stop();
+      await this.ensOracle.shutdown();
+    }
+    if (this.merkleEngine) {
+      await this.merkleEngine.shutdown();
     }
     
     this.isInitialized = false;
@@ -488,10 +504,10 @@ export class OracleService {
     
     try {
       const address = await this.ensOracle.resolveENS(ensName);
-      return address || '0x' + '0'.repeat(40);
+      return address;
     } catch (error) {
       console.error('Failed to resolve ENS:', error);
-      return '0x' + '0'.repeat(40);
+      throw error;
     }
   }
 
@@ -544,12 +560,7 @@ export class OracleService {
     
     try {
       const metadata = await this.ensOracle.getENSMetadata(ensName);
-      return {
-        owner: metadata.owner || '0x' + '0'.repeat(40),
-        resolver: metadata.resolver || '0x' + '0'.repeat(40),
-        registeredAt: metadata.registrationDate || Date.now(),
-        expiresAt: metadata.expirationDate || Date.now() + 86400000 * 365
-      };
+      return metadata;
     } catch (error) {
       console.error('Failed to get ENS metadata:', error);
       // Return default metadata
@@ -580,17 +591,9 @@ export class OracleService {
     }
     
     try {
-      const result = await this.ensOracle.registerENS(
-        params.name,
-        params.owner,
-        params.duration
-      );
-      
-      return {
-        success: result.success,
-        transactionHash: result.transactionHash,
-        expiresAt: result.expirationDate
-      };
+      const result = await this.ensOracle.registerENS(params);
+
+      return result;
     } catch (error) {
       console.error('Failed to register ENS:', error);
       return { success: false };
@@ -617,19 +620,10 @@ export class OracleService {
     }
     
     try {
-      // Use oracle aggregator for external data feeds
-      const data = await this.oracleAggregator.getExternalData('weather', {
-        lat: params.location.lat,
-        lon: params.location.lon,
-        params: params.parameters
-      });
-      
-      return {
-        temperature: data.temperature || 25,
-        precipitation: data.precipitation || 0,
-        windSpeed: data.windSpeed || 10,
-        timestamp: Date.now()
-      };
+      // Use oracle aggregator for weather data
+      const data = await this.oracleAggregator.getWeatherData(params);
+
+      return data as WeatherData;
     } catch (error) {
       console.error('Failed to get weather data:', error);
       // Return default data on error
@@ -660,23 +654,9 @@ export class OracleService {
     }
     
     try {
-      const data = await this.oracleAggregator.getExternalData('sports', {
-        sport: params.sport,
-        league: params.league,
-        date: params.date
-      });
-      
-      if (Array.isArray(data.results)) {
-        return data.results.map((result: any) => ({
-          homeTeam: result.homeTeam || 'Unknown',
-          awayTeam: result.awayTeam || 'Unknown',
-          homeScore: result.homeScore || 0,
-          awayScore: result.awayScore || 0,
-          status: result.status || 'unknown'
-        }));
-      }
-      
-      return [];
+      const results = await this.oracleAggregator.getSportsResults(params);
+
+      return results;
     } catch (error) {
       console.error('Failed to get sports results:', error);
       return [];
@@ -701,17 +681,9 @@ export class OracleService {
     }
     
     try {
-      const result = await this.oracleAggregator.getVerifiableRandom(
-        params.min,
-        params.max,
-        params.seed
-      );
-      
-      return {
-        value: result.value,
-        proof: result.proof,
-        blockNumber: result.blockNumber
-      };
+      const result = await this.oracleAggregator.getVerifiableRandom(params);
+
+      return result;
     } catch (error) {
       console.error('Failed to get verifiable random:', error);
       throw error;
@@ -737,18 +709,9 @@ export class OracleService {
     }
     
     try {
-      const result = await this.oracleAggregator.getConsensus(
-        query,
-        options.minResponses,
-        options.timeout
-      );
-      
-      return {
-        value: result.value,
-        confidence: result.confidence,
-        responses: result.responses,
-        method: result.method || 'weighted_average'
-      };
+      const result = await this.oracleAggregator.getConsensus(query, options);
+
+      return result;
     } catch (error) {
       console.error('Failed to get consensus:', error);
       throw error;
@@ -760,19 +723,26 @@ export class OracleService {
    * @param dispute Dispute details
    * @returns Dispute result
    */
-  async submitDispute(dispute: OracleDispute): Promise<DisputeResult> {
+  async submitDispute(dispute: any): Promise<DisputeResult> {
     if (!this.oracleAggregator) {
       throw new Error('Oracle aggregator not initialized');
     }
-    
+
     try {
-      const result = await this.oracleAggregator.submitDispute(dispute);
-      
-      return {
-        disputeId: result.disputeId,
-        status: result.status,
-        resolutionTime: result.estimatedResolutionTime
+      // Convert dispute format
+      const formattedDispute = {
+        queryId: dispute.oracleId || 'query-123',
+        reason: dispute.evidence || 'Dispute reason',
+        evidence: {
+          expectedValue: dispute.disputedValue,
+          reportedValue: dispute.disputedValue,
+          sources: [dispute.submitter]
+        }
       };
+
+      const result = await this.oracleAggregator.submitDispute(formattedDispute);
+
+      return result;
     } catch (error) {
       console.error('Failed to submit dispute:', error);
       throw error;
@@ -790,11 +760,12 @@ export class OracleService {
     }
     
     try {
-      return await this.oracleAggregator.verifyOracleSignature(
-        data.value,
-        data.signature,
-        data.oracleId
-      );
+      return await this.oracleAggregator.verifyOracleSignature({
+        value: data.value,
+        timestamp: data.timestamp,
+        oracleAddress: data.oracleId,
+        signature: data.signature
+      });
     } catch (error) {
       console.error('Failed to verify oracle signature:', error);
       return false;
@@ -819,27 +790,9 @@ export class OracleService {
     }
     
     try {
-      const result: Record<string, CrossChainPriceData> = {};
-      
-      // Get prices for each chain in parallel
-      const promises = params.chains.map(async (chain) => {
-        const data = await this.oracleAggregator!.getCrossChainPrice(
-          params.asset,
-          chain
-        );
-        return { chain, data };
-      });
-      
-      const results = await Promise.all(promises);
-      
-      for (const { chain, data } of results) {
-        result[chain] = {
-          price: data.price,
-          liquidity: data.liquidity || 0,
-          volume24h: data.volume24h || 0
-        };
-      }
-      
+      // Get cross-chain prices
+      const result = await this.oracleAggregator.getCrossChainPrice(params);
+
       return result;
     } catch (error) {
       console.error('Failed to get cross-chain prices:', error);
@@ -865,16 +818,25 @@ export class OracleService {
     }
     
     try {
-      const result = await this.oracleAggregator.validateCrossChainState(
-        params.type,
-        params.address,
-        params.chains
-      );
-      
+      const result = await this.oracleAggregator.validateCrossChainState(params);
+
+      // Convert states to expected format
+      const states: Record<string, CrossChainState> = {};
+      for (const [chain, state] of Object.entries(result.states)) {
+        if (params.type === 'balance' && typeof state === 'number') {
+          states[chain] = {
+            balance: state,
+            nonce: 0
+          };
+        } else {
+          states[chain] = state as CrossChainState;
+        }
+      }
+
       return {
         isConsistent: result.isConsistent,
-        states: result.states,
-        discrepancies: result.discrepancies || []
+        states,
+        discrepancies: result.discrepancies?.map(d => ({ type: d }))
       };
     } catch (error) {
       console.error('Failed to validate cross-chain state:', error);

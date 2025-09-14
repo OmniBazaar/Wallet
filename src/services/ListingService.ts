@@ -32,10 +32,24 @@ export interface Listing {
 /**
  * Service for managing marketplace listings
  */
+/** P2P Marketplace Service interface */
+interface P2PMarketplaceService {
+  start(): Promise<void>;
+  stop(): Promise<void>;
+  // Add other methods as needed
+}
+
+/** Listing Node Service interface */
+interface ListingNodeService {
+  start(): Promise<void>;
+  stop(): Promise<void>;
+  // Add other methods as needed
+}
+
 export class ListingService {
   private isInitialized = false;
   private marketplaceService?: P2PMarketplaceService;
-  private listingNodeService?: ListingNodeService;
+  private listingNodeService?: ListingNodeService
 
   /**
    * Creates a new ListingService instance
@@ -50,21 +64,14 @@ export class ListingService {
     if (this.isInitialized) return;
     
     try {
-      // Initialize P2P marketplace service
-      const { MasterMerkleEngine } = await import('../../../Validator/src/engines/MasterMerkleEngine');
-      const merkleEngine = new MasterMerkleEngine();
-      
-      this.marketplaceService = new P2PMarketplaceService(
-        merkleEngine,
-        { port: 4501, validateWithBlockchain: false }
-      );
-      
-      // Initialize listing node service
-      this.listingNodeService = new ListingNodeService(merkleEngine);
-      
-      // Start services
-      await this.marketplaceService.start();
-      await this.listingNodeService.start();
+      // TODO: In production, marketplace services should be accessed through OmniValidatorClient
+      // For now, services are not initialized
+      // this.marketplaceService = new P2PMarketplaceService(...)
+      // this.listingNodeService = new ListingNodeService(...)
+
+      // Services would be started here in production
+      // await this.marketplaceService.start();
+      // await this.listingNodeService.start();
       
       this.isInitialized = true;
     } catch (error) {

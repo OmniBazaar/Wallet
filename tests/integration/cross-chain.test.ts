@@ -242,13 +242,48 @@ describe('Cross-Chain Integration', () => {
   describe('Chain Switching', () => {
     it('should switch between EVM chains seamlessly', async () => {
       const evmChains = ['ethereum', 'polygon', 'arbitrum', 'optimism', 'base'];
-      
+
       for (const chain of evmChains) {
         await providerManager.switchEVMNetwork(chain);
         expect(providerManager.getActiveNetwork()).toBe(chain);
-        
+
         const details = await providerManager.getCurrentNetworkDetails();
-        expect(details.name.toLowerCase()).toContain(chain);
+
+        // Network names might not always contain the chain key exactly
+        // Check that we got valid network details
+        expect(details.name).toBeTruthy();
+        expect(details.chainId).toBeGreaterThan(0);
+        expect(details.nativeCurrency).toBeDefined();
+        expect(details.nativeCurrency.symbol).toBeTruthy();
+
+        // For specific chains, verify the expected values
+        switch (chain) {
+          case 'ethereum':
+            expect(details.name).toBe('Ethereum Mainnet');
+            expect(details.chainId).toBe(1);
+            expect(details.nativeCurrency.symbol).toBe('ETH');
+            break;
+          case 'polygon':
+            expect(details.name).toBe('Polygon');
+            expect(details.chainId).toBe(137);
+            expect(details.nativeCurrency.symbol).toBe('MATIC');
+            break;
+          case 'arbitrum':
+            expect(details.name).toBe('Arbitrum One');
+            expect(details.chainId).toBe(42161);
+            expect(details.nativeCurrency.symbol).toBe('ETH');
+            break;
+          case 'optimism':
+            expect(details.name).toBe('Optimism');
+            expect(details.chainId).toBe(10);
+            expect(details.nativeCurrency.symbol).toBe('ETH');
+            break;
+          case 'base':
+            expect(details.name).toBe('Base');
+            expect(details.chainId).toBe(8453);
+            expect(details.nativeCurrency.symbol).toBe('ETH');
+            break;
+        }
       }
     });
 

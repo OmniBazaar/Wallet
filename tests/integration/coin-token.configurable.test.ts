@@ -1,12 +1,8 @@
 /**
- * Coin/Token Integration Tests
+ * Coin/Token Integration Tests - Configurable Version
+ * 
  * Tests wallet integration with various cryptocurrencies and tokens
- * 
- * CONFIGURABLE TEST - Quick Usage:
- * - Mock mode (default): npm test -- coin-token.test.ts
- * - Real endpoints: USE_REAL_ENDPOINTS=true npm test -- coin-token.test.ts
- * 
- * See tests/CONFIGURABLE_TESTS_README.md for full documentation
+ * Works with both mock and real endpoints based on environment
  */
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach, jest } from '@jest/globals';
@@ -14,7 +10,6 @@ import { WalletService } from '../../src/services/WalletService';
 import { TokenService } from '../../src/services/TokenService';
 import { XOMService } from '../../src/services/XOMService';
 import { BridgeService } from '../../src/services/BridgeService';
-import { mockWallet, MOCK_TOKENS, createMockProvider } from '../setup';
 import { ethers } from 'ethers';
 import { testEnv } from '../config/test-environment';
 import { TestProviderFactory, resetAllMocks } from '../mocks/provider-factory';
@@ -74,7 +69,7 @@ describe('Coin/Token Integration (Configurable)', () => {
       };
     }
   });
-
+  
   afterAll(async () => {
     await walletService.cleanup();
     await tokenService.cleanup();
@@ -84,7 +79,7 @@ describe('Coin/Token Integration (Configurable)', () => {
       jest.restoreAllMocks();
     }
   });
-
+  
   beforeEach(async () => {
     await tokenService.clearCache();
     resetAllMocks();
@@ -94,7 +89,7 @@ describe('Coin/Token Integration (Configurable)', () => {
       provider.setMockBalance(testAccounts.user1.address, ethers.parseEther('100'));
     }
   });
-
+  
   describe('XOM (OmniCoin) Integration', () => {
     beforeEach(() => {
       if (!testEnv.isUsingRealEndpoints()) {
@@ -141,7 +136,7 @@ describe('Coin/Token Integration (Configurable)', () => {
         expect(balance.formatted).toBe('100.0');
       }
     }, testEnv.getTestTimeout());
-
+    
     it('should send XOM tokens', async () => {
       const amount = ethers.parseEther('10');
       const result = await xomService.send(testAccounts.user2.address, amount);
@@ -155,7 +150,7 @@ describe('Coin/Token Integration (Configurable)', () => {
         expect(result.value).toBe(amount);
       }
     }, testEnv.getTestTimeout());
-
+    
     it('should stake XOM tokens', async () => {
       const stakeAmount = ethers.parseEther('50');
       const result = await xomService.stake(stakeAmount, testAccounts.validator.address);
@@ -165,7 +160,7 @@ describe('Coin/Token Integration (Configurable)', () => {
       expect(result.amount).toBe(stakeAmount);
       expect(result.validator).toBe(testAccounts.validator.address);
     }, testEnv.getTestTimeout());
-
+    
     it('should unstake XOM tokens', async () => {
       const unstakeAmount = ethers.parseEther('25');
       const result = await xomService.unstake(unstakeAmount, testAccounts.validator.address);
@@ -259,7 +254,7 @@ describe('Coin/Token Integration (Configurable)', () => {
       }
     });
   });
-
+  
   describe('Native Currency Operations', () => {
     beforeEach(() => {
       if (!testEnv.isUsingRealEndpoints()) {

@@ -195,18 +195,18 @@ export class LiveOmniCoinProvider {
    * @param networkName - The network name to switch to
    * @returns Promise that resolves when network is switched
    */
-  switchNetwork(networkName: keyof typeof OMNICOIN_NETWORKS): void {
+  async switchNetwork(networkName: keyof typeof OMNICOIN_NETWORKS): Promise<void> {
     const network = OMNICOIN_NETWORKS[networkName];
     if (network === undefined) {
       throw new Error(`Unknown OmniCoin network: ${networkName}`);
     }
-    
+
     this.network = network;
     this.provider = new ethers.JsonRpcProvider(network.rpcUrl, {
       chainId: network.chainId,
       name: network.name
     });
-    
+
     // Reset signer and reinitialize validator client
     this.signer = null;
     void this.initializeValidatorClient();

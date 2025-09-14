@@ -665,8 +665,9 @@ export class WalletDatabase {
       return new Promise<WalletAccountData | null>((resolve, reject) => {
         const request = store.get(address);
         request.onsuccess = () => {
-          const result = request.result as WalletAccountData | null;
-          resolve(result);
+          const result = request.result as WalletAccountData | undefined;
+          // Return null instead of undefined when wallet not found
+          resolve(result || null);
         };
         request.onerror = () => reject(request.error);
       });

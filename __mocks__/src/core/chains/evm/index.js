@@ -2,7 +2,7 @@
  * Mock for Multi-Chain EVM Provider
  */
 
-const { createMockProvider } = require('../../setup');
+const { createMockProvider } = require('../../../../../tests/setup');
 
 class MultiChainEVMProvider {
   constructor(network) {

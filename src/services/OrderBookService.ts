@@ -304,7 +304,7 @@ export class OrderBookService {
       // MEV protection is now handled by the validator
       // Submit order through validator client
       const tokenPair = `${params.tokenIn}/${params.tokenOut}`;
-      const orderId = await this.validatorDEXService.placeOrder({
+      const orderResult = await this.validatorDEXService.placeOrder({
         type: params.side === OrderSide.BUY ? 'BUY' : 'SELL',
         tokenPair: tokenPair,
         price: params.price.toString(),
@@ -312,6 +312,7 @@ export class OrderBookService {
         maker: userAddress
       });
 
+      const orderId = orderResult.orderId;
       if (orderId) {
         // Create order object
         const order: Order = {
@@ -527,19 +528,48 @@ export class OrderBookService {
       const orderBookData = await this.validatorDEXService.getOrderBook(pair, levels);
 
       // Convert to our format
-      const bids: DepthLevel[] = orderBookData.bids.map(bid => ({
-        price: Number(bid.price),
-        amount: BigInt(bid.amount),
-        orderCount: 1, // Validator doesn't provide this
-        cumulative: BigInt(0) // Will calculate below
-      }));
+      // Handle decimal amounts by converting to smallest units
+      const bids: DepthLevel[] = orderBookData.bids.map(bid => {
+        // Convert string amount to BigInt, handling decimals
+        const amountParts = bid.amount.split('.');
+        const wholeAmount = BigInt(amountParts[0] || '0');
+        const decimalPart = amountParts[1] || '';
+        // Convert to smallest unit (assume 18 decimals)
+        const decimals = 18;
+        const factor = BigInt(10) ** BigInt(decimals);
+        const decimalAmount = decimalPart.length > 0
+          ? BigInt(decimalPart.padEnd(decimals, '0').slice(0, decimals))
+          : BigInt(0);
+        const totalAmount = wholeAmount * factor + decimalAmount;
 
-      const asks: DepthLevel[] = orderBookData.asks.map(ask => ({
-        price: Number(ask.price),
-        amount: BigInt(ask.amount),
-        orderCount: 1, // Validator doesn't provide this
-        cumulative: BigInt(0) // Will calculate below
-      }));
+        return {
+          price: Number(bid.price),
+          amount: totalAmount,
+          orderCount: bid.orderCount ?? 1,
+          cumulative: BigInt(0) // Will calculate below
+        };
+      });
+
+      const asks: DepthLevel[] = orderBookData.asks.map(ask => {
+        // Convert string amount to BigInt, handling decimals
+        const amountParts = ask.amount.split('.');
+        const wholeAmount = BigInt(amountParts[0] || '0');
+        const decimalPart = amountParts[1] || '';
+        // Convert to smallest unit (assume 18 decimals)
+        const decimals = 18;
+        const factor = BigInt(10) ** BigInt(decimals);
+        const decimalAmount = decimalPart.length > 0
+          ? BigInt(decimalPart.padEnd(decimals, '0').slice(0, decimals))
+          : BigInt(0);
+        const totalAmount = wholeAmount * factor + decimalAmount;
+
+        return {
+          price: Number(ask.price),
+          amount: totalAmount,
+          orderCount: ask.orderCount ?? 1,
+          cumulative: BigInt(0) // Will calculate below
+        };
+      });
 
       // Calculate cumulative amounts
       let bidCumulative = BigInt(0);

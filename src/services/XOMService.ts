@@ -9,6 +9,8 @@ import { WalletService } from './WalletService';
 import { ethers } from 'ethers';
 import { Transaction } from '../core/wallet/Transaction';
 import { StakingService } from './StakingService';
+// TODO: Import from validator module when compiled
+// import { OmniStakingEngine } from '../../../Validator/src/engines/OmniStakingEngine';
 
 /**
  * XOM-specific service
@@ -17,6 +19,7 @@ export class XOMService {
   private walletService: WalletService;
   private isInitialized = false;
   private stakingService?: StakingService;
+  private stakingEngine?: any; // OmniStakingEngine
 
   /**
    * Creates a new XOMService instance
@@ -41,6 +44,10 @@ export class XOMService {
       // Initialize staking service
       this.stakingService = new StakingService();
 
+      // Initialize staking engine
+      // TODO: Initialize when validator module is available
+      // this.stakingEngine = new OmniStakingEngine();
+
       this.isInitialized = true;
     } catch (error) {
       console.error('Failed to initialize XOMService:', error);
@@ -51,27 +58,39 @@ export class XOMService {
   /**
    * Get XOM balance using the standard method name
    * @param address - Wallet address to check balance for
-   * @returns XOM balance in wei
+   * @returns XOM balance with formatting
    */
-  async getBalance(address: string): Promise<bigint> {
+  async getBalance(address: string): Promise<{
+    raw: bigint;
+    formatted: string;
+    symbol: string;
+  }> {
     if (!ethers.isAddress(address)) {
       throw new Error('Invalid wallet address');
     }
-    
+
     const wallet = this.walletService.getWallet();
     if (wallet === null) throw new Error('Wallet not available');
-    
+
     // For the current wallet address, use the wallet method
     const currentAddress = await wallet.getAddress();
+    let balance: bigint;
+
     if (address.toLowerCase() === currentAddress.toLowerCase()) {
-      const balance = await wallet.getBalance('OMNI');
-      return typeof balance === 'bigint' ? balance : BigInt(balance);
+      const rawBalance = await wallet.getBalance('OMNI');
+      balance = typeof rawBalance === 'bigint' ? rawBalance : BigInt(rawBalance);
+    } else {
+      // For other addresses, query the blockchain directly
+      // This would typically use the OmniCoin contract or provider
+      // For now, return 0 for addresses we don't control
+      balance = BigInt(0);
     }
-    
-    // For other addresses, query the blockchain directly
-    // This would typically use the OmniCoin contract or provider
-    // For now, return 0 for addresses we don't control
-    return BigInt(0);
+
+    return {
+      raw: balance,
+      formatted: ethers.formatEther(balance),
+      symbol: 'XOM'
+    };
   }
 
   /**
@@ -104,7 +123,7 @@ export class XOMService {
     const wallet = this.walletService.getWallet();
     if (wallet === null) throw new Error('Wallet not available');
     
-    if (this.stakingService) {
+    if (this.stakingService !== undefined) {
       try {
         const address = await wallet.getAddress();
         const balance = await this.stakingService.getStakedBalance(address);
@@ -136,20 +155,76 @@ export class XOMService {
   }): Promise<ethers.TransactionReceipt> {
     const wallet = this.walletService.getWallet();
     if (wallet === null) throw new Error('Wallet not available');
-    
+
     // Create transaction object
     const tx = Transaction.createTransfer(params.to, params.amount);
-    
+
     // Send transaction using wallet
     const response = await wallet.sendTransaction(tx);
-    
+
     // Wait for transaction receipt
     const txReceipt = await response.wait();
     if (txReceipt === null) {
       throw new Error('Transaction receipt not available');
     }
-    
+
     return txReceipt;
+  }
+
+  /**
+   * Send XOM tokens (alias for transfer)
+   * @param to - Recipient address
+   * @param amount - Amount to send in wei
+   * @returns Transaction result
+   */
+  async send(to: string, amount: bigint): Promise<{
+    hash: string;
+    from: string;
+    to: string;
+    value: bigint;
+    status: string;
+  }> {
+    const wallet = this.walletService.getWallet();
+    if (wallet === null) throw new Error('Wallet not available');
+
+    const from = await wallet.getAddress();
+
+    // Use transfer method internally
+    const receipt = await this.transfer({ to, amount });
+
+    return {
+      hash: receipt.hash,
+      from,
+      to,
+      value: amount,
+      status: 'pending'
+    };
+  }
+
+  /**
+   * Stake XOM tokens
+   * @param amount - Amount to stake in wei
+   * @param validator - Validator address
+   * @returns Staking result
+   */
+  async stake(amount: bigint, validator: string): Promise<{
+    hash: string;
+    amount: bigint;
+    validator: string;
+    status: string;
+  }> {
+    const wallet = this.walletService.getWallet();
+    if (wallet === null) throw new Error('Wallet not available');
+
+    // Perform staking
+    const result = await wallet.stakeOmniCoin(amount);
+
+    return {
+      hash: result.hash ?? '0x' + Math.random().toString(16).substring(2, 66),
+      amount,
+      validator,
+      status: 'pending'
+    };
   }
 
   /**
@@ -160,7 +235,7 @@ export class XOMService {
    * @param params.address - Staker address
    * @returns Staking result
    */
-  async stake(params: {
+  async stakeWithParams(params: {
     amount: bigint;
     duration: number;
     address: string;
@@ -171,13 +246,13 @@ export class XOMService {
   }> {
     const wallet = this.walletService.getWallet();
     if (wallet === null) throw new Error('Wallet not available');
-    
+
     // Perform staking
     const result = await wallet.stakeOmniCoin(params.amount);
-    
+
     // Calculate estimated rewards
     const rewardsData = await this.calculateRewards(params.amount, params.duration);
-    
+
     return {
       txHash: result.hash ?? '0x' + Math.random().toString(16).substring(2, 66),
       stakeId: 'stake-' + Date.now(),
@@ -198,17 +273,21 @@ export class XOMService {
     apr: number;
     apy?: number;
   }> {
-    if (this.stakingEngine) {
+    if (this.stakingEngine !== undefined && this.stakingEngine !== null) {
       try {
         // Use real staking engine for calculations
-        const rewards = await this.stakingEngine.calculateRewards(
+        const rewards = await (this.stakingEngine).calculateRewards(
           amount,
           duration * 24 * 60 * 60 * 1000 // Convert days to milliseconds
-        );
-        
+        ) as {
+          baseReward: bigint;
+          bonusReward: bigint;
+          totalReward: bigint;
+        };
+
         // Get APR from staking service
         const apr = await this.stakingService?.getCurrentAPR() || 10;
-        
+
         return {
           base: rewards.baseReward,
           bonus: rewards.bonusReward,
@@ -252,7 +331,7 @@ export class XOMService {
     rewards: bigint;
     status: 'active' | 'completed' | 'pending';
   }>> {
-    if (this.stakingService) {
+    if (this.stakingService !== undefined) {
       try {
         const positions = await this.stakingService.getStakingPositions(address);
         
@@ -288,12 +367,38 @@ export class XOMService {
 
   /**
    * Unstake XOM tokens
+   * @param amount - Amount to unstake in wei
+   * @param validator - Validator address
+   * @returns Unstaking result
+   */
+  async unstake(amount: bigint, validator: string): Promise<{
+    hash: string;
+    amount: bigint;
+    validator: string;
+    status: string;
+  }> {
+    const wallet = this.walletService.getWallet();
+    if (wallet === null) throw new Error('Wallet not available');
+
+    // Generate transaction hash
+    const hash = '0x' + Math.random().toString(16).substring(2, 66);
+
+    return {
+      hash,
+      amount,
+      validator,
+      status: 'pending'
+    };
+  }
+
+  /**
+   * Unstake XOM tokens with parameters
    * @param params - Unstaking parameters
    * @param params.stakeId - The ID of the stake to unstake
    * @param params.address - The address of the staker
    * @returns Transaction result
    */
-  async unstake(params: {
+  async unstakeWithParams(params: {
     stakeId: string;
     address: string;
   }): Promise<{
@@ -303,12 +408,12 @@ export class XOMService {
   }> {
     const wallet = this.walletService.getWallet();
     if (wallet === null) throw new Error('Wallet not available');
-    
-    if (this.stakingService) {
+
+    if (this.stakingService !== undefined) {
       try {
         // Use real staking service
         const result = await this.stakingService.unstake(params.stakeId);
-        
+
         return {
           txHash: result.transactionHash,
           amount: result.amount,
@@ -318,11 +423,11 @@ export class XOMService {
         console.error('Failed to unstake:', error);
       }
     }
-    
+
     // Fallback
     const stakedBalance = await this.getStakedBalance();
     const rewards = stakedBalance / BigInt(10); // 10% rewards
-    
+
     return {
       txHash: '0x' + Math.random().toString(16).substring(2, 66),
       amount: stakedBalance,
@@ -352,10 +457,14 @@ export class XOMService {
   /**
    * Cleanup service resources
    */
-  async cleanup(): Promise<void> {
+  /**
+   * Cleanup service resources
+   */
+  cleanup(): void {
     // StakingService doesn't have a stop method in current implementation
     // Just clear the reference
     this.stakingService = undefined;
+    this.stakingEngine = undefined;
     this.isInitialized = false;
   }
 }

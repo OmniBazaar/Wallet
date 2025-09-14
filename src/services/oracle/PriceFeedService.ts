@@ -3,14 +3,9 @@
  * Provides aggregated price data from multiple oracle sources with caching
  */
 
-// Use mock in test environment to avoid circular dependencies
-const PriceOracleService = process.env.NODE_ENV === 'test'
-  ? class MockPriceOracleService {}
-  : require('../../../../Validator/src/services/PriceOracleService').PriceOracleService;
-
-const OracleAggregator = process.env.NODE_ENV === 'test'
-  ? class MockOracleAggregator {}
-  : require('../../../../Validator/src/services/dex/oracles/OracleAggregator').OracleAggregator;
+// Import from Validator module
+const PriceOracleService = require('../../../../Validator/src/services/PriceOracleService').PriceOracleService;
+const OracleAggregator = require('../../../../Validator/src/services/dex/oracles/OracleAggregator').OracleAggregator;
 
 /**
  * Price data structure

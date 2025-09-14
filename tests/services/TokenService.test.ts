@@ -69,7 +69,11 @@ describe('TokenService', () => {
     // Create mock provider
     mockProvider = {
       getSigner: jest.fn().mockResolvedValue(mockSigner),
-      getNetwork: jest.fn().mockResolvedValue({ chainId: 1n, name: 'ethereum' })
+      getNetwork: jest.fn().mockResolvedValue({ chainId: 1n, name: 'ethereum' }),
+      getProvider: jest.fn().mockReturnValue({
+        // Return a minimal provider object that works with ethers Contract
+        getNetwork: jest.fn().mockResolvedValue({ chainId: 1n, name: 'ethereum' })
+      })
     };
 
     // Create mock wallet
@@ -85,7 +89,7 @@ describe('TokenService', () => {
     (mockWalletService.getWallet as jest.Mock).mockReturnValue(mockWallet);
 
     // Setup provider manager
-    (providerManager.getActiveProvider as jest.Mock).mockResolvedValue(mockProvider);
+    (providerManager.getActiveProvider as jest.Mock).mockReturnValue(mockProvider);
 
     // Setup price feed service
     (priceFeedService.getPrice as jest.Mock).mockResolvedValue({ priceUSD: 1.0 });
@@ -428,10 +432,10 @@ describe('TokenService', () => {
       expect(balances.length).toBeGreaterThan(0);
       
       // Clear cache should not throw
-      await expect(tokenService.clearCache()).resolves.not.toThrow();
-      
+      expect(() => tokenService.clearCache()).not.toThrow();
+
       // Cache should be empty after clear
-      const allBalances = await tokenService.getAllTokenBalances();
+      const allBalances = tokenService.getAllTokenBalances();
       expect(allBalances).toEqual([]);
     });
   });

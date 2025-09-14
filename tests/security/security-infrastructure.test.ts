@@ -17,6 +17,9 @@ import { BIP39Keyring } from '../../src/core/keyring/BIP39Keyring';
 import { KeyringService } from '../../src/core/keyring/KeyringService';
 import { SecureIndexedDB } from '../../src/core/storage/SecureIndexedDB';
 import { ethers } from 'ethers';
+
+// Use actual bip39 module for security tests - unmock it
+jest.unmock('bip39');
 import * as bip39 from 'bip39';
 
 describe('Security Infrastructure Tests', () => {
@@ -164,8 +167,8 @@ describe('Security Infrastructure Tests', () => {
       await keyring.lock();
 
       // Attempting to get accounts while locked should fail
-      await expect(keyring.getAccounts('ethereum')).rejects.toThrow();
-      
+      expect(() => keyring.getAccounts('ethereum')).toThrow('Keyring is locked');
+
       // Should require unlock
       await keyring.unlock(testPassword);
       const accounts = await keyring.getAccounts('ethereum');
@@ -600,11 +603,11 @@ describe('Security Infrastructure Tests', () => {
       await keyring.lock();
 
       // Private key should no longer be accessible
-      await expect(keyring.getAccounts('ethereum')).rejects.toThrow();
-      
+      expect(() => keyring.getAccounts('ethereum')).toThrow('Keyring is locked');
+
       // Original reference should be cleared/overwritten
       expect(typeof privateKey).toBe('string'); // Still exists in our variable
-      
+
       // But keyring internal state should be cleared
       const internalState = (keyring as any)._accounts;
       expect(internalState).toBeFalsy();

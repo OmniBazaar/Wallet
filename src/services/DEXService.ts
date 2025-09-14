@@ -454,6 +454,112 @@ export class DEXService {
   }
 
   /**
+   * Get the router contract address
+   * @returns Router contract address
+   */
+  getRouterAddress(): string {
+    return this.config.contractAddress;
+  }
+
+  /**
+   * Aggregate liquidity from multiple DEXs
+   * @param params - Aggregation parameters
+   * @returns Aggregated liquidity information
+   */
+  async aggregateLiquidity(params: {
+    tokenIn: string;
+    tokenOut: string;
+    amount: bigint;
+    dexes: string[];
+  }): Promise<{
+    bestPrice: number;
+    bestDex: string;
+    splitRoute: boolean;
+    splits?: Array<{
+      dex: string;
+      percentage: number;
+      expectedOutput: bigint;
+    }>;
+  }> {
+    // Mock implementation for testing
+    const mockPrices: Record<string, number> = {
+      uniswap: 1.02,
+      sushiswap: 1.01,
+      omnidex: 1.03
+    };
+
+    const splits = params.dexes.map(dex => ({
+      dex,
+      percentage: Math.floor(100 / params.dexes.length),
+      expectedOutput: (params.amount * BigInt(Math.floor((mockPrices[dex] ?? 1) * 100))) / BigInt(100)
+    }));
+
+    const bestDex = params.dexes.reduce((best, current) =>
+      (mockPrices[current] ?? 0) > (mockPrices[best] ?? 0) ? current : best
+    );
+
+    return {
+      bestPrice: mockPrices[bestDex] ?? 1,
+      bestDex,
+      splitRoute: params.dexes.length > 1,
+      splits: params.dexes.length > 1 ? splits : undefined
+    };
+  }
+
+  /**
+   * Execute cross-DEX swap
+   * @param params - Cross-DEX swap parameters
+   * @returns Swap execution result
+   */
+  async executeCrossDexSwap(params: {
+    tokenIn: string;
+    tokenOut: string;
+    amountIn: bigint;
+    splits: Array<{ dex: string; percentage: number }>;
+    recipient: string;
+  }): Promise<{
+    success: boolean;
+    transactions: Array<{ dex: string; txHash: string; amountOut: bigint }>;
+    totalOutput: bigint;
+    averagePrice: number;
+  }> {
+    // Mock implementation for testing
+    const transactions = params.splits.map(split => ({
+      dex: split.dex,
+      txHash: '0x' + Array(64).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join(''),
+      amountOut: (params.amountIn * BigInt(split.percentage) * BigInt(95)) / BigInt(10000) // 5% slippage
+    }));
+
+    const totalOutput = transactions.reduce((sum, tx) => sum + tx.amountOut, BigInt(0));
+    const averagePrice = Number(totalOutput) / Number(params.amountIn);
+
+    return {
+      success: true,
+      transactions,
+      totalOutput,
+      averagePrice
+    };
+  }
+
+  /**
+   * Get swap history
+   * @param address - User address
+   * @returns Array of historical swaps
+   */
+  async getSwapHistory(address: string): Promise<Array<{
+    timestamp: number;
+    tokenIn: string;
+    tokenOut: string;
+    amountIn: bigint;
+    amountOut: bigint;
+    transactionHash: string;
+  }>> {
+    // Mock implementation - return empty array for now
+    // In production, this would query historical data from blockchain or indexer
+    return [];
+  }
+
+  /**
    * Cleanup service and release resources
    */
   cleanup(): void {

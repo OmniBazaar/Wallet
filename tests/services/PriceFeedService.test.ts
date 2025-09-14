@@ -6,29 +6,44 @@
 import { PriceFeedService } from '../../src/services/oracle/PriceFeedService';
 
 // Mock the Validator modules
+const mockPriceOracleService = {
+  initialize: jest.fn().mockResolvedValue(undefined),
+  getPrice: jest.fn().mockResolvedValue(2000)
+};
+
+const mockOracleAggregator = {
+  initialize: jest.fn().mockResolvedValue(undefined),
+  getPrice: jest.fn().mockImplementation((symbol: string) => Promise.resolve({
+    price: symbol === 'USDC' ? 1 : 2000.50,
+    change24h: 5.2,
+    timestamp: Date.now(),
+    sources: ['chainlink', 'uniswap'],
+    confidence: 0.98
+  })),
+  getAggregatedPrice: jest.fn().mockResolvedValue({
+    price: 2000.50,
+    change24h: 5.2,
+    timestamp: Date.now(),
+    sources: ['chainlink', 'uniswap'],
+    confidence: 0.98
+  }),
+  getHistoricalPrices: jest.fn().mockResolvedValue([
+    { timestamp: Date.now() - 3600000, price: 1950, volume: 1000000 },
+    { timestamp: Date.now(), price: 2000, volume: 1200000 }
+  ]),
+  getPoolLiquidity: jest.fn().mockResolvedValue({ liquidityUSD: 5000000 })
+};
+
 jest.mock('../../../Validator/src/services/PriceOracleService', () => ({
-  PriceOracleService: jest.fn().mockImplementation(() => ({
-    init: jest.fn().mockResolvedValue(undefined),
-    getTokenPrice: jest.fn().mockResolvedValue(2000)
-  }))
+  PriceOracleService: jest.fn(() => mockPriceOracleService)
 }));
 
 jest.mock('../../../Validator/src/services/dex/oracles/OracleAggregator', () => ({
-  OracleAggregator: jest.fn().mockImplementation(() => ({
-    init: jest.fn().mockResolvedValue(undefined),
-    getAggregatedPrice: jest.fn().mockResolvedValue({
-      price: 2000.50,
-      change24h: 5.2,
-      timestamp: Date.now(),
-      sources: ['chainlink', 'uniswap'],
-      confidence: 0.98
-    }),
-    getHistoricalPrices: jest.fn().mockResolvedValue([
-      { timestamp: Date.now() - 3600000, price: 1950, volume: 1000000 },
-      { timestamp: Date.now(), price: 2000, volume: 1200000 }
-    ]),
-    getPoolLiquidity: jest.fn().mockResolvedValue({ liquidityUSD: 5000000 })
-  }))
+  OracleAggregator: jest.fn(() => mockOracleAggregator)
+}));
+
+jest.mock('../../../Validator/src/engines/MasterMerkleEngine', () => ({
+  MasterMerkleEngine: jest.fn(() => ({}))
 }));
 
 describe('PriceFeedService', () => {
@@ -36,6 +51,13 @@ describe('PriceFeedService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    // Reset the mock implementations
+    mockPriceOracleService.initialize.mockClear();
+    mockPriceOracleService.getPrice.mockClear();
+    mockOracleAggregator.initialize.mockClear();
+    mockOracleAggregator.getPrice.mockClear();
+    mockOracleAggregator.getHistoricalPrices.mockClear();
+
     priceFeedService = new PriceFeedService();
   });
 
@@ -265,10 +287,10 @@ describe('PriceFeedService', () => {
   describe('error handling', () => {
     it('should handle initialization failure gracefully', async () => {
       // Mock init failure
-      const mockPriceOracle = require('../../../Validator/src/services/PriceOracleService');
-      mockPriceOracle.PriceOracleService.mockImplementationOnce(() => ({
-        init: jest.fn().mockRejectedValue(new Error('Init failed'))
-      }));
+      const { PriceOracleService } = require('../../../Validator/src/services/PriceOracleService');
+      PriceOracleService.mockImplementationOnce(() => {
+        throw new Error('Init failed');
+      });
 
       const service = new PriceFeedService();
       await expect(service.init()).rejects.toThrow('Failed to initialize price feed service');

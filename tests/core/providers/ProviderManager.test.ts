@@ -58,9 +58,7 @@ jest.mock('../../../src/core/chains/solana/live-provider', () => ({
 jest.mock('../../../src/core/chains/bitcoin/live-provider', () => ({
   LiveBitcoinProvider: jest.fn().mockImplementation(() => ({
     getFormattedBalance: jest.fn().mockResolvedValue('0.001 BTC'),
-    sendBitcoin: jest.fn().mockImplementation(() => {
-      throw new Error('Bitcoin transactions not implemented');
-    })
+    sendBitcoin: jest.fn().mockResolvedValue('mockBitcoinTxId')
   }))
 }));
 
@@ -365,12 +363,17 @@ describe('ProviderManager', () => {
       expect(gasPrice).toBe('30000000000'); // 30 gwei
     });
 
-    it('should throw error for unsupported chain transaction', async () => {
+    it('should handle Bitcoin transactions', async () => {
       await providerManager.setActiveChain('bitcoin');
-      
-      await expect(
-        providerManager.sendTransaction(TEST_ADDRESSES.bitcoin, '0.1')
-      ).rejects.toThrow('not implemented');
+
+      // Bitcoin transactions should now work through ProviderManager
+      const txResult = await providerManager.sendTransaction(
+        TEST_ADDRESSES.bitcoin,
+        '0.001' // 0.001 BTC
+      );
+
+      expect(txResult).toBeTruthy();
+      expect(txResult).toBe('mockBitcoinTxId');
     });
   });
 
@@ -462,8 +465,8 @@ describe('ProviderManager', () => {
       const evmChains = [
         'ethereum', 'polygon', 'arbitrum', 'optimism', 'base',
         'bsc', 'avalanche', 'fantom', 'celo', 'moonbeam',
-        'aurora', 'cronos', 'gnosis', 'klaytn', 'metis',
-        'moonriver', 'boba', 'harmony', 'heco', 'okex'
+        'aurora', 'cronos', 'gnosis', 'harmony', 'metis',
+        'zkSync', 'linea', 'scroll', 'worldchain'
       ];
       
       evmChains.forEach(chain => {

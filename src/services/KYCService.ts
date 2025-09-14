@@ -350,7 +350,7 @@ export class KYCService {
   private async startTier1Verification(
     address: string,
     userData?: { email?: string; phone?: string }
-  ): Promise<{ success: boolean; error?: string }> {
+  ): Promise<{ success: boolean; verificationUrl?: string; error?: string }> {
     const email = userData?.email;
     const phone = userData?.phone;
     
@@ -378,8 +378,11 @@ export class KYCService {
         error: 'Failed to send verification codes'
       };
     }
-    
-    return { success: true };
+
+    return {
+      success: true,
+      verificationUrl: `${this.config.validatorEndpoint}/verify/tier1/confirm?address=${address}`
+    };
   }
   
   /**
