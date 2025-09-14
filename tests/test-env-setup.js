@@ -6,9 +6,31 @@
  */
 
 // Crypto polyfills for Node.js environment
-if (typeof globalThis.crypto === 'undefined') {
-  const { webcrypto } = require('crypto');
+const { webcrypto } = require('crypto');
+
+// Check current environment
+console.log('Test environment:', typeof window !== 'undefined' ? 'jsdom' : 'node');
+
+// For jsdom environment, we need to set crypto differently
+if (typeof window !== 'undefined') {
+  // In jsdom, set on window and global
+  Object.defineProperty(window, 'crypto', {
+    value: webcrypto,
+    configurable: true,
+    enumerable: true,
+    writable: true
+  });
+  global.crypto = webcrypto;
+} else {
+  // In pure Node environment
   globalThis.crypto = webcrypto;
+}
+
+// Verify crypto.subtle is available
+if (!global.crypto?.subtle) {
+  console.error('WARNING: crypto.subtle is not available in test environment');
+  console.log('global.crypto:', typeof global.crypto);
+  console.log('global.crypto.subtle:', typeof global.crypto?.subtle);
 }
 
 // TextEncoder/TextDecoder polyfills
@@ -86,6 +108,11 @@ const monitorPerformance = () => {
 
 // Monitor performance every 5 seconds during tests
 const performanceMonitor = setInterval(monitorPerformance, 5000);
+
+// Ensure the interval doesn't keep the process alive
+if (performanceMonitor.unref) {
+  performanceMonitor.unref();
+}
 
 // Clean up on exit
 process.on('exit', () => {

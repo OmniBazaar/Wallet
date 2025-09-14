@@ -369,67 +369,8 @@ global.indexedDB = {
   })
 } as any;
 
-// Mock crypto API for encryption tests with proper WebCrypto implementations
-if (typeof global.crypto === 'undefined') {
-  global.crypto = {
-    getRandomValues: (arr: any) => {
-      // Use Node.js crypto for better randomness in tests
-      const randomBytes = crypto.randomBytes(arr.length);
-      for (let i = 0; i < arr.length; i++) {
-        arr[i] = randomBytes[i];
-      }
-      return arr;
-    },
-    subtle: {
-      importKey: jest.fn().mockImplementation(async (format, keyData, algorithm, extractable, keyUsages) => {
-        // Return a mock CryptoKey that passes basic validation
-        return {
-          algorithm: algorithm,
-          extractable: extractable,
-          type: 'secret',
-          usages: keyUsages
-        };
-      }),
-      deriveKey: jest.fn().mockImplementation(async (algorithm, baseKey, derivedKeyAlgorithm, extractable, keyUsages) => {
-        // Return a mock derived key
-        return {
-          algorithm: derivedKeyAlgorithm,
-          extractable: extractable,
-          type: 'secret',
-          usages: keyUsages
-        };
-      }),
-      deriveBits: jest.fn().mockImplementation(async () => {
-        return crypto.randomBytes(32).buffer;
-      }),
-      encrypt: jest.fn().mockImplementation(async (algorithm, key, data) => {
-        // Mock encryption - return the data with some modification to simulate encryption
-        const mockEncrypted = Buffer.concat([
-          Buffer.from(data),
-          crypto.randomBytes(16) // Mock authentication tag
-        ]);
-        return mockEncrypted.buffer;
-      }),
-      decrypt: jest.fn().mockImplementation(async (algorithm, key, data) => {
-        // Mock decryption - return data minus the last 16 bytes (mock auth tag)
-        const dataBuffer = Buffer.from(data);
-        const decrypted = dataBuffer.slice(0, -16);
-        return decrypted.buffer;
-      }),
-      digest: jest.fn().mockImplementation(async (algorithm, data) => {
-        const hash = crypto.createHash('sha256');
-        hash.update(Buffer.from(data));
-        return hash.digest().buffer;
-      }),
-      sign: jest.fn().mockImplementation(async () => {
-        return crypto.randomBytes(64).buffer;
-      }),
-      verify: jest.fn().mockImplementation(async () => {
-        return true;
-      })
-    }
-  } as any;
-}
+// Don't mock crypto API - we use real webcrypto from test-env-setup.js
+// The webcrypto polyfill is already set up in test-env-setup.js which runs before this file
 
 // Mock blockchain modules that have ES module issues
 jest.mock('@solana/web3.js', () => ({

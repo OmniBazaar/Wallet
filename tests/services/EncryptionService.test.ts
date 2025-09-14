@@ -8,7 +8,7 @@ import { ethers } from 'ethers';
 
 describe('EncryptionService', () => {
   let service: EncryptionService;
-  
+
   beforeEach(async () => {
     service = new EncryptionService();
     await service.init();

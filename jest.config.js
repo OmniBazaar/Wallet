@@ -1,7 +1,7 @@
 export default {
   preset: 'ts-jest/presets/default-esm',
   extensionsToTreatAsEsm: ['.ts', '.tsx'],
-  testEnvironment: 'jsdom',
+  testEnvironment: 'node',
   testEnvironmentOptions: {
     customExportConditions: ['node', 'node-addons'],
   },
@@ -68,6 +68,7 @@ export default {
     '^uint8array-tools$': '<rootDir>/__mocks__/uint8array-tools.js',
     '^libp2p$': '<rootDir>/__mocks__/libp2p.js'
   },
+  setupFiles: ['<rootDir>/tests/test-env-setup.js'],
   setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],
   testPathIgnorePatterns: [
     '/node_modules/',

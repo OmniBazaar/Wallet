@@ -6,6 +6,8 @@
  */
 
 import * as ethers from 'ethers';
+// Dynamic import for Node.js crypto to avoid bundling issues
+let nodeCrypto: typeof import('crypto') | undefined;
 
 /** Encryption algorithm types */
 export type EncryptionAlgorithm = 'AES-256-GCM' | 'ChaCha20-Poly1305' | 'AES-256-CBC';
@@ -76,15 +78,25 @@ export class EncryptionService {
    * Initialize the encryption service
    * @returns Promise that resolves when initialized
    */
-  init(): Promise<void> {
+  async init(): Promise<void> {
     try {
       if (this.isInitialized) {
         return Promise.resolve();
       }
 
+      // Try to load Node.js crypto module
+      try {
+        const cryptoModule = await import('crypto');
+        // Handle both ES modules and CommonJS
+        nodeCrypto = cryptoModule.default || cryptoModule;
+      } catch {
+        // Not in Node.js environment
+        nodeCrypto = undefined;
+      }
+
       // Test that crypto APIs are available
-      if (typeof crypto === 'undefined' && typeof window?.crypto === 'undefined') {
-        throw new Error('Crypto API not available');
+      if (typeof crypto === 'undefined' && typeof window?.crypto === 'undefined' && !nodeCrypto) {
+        throw new Error('No crypto API available');
       }
 
       this.isInitialized = true;
@@ -110,7 +122,7 @@ export class EncryptionService {
   ): Promise<EncryptedData> {
     try {
       if (!this.isInitialized) {
-        await this.init();
+        throw new Error('Encryption service not initialized');
       }
 
       const opts = { ...this.defaultOptions, ...options };
@@ -163,7 +175,7 @@ export class EncryptionService {
   async decrypt(encryptedData: EncryptedData, password: string): Promise<Uint8Array> {
     try {
       if (!this.isInitialized) {
-        await this.init();
+        throw new Error('Encryption service not initialized');
       }
 
       // Parse encrypted data
@@ -176,8 +188,8 @@ export class EncryptionService {
 
       // Derive key from password
       const derivedKey = await this.deriveKey(
-        password, 
-        salt, 
+        password,
+        salt,
         encryptedData.keyDerivation.iterations
       );
 
@@ -195,6 +207,10 @@ export class EncryptionService {
 
       return decryptedBytes;
     } catch (error) {
+      // If error already says "Decryption failed", don't wrap it again
+      if (error instanceof Error && error.message === 'Decryption failed') {
+        throw error;
+      }
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       throw new Error(`Decryption failed: ${errorMessage}`);
     }
@@ -251,34 +267,47 @@ export class EncryptionService {
   private async deriveKey(password: string, salt: Uint8Array, iterations: number): Promise<DerivedKey> {
     try {
       // Use browser's crypto API if available
-      if (typeof crypto !== 'undefined' && crypto.subtle !== undefined) {
-        const passwordBuffer = new TextEncoder().encode(password);
-        const importedKey = await crypto.subtle.importKey(
-          'raw',
-          passwordBuffer as BufferSource,
-          { name: 'PBKDF2' },
-          false,
-          ['deriveBits']
-        );
+      // Check globalThis.crypto to avoid scoping issues
+      const cryptoApi = typeof globalThis !== 'undefined' && globalThis.crypto
+        ? globalThis.crypto
+        : (typeof crypto !== 'undefined' ? crypto : undefined);
 
-        const derivedBits = await crypto.subtle.deriveBits(
-          {
-            name: 'PBKDF2',
-            salt: salt as BufferSource,
-            iterations,
-            hash: 'SHA-256'
-          },
-          importedKey,
-          256
-        );
+      // Try to use Web Crypto API if available
+      if (cryptoApi && cryptoApi.subtle) {
+        try {
+          const passwordBuffer = new TextEncoder().encode(password);
+          const importedKey = await cryptoApi.subtle.importKey(
+            'raw',
+            passwordBuffer as BufferSource,
+            { name: 'PBKDF2' },
+            false,
+            ['deriveBits']
+          );
 
-        return {
-          key: new Uint8Array(derivedBits),
-          salt,
-          iterations
-        };
-      } else {
-        // Fallback implementation using ethers
+          const derivedBits = await cryptoApi.subtle.deriveBits(
+            {
+              name: 'PBKDF2',
+              salt: salt as BufferSource,
+              iterations,
+              hash: 'SHA-256'
+            },
+            importedKey,
+            256
+          );
+
+          const keyArray = new Uint8Array(derivedBits);
+          return {
+            key: keyArray,
+            salt,
+            iterations
+          };
+        } catch (webCryptoError) {
+          // Fall through to ethers implementation if Web Crypto fails
+        }
+      }
+
+      // Fallback implementation using ethers
+      {
         const key = ethers.pbkdf2(
           new TextEncoder().encode(password),
           salt,
@@ -286,8 +315,19 @@ export class EncryptionService {
           32,
           'sha256'
         );
+
+        // Handle both hex string and Buffer returns
+        let keyBytes: Uint8Array;
+        if (typeof key === 'string') {
+          keyBytes = ethers.getBytes(key);
+        } else if (key instanceof Uint8Array || Buffer.isBuffer(key)) {
+          keyBytes = new Uint8Array(key);
+        } else {
+          throw new Error(`Unexpected pbkdf2 result type: ${typeof key}`);
+        }
+
         return {
-          key: ethers.getBytes(key),
+          key: keyBytes,
           salt,
           iterations
         };
@@ -311,7 +351,19 @@ export class EncryptionService {
     key: Uint8Array,
     iv: Uint8Array
   ): Promise<{ ciphertext: Uint8Array; tag: Uint8Array }> {
-    if (typeof crypto !== 'undefined' && crypto.subtle !== undefined) {
+    // Prefer Node.js crypto in test environment for consistency
+    if (nodeCrypto) {
+      const cipher = nodeCrypto.createCipheriv('aes-256-gcm', key, iv);
+      const encrypted = Buffer.concat([cipher.update(data), cipher.final()]);
+      const tag = cipher.getAuthTag();
+
+      return {
+        ciphertext: new Uint8Array(encrypted),
+        tag: new Uint8Array(tag)
+      };
+    }
+    // Try Web Crypto API for browser environment
+    else if (typeof window !== 'undefined' && typeof crypto !== 'undefined' && crypto.subtle !== undefined) {
       const importedKey = await crypto.subtle.importKey(
         'raw',
         key as BufferSource,
@@ -336,8 +388,9 @@ export class EncryptionService {
       const tag = encryptedArray.slice(-16);
 
       return { ciphertext, tag };
-    } else {
-      throw new Error('Web Crypto API not available for AES-GCM encryption');
+    }
+    else {
+      throw new Error('No crypto API available for AES-GCM encryption');
     }
   }
 
@@ -356,7 +409,26 @@ export class EncryptionService {
     iv: Uint8Array,
     tag: Uint8Array
   ): Promise<Uint8Array> {
-    if (typeof crypto !== 'undefined' && crypto.subtle !== undefined) {
+    // Prefer Node.js crypto in test environment for consistency
+    if (nodeCrypto && typeof nodeCrypto.createDecipheriv === 'function') {
+      const decipher = nodeCrypto.createDecipheriv('aes-256-gcm', key, iv);
+      decipher.setAuthTag(tag);
+
+      try {
+        const decrypted = Buffer.concat([
+          decipher.update(ciphertext),
+          decipher.final()
+        ]);
+
+        return new Uint8Array(decrypted);
+      } catch (error) {
+        // Node.js crypto throws when auth tag verification fails
+        // The error message is usually "Unsupported state or unable to authenticate data"
+        throw new Error('Decryption failed');
+      }
+    }
+    // Try Web Crypto API for browser environment
+    else if (typeof window !== 'undefined' && typeof crypto !== 'undefined' && crypto.subtle !== undefined) {
       const importedKey = await crypto.subtle.importKey(
         'raw',
         key as BufferSource,
@@ -381,8 +453,9 @@ export class EncryptionService {
       );
 
       return new Uint8Array(decrypted);
-    } else {
-      throw new Error('Web Crypto API not available for AES-GCM decryption');
+    }
+    else {
+      throw new Error('No crypto API available for AES-GCM decryption');
     }
   }
 
@@ -392,15 +465,20 @@ export class EncryptionService {
    * @returns Hash as hex string
    */
   async hash(data: string | Uint8Array): Promise<string> {
-    const dataBytes = typeof data === 'string' 
+    const dataBytes = typeof data === 'string'
       ? new TextEncoder().encode(data)
       : data;
 
     if (typeof crypto !== 'undefined' && crypto.subtle !== undefined) {
       const hashBuffer = await crypto.subtle.digest('SHA-256', dataBytes as BufferSource);
       return ethers.hexlify(new Uint8Array(hashBuffer));
+    } else if (nodeCrypto) {
+      // Use Node.js crypto for SHA-256
+      const hash = nodeCrypto.createHash('sha256');
+      hash.update(dataBytes);
+      return '0x' + hash.digest('hex');
     } else {
-      // Fallback using ethers
+      // Fallback using ethers (keccak256)
       return ethers.keccak256(dataBytes);
     }
   }
@@ -475,18 +553,75 @@ export class EncryptionService {
   }
 
   /**
+   * Check password strength
+   * @param password - Password to check
+   * @returns Strength score from 0-100
+   */
+  checkPasswordStrength(password: string): number {
+    let score = 0;
+
+    // Base score from length
+    score += Math.min(password.length * 4, 40); // Max 40 points for length
+
+    // Character diversity checks - count types present
+    let typesPresent = 0;
+    if (/[a-z]/.test(password)) {
+      score += 10; // lowercase
+      typesPresent++;
+    }
+    if (/[A-Z]/.test(password)) {
+      score += 10; // uppercase
+      typesPresent++;
+    }
+    if (/[0-9]/.test(password)) {
+      score += 10; // numbers
+      typesPresent++;
+    }
+    if (/[^A-Za-z0-9]/.test(password)) {
+      score += 15; // special chars
+      typesPresent++;
+    }
+
+    // Bonus for using multiple character types
+    if (typesPresent >= 3) score += 5;
+    if (typesPresent === 4) score += 5;
+
+    // Penalty for patterns (reduces score)
+    const hasRepeating = /(.)\1{2,}/.test(password); // 3+ repeating chars
+    const sequentialPattern = /(012|123|234|345|456|567|678|789|890|abc|bcd|cde|def|efg|fgh|ghi|hij|ijk|jkl|klm|lmn|mno|nop|opq|pqr|qrs|rst|stu|tuv|uvw|vwx|wxy|xyz)/gi;
+    const sequentialMatches = password.toLowerCase().match(sequentialPattern) || [];
+    const hasCommon = /(password|123456|qwerty|admin|letmein|welcome|monkey|dragon)/i.test(password);
+
+    // Count repeating character groups
+    const repeatingGroups = (password.match(/(.)\1{2,}/g) || []).length;
+
+    if (hasRepeating) score -= 15 * repeatingGroups; // Higher penalty for repeating
+    if (sequentialMatches.length > 0) {
+      score -= 10 * sequentialMatches.length; // Penalty per sequential pattern
+    }
+    if (hasCommon) score -= 25; // Penalty for common passwords
+
+    // Additional penalty for very short passwords
+    if (password.length < 6) score = Math.min(score, 20);
+
+    return Math.max(0, Math.min(score, 100));
+  }
+
+  /**
    * Clear cached data
    */
-  clearCache(): void {
+  async clearCache(): Promise<void> {
     // Clear any sensitive data from memory
     // In a production implementation, this would overwrite memory
+    return Promise.resolve();
   }
 
   /**
    * Cleanup service and release resources
    */
-  cleanup(): void {
-    this.clearCache();
+  async cleanup(): Promise<void> {
+    await this.clearCache();
     this.isInitialized = false;
+    return Promise.resolve();
   }
 }
