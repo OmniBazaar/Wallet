@@ -3,7 +3,7 @@ import type { TransactionRequest } from 'ethers';
 import * as ethers from 'ethers';
 import { Transaction } from './Transaction';
 // import { SupportedAssets } from './assets'; // TODO: implement asset support
-import { getOmniCoinBalance, OmniCoinMetadata } from '../blockchain/OmniCoin';
+import { getOmniCoinBalance, getContractAddress } from '../blockchain/OmniCoin';
 
 /**
  * Configuration parameters for wallet network setup
@@ -279,7 +279,7 @@ export class WalletImpl implements Wallet {
    */
   async disconnect(): Promise<void> {
     this.state = null;
-    this.provider.removeAllListeners();
+    void this.provider.removeAllListeners();
     await Promise.resolve();
   }
 
@@ -385,7 +385,8 @@ export class WalletImpl implements Wallet {
   async getTokenBalance(tokenAddress: string): Promise<bigint> {
     if (this.state == null) throw new WalletError('Wallet not connected', 'NOT_CONNECTED');
 
-    if (tokenAddress.toLowerCase() === OmniCoinMetadata.contractAddress.toLowerCase()) {
+    const omniCoinAddress = getContractAddress(this.provider);
+    if (tokenAddress.toLowerCase() === omniCoinAddress.toLowerCase()) {
       return this.getBalance('OMNI') as Promise<bigint>;
     }
 
@@ -646,7 +647,7 @@ export class WalletImpl implements Wallet {
     // Decode the result
     const decoded = ethers.AbiCoder.defaultAbiCoder().decode(['uint256'], result);
     // Safe access with type checking
-    const decodedValue = decoded[0];
+    const decodedValue = decoded[0] as unknown;
     // Handle different return types from AbiCoder
     if (typeof decodedValue === 'bigint') {
       return decodedValue;
@@ -804,7 +805,7 @@ export class WalletImpl implements Wallet {
 
     // In real implementation, would decrypt using MPC/garbled circuits
     // Safe access with type checking
-    const decodedValue = decoded[0];
+    const decodedValue = decoded[0] as unknown;
     // Handle different return types from AbiCoder
     if (typeof decodedValue === 'bigint') {
       return decodedValue;
@@ -838,7 +839,7 @@ export class WalletImpl implements Wallet {
     const values = actions.map(a => a.value ?? BigInt(0));
     const calldatas = actions.map(a => a.data ?? '0x');
     // Note: descriptionHash would be used in a more complete implementation
-    const descriptionBytes = ethers.toUtf8Bytes(description);
+    const _descriptionBytes = ethers.toUtf8Bytes(description);
     // const descriptionHash = ethers.keccak256(descriptionBytes);
 
     // Encode propose function call
@@ -931,8 +932,11 @@ export class WalletImpl implements Wallet {
  * @returns Promise resolving to transaction response
  */
 export async function sendOmniCoin(wallet: Wallet, to: string, amount: string): Promise<TransactionResponse> {
+  const provider = wallet.getProvider();
+  const contractAddress = getContractAddress(provider);
+
   const transaction = new Transaction({
-    to: OmniCoinMetadata.contractAddress,
+    to: contractAddress,
     value: BigInt(0),
     data: `0x${Buffer.from(amount).toString('hex')}`
   });

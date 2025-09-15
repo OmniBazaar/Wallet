@@ -69,7 +69,7 @@ export class UnifiedBackupService {
       const transactions = await this.transactionDB.getAllTransactions();
 
       // Get all NFTs
-      const nfts = await this.nftDB.getAllNFTs();
+      const nfts = await this.nftDB.getNFTs();
 
       // Create unified backup
       const backup: UnifiedBackupData = {
@@ -180,11 +180,17 @@ export class UnifiedBackupService {
    * @returns Whether backup is valid
    */
   static verifyBackup(backup: UnifiedBackupData): boolean {
-    return !!(
-      backup &&
-      backup.timestamp &&
-      backup.version &&
-      backup.data &&
+    return (
+      backup !== null &&
+      backup !== undefined &&
+      typeof backup === 'object' &&
+      typeof backup.timestamp === 'number' &&
+      backup.timestamp > 0 &&
+      typeof backup.version === 'number' &&
+      backup.version > 0 &&
+      backup.data !== null &&
+      backup.data !== undefined &&
+      typeof backup.data === 'object' &&
       Array.isArray(backup.data.wallets) &&
       Array.isArray(backup.data.transactions) &&
       Array.isArray(backup.data.nfts)

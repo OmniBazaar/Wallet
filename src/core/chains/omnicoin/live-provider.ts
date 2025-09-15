@@ -193,9 +193,8 @@ export class LiveOmniCoinProvider {
   /**
    * Switch to a different network
    * @param networkName - The network name to switch to
-   * @returns Promise that resolves when network is switched
    */
-  async switchNetwork(networkName: keyof typeof OMNICOIN_NETWORKS): Promise<void> {
+  switchNetwork(networkName: keyof typeof OMNICOIN_NETWORKS): void {
     const network = OMNICOIN_NETWORKS[networkName];
     if (network === undefined) {
       throw new Error(`Unknown OmniCoin network: ${networkName}`);

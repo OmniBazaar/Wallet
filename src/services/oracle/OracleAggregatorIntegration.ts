@@ -7,9 +7,6 @@
 
 import { OracleAggregator } from '../../../../Validator/dist/services/dex/oracles/OracleAggregator';
 import type {
-  OraclePrice,
-  AggregatedPrice,
-  PriceSource,
   OracleConfig,
   OracleProvider
 } from '../../../../Validator/dist/services/dex/oracles/OracleAggregator';
@@ -18,9 +15,13 @@ import type {
  * Oracle query for consensus
  */
 export interface OracleQuery {
+  /** Query type (e.g., 'price', 'weather', 'sports', 'random') */
   type: string;
+  /** Asset symbol for price queries */
   asset?: string;
+  /** Quote currency for price queries */
   quote?: string;
+  /** Additional query parameters */
   [key: string]: unknown;
 }
 
@@ -28,9 +29,13 @@ export interface OracleQuery {
  * Consensus result from multiple oracles
  */
 export interface ConsensusResult {
+  /** Consensus value from oracles */
   value: unknown;
+  /** Confidence level (0-1) */
   confidence: number;
+  /** Number of oracle responses */
   responses: number;
+  /** Consensus method used */
   method: string;
 }
 
@@ -38,11 +43,17 @@ export interface ConsensusResult {
  * Dispute submission parameters
  */
 export interface DisputeSubmission {
+  /** Query ID being disputed */
   queryId: string;
+  /** Reason for dispute */
   reason: string;
+  /** Evidence supporting the dispute */
   evidence: {
+    /** Expected value */
     expectedValue: unknown;
+    /** Reported value */
     reportedValue: unknown;
+    /** Data sources */
     sources: string[];
   };
 }
@@ -51,8 +62,11 @@ export interface DisputeSubmission {
  * Dispute result
  */
 export interface DisputeResult {
+  /** Unique dispute identifier */
   disputeId: string;
+  /** Dispute status */
   status: string;
+  /** Expected resolution timestamp */
   resolutionTime: number;
 }
 
@@ -74,7 +88,7 @@ export class OracleAggregatorIntegration {
         name: 'internal-api',
         priority: 1,
         type: 'api',
-        endpoint: process.env.TEST_VALIDATOR_ENDPOINT ? `${process.env.TEST_VALIDATOR_ENDPOINT}/api/prices` : 'http://localhost:4000/api/prices',
+        endpoint: process.env.TEST_VALIDATOR_ENDPOINT !== undefined && process.env.TEST_VALIDATOR_ENDPOINT !== '' ? `${process.env.TEST_VALIDATOR_ENDPOINT}/api/prices` : 'http://localhost:4000/api/prices',
         decimals: 18,
         heartbeat: 300 // 5 minutes
       },
@@ -105,10 +119,10 @@ export class OracleAggregatorIntegration {
    * @returns OracleAggregatorIntegration instance
    */
   static getInstance(): OracleAggregatorIntegration {
-    if (!this.instance) {
-      this.instance = new OracleAggregatorIntegration();
+    if (OracleAggregatorIntegration.instance === undefined) {
+      OracleAggregatorIntegration.instance = new OracleAggregatorIntegration();
     }
-    return this.instance;
+    return OracleAggregatorIntegration.instance;
   }
 
   /**
@@ -122,6 +136,8 @@ export class OracleAggregatorIntegration {
    * Get consensus from multiple oracles
    * @param query Oracle query
    * @param options Consensus options
+   * @param options.minResponses Minimum number of responses required
+   * @param options.timeout Query timeout in milliseconds
    * @returns Consensus result
    */
   async getConsensus(
@@ -129,14 +145,13 @@ export class OracleAggregatorIntegration {
     options: { minResponses: number; timeout: number }
   ): Promise<ConsensusResult> {
     // For price queries, use the aggregator
-    if (query.type === 'price' && query.asset && query.quote) {
-      const pair = `${query.asset}/${query.quote}`;
-      const aggregated = await this.aggregator.getAggregatedPrice(pair);
+    if (query.type === 'price' && query.asset !== undefined && query.asset !== '' && query.quote !== undefined && query.quote !== '') {
+      const aggregated = await this.aggregator.getPrice(query.asset, query.quote);
 
       return {
-        value: aggregated.price,
-        confidence: aggregated.confidence,
-        responses: aggregated.sourceCount,
+        value: aggregated.price.toString(),
+        confidence: aggregated.confidence / 100, // Convert from 0-100 to 0-1
+        responses: aggregated.sources,
         method: 'median'
       };
     }
@@ -155,8 +170,8 @@ export class OracleAggregatorIntegration {
    * @param dispute Dispute details
    * @returns Dispute result
    */
-  async submitDispute(dispute: DisputeSubmission): Promise<DisputeResult> {
-    const disputeId = `dispute_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  submitDispute(dispute: DisputeSubmission): DisputeResult {
+    const disputeId = `dispute_${dispute.queryId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
     const result: DisputeResult = {
       disputeId,
@@ -169,7 +184,7 @@ export class OracleAggregatorIntegration {
     // Simulate dispute resolution after 5 seconds
     setTimeout(() => {
       const storedDispute = this.disputes.get(disputeId);
-      if (storedDispute) {
+      if (storedDispute !== undefined) {
         storedDispute.status = 'resolved';
         this.disputes.set(disputeId, storedDispute);
       }
@@ -181,17 +196,21 @@ export class OracleAggregatorIntegration {
   /**
    * Verify oracle signature
    * @param data Oracle data with signature
+   * @param data.value Oracle data value
+   * @param data.timestamp Data timestamp
+   * @param data.oracleAddress Oracle address
+   * @param data.signature Oracle signature
    * @returns Whether signature is valid
    */
-  async verifyOracleSignature(data: {
+  verifyOracleSignature(data: {
     value: unknown;
     timestamp: number;
     oracleAddress: string;
     signature: string;
-  }): Promise<boolean> {
+  }): boolean {
     // In a real implementation, this would verify the signature
     // For now, do basic validation
-    if (!data.signature || !data.oracleAddress) {
+    if (data.signature === '' || data.oracleAddress === '') {
       return false;
     }
 
@@ -212,6 +231,8 @@ export class OracleAggregatorIntegration {
   /**
    * Get cross-chain price data
    * @param params Query parameters
+   * @param params.asset Asset symbol
+   * @param params.chains List of chain names
    * @returns Cross-chain prices
    */
   async getCrossChainPrice(params: {
@@ -229,13 +250,16 @@ export class OracleAggregatorIntegration {
     }> = {};
 
     // Get base price from aggregator
-    const basePrice = await this.aggregator.getAggregatedPrice(`${params.asset}/USD`);
+    const basePrice = await this.aggregator.getPrice(params.asset, 'USD');
+
+    // Convert bigint to number for calculations
+    const basePriceNumber = Number(basePrice.price) / 1e18;
 
     // Simulate different prices/liquidity per chain
     for (const chain of params.chains) {
       const variation = 0.98 + Math.random() * 0.04; // ±2% variation
       result[chain] = {
-        price: basePrice.price * variation,
+        price: basePriceNumber * variation,
         liquidity: 1000000 * Math.random() * 10, // $1M - $10M
         volume24h: 100000 * Math.random() * 10  // $100k - $1M
       };
@@ -247,17 +271,20 @@ export class OracleAggregatorIntegration {
   /**
    * Validate cross-chain state
    * @param params Validation parameters
+   * @param params.type Type of validation (e.g., 'balance')
+   * @param params.address Address to validate
+   * @param params.chains Chains to validate across
    * @returns Validation result
    */
-  async validateCrossChainState(params: {
+  validateCrossChainState(params: {
     type: string;
     address: string;
     chains: string[];
-  }): Promise<{
+  }): {
     isConsistent: boolean;
     states: Record<string, unknown>;
     discrepancies?: string[];
-  }> {
+  } {
     const states: Record<string, unknown> = {};
     const discrepancies: string[] = [];
 
@@ -294,12 +321,16 @@ export class OracleAggregatorIntegration {
   /**
    * Get weather data for insurance oracles
    * @param params Weather query parameters
+   * @param params.location Location coordinates
+   * @param params.location.lat Latitude
+   * @param params.location.lon Longitude
+   * @param params.parameters Weather parameters to fetch
    * @returns Weather data
    */
-  async getWeatherData(params: {
+  getWeatherData(params: {
     location: { lat: number; lon: number };
     parameters: string[];
-  }): Promise<Record<string, number> & { timestamp: number }> {
+  }): Record<string, number> & { timestamp: number } {
     const result: Record<string, number> & { timestamp: number } = {
       timestamp: Date.now()
     };
@@ -326,20 +357,23 @@ export class OracleAggregatorIntegration {
 
   /**
    * Get sports results for prediction markets
-   * @param params Sports query parameters
+   * @param _params Sports query parameters
+   * @param _params.sport Sport type
+   * @param _params.league League name
+   * @param _params.date Date of matches
    * @returns Sports results
    */
-  async getSportsResults(params: {
+  getSportsResults(_params: {
     sport: string;
     league: string;
     date: string;
-  }): Promise<Array<{
+  }): Array<{
     homeTeam: string;
     awayTeam: string;
     homeScore: number;
     awayScore: number;
     status: string;
-  }>> {
+  }> {
     // Generate mock sports results
     const teams = ['Team A', 'Team B', 'Team C', 'Team D', 'Team E', 'Team F'];
     const results = [];
@@ -360,17 +394,20 @@ export class OracleAggregatorIntegration {
   /**
    * Get verifiable random number
    * @param params Random number parameters
+   * @param params.min Minimum value
+   * @param params.max Maximum value
+   * @param params.seed Random seed
    * @returns Random number with proof
    */
-  async getVerifiableRandom(params: {
+  getVerifiableRandom(params: {
     min: number;
     max: number;
     seed: string;
-  }): Promise<{
+  }): {
     value: number;
     proof: string;
     blockNumber: number;
-  }> {
+  } {
     // Generate deterministic "random" based on seed
     let hash = 0;
     for (let i = 0; i < params.seed.length; i++) {
@@ -409,8 +446,11 @@ export class OracleAggregatorIntegration {
 
   /**
    * Shutdown the service
+   * @returns Promise that resolves when shutdown is complete
    */
   async shutdown(): Promise<void> {
-    await this.aggregator.shutdown();
+    // OracleAggregator doesn't have a shutdown method, so nothing to do
+    // This method is kept for interface compatibility
+    return Promise.resolve();
   }
 }

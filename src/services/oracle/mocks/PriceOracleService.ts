@@ -88,6 +88,10 @@ export class PriceOracleService {
   /**
    * Get historical prices for a pair
    * @param options - Historical price query options
+   * @param options.pair - Trading pair (e.g., 'ETH/USD')
+   * @param options.from - Start timestamp
+   * @param options.to - End timestamp
+   * @param options.interval - Time interval
    * @returns Promise resolving to historical price points
    */
   async getHistoricalPrices(options: {
@@ -132,9 +136,12 @@ export class PriceOracleService {
   /**
    * Get random number
    * @param params - Random number parameters
+   * @param params.min - Minimum value
+   * @param params.max - Maximum value
+   * @param params.seed - Random seed
    * @returns Promise resolving to verifiable random result
    */
-  async getRandomNumber(params?: {
+  getRandomNumber(params?: {
     min?: number;
     max?: number;
     seed?: string;
@@ -147,10 +154,10 @@ export class PriceOracleService {
     const max = params?.max ?? 100;
     const value = Math.floor(Math.random() * (max - min + 1)) + min;
 
-    return {
+    return Promise.resolve({
       value,
       proof: '0x' + Math.random().toString(16).substring(2),
       blockNumber: Math.floor(Date.now() / 1000)
-    };
+    });
   }
 }

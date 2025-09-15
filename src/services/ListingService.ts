@@ -5,7 +5,7 @@
  * managing, and searching marketplace listings.
  */
 
-import { OmniValidatorClient, createOmniValidatorClient } from '../../../Validator/dist/client/index';
+import { MarketplaceListing } from '../core/chains/omnicoin/provider';
 
 /** Listing data structure */
 export interface Listing {
@@ -36,6 +36,8 @@ export interface Listing {
 interface P2PMarketplaceService {
   start(): Promise<void>;
   stop(): Promise<void>;
+  createListing(listing: MarketplaceListing): Promise<MarketplaceListing>;
+  searchListings(query: { status?: string; category?: string; seller?: string }): Promise<MarketplaceListing[]>;
   // Add other methods as needed
 }
 
@@ -46,6 +48,9 @@ interface ListingNodeService {
   // Add other methods as needed
 }
 
+/**
+ * Service for managing marketplace listings
+ */
 export class ListingService {
   private isInitialized = false;
   private marketplaceService?: P2PMarketplaceService;
@@ -60,8 +65,8 @@ export class ListingService {
    * Initialize the listing service
    * @returns Promise that resolves when initialization is complete
    */
-  async init(): Promise<void> {
-    if (this.isInitialized) return;
+  init(): Promise<void> {
+    if (this.isInitialized) return Promise.resolve();
     
     try {
       // TODO: In production, marketplace services should be accessed through OmniValidatorClient
@@ -74,6 +79,7 @@ export class ListingService {
       // await this.listingNodeService.start();
       
       this.isInitialized = true;
+      return Promise.resolve();
     } catch (error) {
       console.error('Failed to initialize ListingService:', error);
       throw error;
@@ -86,7 +92,7 @@ export class ListingService {
    * @returns Created listing with generated ID
    */
   async createListing(listing: Listing): Promise<Listing> {
-    if (!this.marketplaceService) {
+    if (this.marketplaceService === undefined) {
       throw new Error('ListingService not initialized');
     }
     
@@ -95,34 +101,13 @@ export class ListingService {
       id: '', // Will be generated
       title: listing.title,
       description: listing.description,
-      price: listing.price,
-      currency: 'XOM',
+      price: BigInt(listing.price),
       seller: listing.seller,
-      buyer: '',
       category: listing.category,
-      subcategory: '',
-      tags: [],
       images: listing.images,
-      condition: 'new',
-      location: {
-        country: '',
-        city: '',
-        postalCode: ''
-      },
-      shipping: {
-        domestic: true,
-        international: false,
-        price: '0',
-        estimatedDays: 7
-      },
-      status: 'active',
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-      expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000, // 30 days
-      views: 0,
-      likes: 0,
-      isNFT: false,
-      metadata: {}
+      metadata: '', // IPFS hash will be generated
+      isActive: true,
+      createdAt: Date.now()
     };
     
     // Create listing through P2P marketplace
@@ -138,7 +123,7 @@ export class ListingService {
       category: result.category,
       images: result.images,
       createdAt: result.createdAt,
-      status: result.status as 'active' | 'sold' | 'cancelled'
+      status: result.isActive ? 'active' : 'inactive' as 'active' | 'sold' | 'cancelled'
     };
   }
 
@@ -147,7 +132,7 @@ export class ListingService {
    * @returns Array of listings
    */
   async getListings(): Promise<Listing[]> {
-    if (!this.marketplaceService) {
+    if (this.marketplaceService === undefined) {
       throw new Error('ListingService not initialized');
     }
     
@@ -157,16 +142,16 @@ export class ListingService {
     });
     
     // Convert to wallet format
-    return results.map(listing => ({
+    return results.map((listing: MarketplaceListing) => ({
       id: listing.id,
       title: listing.title,
       description: listing.description,
-      price: listing.price,
+      price: listing.price.toString(),
       seller: listing.seller,
       category: listing.category,
       images: listing.images,
       createdAt: listing.createdAt,
-      status: listing.status as 'active' | 'sold' | 'cancelled'
+      status: listing.isActive ? 'active' : 'inactive' as 'active' | 'sold' | 'cancelled'
     }));
   }
 
@@ -183,10 +168,10 @@ export class ListingService {
    * @returns Promise that resolves when cleanup is complete
    */
   async cleanup(): Promise<void> {
-    if (this.marketplaceService) {
+    if (this.marketplaceService !== undefined) {
       await this.marketplaceService.stop();
     }
-    if (this.listingNodeService) {
+    if (this.listingNodeService !== undefined) {
       await this.listingNodeService.stop();
     }
     this.isInitialized = false;

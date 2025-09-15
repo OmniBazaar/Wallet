@@ -15,9 +15,17 @@ export interface AssetMetadata {
 }
 
 /**
+ * Extended OmniCoin metadata with dynamic contract address
+ */
+export const OmniCoinAsset: AssetMetadata = {
+  ...OmniCoinMetadata,
+  contractAddress: '', // Contract address is determined dynamically based on network
+};
+
+/**
  * Array of supported cryptocurrency assets in the OmniBazaar wallet
  * Contains metadata for all tokens and coins that can be managed
  */
 export const SupportedAssets: Readonly<AssetMetadata[]> = [
-  OmniCoinMetadata,
+  OmniCoinAsset,
 ];

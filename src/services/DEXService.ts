@@ -464,9 +464,13 @@ export class DEXService {
   /**
    * Aggregate liquidity from multiple DEXs
    * @param params - Aggregation parameters
+   * @param params.tokenIn - Input token address
+   * @param params.tokenOut - Output token address
+   * @param params.amount - Amount to aggregate
+   * @param params.dexes - List of DEX names
    * @returns Aggregated liquidity information
    */
-  async aggregateLiquidity(params: {
+  aggregateLiquidity(params: {
     tokenIn: string;
     tokenOut: string;
     amount: bigint;
@@ -498,20 +502,26 @@ export class DEXService {
       (mockPrices[current] ?? 0) > (mockPrices[best] ?? 0) ? current : best
     );
 
+    const hasSplits = params.dexes.length > 1;
     return {
       bestPrice: mockPrices[bestDex] ?? 1,
       bestDex,
-      splitRoute: params.dexes.length > 1,
-      splits: params.dexes.length > 1 ? splits : undefined
+      splitRoute: hasSplits,
+      ...(hasSplits && { splits })
     };
   }
 
   /**
    * Execute cross-DEX swap
    * @param params - Cross-DEX swap parameters
+   * @param params.tokenIn - Input token address
+   * @param params.tokenOut - Output token address
+   * @param params.amountIn - Input amount
+   * @param params.splits - DEX split percentages
+   * @param params.recipient - Recipient address
    * @returns Swap execution result
    */
-  async executeCrossDexSwap(params: {
+  executeCrossDexSwap(params: {
     tokenIn: string;
     tokenOut: string;
     amountIn: bigint;
@@ -543,17 +553,17 @@ export class DEXService {
 
   /**
    * Get swap history
-   * @param address - User address
+   * @param _address - User address
    * @returns Array of historical swaps
    */
-  async getSwapHistory(address: string): Promise<Array<{
+  getSwapHistory(_address: string): Array<{
     timestamp: number;
     tokenIn: string;
     tokenOut: string;
     amountIn: bigint;
     amountOut: bigint;
     transactionHash: string;
-  }>> {
+  }> {
     // Mock implementation - return empty array for now
     // In production, this would query historical data from blockchain or indexer
     return [];

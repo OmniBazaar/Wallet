@@ -668,7 +668,7 @@ export class StakingService {
   public async getStakedBalance(address: string): Promise<bigint> {
     try {
       const stakeInfo = await this.getStakeInfo(address);
-      if (!stakeInfo || !stakeInfo.isActive) {
+      if (stakeInfo === null || !stakeInfo.isActive) {
         return BigInt(0);
       }
 
@@ -682,7 +682,9 @@ export class StakingService {
         ethers.parseEther('100000')  // Diamond
       ];
 
-      return tierAmounts[stakeInfo.tier] || BigInt(0);
+      return stakeInfo.tier >= 0 && stakeInfo.tier < tierAmounts.length
+        ? tierAmounts[stakeInfo.tier]
+        : BigInt(0);
     } catch (error) {
       console.error('Failed to get staked balance:', error);
       return BigInt(0);
@@ -704,7 +706,7 @@ export class StakingService {
   }>> {
     try {
       const stakeInfo = await this.getStakeInfo(address);
-      if (!stakeInfo || !stakeInfo.isActive) {
+      if (stakeInfo === null || !stakeInfo.isActive) {
         return [];
       }
 

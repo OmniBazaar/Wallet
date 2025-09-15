@@ -497,7 +497,7 @@ export class WalletService {
         from,
         to: tx.to,
         value: tx.value ?? BigInt(0),
-        wait: async (): Promise<{ status: number }> => ({ status: 1 })
+        wait: (): Promise<{ status: number }> => Promise.resolve({ status: 1 })
       };
     } catch (error) {
       // In test environment, return a mock transaction response
@@ -509,7 +509,7 @@ export class WalletService {
           from,
           to: tx.to,
           value: tx.value ?? BigInt(0),
-          wait: async (): Promise<{ status: number }> => ({ status: 1 })
+          wait: (): Promise<{ status: number }> => Promise.resolve({ status: 1 })
         };
       }
       throw error;
@@ -800,9 +800,14 @@ export class WalletService {
   /**
    * Sign EIP-2612 permit for gasless token approvals
    * @param params - Permit parameters
+   * @param params.token - Token contract address
+   * @param params.spender - Spender address
+   * @param params.value - Approval amount
+   * @param params.deadline - Permit deadline timestamp
+   * @param params.nonce - Permit nonce (optional)
    * @returns Permit signature data
    */
-  async signPermit(params: {
+  signPermit(params: {
     token: string;
     spender: string;
     value: bigint;
@@ -829,13 +834,13 @@ export class WalletService {
       const r = '0x' + Array(64).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join('');
       const s = '0x' + Array(64).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join('');
 
-      return {
+      return Promise.resolve({
         v,
         r,
         s,
         deadline,
         nonce
-      };
+      });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       throw new Error(`Failed to sign permit: ${errorMessage}`);

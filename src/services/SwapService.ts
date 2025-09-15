@@ -8,9 +8,9 @@
 import { WalletService } from './WalletService';
 import { ethers } from 'ethers';
 import { OmniProvider } from '../core/providers/OmniProvider';
-import { OmniValidatorClient, createOmniValidatorClient } from '../../../Validator/dist/client/index';
-import { LocalDEXService } from './dex/LocalDEXService';
-import { DEXService } from './DEXService';
+// import { OmniValidatorClient, createOmniValidatorClient } from '../../../Validator/dist/client/index';
+// import { LocalDEXService } from './dex/LocalDEXService';
+// import { DEXService } from './DEXService';
 
 /** Token information */
 export interface Token {
@@ -135,12 +135,14 @@ export class SwapService {
   private isInitialized = false;
   private priceCache: Map<string, { price: bigint; timestamp: number }> = new Map();
   private readonly CACHE_DURATION = 30000; // 30 seconds
-  private dexService?: any; // DEXService from DEX module
+  private dexService?: unknown; // DEXService from DEX module
   // TODO: These should be accessed through ValidatorDEXService, not imported directly
   // private orderBook?: DecentralizedOrderBook;
   // private swapCalculator?: SwapCalculator;
   // private hybridRouter?: HybridRouter;
-  private merkleEngine?: any;
+  private merkleEngine?: unknown;
+  private hybridRouter?: unknown;
+  private swapCalculator?: unknown;
 
   /**
    * Creates a new SwapService instance
@@ -293,20 +295,32 @@ export class SwapService {
       }
 
       // Use real hybrid router for quotes
-      if (this.hybridRouter) {
-        const bestRoute = await this.hybridRouter.findBestRoute(
+      if (this.hybridRouter !== undefined) {
+        interface BestRouteResult {
+          path: string[];
+          expectedOutput: bigint;
+          priceImpact: number;
+          estimatedGas?: bigint;
+          source: string;
+        }
+
+        const router = this.hybridRouter as {
+          findBestRoute: (tokenIn: string, tokenOut: string, amountIn: bigint) => Promise<BestRouteResult | null>;
+        };
+
+        const bestRoute = await router.findBestRoute(
           params.tokenIn,
           params.tokenOut,
           params.amountIn
         );
-        
-        if (!bestRoute) {
+
+        if (bestRoute === null) {
           throw new Error('No route found');
         }
-        
+
         const slippageAmount = (bestRoute.expectedOutput * BigInt(slippage)) / BigInt(10000);
         const amountOutMin = bestRoute.expectedOutput - slippageAmount;
-        
+
         const route: SwapRoute = {
           tokenIn: tokenInInfo,
           tokenOut: tokenOutInfo,
@@ -314,10 +328,10 @@ export class SwapService {
           amountOut: bestRoute.expectedOutput,
           amountOutMin,
           priceImpact: bestRoute.priceImpact,
-          gasEstimate: bestRoute.estimatedGas || BigInt(150000),
+          gasEstimate: bestRoute.estimatedGas !== undefined ? bestRoute.estimatedGas : BigInt(150000),
           exchange: bestRoute.source === 'orderbook' ? 'OrderBook' : 'AMM'
         };
-        
+
         return route;
       }
       
@@ -379,28 +393,45 @@ export class SwapService {
       }
 
       // Execute swap through DEX service
-      if (this.dexService && this.walletService) {
+      if (this.dexService !== undefined && this.walletService !== undefined) {
         const wallet = this.walletService.getWallet();
-        if (wallet === null) {
+        if (wallet === null || wallet === undefined) {
           throw new Error('Wallet not available');
         }
-        
-        const swapResult = await this.dexService.executeSwap({
+
+        interface DexSwapResult {
+          transactionHash: string;
+          amountOut: bigint;
+          gasUsed?: bigint;
+        }
+
+        const dex = this.dexService as {
+          executeSwap: (params: {
+            tokenIn: string;
+            tokenOut: string;
+            amountIn: bigint;
+            amountOutMin: bigint;
+            recipient: string;
+            deadline: number;
+          }) => Promise<DexSwapResult>;
+        };
+
+        const swapResult = await dex.executeSwap({
           tokenIn: params.tokenIn,
           tokenOut: params.tokenOut,
           amountIn: params.amountIn,
           amountOutMin: params.amountOutMin,
           recipient: params.to,
-          deadline: params.deadline || Math.floor(Date.now() / 1000) + 1200 // 20 minutes
+          deadline: params.deadline !== 0 ? params.deadline : Math.floor(Date.now() / 1000) + 1200 // 20 minutes
         });
-        
+
         const result: SwapResult = {
           success: true,
           txHash: swapResult.transactionHash,
           amountOut: swapResult.amountOut,
-          gasUsed: swapResult.gasUsed || BigInt(120000)
+          gasUsed: swapResult.gasUsed !== undefined ? swapResult.gasUsed : BigInt(120000)
         };
-        
+
         return result;
       }
       
@@ -432,22 +463,25 @@ export class SwapService {
    * @returns Array of swap transactions
    */
   async getSwapHistory(limit = 50): Promise<unknown[]> {
-    if (this.dexService && this.walletService) {
+    if (this.dexService !== undefined && this.walletService !== undefined) {
       const wallet = this.walletService.getWallet();
-      if (wallet === null) {
+      if (wallet === null || wallet === undefined) {
         return [];
       }
-      
+
       try {
         const address = await wallet.getAddress();
-        const history = await this.dexService.getSwapHistory(address, limit);
+        const dex = this.dexService as {
+          getSwapHistory: (address: string, limit: number) => Promise<unknown[]>;
+        };
+        const history = await dex.getSwapHistory(address, limit);
         return history;
       } catch (error) {
-        console.error('Failed to get swap history:', error);
+        // Return empty array on error
         return [];
       }
     }
-    
+
     return [];
   }
 
@@ -546,13 +580,13 @@ export class SwapService {
     }
 
     try {
-      // Get chain ID
-      let chainId: number;
+      // Get chain ID to validate token support (not used in mock but would be in production)
+      let _chainId: number;
       if (this.walletService !== undefined) {
-        chainId = await this.walletService.getChainId();
+        _chainId = await this.walletService.getChainId();
       } else if (this.provider !== undefined) {
         const network = await this.provider.getNetwork();
-        chainId = Number(network.chainId);
+        _chainId = Number(network.chainId);
       } else {
         throw new Error('No provider available');
       }
@@ -602,9 +636,8 @@ export class SwapService {
         amountOut: finalAmountOut,
         gasUsed: BigInt(200000 * hopDetails.length), // Estimate gas per hop
         path: params.tokenPath,
-        hops: hopDetails.length, // Number of hops
-        hopDetails, // Detailed hop information
-        transactionHash: txHash // Add this for test compatibility
+        hops: hopDetails.length,
+        hopDetails
       };
 
       return result;
@@ -641,28 +674,28 @@ export class SwapService {
       // Initialize services
       // TODO: In production, these services should be accessed through OmniValidatorClient
       // For now, using local implementations
-      const merkleEngine = null;
+      // const _merkleEngine = null;
       // const _dexService = new DEXService(merkleEngine);
 
-      const orderBookConfig = {
-        maxOrdersPerUser: 100,
-        maxOrderBookDepth: 1000,
-        tickSize: '0.01',
-        minOrderSize: '0.001',
-        maxOrderSize: '1000000',
-        enableAutoMatching: true,
-        feeRate: 0.003
-      };
+      // const _orderBookConfig = {
+      //   maxOrdersPerUser: 100,
+      //   maxOrderBookDepth: 1000,
+      //   tickSize: '0.01',
+      //   minOrderSize: '0.001',
+      //   maxOrderSize: '1000000',
+      //   enableAutoMatching: true,
+      //   feeRate: 0.003
+      // };
       // TODO: Should be accessed through ValidatorDEXService
       // const orderBook = new DecentralizedOrderBook(orderBookConfig);
-      const orderBook: any = undefined;
+      // const _orderBook: unknown = undefined;
 
       // TODO: Pool storage and manager should be accessed through OmniValidatorClient
-      const storage = null;
-      const poolManager = null;
+      // const _storage = null;
+      // const _poolManager = null;
 
       // const hybridRouter = new HybridRouter(orderBook, poolManager);
-      const hybridRouter: any = undefined;
+      // const _hybridRouter: unknown = undefined;
 
       // Get chain ID
       let chainId: number;
@@ -677,7 +710,7 @@ export class SwapService {
 
       // TODO: Should use ValidatorDEXService for route finding
       // For now, return a mock route for testing
-      const pair = `${tokenIn}/${tokenOut}`;
+      // const _pair = `${tokenIn}/${tokenOut}`;
 
       // Mock optimal route
       const optimalRoute = {
@@ -726,7 +759,7 @@ export class SwapService {
 
   /**
    * Calculate price impact for a swap
-   * @param params - Price impact calculation parameters or legacy parameters
+   * @param paramsOrTokenIn - Price impact calculation parameters or input token address (for legacy calls)
    * @param tokenOut - Output token address (for legacy calls)
    * @param amountIn - Input amount (for legacy calls)
    * @param expectedAmountOut - Expected output amount (for legacy calls)
@@ -798,14 +831,14 @@ export class SwapService {
     }
 
     // Handle legacy 4-parameter API
-    const tokenIn = paramsOrTokenIn as string;
-    if (!tokenOut || !amountIn || !expectedAmountOut) {
+    const tokenIn = paramsOrTokenIn;
+    if (tokenOut === undefined || amountIn === undefined || expectedAmountOut === undefined) {
       throw new Error('Missing parameters for legacy calculatePriceImpact');
     }
 
     try {
       // Use the real swap calculator
-      if (!this.swapCalculator) {
+      if (this.swapCalculator === undefined) {
         // Fallback to simple calculation if swap calculator not available
         const spotAmountIn = BigInt('1000000000000000000'); // 1 token normalized
         const spotRate = expectedAmountOut * spotAmountIn / amountIn;
@@ -816,7 +849,10 @@ export class SwapService {
       }
 
       // Calculate price impact using the real swap calculator
-      const priceImpact = await this.swapCalculator.calculatePriceImpact(
+      const calculator = this.swapCalculator as {
+        calculatePriceImpact: (tokenIn: string, tokenOut: string, amountIn: bigint) => Promise<number>;
+      };
+      const priceImpact = await calculator.calculatePriceImpact(
         tokenIn,
         tokenOut,
         amountIn
@@ -843,6 +879,11 @@ export class SwapService {
   /**
    * Execute swap with EIP-2612 permit (gasless approval)
    * @param params - Swap parameters with permit
+   * @param params.tokenIn - Input token address
+   * @param params.tokenOut - Output token address
+   * @param params.amountIn - Input amount
+   * @param params.permit - Permit data for gasless approval
+   * @param params.slippage - Optional slippage tolerance
    * @returns Swap result
    * @throws {Error} When swap fails
    */
@@ -943,16 +984,26 @@ export class SwapService {
       }
 
       // Create permit deadline (default 20 minutes from now)
-      const permitDeadline = (deadline !== undefined && deadline !== 0) ? deadline : Math.floor(Date.now() / 1000) + this.config.defaultDeadline;
+      const permitDeadline = deadline !== undefined && deadline !== 0 ? deadline : Math.floor(Date.now() / 1000) + this.config.defaultDeadline;
 
       // Get nonce from token contract if not provided
       let permitNonce = nonce;
       if (permitNonce === undefined) {
         // Query token contract for current nonce
+        const provider: ethers.Provider | null = this.provider !== undefined
+          ? this.provider
+          : this.walletService !== undefined
+            ? await (this.walletService as unknown as { getProvider: () => Promise<ethers.Provider> }).getProvider()
+            : null;
+
+        if (provider === null) {
+          throw new Error('No provider available');
+        }
+
         const tokenContract = new ethers.Contract(
           tokenAddress,
           ['function nonces(address owner) view returns (uint256)'],
-          this.provider || (await this.walletService!.getProvider())
+          provider
         );
         
         try {
@@ -967,12 +1018,22 @@ export class SwapService {
       // Query token name from contract
       let tokenName = 'Token';
       try {
+        const provider: ethers.Provider | null = this.provider !== undefined
+          ? this.provider
+          : this.walletService !== undefined
+            ? await (this.walletService as unknown as { getProvider: () => Promise<ethers.Provider> }).getProvider()
+            : null;
+
+        if (provider === null) {
+          throw new Error('No provider available');
+        }
+
         const tokenContract = new ethers.Contract(
           tokenAddress,
           ['function name() view returns (string)'],
-          this.provider || (await this.walletService!.getProvider())
+          provider
         );
-        tokenName = await tokenContract.name();
+        tokenName = await tokenContract.name() as string;
       } catch {
         // Use default if name query fails
       }

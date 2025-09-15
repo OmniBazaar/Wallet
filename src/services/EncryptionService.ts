@@ -88,14 +88,14 @@ export class EncryptionService {
       try {
         const cryptoModule = await import('crypto');
         // Handle both ES modules and CommonJS
-        nodeCrypto = cryptoModule.default || cryptoModule;
+        nodeCrypto = cryptoModule;
       } catch {
         // Not in Node.js environment
         nodeCrypto = undefined;
       }
 
       // Test that crypto APIs are available
-      if (typeof crypto === 'undefined' && typeof window?.crypto === 'undefined' && !nodeCrypto) {
+      if (typeof crypto === 'undefined' && typeof window?.crypto === 'undefined' && nodeCrypto === undefined) {
         throw new Error('No crypto API available');
       }
 
@@ -268,12 +268,12 @@ export class EncryptionService {
     try {
       // Use browser's crypto API if available
       // Check globalThis.crypto to avoid scoping issues
-      const cryptoApi = typeof globalThis !== 'undefined' && globalThis.crypto
+      const cryptoApi = (typeof globalThis !== 'undefined' && globalThis.crypto !== undefined)
         ? globalThis.crypto
         : (typeof crypto !== 'undefined' ? crypto : undefined);
 
       // Try to use Web Crypto API if available
-      if (cryptoApi && cryptoApi.subtle) {
+      if (cryptoApi !== undefined && cryptoApi.subtle !== undefined) {
         try {
           const passwordBuffer = new TextEncoder().encode(password);
           const importedKey = await cryptoApi.subtle.importKey(
@@ -320,10 +320,13 @@ export class EncryptionService {
         let keyBytes: Uint8Array;
         if (typeof key === 'string') {
           keyBytes = ethers.getBytes(key);
-        } else if (key instanceof Uint8Array || Buffer.isBuffer(key)) {
-          keyBytes = new Uint8Array(key);
         } else {
-          throw new Error(`Unexpected pbkdf2 result type: ${typeof key}`);
+          // Assume it's a Buffer or Uint8Array
+          try {
+            keyBytes = new Uint8Array(key as ArrayBufferLike);
+          } catch {
+            throw new Error(`Unexpected pbkdf2 result type: ${typeof key}`);
+          }
         }
 
         return {
@@ -352,7 +355,7 @@ export class EncryptionService {
     iv: Uint8Array
   ): Promise<{ ciphertext: Uint8Array; tag: Uint8Array }> {
     // Prefer Node.js crypto in test environment for consistency
-    if (nodeCrypto) {
+    if (nodeCrypto !== undefined) {
       const cipher = nodeCrypto.createCipheriv('aes-256-gcm', key, iv);
       const encrypted = Buffer.concat([cipher.update(data), cipher.final()]);
       const tag = cipher.getAuthTag();
@@ -410,7 +413,7 @@ export class EncryptionService {
     tag: Uint8Array
   ): Promise<Uint8Array> {
     // Prefer Node.js crypto in test environment for consistency
-    if (nodeCrypto && typeof nodeCrypto.createDecipheriv === 'function') {
+    if (nodeCrypto !== undefined && typeof nodeCrypto.createDecipheriv === 'function') {
       const decipher = nodeCrypto.createDecipheriv('aes-256-gcm', key, iv);
       decipher.setAuthTag(tag);
 
@@ -472,7 +475,7 @@ export class EncryptionService {
     if (typeof crypto !== 'undefined' && crypto.subtle !== undefined) {
       const hashBuffer = await crypto.subtle.digest('SHA-256', dataBytes as BufferSource);
       return ethers.hexlify(new Uint8Array(hashBuffer));
-    } else if (nodeCrypto) {
+    } else if (nodeCrypto !== undefined) {
       // Use Node.js crypto for SHA-256
       const hash = nodeCrypto.createHash('sha256');
       hash.update(dataBytes);
@@ -589,11 +592,11 @@ export class EncryptionService {
     // Penalty for patterns (reduces score)
     const hasRepeating = /(.)\1{2,}/.test(password); // 3+ repeating chars
     const sequentialPattern = /(012|123|234|345|456|567|678|789|890|abc|bcd|cde|def|efg|fgh|ghi|hij|ijk|jkl|klm|lmn|mno|nop|opq|pqr|qrs|rst|stu|tuv|uvw|vwx|wxy|xyz)/gi;
-    const sequentialMatches = password.toLowerCase().match(sequentialPattern) || [];
+    const sequentialMatches = password.toLowerCase().match(sequentialPattern) ?? [];
     const hasCommon = /(password|123456|qwerty|admin|letmein|welcome|monkey|dragon)/i.test(password);
 
     // Count repeating character groups
-    const repeatingGroups = (password.match(/(.)\1{2,}/g) || []).length;
+    const repeatingGroups = (password.match(/(.)\1{2,}/g) ?? []).length;
 
     if (hasRepeating) score -= 15 * repeatingGroups; // Higher penalty for repeating
     if (sequentialMatches.length > 0) {
@@ -609,6 +612,7 @@ export class EncryptionService {
 
   /**
    * Clear cached data
+   * @returns Promise that resolves when cache is cleared
    */
   async clearCache(): Promise<void> {
     // Clear any sensitive data from memory
@@ -618,6 +622,7 @@ export class EncryptionService {
 
   /**
    * Cleanup service and release resources
+   * @returns Promise that resolves when cleanup is complete
    */
   async cleanup(): Promise<void> {
     await this.clearCache();

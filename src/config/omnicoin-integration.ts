@@ -55,13 +55,16 @@ export const OMNICOIN_METADATA = {
 
 /**
  * Get OmniCoin contract address for the current network
+ * @param provider Ethers provider instance
+ * @returns OmniCoin contract address
  */
 export function getOmniCoinAddress(provider: ethers.Provider): string {
   // In ethers v6, network info might be under _network property
-  const network = (provider as any)._network;
-  const chainId = network?.chainId ? Number(network.chainId) : undefined;
+  const providerWithNetwork = provider as ethers.Provider & { _network?: { chainId?: number | string } };
+  const network = providerWithNetwork._network;
+  const chainId = network?.chainId !== undefined ? Number(network.chainId) : undefined;
 
-  if (!chainId) {
+  if (chainId === undefined || chainId === 0) {
     throw new Error('Cannot determine network chainId from provider');
   }
 
@@ -73,7 +76,7 @@ export function getOmniCoinAddress(provider: ethers.Provider): string {
       return OMNICOIN_ADDRESSES['coti-testnet'].OmniCoin;
     default:
       // Fallback to environment variable or throw
-      if (process.env.OMNICOIN_CONTRACT_ADDRESS) {
+      if (process.env.OMNICOIN_CONTRACT_ADDRESS !== undefined && process.env.OMNICOIN_CONTRACT_ADDRESS !== '') {
         return process.env.OMNICOIN_CONTRACT_ADDRESS;
       }
       throw new Error(`OmniCoin contract not deployed on chain ${chainId}`);
@@ -82,13 +85,16 @@ export function getOmniCoinAddress(provider: ethers.Provider): string {
 
 /**
  * Get all OmniCoin-related contract addresses for the current network
+ * @param provider Ethers provider instance
+ * @returns Object containing all OmniCoin contract addresses
  */
-export function getOmniCoinContracts(provider: ethers.Provider) {
+export function getOmniCoinContracts(provider: ethers.Provider): typeof OMNICOIN_ADDRESSES.hardhat {
   // In ethers v6, network info might be under _network property
-  const network = (provider as any)._network;
-  const chainId = network?.chainId ? Number(network.chainId) : undefined;
+  const providerWithNetwork = provider as ethers.Provider & { _network?: { chainId?: number | string } };
+  const network = providerWithNetwork._network;
+  const chainId = network?.chainId !== undefined ? Number(network.chainId) : undefined;
 
-  if (!chainId) {
+  if (chainId === undefined || chainId === 0) {
     throw new Error('Cannot determine network chainId from provider');
   }
 
@@ -144,12 +150,14 @@ export const OMNICOIN_ABIS = {
 
 /**
  * Create an OmniCoin contract instance
+ * @param provider Ethers provider or signer instance
+ * @returns OmniCoin contract instance
  */
 export function createOmniCoinContract(
   provider: ethers.Provider | ethers.Signer
 ): ethers.Contract {
   // Get the actual provider (if signer passed, get its provider)
-  const actualProvider = 'provider' in provider && provider.provider
+  const actualProvider = 'provider' in provider && provider.provider !== null
     ? provider.provider
     : provider as ethers.Provider;
 
@@ -164,6 +172,8 @@ export function createOmniCoinContract(
 
 /**
  * Helper to check if we're on a supported network
+ * @param provider Ethers provider instance
+ * @returns True if network is supported
  */
 export async function isSupportedNetwork(provider: ethers.Provider): Promise<boolean> {
   try {

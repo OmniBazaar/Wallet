@@ -613,7 +613,7 @@ export class TokenService {
     try {
       // Get token info to find symbol
       const tokenInfo = this.supportedTokens.get(tokenAddress.toLowerCase());
-      if (!tokenInfo) {
+      if (tokenInfo === undefined) {
         return [];
       }
       
@@ -789,3 +789,6 @@ export class TokenService {
     };
   }
 }
+
+// Export singleton instance
+export const tokenService = new TokenService();

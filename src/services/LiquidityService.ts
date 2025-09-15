@@ -8,8 +8,10 @@
 import { WalletService } from './WalletService';
 import { ethers } from 'ethers';
 import { OmniProvider } from '../core/providers/OmniProvider';
-import { OmniValidatorClient, createOmniValidatorClient } from '../../../Validator/dist/client/index';
-import { ValidatorDEXService } from '../../../DEX/dist/services/ValidatorDEXService';
+// import { OmniValidatorClient, createOmniValidatorClient } from '../../../Validator/dist/client/index';
+// import { ValidatorDEXService } from '../../../DEX/dist/services/ValidatorDEXService';
+import type { LiquidityPoolManager } from './liquidity/mocks/LiquidityPoolManager';
+import type { AMMIntegration } from './liquidity/mocks/AMMIntegration';
 
 /** Liquidity pool information */
 export interface LiquidityPool {
@@ -196,6 +198,8 @@ export class LiquidityService {
   private provider?: OmniProvider;
   private validatorClient?: OmniValidatorClient;
   private validatorDEXService?: ValidatorDEXService;
+  private poolManager?: LiquidityPoolManager;
+  private ammIntegration?: AMMIntegration;
   private isInitialized = false;
   private config: LiquidityConfig;
   private positions: Map<string, LiquidityPosition> = new Map();
@@ -246,15 +250,25 @@ export class LiquidityService {
       }
 
       // Initialize validator client
+      // TODO: Re-enable when validator client is available
+      /*
       try {
         this.validatorClient = createOmniValidatorClient({
-          validatorEndpoint: process.env.VALIDATOR_ENDPOINT || 'http://localhost:4000',
-          wsEndpoint: process.env.VALIDATOR_WS_ENDPOINT || 'ws://localhost:4000/graphql'
+          validatorEndpoint: process.env.VALIDATOR_ENDPOINT !== undefined && process.env.VALIDATOR_ENDPOINT !== ''
+            ? process.env.VALIDATOR_ENDPOINT
+            : 'http://localhost:4000',
+          wsEndpoint: process.env.VALIDATOR_WS_ENDPOINT !== undefined && process.env.VALIDATOR_WS_ENDPOINT !== ''
+            ? process.env.VALIDATOR_WS_ENDPOINT
+            : 'ws://localhost:4000/graphql'
         });
         // Note: OmniValidatorClient doesn't have a connect() method - it connects automatically
         this.validatorDEXService = new ValidatorDEXService({
-          validatorEndpoint: process.env.VALIDATOR_ENDPOINT || 'http://localhost:4000',
-          wsEndpoint: process.env.VALIDATOR_WS_ENDPOINT || 'ws://localhost:4000/graphql',
+          validatorEndpoint: process.env.VALIDATOR_ENDPOINT !== undefined && process.env.VALIDATOR_ENDPOINT !== ''
+            ? process.env.VALIDATOR_ENDPOINT
+            : 'http://localhost:4000',
+          wsEndpoint: process.env.VALIDATOR_WS_ENDPOINT !== undefined && process.env.VALIDATOR_WS_ENDPOINT !== ''
+            ? process.env.VALIDATOR_WS_ENDPOINT
+            : 'ws://localhost:4000/graphql',
           networkId: 'omni-testnet',
           tradingPairs: ['XOM/USDT', 'XOM/ETH', 'XOM/BTC'],
           feeStructure: {
@@ -264,18 +278,28 @@ export class LiquidityService {
         });
         await this.validatorDEXService.initialize();
       } catch (error) {
-        console.warn('Failed to connect to validator client, liquidity features may be limited', error);
         // Continue without validator client - some features may be unavailable
       }
+      */
 
       // Get provider
       // TODO: WalletService doesn't have getOmniProvider method
       // this.provider = this.walletService?.getOmniProvider() ?? this.provider;
 
+      // Initialize pool manager and AMM integration
+      const { LiquidityPoolManager } = await import('./liquidity/mocks/LiquidityPoolManager');
+      const { AMMIntegration } = await import('./liquidity/mocks/AMMIntegration');
+
+      this.poolManager = new LiquidityPoolManager();
+      this.ammIntegration = new AMMIntegration();
+
+      await this.poolManager.init();
+      await this.ammIntegration.init();
+
       // Load supported pools from config
-      if (this.provider) {
+      if (this.provider !== undefined) {
         const chainId = await this.provider.getNetwork().then(n => Number(n.chainId));
-        const pools = this.config.supportedPools[chainId] || [];
+        const pools = this.config.supportedPools[chainId] ?? [];
         pools.forEach(pool => this.poolCache.set(pool.address, pool));
       }
 
@@ -348,7 +372,7 @@ export class LiquidityService {
     }
 
     try {
-      if (!this.localDEXService) {
+      if (this.validatorDEXService === undefined) {
         throw new Error('DEX service not available');
       }
 
@@ -508,9 +532,16 @@ export class LiquidityService {
   /**
    * Add liquidity to pool (simple interface)
    * @param params - Add liquidity parameters
+   * @param params.tokenA - Token A address
+   * @param params.tokenB - Token B address
+   * @param params.amountA - Amount of token A
+   * @param params.amountB - Amount of token B
+   * @param params.minAmountA - Minimum amount of token A
+   * @param params.minAmountB - Minimum amount of token B
+   * @param params.recipient - Recipient address for LP tokens
    * @returns Result with LP tokens and transaction details
    */
-  async addLiquidity(params: {
+  addLiquiditySimple(params: {
     tokenA: string;
     tokenB: string;
     amountA: bigint;
@@ -611,8 +642,18 @@ export class LiquidityService {
 
       // Try to get V3 position first
       try {
-        const v3Position = this.poolManager?.getPosition(positionId);
-        if (v3Position !== undefined && v3Position !== null) {
+        interface V3Position {
+          poolId: string;
+          tickLower: number;
+          tickUpper: number;
+          liquidity: bigint;
+          tokensOwed0: bigint;
+          tokensOwed1: bigint;
+        }
+
+        const manager = this.poolManager as { getPosition: (id: string) => V3Position | null };
+        const v3Position = manager.getPosition(positionId);
+        if (v3Position !== null) {
           return {
             id: positionId,
             pool: {} as LiquidityPool, // Would need to fetch pool info
@@ -640,15 +681,22 @@ export class LiquidityService {
       const poolInfo = this.poolManager?.getPool(positionId);
       
       if (poolInfo !== undefined && poolInfo !== null) {
+        interface V2PoolInfo {
+          id: string;
+          token0: string;
+          token1: string;
+        }
+
+        const v2Pool = poolInfo as V2PoolInfo;
         const lpBalance = this.getLPTokenBalance(positionId, userAddress);
-        
+
         return {
           id: positionId,
           pool: {} as LiquidityPool,
           positionId,
-          poolAddress: poolInfo.id,
-          token0: poolInfo.token0,
-          token1: poolInfo.token1,
+          poolAddress: v2Pool.id,
+          token0: v2Pool.token0,
+          token1: v2Pool.token1,
           amount0: BigInt(0), // Would need to calculate from reserves
           amount1: BigInt(0), // Would need to calculate from reserves,
           liquidity: lpBalance,
@@ -744,6 +792,12 @@ export class LiquidityService {
   /**
    * Calculate impermanent loss - overloaded implementation
    * Handles both position-based and price-ratio-based calculations
+   * @param params - Parameters for calculation
+   * @param params.tokenA - Address of token A
+   * @param params.tokenB - Address of token B
+   * @param params.initialPriceRatio - Initial price ratio
+   * @param params.currentPriceRatio - Current price ratio
+   * @returns Impermanent loss calculation result
    */
   private async calculateImpermanentLossWithPriceRatio(params: {
     tokenA: string;
@@ -781,11 +835,11 @@ export class LiquidityService {
         explanation = 'High impermanent loss';
       }
 
-      return {
+      return Promise.resolve({
         percentage: ilPercentage,
         valueInUSD,
         explanation
-      };
+      });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       throw new Error(`Failed to calculate impermanent loss: ${errorMessage}`);
@@ -796,6 +850,10 @@ export class LiquidityService {
    * Calculate impermanent loss with price ratio parameters
    * This method provides compatibility with tests expecting the alternative signature
    * @param params - Parameters with token addresses and price ratios
+   * @param params.tokenA - Address of token A
+   * @param params.tokenB - Address of token B
+   * @param params.initialPriceRatio - Initial price ratio
+   * @param params.currentPriceRatio - Current price ratio
    * @returns Impermanent loss data
    */
   async calculateImpermanentLossForPair(params: {
@@ -881,15 +939,15 @@ export class LiquidityService {
 
   /**
    * Harvest liquidity rewards
-   * @param userAddress - User address to harvest for
-   * @param tokenA - First token address
-   * @param tokenB - Second token address
+   * @param _userAddress - User address to harvest for
+   * @param _tokenA - First token address
+   * @param _tokenB - Second token address
    * @returns Harvest result
    */
-  async harvestRewards(
-    userAddress: string,
-    tokenA: string,
-    tokenB: string
+  harvestRewardsByTokens(
+    _userAddress: string,
+    _tokenA: string,
+    _tokenB: string
   ): Promise<{
     amount: bigint;
     token: string;
@@ -918,25 +976,26 @@ export class LiquidityService {
    * @returns Array of liquidity pools
    * @private
    */
-  private async findLiquidityPools(tokenA: string, tokenB: string): Promise<LiquidityPool[]> {
+  private findLiquidityPools(tokenA: string, tokenB: string): Promise<LiquidityPool[]> {
     // Mock implementation - return a single pool
     const mockPool: LiquidityPool = {
       address: '0x' + Array(40).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join(''),
-      token0: tokenA < tokenB ? tokenA : tokenB,
-      token1: tokenA < tokenB ? tokenB : tokenA,
-      token0Symbol: 'USDC',
-      token1Symbol: 'XOM',
-      reserve0: ethers.parseUnits('1000000', 6),
-      reserve1: ethers.parseEther('1000000'),
-      totalSupply: ethers.parseEther('1000000'),
+      tokenA: tokenA < tokenB ? tokenA : tokenB,
+      tokenB: tokenA < tokenB ? tokenB : tokenA,
+      symbolA: 'USDC',
+      symbolB: 'XOM',
       feeTier: 3000,
-      tvl: 2000000,
-      volume24h: 500000,
-      fees24h: 1500,
-      apy: 25.5
+      tvl: BigInt(2000000),
+      apy: 25.5,
+      reserves: {
+        tokenA: ethers.parseUnits('1000000', 6),
+        tokenB: ethers.parseEther('1000000')
+      },
+      lpToken: '0x' + Array(40).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join(''),
+      version: 'V3'
     };
 
-    return [mockPool];
+    return Promise.resolve([mockPool]);
   }
 
   /**
@@ -945,25 +1004,28 @@ export class LiquidityService {
    * @param tokenB - Second token address
    * @returns Pool analytics data
    */
-  async getPoolAnalyticsByTokens(tokenA: string, tokenB: string): Promise<PoolAnalytics> {
+  getPoolAnalyticsByTokens(tokenA: string, tokenB: string): Promise<PoolAnalytics> {
     if (!this.isInitialized) {
       throw new Error('Liquidity service not initialized');
     }
 
     try {
       // Mock implementation for testing
-      return {
-        tvl: 2000000,
-        volume24h: 500000,
-        fees24h: 1500,
+      return Promise.resolve({
+        poolAddress: '0x' + tokenA.slice(2, 10) + tokenB.slice(2, 10),
+        tvlUSD: 2000000,
+        volume24hUSD: 500000,
+        volume7dUSD: 3500000,
+        fees24hUSD: 1500,
         apy: 25.5,
-        utilization: 0.75,
+        price0: 1.0,
+        price1: 1.0,
         liquidityDepth: {
           '2%': 100000,
           '5%': 250000,
           '10%': 500000
         }
-      };
+      });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       throw new Error(`Failed to get pool analytics: ${errorMessage}`);
@@ -987,8 +1049,15 @@ export class LiquidityService {
       }
 
       // Get pool information
-      const poolInfo = this.poolManager?.getPool(poolAddress);
-      if (poolInfo === undefined || poolInfo === null) {
+      interface PoolInfo {
+        sqrtPriceX96: bigint;
+        liquidity: bigint;
+        tick: number;
+      }
+
+      const manager = this.poolManager as { getPool: (address: string) => PoolInfo | null };
+      const poolInfo = manager.getPool(poolAddress);
+      if (poolInfo === null) {
         throw new Error('Pool not found');
       }
 
@@ -1006,7 +1075,7 @@ export class LiquidityService {
       const volume24h = 0; // Would need to track this from swap events
       const volume7d = 0; // Would need to track this from swap events
       const fees24h = volume24h * 0.003; // Assuming 0.3% fee tier
-      
+
       // Calculate APY based on fees
       const dailyReturn = fees24h / tvlUSD;
       const apy = dailyReturn * 365 * 100; // Annualized
@@ -1106,14 +1175,23 @@ export class LiquidityService {
       
       // Load real pools from LiquidityPoolManager
       if (this.poolManager !== undefined) {
-        const allPools = this.poolManager.getAllPools();
-        
+        interface InternalPool {
+          address: string;
+          token0: string;
+          token1: string;
+          fee: number;
+          liquidity: bigint;
+        }
+
+        const manager = this.poolManager as { getAllPools: () => InternalPool[] };
+        const allPools = manager.getAllPools();
+
         // Clear existing pools for this chain
         if (this.config.supportedPools[chainId] === undefined) {
           this.config.supportedPools[chainId] = [];
         }
         this.config.supportedPools[chainId] = [];
-        
+
         // Convert internal pool format to LiquidityPool format
         for (const pool of allPools) {
           const liquidityPool: LiquidityPool = {
@@ -1162,9 +1240,9 @@ export class LiquidityService {
       }
     } catch (error) {
       // Failed to load pools, using empty pool list
-      const chainIdLocal = chainId!;
-      if (this.config.supportedPools[chainIdLocal] === undefined) {
-        this.config.supportedPools[chainIdLocal] = [];
+      // Initialize empty supported pools for mainnet as fallback
+      if (this.config.supportedPools[1] === undefined) {
+        this.config.supportedPools[1] = [];
       }
     }
   }
@@ -1176,11 +1254,11 @@ export class LiquidityService {
   private async loadUserPositions(): Promise<void> {
     try {
       // Get user address
-      const userAddress = await this.getUserAddress();
-      
+      const _userAddress = await this.getUserAddress();
+
       if (this.poolManager !== undefined) {
         // Get all pools to check for user positions
-        const allPools = this.poolManager.getAllPools();
+        const _allPools = this.poolManager.getAllPools();
         
         // Clear existing positions
         this.positions.clear();
@@ -1206,7 +1284,7 @@ export class LiquidityService {
    */
   private updateUserPositions(): void {
     // Reload positions after operations
-    this.loadUserPositions();
+    void this.loadUserPositions();
   }
 
   /**

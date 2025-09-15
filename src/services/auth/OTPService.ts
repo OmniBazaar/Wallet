@@ -15,25 +15,71 @@ interface Logger {
 }
 
 const logger: Logger = {
-  warn: (message: string, ...args: unknown[]) => console.warn(message, ...args),
-  error: (message: string, ...args: unknown[]) => console.error(message, ...args),
-  info: (message: string, ...args: unknown[]) => console.info(message, ...args)
+  warn: (message: string, ...args: unknown[]) => {
+    // In production, this would use a proper logging service
+    if (process.env.NODE_ENV !== 'test') {
+      process.stderr.write(`[WARN] ${message} ${args.join(' ')}\n`);
+    }
+  },
+  error: (message: string, ...args: unknown[]) => {
+    // In production, this would use a proper logging service
+    if (process.env.NODE_ENV !== 'test') {
+      process.stderr.write(`[ERROR] ${message} ${args.join(' ')}\n`);
+    }
+  },
+  info: (message: string, ...args: unknown[]) => {
+    // In production, this would use a proper logging service
+    if (process.env.NODE_ENV !== 'test') {
+      process.stdout.write(`[INFO] ${message} ${args.join(' ')}\n`);
+    }
+  }
 };
 
 /** SMS provider interface */
 export interface ISMSProvider {
+  /**
+   * Send SMS message
+   * @param options - SMS options
+   * @param options.to - Phone number to send to
+   * @param options.message - Message content
+   * @returns Promise resolving to send result
+   */
   sendSMS(options: { to: string; message: string }): Promise<{ success: boolean; messageId?: string }>;
 }
 
 /** Email provider interface */
 export interface IEmailProvider {
+  /**
+   * Send email message
+   * @param options - Email options
+   * @param options.to - Email address to send to
+   * @param options.subject - Email subject
+   * @param options.html - HTML content
+   * @returns Promise resolving to send result
+   */
   sendEmail(options: { to: string; subject: string; html: string }): Promise<{ success: boolean; messageId?: string }>;
 }
 
 /** Secure storage service interface */
 export interface ISecureStorageService {
+  /**
+   * Store a value securely
+   * @param key - Storage key
+   * @param value - Value to store
+   * @returns Promise resolving when stored
+   */
   store(key: string, value: string): Promise<void>;
+  /**
+   * Retrieve a stored value
+   * @param key - Storage key
+   * @returns Promise resolving to value or null if not found
+   */
   retrieve(key: string): Promise<string | null>;
+  /**
+   * Delete a stored value
+   * @param key - Storage key
+   * @returns Promise resolving when deleted
+   */
   delete(key: string): Promise<void>;
 }
 
@@ -130,19 +176,6 @@ interface OTPSession {
   ipAddress?: string;
 }
 
-/**
- * Rate limit data for OTP requests
- */
-interface RateLimitData {
-  /** Identifier being rate limited */
-  identifier: string;
-  /** Number of requests in current window */
-  requests: number;
-  /** Window start time */
-  windowStart: Date;
-  /** Time when identifier is locked out */
-  lockedUntil?: Date;
-}
 
 /**
  * OTP service configuration
@@ -206,10 +239,11 @@ export class OTPService {
 
   /**
    * Initialize the service and its dependencies
+   * @returns Promise that resolves when initialization is complete
    */
-  public async init(): Promise<void> {
+  public init(): Promise<void> {
     if (this.initialized) {
-      return;
+      return Promise.resolve();
     }
 
     try {
@@ -228,6 +262,7 @@ export class OTPService {
 
       this.initialized = true;
       logger.info('OTP service initialized successfully');
+      return Promise.resolve();
     } catch (error) {
       logger.error('Failed to initialize OTP service:', error);
       throw new Error('Failed to initialize OTP service');
@@ -237,6 +272,8 @@ export class OTPService {
   /**
    * Generate OTP with specific configuration
    * @param options - OTP generation options
+   * @param options.userId - User identifier
+   * @param options.purpose - Purpose of OTP generation
    * @returns Generated OTP data
    */
   public async generateOTP(options: { userId: string; purpose: string }): Promise<{ code: string; expiresAt: number }> {
@@ -267,6 +304,10 @@ export class OTPService {
   /**
    * Send OTP via specified method
    * @param options - Send options
+   * @param options.userId - User identifier
+   * @param options.purpose - Purpose of OTP
+   * @param options.method - Delivery method (sms or email)
+   * @param options.recipient - Phone number or email address
    */
   public async sendOTP(options: {
     userId: string;
@@ -326,6 +367,10 @@ export class OTPService {
   /**
    * Resend OTP code
    * @param options - Resend options
+   * @param options.userId - User identifier
+   * @param options.purpose - Purpose of OTP
+   * @param options.method - Delivery method (sms or email)
+   * @param options.recipient - Phone number or email address
    * @returns Resend result
    */
   public async resendOTP(options: {
@@ -468,7 +513,7 @@ export class OTPService {
 
       // Check attempts
       if (session.attempts >= this.config.maxAttempts) {
-        await this.lockoutIdentifier(session.identifier);
+        this.lockoutIdentifier(session.identifier);
         await this.deleteOTPSession(sessionId);
         return {
           valid: false,
@@ -499,7 +544,7 @@ export class OTPService {
         const remainingAttempts = this.config.maxAttempts - newAttempts;
         
         if (remainingAttempts === 0) {
-          await this.lockoutIdentifier(session.identifier);
+          this.lockoutIdentifier(session.identifier);
           await this.deleteOTPSession(sessionId);
         }
         
@@ -591,8 +636,12 @@ export class OTPService {
    * @returns True if SMS was sent successfully, false otherwise
    */
   private async sendSMSOTP(phone: string, code: string, purpose: string): Promise<boolean> {
+    if (this.smsProvider === undefined) {
+      throw new Error('SMS provider not configured');
+    }
+
     const message = `Your OmniBazaar ${purpose} code is: ${code}\n\nThis code expires in ${this.config.expirationMinutes} minutes.`;
-    
+
     const result = await this.smsProvider.sendSMS({
       to: phone,
       message
@@ -609,8 +658,12 @@ export class OTPService {
    * @returns True if email was sent successfully, false otherwise
    */
   private async sendEmailOTP(email: string, code: string, purpose: string): Promise<boolean> {
+    if (this.emailProvider === undefined) {
+      throw new Error('Email provider not configured');
+    }
+
     const capitalizedPurpose = purpose.charAt(0).toUpperCase() + purpose.slice(1);
-    
+
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2>OmniBazaar ${capitalizedPurpose} Verification</h2>
@@ -639,9 +692,12 @@ export class OTPService {
   /**
    * Verify OTP code
    * @param options - Verification options
+   * @param options.userId - User identifier
+   * @param options.purpose - Purpose of OTP
+   * @param options.code - OTP code to verify
    * @returns Verification result
    */
-  public async verifyOTP(options: {
+  public async verifyOTPWithOptions(options: {
     userId: string;
     purpose: string;
     code: string;
@@ -694,7 +750,7 @@ export class OTPService {
   /**
    * Clean up expired OTPs
    */
-  public async cleanupExpiredOTPs(): Promise<void> {
+  public cleanupExpiredOTPs(): void {
     // In a real implementation, this would iterate through stored OTPs
     // and delete expired ones. For now, this is a no-op.
     logger.info('Cleanup expired OTPs called');
@@ -703,7 +759,7 @@ export class OTPService {
   /**
    * Clean up resources
    */
-  public async cleanup(): Promise<void> {
+  public cleanup(): void {
     this.initialized = false;
     logger.info('OTP service cleaned up');
   }
@@ -780,7 +836,7 @@ export class OTPService {
    * Lock out identifier after max attempts
    * @param identifier User identifier to lock out
    */
-  private async lockoutIdentifier(identifier: string): Promise<void> {
+  private lockoutIdentifier(identifier: string): void {
     const lockedUntil = new Date(Date.now() + this.config.lockoutMinutes * 60 * 1000);
     logger.warn(`Locking out identifier ${identifier} until ${lockedUntil.toISOString()}`);
   }
@@ -871,7 +927,7 @@ export class OTPService {
   /**
    * Clean up expired OTP sessions (should be called periodically)
    */
-  public async cleanupExpiredSessions(): Promise<void> {
+  public cleanupExpiredSessions(): void {
     // In a real implementation with database, this would delete expired sessions
     logger.info('Cleanup expired sessions called');
   }
@@ -883,15 +939,17 @@ export class OTPService {
 class InMemorySecureStorage implements ISecureStorageService {
   private storage = new Map<string, string>();
 
-  async store(key: string, value: string): Promise<void> {
+  store(key: string, value: string): Promise<void> {
     this.storage.set(key, value);
+    return Promise.resolve();
   }
 
-  async retrieve(key: string): Promise<string | null> {
-    return this.storage.get(key) ?? null;
+  retrieve(key: string): Promise<string | null> {
+    return Promise.resolve(this.storage.get(key) ?? null);
   }
 
-  async delete(key: string): Promise<void> {
+  delete(key: string): Promise<void> {
     this.storage.delete(key);
+    return Promise.resolve();
   }
 }

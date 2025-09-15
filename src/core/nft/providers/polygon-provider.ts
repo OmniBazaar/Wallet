@@ -160,10 +160,14 @@ export class PolygonNFTProvider implements ChainProvider {
 
       const contract = new ethers.Contract(contractAddress, erc721Abi, provider);
 
+      const tokenURIFunc = contract['tokenURI'];
+      const nameFunc = contract['name'];
+      const ownerOfFunc = contract['ownerOf'];
+
       const [tokenURI, name, owner] = await Promise.all([
-        contract['tokenURI'](tokenId).catch(() => ''),
-        contract['name']().catch(() => 'Unknown Collection'),
-        contract['ownerOf'](tokenId).catch(() => '0x0000000000000000000000000000000000000000')
+        (typeof tokenURIFunc === 'function' ? tokenURIFunc.call(contract, tokenId) : Promise.resolve('')).catch(() => ''),
+        (typeof nameFunc === 'function' ? nameFunc.call(contract) : Promise.resolve('Unknown Collection')).catch(() => 'Unknown Collection'),
+        (typeof ownerOfFunc === 'function' ? ownerOfFunc.call(contract, tokenId) : Promise.resolve('0x0000000000000000000000000000000000000000')).catch(() => '0x0000000000000000000000000000000000000000')
       ]) as [string, string, string];
 
       // Parse metadata
@@ -359,19 +363,26 @@ export class PolygonNFTProvider implements ChainProvider {
           const contract = new ethers.Contract(contractAddress, erc721Abi, provider);
 
           // Get balance
-          const balance = await contract['balanceOf'](address) as bigint;
+          const balanceOfFunc = contract['balanceOf'];
+          if (typeof balanceOfFunc !== 'function') continue;
+          const balance = await balanceOfFunc.call(contract, address) as bigint;
           if (balance === BigInt(0)) continue;
 
           // Get collection name
-          const collectionName = await contract['name']().catch(() => 'Unknown Collection') as string;
+          const nameFunc = contract['name'];
+          const collectionName = await (typeof nameFunc === 'function' ? nameFunc.call(contract) : Promise.resolve('Unknown Collection')).catch(() => 'Unknown Collection') as string;
 
           // Get up to 10 NFTs from this collection
           const limit = Math.min(Number(balance), 10);
 
           for (let i = 0; i < limit; i++) {
             try {
-              const tokenId = await contract['tokenOfOwnerByIndex'](address, i) as bigint;
-              const tokenURI = await contract['tokenURI'](tokenId).catch(() => '') as string;
+              const tokenOfOwnerByIndexFunc = contract['tokenOfOwnerByIndex'];
+              if (typeof tokenOfOwnerByIndexFunc !== 'function') continue;
+              const tokenId = await tokenOfOwnerByIndexFunc.call(contract, address, i) as bigint;
+
+              const tokenURIFunc = contract['tokenURI'];
+              const tokenURI = await (typeof tokenURIFunc === 'function' ? tokenURIFunc.call(contract, tokenId) : Promise.resolve('')).catch(() => '') as string;
 
               // Parse metadata if available
               let metadata: NFTMetadata = {};

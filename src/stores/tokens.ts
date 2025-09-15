@@ -5,7 +5,7 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { tokenService } from '../services/TokenService';
-import { useWallet } from './wallet';
+import { useWalletStore } from './wallet';
 
 /**
  * Token information interface
@@ -59,17 +59,17 @@ export const useTokenStore = defineStore('tokens', () => {
       error.value = null;
 
       // Get current wallet address
-      const walletStore = useWallet();
-      const address = walletStore.currentWalletAddress;
-      
-      if (address === null) {
+      const walletStore = useWalletStore();
+      const address = walletStore.address;
+
+      if (address === '') {
         tokens.value = [];
         return;
       }
 
       // Fetch real token balances from TokenService
       const tokenBalances = await tokenService.getAllTokens(address);
-      
+
       // Convert TokenBalance to Token format
       tokens.value = tokenBalances.map(tb => ({
         address: tb.token.address,

@@ -352,8 +352,8 @@ export class MultiChainNFTDisplay {
         imageUrl: `https://api.dicebear.com/7.x/shapes/svg?seed=${tokenId}`,
         attributes: [
           { trait_type: 'Blockchain', value: chainConfig.name !== '' ? chainConfig.name : 'Unknown' },
-          { trait_type: 'Category', value: ['Art', 'Gaming', 'Collectibles'][i % 3] !== undefined ? ['Art', 'Gaming', 'Collectibles'][i % 3] : 'Art' },
-          { trait_type: 'Rarity', value: ['Common', 'Rare', 'Epic'][i % 3] !== undefined ? ['Common', 'Rare', 'Epic'][i % 3] : 'Common' }
+          { trait_type: 'Category', value: ['Art', 'Gaming', 'Collectibles'][i % 3] ?? 'Art' },
+          { trait_type: 'Rarity', value: ['Common', 'Rare', 'Epic'][i % 3] ?? 'Common' }
         ],
         contract: generateSecureMockAddress(),
         contractAddress: generateSecureMockAddress(),

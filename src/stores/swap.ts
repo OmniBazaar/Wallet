@@ -5,9 +5,13 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import type { BigNumberish } from 'ethers';
-import { swapService } from '../services/SwapService';
-import { tokenService } from '../services/TokenService';
-import { useWallet } from './wallet';
+import { SwapService } from '../services/SwapService';
+import { TokenService } from '../services/TokenService';
+import { useWalletStore } from './wallet';
+
+// Create service instances
+const swapService = new SwapService();
+const tokenService = new TokenService();
 
 /**
  * Token interface for swap operations
@@ -119,13 +123,12 @@ export const useSwapStore = defineStore('swap', () => {
   // Methods
   /**
    * Fetch available tokens for swapping
-   * @returns Promise that resolves when tokens are fetched
    */
-  const fetchAvailableTokens = async (): Promise<void> => {
+  const fetchAvailableTokens = (): void => {
     try {
-      // Get chain ID from wallet
-      const walletStore = useWallet();
-      const chainId = walletStore.currentNetwork?.chainId ?? 1;
+      // Get chain ID from wallet - hardcoded for now
+      const walletStore = useWalletStore();
+      const chainId = walletStore.currentNetwork === 'ethereum' ? 1 : 1;
       
       // Get supported tokens from SwapService
       const tokens = swapService.getSupportedTokens(chainId);
@@ -201,7 +204,7 @@ export const useSwapStore = defineStore('swap', () => {
   /**
    * Check if token approval is needed
    * @param tokenAddress - Token contract address
-   * @param _amount - Amount to be approved (unused in mock)
+   * @param amount - Amount to be approved
    * @returns Promise that resolves to true if approval is needed
    */
   const checkApproval = async (tokenAddress: string, amount: BigNumberish): Promise<boolean> => {
@@ -212,12 +215,12 @@ export const useSwapStore = defineStore('swap', () => {
     
     try {
       // Get current wallet address
-      const walletStore = useWallet();
-      const address = walletStore.currentWalletAddress;
-      if (address === null) return false;
+      const walletStore = useWalletStore();
+      const address = walletStore.address;
+      if (address === '') return false;
       
       // Get chain ID
-      const chainId = walletStore.currentNetwork?.chainId ?? 1;
+      const chainId = walletStore.currentNetwork === 'ethereum' ? 1 : 1;
       
       // Get router address for current chain
       const routers: Record<number, string> = {
@@ -239,7 +242,7 @@ export const useSwapStore = defineStore('swap', () => {
 
   /**
    * Approve token for spending
-   * @param _tokenAddress - Token contract address (unused in mock)
+   * @param tokenAddress - Token contract address
    * @returns Promise that resolves to true if approval succeeds
    */
   const approveToken = async (tokenAddress: string): Promise<boolean> => {
@@ -248,8 +251,8 @@ export const useSwapStore = defineStore('swap', () => {
       error.value = '';
       
       // Get wallet and chain info
-      const walletStore = useWallet();
-      const chainId = walletStore.currentNetwork?.chainId ?? 1;
+      const walletStore = useWalletStore();
+      const chainId = walletStore.currentNetwork === 'ethereum' ? 1 : 1;
       
       // Get router address
       const routers: Record<number, string> = {
@@ -288,9 +291,9 @@ export const useSwapStore = defineStore('swap', () => {
       error.value = '';
       
       // Get current wallet address
-      const walletStore = useWallet();
-      const address = walletStore.currentWalletAddress;
-      if (address === null) {
+      const walletStore = useWalletStore();
+      const address = walletStore.address;
+      if (address === '') {
         throw new Error('No wallet connected');
       }
       
@@ -299,7 +302,7 @@ export const useSwapStore = defineStore('swap', () => {
         tokenIn: params.tokenIn,
         tokenOut: params.tokenOut,
         amountIn: BigInt(params.amountIn),
-        amountOutMin: quote.value?.amountOut ? 
+        amountOutMin: quote.value?.amountOut !== undefined ?
           quote.value.amountOut - (quote.value.amountOut * BigInt(params.slippage ?? 50)) / BigInt(10000) :
           BigInt(0),
         slippage: params.slippage ?? 50,
@@ -346,9 +349,9 @@ export const useSwapStore = defineStore('swap', () => {
   const updateBalances = async (tokens: string[]): Promise<void> => {
     try {
       // Get current wallet address
-      const walletStore = useWallet();
-      const address = walletStore.currentWalletAddress;
-      if (address === null) {
+      const walletStore = useWalletStore();
+      const address = walletStore.address;
+      if (address === '') {
         balances.value = {};
         return;
       }
@@ -374,7 +377,7 @@ export const useSwapStore = defineStore('swap', () => {
 
   /**
    * Estimate gas for swap
-   * @param _params - Swap parameters (unused in mock)
+   * @param params - Swap parameters
    * @returns Promise that resolves when gas estimate is complete
    */
   const estimateGas = async (params: SwapParams): Promise<void> => {

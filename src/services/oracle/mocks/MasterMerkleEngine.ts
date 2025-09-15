@@ -7,7 +7,7 @@
  * Mock Master Merkle Engine implementation for testing
  */
 export class MasterMerkleEngine {
-  private merkleTree: Map<string, any> = new Map();
+  private merkleTree: Map<string, unknown> = new Map();
 
   /**
    * Initialize the merkle engine
@@ -24,7 +24,7 @@ export class MasterMerkleEngine {
    * @param value - Data value
    * @returns Promise that resolves when data is added
    */
-  async addData(key: string, value: any): Promise<void> {
+  async addData(key: string, value: unknown): Promise<void> {
     this.merkleTree.set(key, value);
     return Promise.resolve();
   }
@@ -34,7 +34,7 @@ export class MasterMerkleEngine {
    * @param key - Data key
    * @returns Promise resolving to data value
    */
-  async getData(key: string): Promise<any> {
+  async getData(key: string): Promise<unknown> {
     return Promise.resolve(this.merkleTree.get(key));
   }
 
@@ -49,11 +49,11 @@ export class MasterMerkleEngine {
 
   /**
    * Verify merkle proof
-   * @param key - Data key
-   * @param proof - Merkle proof
+   * @param _key - Data key
+   * @param _proof - Merkle proof
    * @returns Promise resolving to verification result
    */
-  async verifyProof(key: string, proof: string[]): Promise<boolean> {
+  async verifyProof(_key: string, _proof: string[]): Promise<boolean> {
     // Mock verification - always return true
     return Promise.resolve(true);
   }

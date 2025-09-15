@@ -5,7 +5,7 @@
  * real ValidatorENSOracle implementation from the Validator module.
  */
 
-import { ValidatorENSOracle, type ENSRecord } from '../../../../Validator/dist/services/ens/ValidatorENSOracle';
+import { ValidatorENSOracle } from '../../../../Validator/dist/services/ens/ValidatorENSOracle';
 import type {
   ValidatorENSOracleConfig
 } from '../../../../Validator/dist/services/ens/ValidatorENSOracle';
@@ -23,9 +23,10 @@ export class ENSOracleIntegration {
    */
   private constructor() {
     // Create validator client for ENS oracle
+    const validatorEndpoint = process.env.VITE_VALIDATOR_ENDPOINT ?? process.env.TEST_VALIDATOR_ENDPOINT ?? 'http://localhost:4000';
     const validatorClient = createOmniValidatorClient({
-      validatorEndpoint: process.env.VITE_VALIDATOR_ENDPOINT || process.env.TEST_VALIDATOR_ENDPOINT || 'http://localhost:4000',
-      wsEndpoint: (process.env.VITE_VALIDATOR_ENDPOINT || process.env.TEST_VALIDATOR_ENDPOINT || 'http://localhost:4000').replace('http', 'ws') + '/graphql',
+      validatorEndpoint,
+      wsEndpoint: validatorEndpoint.replace('http', 'ws') + '/graphql',
       timeout: 30000,
       retryAttempts: 3
     });
@@ -33,15 +34,15 @@ export class ENSOracleIntegration {
     // Create config for ENS oracle
     const config: ValidatorENSOracleConfig = {
       validatorClient,
-      ethereumRpcUrl: process.env.VITE_ETH_RPC_URL || 'https://eth-mainnet.alchemyapi.io/v2/demo',
-      cotiRpcUrl: process.env.VITE_AVALANCHE_RPC_URL || 'https://api.avax.network/ext/bc/C/rpc',
-      oracleContractAddress: process.env.VITE_ENS_ORACLE_CONTRACT || '0x0000000000000000000000000000000000000000',
-      resolverContractAddress: process.env.VITE_ENS_RESOLVER_CONTRACT || '0x0000000000000000000000000000000000000000',
-      registryContractAddress: process.env.VITE_ENS_REGISTRY_CONTRACT || '0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e',
+      ethereumRpcUrl: process.env.VITE_ETH_RPC_URL ?? 'https://eth-mainnet.alchemyapi.io/v2/demo',
+      cotiRpcUrl: process.env.VITE_AVALANCHE_RPC_URL ?? 'https://api.avax.network/ext/bc/C/rpc',
+      oracleContractAddress: process.env.VITE_ENS_ORACLE_CONTRACT ?? '0x0000000000000000000000000000000000000000',
+      resolverContractAddress: process.env.VITE_ENS_RESOLVER_CONTRACT ?? '0x0000000000000000000000000000000000000000',
+      registryContractAddress: process.env.VITE_ENS_REGISTRY_CONTRACT ?? '0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e',
       updateInterval: 300,
       batchSize: 10,
       nodeId: `wallet-ens-${Date.now()}`,
-      privateKey: process.env.VITE_WALLET_PRIVATE_KEY || '0x' + '0'.repeat(64)
+      privateKey: process.env.VITE_WALLET_PRIVATE_KEY ?? '0x' + '0'.repeat(64)
     };
 
     this.ensOracle = new ValidatorENSOracle(config);
@@ -52,10 +53,10 @@ export class ENSOracleIntegration {
    * @returns ENSOracleIntegration instance
    */
   static getInstance(): ENSOracleIntegration {
-    if (!this.instance) {
-      this.instance = new ENSOracleIntegration();
+    if (ENSOracleIntegration.instance === undefined) {
+      ENSOracleIntegration.instance = new ENSOracleIntegration();
     }
-    return this.instance;
+    return ENSOracleIntegration.instance;
   }
 
   /**
@@ -81,7 +82,7 @@ export class ENSOracleIntegration {
     }
 
     const address = await this.ensOracle.resolveNameToAddress(name);
-    if (!address) {
+    if (address === null || address === '') {
       throw new Error(`ENS name ${name} not found`);
     }
 
@@ -105,7 +106,7 @@ export class ENSOracleIntegration {
   async isENSAvailable(name: string): Promise<boolean> {
     try {
       const address = await this.ensOracle.resolveNameToAddress(name);
-      return !address; // If no address resolved, name is available
+      return address === null || address === ''; // If no address resolved, name is available
     } catch {
       return true; // If error, assume available
     }
@@ -124,22 +125,25 @@ export class ENSOracleIntegration {
   }> {
     const record = await this.ensOracle.getFullRecord(name);
 
-    if (!record) {
+    if (record === null) {
       throw new Error(`No metadata found for ${name}`);
     }
 
     // Convert ENSRecord to expected format
     return {
       owner: record.owner,
-      resolver: record.resolver || '',
-      registeredAt: record.registeredAt || Date.now() - 365 * 24 * 60 * 60 * 1000, // Default 1 year ago
-      expiresAt: record.expiresAt || Date.now() + 365 * 24 * 60 * 60 * 1000 // Default 1 year from now
+      resolver: record.resolver ?? '',
+      registeredAt: record.registeredAt ?? Date.now() - 365 * 24 * 60 * 60 * 1000, // Default 1 year ago
+      expiresAt: record.expiresAt ?? Date.now() + 365 * 24 * 60 * 60 * 1000 // Default 1 year from now
     };
   }
 
   /**
    * Register ENS name (mock implementation)
    * @param params Registration parameters
+   * @param params.name ENS name to register
+   * @param params.owner Owner address
+   * @param params.duration Duration in years
    * @returns Registration result
    */
   async registerENS(params: {
@@ -215,13 +219,14 @@ export class ENSOracleIntegration {
     const record = await this.ensOracle.getFullRecord(name);
     const results = new Map<string, string | null>();
 
-    if (!record?.textRecords) {
+    if (record === null || record.textRecords === undefined) {
       keys.forEach(key => results.set(key, null));
       return results;
     }
 
     for (const key of keys) {
-      results.set(key, record.textRecords[key] || null);
+      const value = record.textRecords[key];
+      results.set(key, (value !== undefined && value !== '') ? value : null);
     }
 
     return results;

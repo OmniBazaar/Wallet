@@ -183,7 +183,8 @@ export class NFTManager {
     
     // Send transaction via the provider
     // For NFT transfers, we need to use the provider directly
-    if (nftProvider && 'getSigner' in nftProvider && typeof nftProvider.getSigner === 'function') {
+    // nftProvider is already checked for null/undefined above
+    if ('getSigner' in nftProvider && typeof nftProvider.getSigner === 'function') {
       const signer = await nftProvider.getSigner();
       const tx = await signer.sendTransaction({
         to: nft.contract_address,

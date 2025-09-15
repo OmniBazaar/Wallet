@@ -39,75 +39,109 @@ export interface ValidatorStatus {
 
 /** Validator registration parameters */
 export interface ValidatorRegistration {
+  /** Validator address */
   address: string;
+  /** Stake amount in ETH */
   stake: string;
+  /** Validator node URL */
   nodeUrl: string;
+  /** Validator public key */
   publicKey: string;
 }
 
 /** Validator registration result */
 export interface ValidatorRegistrationResult {
+  /** Whether registration was successful */
   success: boolean;
+  /** Unique validator ID */
   validatorId: string;
+  /** Current validator status */
   status: string;
+  /** Amount staked */
   stakeAmount: string;
 }
 
 /** Delegation parameters */
 export interface DelegationParams {
+  /** Validator address to delegate to */
   validatorAddress: string;
+  /** Amount to delegate */
   amount: string;
+  /** Delegator address */
   from: string;
 }
 
 /** Delegation result */
 export interface DelegationResult {
+  /** Whether delegation was successful */
   success: boolean;
+  /** Unique delegation ID */
   delegationId: string;
+  /** Expected rewards amount */
   expectedRewards: string;
 }
 
 /** Delegation info */
 export interface DelegationInfo {
+  /** Validator address */
   validatorAddress: string;
+  /** Delegated amount */
   amount: string;
+  /** Accumulated rewards */
   rewards: string;
+  /** Delegation start timestamp */
   startTime: number;
 }
 
 /** Rewards claim result */
 export interface RewardsClaimResult {
+  /** Whether claim was successful */
   success: boolean;
+  /** Claimed amount */
   amount: string;
+  /** Transaction hash */
   transactionHash: string;
 }
 
 /** Withdrawal parameters */
 export interface WithdrawalParams {
+  /** Delegation ID to withdraw */
   delegationId: string;
+  /** Address of the withdrawer */
   address: string;
 }
 
 /** Withdrawal result */
 export interface WithdrawalResult {
+  /** Whether withdrawal was successful */
   success: boolean;
+  /** Principal amount withdrawn */
   principal: string;
+  /** Rewards amount withdrawn */
   rewards: string;
+  /** Total amount withdrawn */
   total: string;
 }
 
 /** Performance metrics */
 export interface PerformanceMetrics {
+  /** Uptime percentage */
   uptime: number;
+  /** Block proposal rate percentage */
   blockProposalRate: number;
+  /** Attestation rate percentage */
   attestationRate: number;
+  /** Number of slashing events */
   slashingEvents: number;
 }
 
 /** Health status */
 export interface HealthStatus {
+  /** Current health status */
   status: 'healthy' | 'degraded' | 'unhealthy';
+  /** Last heartbeat timestamp */
   lastHeartbeat: number;
+  /** Synchronization status */
   syncStatus: 'synced' | 'syncing' | 'error';
 }
 
@@ -123,7 +157,7 @@ export class ValidatorService {
   private provider: ethers.Provider | null = null;
 
   // Cache for validator data
-  private validatorCache = new Map<string, { data: any; timestamp: number }>();
+  private validatorCache = new Map<string, { data: unknown; timestamp: number }>();
   private cacheTimeout = 60000; // 1 minute cache
 
   /**
@@ -140,25 +174,25 @@ export class ValidatorService {
    *
    * @returns Promise that resolves when initialization is complete
    */
-  async init(): Promise<void> {
+  init(): void {
     if (this.isInitialized) return;
 
     try {
       // Initialize the validator client
       this.client = createOmniValidatorClient({
-        validatorEndpoint: process.env.VITE_VALIDATOR_ENDPOINT || 'http://localhost:4000',
-        wsEndpoint: (process.env.VITE_VALIDATOR_ENDPOINT || 'http://localhost:4000').replace('http', 'ws') + '/graphql',
+        validatorEndpoint: process.env.VITE_VALIDATOR_ENDPOINT ?? 'http://localhost:4000',
+        wsEndpoint: (process.env.VITE_VALIDATOR_ENDPOINT ?? 'http://localhost:4000').replace('http', 'ws') + '/graphql',
         timeout: 30000,
         retryAttempts: 3
       });
 
       // Initialize ethers provider for on-chain operations
       this.provider = new ethers.JsonRpcProvider(
-        process.env.VITE_RPC_URL || 'http://localhost:8545'
+        process.env.VITE_RPC_URL ?? 'http://localhost:8545'
       );
 
       // Initialize staking contract
-      const stakingAddress = process.env.VITE_STAKING_CONTRACT || '0x5FbDB2315678afecb367f032d93F642f64180aa3';
+      const stakingAddress = process.env.VITE_STAKING_CONTRACT ?? '0x5FbDB2315678afecb367f032d93F642f64180aa3';
       const stakingABI = [
         'function stake(uint256 amount) external',
         'function unstake(uint256 amount) external',
@@ -187,7 +221,7 @@ export class ValidatorService {
    * @returns Registration result
    */
   async registerValidator(params: ValidatorRegistration): Promise<ValidatorRegistrationResult> {
-    if (!this.stakingContract || !this.provider) {
+    if (this.stakingContract === null || this.provider === null) {
       throw new Error('Service not initialized');
     }
 
@@ -203,14 +237,15 @@ export class ValidatorService {
       }
 
       // Get signer
-      const signer = await (this.provider as any).getSigner(params.address);
-      const contract = this.stakingContract.connect(signer);
+      const signer = await (this.provider as ethers.JsonRpcProvider).getSigner(params.address);
+      const contract = this.stakingContract.connect(signer) as ethers.Contract;
 
       // Register validator on-chain
-      const tx = await contract['registerValidator'](params.nodeUrl, params.publicKey, {
+      const registerValidatorMethod = contract['registerValidator'] as (nodeUrl: string, publicKey: string, options: { value: bigint }) => Promise<ethers.ContractTransaction>;
+      const tx = await registerValidatorMethod(params.nodeUrl, params.publicKey, {
         value: ethers.parseEther(params.stake)
       });
-      const receipt = await tx.wait();
+      await (tx.wait as () => Promise<ethers.ContractTransactionReceipt>)();
 
       return {
         success: true,
@@ -218,8 +253,8 @@ export class ValidatorService {
         status: 'active',
         stakeAmount: params.stake
       };
-    } catch (error) {
-      console.error('Failed to register validator:', error);
+    } catch {
+      // Failed to register validator
       return {
         success: false,
         validatorId: '',
@@ -236,7 +271,7 @@ export class ValidatorService {
    * @returns Delegation result
    */
   async delegate(params: DelegationParams): Promise<DelegationResult> {
-    if (!this.stakingContract || !this.provider) {
+    if (this.stakingContract === null || this.provider === null) {
       throw new Error('Service not initialized');
     }
 
@@ -250,11 +285,12 @@ export class ValidatorService {
         };
       }
 
-      const signer = await (this.provider as any).getSigner(params.from);
-      const contract = this.stakingContract.connect(signer);
+      const signer = await (this.provider as ethers.JsonRpcProvider).getSigner(params.from);
+      const contract = this.stakingContract.connect(signer) as ethers.Contract;
 
-      const tx = await contract['delegate'](params.validatorAddress, ethers.parseEther(params.amount));
-      const receipt = await tx.wait();
+      const delegateMethod = contract['delegate'] as (address: string, amount: bigint) => Promise<ethers.ContractTransaction>;
+      const tx = await delegateMethod(params.validatorAddress, ethers.parseEther(params.amount));
+      await (tx.wait as () => Promise<ethers.ContractTransactionReceipt>)();
 
       // Calculate expected rewards (simplified)
       const expectedRewards = (parseFloat(params.amount) * 0.1).toString(); // 10% APY
@@ -264,8 +300,8 @@ export class ValidatorService {
         delegationId: `${params.from}-${params.validatorAddress}`,
         expectedRewards
       };
-    } catch (error) {
-      console.error('Failed to delegate:', error);
+    } catch {
+      // Failed to delegate
       return {
         success: false,
         delegationId: '',
@@ -276,10 +312,10 @@ export class ValidatorService {
 
   /**
    * Get delegations for an address
-   * @param address Delegator address
+   * @param _address Delegator address
    * @returns Array of delegations
    */
-  async getDelegations(address: string): Promise<DelegationInfo[]> {
+  getDelegations(_address: string): DelegationInfo[] {
     // In a real implementation, this would query all validators
     // For now, return empty array
     return [];
@@ -291,7 +327,7 @@ export class ValidatorService {
    * @returns Claim result
    */
   async claimRewards(address: string): Promise<RewardsClaimResult> {
-    if (!this.stakingContract || !this.provider) {
+    if (this.stakingContract === null || this.provider === null) {
       throw new Error('Service not initialized');
     }
 
@@ -305,11 +341,12 @@ export class ValidatorService {
         };
       }
 
-      const signer = await (this.provider as any).getSigner(address);
-      const contract = this.stakingContract.connect(signer);
+      const signer = await (this.provider as ethers.JsonRpcProvider).getSigner(address);
+      const contract = this.stakingContract.connect(signer) as ethers.Contract;
 
-      const tx = await contract['claimRewards']();
-      const receipt = await tx.wait();
+      const claimRewardsMethod = contract['claimRewards'] as () => Promise<ethers.ContractTransaction>;
+      const tx = await claimRewardsMethod();
+      const receipt = await (tx.wait as () => Promise<ethers.ContractTransactionReceipt | null>)();
 
       // Get claimed amount from events
       const amount = '10'; // Placeholder
@@ -317,10 +354,10 @@ export class ValidatorService {
       return {
         success: true,
         amount,
-        transactionHash: receipt.hash
+        transactionHash: (receipt as { hash?: string })?.hash ?? ''
       };
-    } catch (error) {
-      console.error('Failed to claim rewards:', error);
+    } catch {
+      // Failed to claim rewards
       return {
         success: false,
         amount: '0',
@@ -336,9 +373,9 @@ export class ValidatorService {
    */
   async withdrawDelegation(params: WithdrawalParams): Promise<WithdrawalResult> {
     // Parse delegation ID to get validator address
-    const [delegator, validator] = params.delegationId.split('-');
+    const [, validator] = params.delegationId.split('-');
 
-    if (!this.stakingContract || !this.provider) {
+    if (this.stakingContract === null || this.provider === null) {
       throw new Error('Service not initialized');
     }
 
@@ -353,15 +390,17 @@ export class ValidatorService {
         };
       }
 
-      const signer = await (this.provider as any).getSigner(params.address);
-      const contract = this.stakingContract.connect(signer);
+      const signer = await (this.provider as ethers.JsonRpcProvider).getSigner(params.address);
+      const contract = this.stakingContract.connect(signer) as ethers.Contract;
 
       // Get current delegation info
-      const [amount, rewards] = await contract['getDelegation'](params.address, validator);
+      const getDelegationMethod = contract['getDelegation'] as (delegator: string, validator: string) => Promise<[bigint, bigint]>;
+      const [amount, rewards] = await getDelegationMethod(params.address, validator);
 
       // Withdraw
-      const tx = await contract['undelegate'](validator, amount);
-      await tx.wait();
+      const undelegateMethod = contract['undelegate'] as (validator: string, amount: bigint) => Promise<ethers.ContractTransaction>;
+      const tx = await undelegateMethod(validator, amount);
+      await (tx.wait as () => Promise<ethers.ContractTransactionReceipt>)();
 
       const principal = ethers.formatEther(amount);
       const rewardsStr = ethers.formatEther(rewards);
@@ -373,8 +412,8 @@ export class ValidatorService {
         rewards: rewardsStr,
         total
       };
-    } catch (error) {
-      console.error('Failed to withdraw delegation:', error);
+    } catch {
+      // Failed to withdraw delegation
       return {
         success: false,
         principal: '0',
@@ -389,10 +428,10 @@ export class ValidatorService {
    * @param address Validator address
    * @returns Performance metrics
    */
-  async getPerformanceMetrics(address: string): Promise<PerformanceMetrics> {
+  getPerformanceMetrics(address: string): PerformanceMetrics {
     // Check cache
-    const cached = this.getFromCache(`performance-${address}`);
-    if (cached) return cached;
+    const cached = this.getFromCache<PerformanceMetrics>(`performance-${address}`);
+    if (cached !== null) return cached;
 
     // In real implementation, would query validator metrics
     const metrics: PerformanceMetrics = {
@@ -408,10 +447,10 @@ export class ValidatorService {
 
   /**
    * Get health status
-   * @param address Validator address
+   * @param _address Validator address
    * @returns Health status
    */
-  async getHealthStatus(address: string): Promise<HealthStatus> {
+  async getHealthStatus(_address: string): Promise<HealthStatus> {
     // Return mock health status in test environment
     if (process.env.NODE_ENV === 'test') {
       return {
@@ -421,12 +460,12 @@ export class ValidatorService {
       };
     }
 
-    if (!this.client) {
+    if (this.client === null) {
       throw new Error('Service not initialized');
     }
 
     try {
-      const status = await this.client.getStatus();
+      const status = await this.client.getStatus() as { isConnected: boolean; isSynced: boolean };
 
       return {
         status: status.isConnected ? 'healthy' : 'unhealthy',
@@ -444,25 +483,18 @@ export class ValidatorService {
 
   /**
    * Retrieves the current status of the validator.
-   *
+   * @param address - Optional validator address
    * @returns Promise that resolves to the validator status
    */
-  async getValidatorStatus(): Promise<ValidatorStatus>;
-  /**
-   * Get validator status
-   * @param address Validator address
-   * @returns Validator status
-   */
-  async getValidatorStatus(address: string): Promise<ValidatorStatus>;
   async getValidatorStatus(address?: string): Promise<ValidatorStatus> {
     // If no address provided, use default validator
-    const validatorAddress = address || process.env.VITE_DEFAULT_VALIDATOR || '0x0000000000000000000000000000000000000000';
+    const validatorAddress = address ?? process.env.VITE_DEFAULT_VALIDATOR ?? '0x0000000000000000000000000000000000000000';
 
     // Check cache first
-    const cached = this.getFromCache(`validator-status-${validatorAddress}`);
-    if (cached) return cached;
+    const cached = this.getFromCache<ValidatorStatus>(`validator-status-${validatorAddress}`);
+    if (cached !== null) return cached;
 
-    if (!this.stakingContract || !this.client) {
+    if (this.stakingContract === null || this.client === null) {
       // Return mock data in test environment
       if (process.env.NODE_ENV === 'test') {
         const mockStatus: ValidatorStatus = {
@@ -484,22 +516,22 @@ export class ValidatorService {
 
     try {
       // Get on-chain validator info
-      const getValidatorInfo = this.stakingContract['getValidatorInfo'] || this.stakingContract['validators'];
-      if (!getValidatorInfo) {
+      const getValidatorInfo = (this.stakingContract.getValidatorInfo ?? this.stakingContract.validators) as ((address: string) => Promise<[boolean, bigint, bigint, bigint]>) | undefined;
+      if (getValidatorInfo === undefined) {
         throw new Error('Staking contract does not have getValidatorInfo or validators method');
       }
-      const [isActive, stake, commission, uptime] = await getValidatorInfo.call(this.stakingContract, validatorAddress);
+      const [isActive, stake, _commission, uptime] = await getValidatorInfo.call(this.stakingContract, validatorAddress);
 
       // Get validator node status from client
-      const nodeStatus = await this.client.getStatus();
+      const nodeStatus = await this.client.getStatus() as { blockHeight?: number; peerCount?: number; version?: string };
 
       const status: ValidatorStatus = {
         status: isActive ? 'active' : 'inactive',
         uptime: Number(uptime) / 100, // Convert from basis points
-        blockHeight: nodeStatus.blockHeight,
-        peerCount: nodeStatus.peerCount,
+        blockHeight: nodeStatus.blockHeight as number,
+        peerCount: nodeStatus.peerCount as number,
         lastBlockTime: Date.now(),
-        version: nodeStatus.version || '1.0.0',
+        version: (nodeStatus.version as string | undefined) ?? '1.0.0',
         isActive,
         blocksValidated: 1000, // Would come from actual validator metrics
         rewards: ethers.formatEther(stake),
@@ -508,8 +540,8 @@ export class ValidatorService {
 
       this.setCache(`validator-status-${validatorAddress}`, status);
       return status;
-    } catch (error) {
-      console.error('Failed to get validator status:', error);
+    } catch {
+      // Failed to get validator status
       // Return default status on error
       return {
         status: 'error',
@@ -532,7 +564,7 @@ export class ValidatorService {
    *
    * @returns Promise that resolves when cache is cleared
    */
-  async clearCache(): Promise<void> {
+  clearCache(): void {
     this.validatorCache.clear();
   }
 
@@ -542,7 +574,7 @@ export class ValidatorService {
    *
    * @returns Promise that resolves when cleanup is complete
    */
-  async cleanup(): Promise<void> {
+  cleanup(): void {
     this.isInitialized = false;
     this.client = null;
     this.stakingContract = null;
@@ -555,10 +587,10 @@ export class ValidatorService {
    * @param key Cache key
    * @returns Cached data or null
    */
-  private getFromCache(key: string): any {
+  private getFromCache<T>(key: string): T | null {
     const cached = this.validatorCache.get(key);
-    if (cached && Date.now() - cached.timestamp < this.cacheTimeout) {
-      return cached.data;
+    if (cached !== undefined && Date.now() - cached.timestamp < this.cacheTimeout) {
+      return cached.data as T;
     }
     return null;
   }
@@ -568,7 +600,7 @@ export class ValidatorService {
    * @param key Cache key
    * @param data Data to cache
    */
-  private setCache(key: string, data: any): void {
+  private setCache(key: string, data: unknown): void {
     this.validatorCache.set(key, { data, timestamp: Date.now() });
   }
 }

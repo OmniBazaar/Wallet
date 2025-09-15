@@ -80,10 +80,10 @@ export async function initializeValidatorServices(userId: string): Promise<void>
 
 // Service cleanup helper
 /** Disconnect all validator services and clear state. */
-export async function disconnectValidatorServices(): Promise<void> {
+export function disconnectValidatorServices(): void {
   try {
-    await validatorWallet.disconnect();
-    await validatorTransaction.disconnect();
+    validatorWallet.disconnect();
+    validatorTransaction.disconnect();
     validatorBalance.disconnect(); // This method is synchronous
 
     // All validator services disconnected successfully - using logger would be better than console.warn

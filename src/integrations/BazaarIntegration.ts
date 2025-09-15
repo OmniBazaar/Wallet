@@ -172,7 +172,7 @@ export class BazaarIntegration {
    * Connect to Bazaar marketplace
    */
   connect(): void {
-    this.listingService.init();
+    void this.listingService.init();
     this.connected = true;
   }
 
@@ -182,7 +182,7 @@ export class BazaarIntegration {
    */
   disconnect(): void {
     this.reset();
-    this.listingService.cleanup();
+    void this.listingService.cleanup();
     this.connected = false;
   }
 
@@ -314,13 +314,13 @@ export class BazaarIntegration {
    * @param sellerAddress - Address of the seller
    * @returns Created listing
    */
-  createListing(listingData: ListingData, sellerAddress: string): Listing {
+  async createListing(listingData: ListingData, sellerAddress: string): Promise<Listing> {
     if (!this.isConnected()) {
       throw new Error('Wallet not connected');
     }
 
     // In real implementation, sign listing data
-    const listing = this.listingService.createListing({
+    const listing = await this.listingService.createListing({
       title: listingData.title,
       description: listingData.description ?? '',
       price: listingData.price,

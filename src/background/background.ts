@@ -301,7 +301,7 @@ async function getWalletState(): Promise<{
   let transactions: unknown[] = [];
   if (activeAccount !== null) {
     try {
-      const txHistory = await validatorTransaction.getTransactionHistory();
+      const txHistory = validatorTransaction.getTransactionHistory();
       transactions = txHistory.map(tx => ({
         hash: tx.hash,
         from: tx.from,

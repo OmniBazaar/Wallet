@@ -21,7 +21,11 @@ export class ValidatorENSOracle {
   private registrations: Map<string, ENSRegistration> = new Map();
   private reverseResolutions: Map<string, string> = new Map();
 
-  constructor(merkleEngine?: any) {
+  /**
+   * Creates a new ValidatorENSOracle instance
+   * @param _merkleEngine - Merkle engine instance (ignored in mock)
+   */
+  constructor(_merkleEngine?: unknown) {
     // Mock constructor - merkleEngine parameter ignored
   }
 
@@ -41,7 +45,7 @@ export class ValidatorENSOracle {
    */
   async resolve(name: string): Promise<string | null> {
     const registration = this.registrations.get(name);
-    return Promise.resolve(registration?.address || null);
+    return Promise.resolve(registration?.address ?? null);
   }
 
   /**
@@ -50,7 +54,7 @@ export class ValidatorENSOracle {
    * @returns Promise resolving to ENS name or null
    */
   async reverseResolve(address: string): Promise<string | null> {
-    return Promise.resolve(this.reverseResolutions.get(address) || null);
+    return Promise.resolve(this.reverseResolutions.get(address) ?? null);
   }
 
   /**
@@ -74,7 +78,7 @@ export class ValidatorENSOracle {
     expiresAt: number;
   } | null> {
     const registration = this.registrations.get(name);
-    if (!registration) {
+    if (registration === undefined) {
       return Promise.resolve(null);
     }
 

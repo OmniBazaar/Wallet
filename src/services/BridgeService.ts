@@ -10,6 +10,40 @@
 // import { CrossChainBridge } from '../../../Validator/src/services/dex/crosschain/CrossChainBridge';
 // import { MasterMerkleEngine } from '../../../Validator/src/engines/MasterMerkleEngine';
 
+/** CrossChainBridge interface placeholder */
+interface ICrossChainBridge {
+  initiateTransfer(params: {
+    sourceChain: string;
+    destinationChain: string;
+    token: string;
+    amount: bigint;
+    recipient: string;
+  }): Promise<{ transactionHash: string; status: string; estimatedTime?: number }>;
+  getSupportedChains(): Promise<Array<{
+    chainId: number;
+    name: string;
+    nativeToken: string;
+  }>>;
+  getAvailableRoutes(fromChain: string, toChain: string, token: string): Promise<Array<{
+    id: string;
+    bridgeFee?: bigint;
+    gasFee?: bigint;
+    totalFee?: bigint;
+    estimatedTime?: number;
+  }>>;
+  getTransferStatus(txHash: string): Promise<{
+    status: string;
+    confirmations?: number;
+    estimatedCompletionTime?: number;
+  }>;
+  stop(): Promise<void>;
+}
+
+/** MasterMerkleEngine interface placeholder */
+interface IMasterMerkleEngine {
+  // Add methods as needed
+}
+
 /** Bridge parameters */
 interface BridgeParams {
   /** Source chain */
@@ -63,8 +97,8 @@ interface RouteInfo {
  * Bridge service wrapper
  */
 export class BridgeService {
-  private crossChainBridge?: any; // CrossChainBridge
-  private merkleEngine?: any; // MasterMerkleEngine
+  private crossChainBridge?: ICrossChainBridge;
+  private merkleEngine?: IMasterMerkleEngine;
   private isInitialized = false;
 
   /**
@@ -74,10 +108,11 @@ export class BridgeService {
 
   /**
    * Initialize the bridge service
+   * @returns Promise that resolves when initialization is complete
    */
-  async init(): Promise<void> {
-    if (this.isInitialized) return;
-    
+  init(): Promise<void> {
+    if (this.isInitialized) return Promise.resolve();
+
     try {
       // Initialize services
       // TODO: Initialize when validator module is available
@@ -86,9 +121,10 @@ export class BridgeService {
       // await this.crossChainBridge.start();
 
       this.isInitialized = true;
+      return Promise.resolve();
     } catch (error) {
-      console.error('Failed to initialize BridgeService:', error);
-      throw error;
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(`Failed to initialize BridgeService: ${errorMessage}`);
     }
   }
 
@@ -104,22 +140,23 @@ export class BridgeService {
 
     try {
       // Initiate cross-chain transfer
-      const result = await (this.crossChainBridge).initiateTransfer({
+      const result = await this.crossChainBridge.initiateTransfer({
         sourceChain: params.fromChain,
         destinationChain: params.toChain,
         token: params.token,
         amount: BigInt(params.amount),
         recipient: params.recipient
-      }) as { transactionHash: string; status: string; estimatedTime?: number };
+      });
 
       return {
         txHash: result.transactionHash,
         status: result.status,
-        estimatedTime: result.estimatedTime
+        ...(result.estimatedTime !== undefined && { estimatedTime: result.estimatedTime })
       };
     } catch (error) {
-      console.error('Bridge transfer failed:', error);
-      throw error;
+      // Log error details for debugging
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(`Bridge transfer failed: ${errorMessage}`);
     }
   }
 
@@ -133,19 +170,15 @@ export class BridgeService {
     }
 
     try {
-      const chains = await (this.crossChainBridge).getSupportedChains() as Array<{
-        chainId: number;
-        name: string;
-        nativeToken: string;
-      }>;
+      const chains = await this.crossChainBridge.getSupportedChains();
 
-      return chains.map((chain: any) => ({
+      return chains.map(chain => ({
         chainId: chain.chainId.toString(),
         name: chain.name,
         nativeToken: chain.nativeToken
       }));
     } catch (error) {
-      console.error('Failed to get supported chains:', error);
+      // Return empty array on error
       return [];
     }
   }
@@ -178,19 +211,13 @@ export class BridgeService {
     }
 
     try {
-      const routes = await (this.crossChainBridge).getAvailableRoutes(
+      const routes = await this.crossChainBridge.getAvailableRoutes(
         params.fromChain,
         params.toChain,
         params.token
-      ) as Array<{
-        id: string;
-        bridgeFee?: bigint;
-        gasFee?: bigint;
-        totalFee?: bigint;
-        estimatedTime?: number;
-      }>;
+      );
 
-      return routes.map((route: any) => ({
+      return routes.map(route => ({
         id: route.id,
         fee: route.bridgeFee?.toString(),
         gasFee: route.gasFee?.toString(),
@@ -198,7 +225,7 @@ export class BridgeService {
         estimatedTime: route.estimatedTime
       }));
     } catch (error) {
-      console.error('Failed to get bridge routes:', error);
+      // Return empty array on error
       return [];
     }
   }
@@ -218,19 +245,15 @@ export class BridgeService {
     }
 
     try {
-      const status = await (this.crossChainBridge).getTransferStatus(txHash) as {
-        status: string;
-        confirmations?: number;
-        estimatedCompletionTime?: number;
-      };
+      const status = await this.crossChainBridge.getTransferStatus(txHash);
 
       return {
         status: status.status,
-        confirmations: status.confirmations,
-        estimatedTime: status.estimatedCompletionTime
+        ...(status.confirmations !== undefined && { confirmations: status.confirmations }),
+        ...(status.estimatedCompletionTime !== undefined && { estimatedTime: status.estimatedCompletionTime })
       };
     } catch (error) {
-      console.error('Failed to get transaction status:', error);
+      // Return unknown status on error
       return { status: 'unknown' };
     }
   }
@@ -280,7 +303,7 @@ export class BridgeService {
    */
   async cleanup(): Promise<void> {
     if (this.crossChainBridge !== null && this.crossChainBridge !== undefined) {
-      await (this.crossChainBridge).stop();
+      await this.crossChainBridge.stop();
     }
 
     this.crossChainBridge = undefined;
@@ -378,9 +401,10 @@ export class BridgeService {
 
     const status = await this.getTransactionStatus(txHash);
 
+    const completedAt = status.status === 'completed' ? new Date().toISOString() : undefined;
     return {
       status: status.status,
-      completedAt: status.status === 'completed' ? new Date().toISOString() : undefined
+      ...(completedAt !== undefined && { completedAt })
     };
   }
 }

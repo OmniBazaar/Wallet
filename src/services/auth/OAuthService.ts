@@ -227,6 +227,7 @@ export class OAuthService {
   /**
    * Initialize OAuth service with mock providers
    * In production, these would be actual service instances
+   * @param deps - Optional dependencies for the OAuth service
    */
   constructor(deps?: OAuthServiceDependencies) {
     this.userRegistry = deps?.userRegistry ?? new MockUserRegistryDatabase();

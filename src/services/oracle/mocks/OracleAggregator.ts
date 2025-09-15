@@ -186,12 +186,26 @@ export class OracleAggregator {
    * @returns Promise resolving to aggregated price data
    */
   async getAggregatedPrice(base: string, quote?: string): Promise<AggregatedPriceData>;
+  /**
+   * Get aggregated price with parameters
+   * @param params - Price query parameters
+   * @param params.token - Token symbol
+   * @param params.chain - Chain identifier
+   * @param params.sources - Array of source names
+   * @returns Promise resolving to aggregated price data
+   */
   async getAggregatedPrice(params: {
     token: string;
     chain?: string;
     sources?: string[];
   }): Promise<AggregatedPriceData>;
-  async getAggregatedPrice(
+  /**
+   * Get aggregated price implementation
+   * @param baseOrParams - Base token or parameters object
+   * @param quote - Quote token symbol (optional)
+   * @returns Promise resolving to aggregated price data
+   */
+  getAggregatedPrice(
     baseOrParams: string | { token: string; chain?: string; sources?: string[] },
     quote?: string
   ): Promise<AggregatedPriceData> {
@@ -201,53 +215,59 @@ export class OracleAggregator {
     if (typeof baseOrParams === 'string') {
       // Called with base/quote pair
       const basePrice = this.getMockPrice(baseOrParams);
-      const quotePrice = quote ? this.getMockPrice(quote) : 1;
+      const quotePrice = quote !== undefined && quote !== '' ? this.getMockPrice(quote) : 1;
       const price = quotePrice !== 0 ? basePrice / quotePrice : 0;
 
-      return {
+      return Promise.resolve({
         price,
         change24h: (Math.random() - 0.5) * 10,
         timestamp: Date.now(),
         sources: ['mock'],
         confidence: 0.95
-      };
+      });
     } else {
       // Called with params object (original implementation)
       token = baseOrParams.token;
       sources = baseOrParams.sources;
       const basePrice = this.getMockPrice(token);
 
-      return {
+      return Promise.resolve({
         price: basePrice,
         change24h: (Math.random() - 0.5) * 10,
         timestamp: Date.now(),
         sources: sources ?? ['mock'],
         confidence: 0.95
-      };
+      });
     }
   }
 
   /**
    * Get cross-chain price for assets
    * @param params - Cross-chain price query parameters
+   * @param params.token - Token symbol
+   * @param params.fromChain - Source chain identifier
+   * @param params.toChain - Target chain identifier
    * @returns Promise resolving to price data
    */
-  async getCrossChainPrice(params: {
+  getCrossChainPrice(params: {
     token: string;
     fromChain: string;
     toChain: string;
   }): Promise<number> {
     // Mock cross-chain price - just return the token price with slight variation
     const basePrice = this.getMockPrice(params.token);
-    return basePrice * (0.98 + Math.random() * 0.04); // 2% variation for cross-chain
+    return Promise.resolve(basePrice * (0.98 + Math.random() * 0.04)); // 2% variation for cross-chain
   }
 
   /**
    * Validate cross-chain state
    * @param params - Cross-chain validation parameters
+   * @param params.sourceChain - Source chain identifier
+   * @param params.targetChain - Target chain identifier
+   * @param params.stateRoot - State root hash
    * @returns Promise resolving to validation result
    */
-  async validateCrossChainState(params: {
+  validateCrossChainState(params: {
     sourceChain: string;
     targetChain: string;
     stateRoot: string;
@@ -257,42 +277,45 @@ export class OracleAggregator {
     signatures: number;
   }> {
     // Mock validation - always return valid
-    return {
+    return Promise.resolve({
       isValid: true,
       isConsistent: true,
       timestamp: Date.now(),
       signatures: 3, // Mock 3 validator signatures
-      states: params.sourceChain && params.targetChain ? {
+      states: params.sourceChain !== '' && params.targetChain !== '' ? {
         [params.sourceChain]: { stateRoot: params.stateRoot, blockNumber: 1000 },
         [params.targetChain]: { stateRoot: params.stateRoot, blockNumber: 1000 }
       } : {}
-    };
+    });
   }
 
   /**
    * Get consensus data from multiple oracles
-   * @param query - Oracle query
+   * @param _query - Oracle query (unused in mock)
    * @returns Promise resolving to consensus data
    */
-  async getConsensus(query: any): Promise<{
-    result: any;
+  getConsensus(_query: unknown): Promise<{
+    result: unknown;
     confidence: number;
     sources: number;
   }> {
     // Mock consensus
-    return {
+    return Promise.resolve({
       result: { value: Math.random() * 100 },
       confidence: 0.95,
       sources: 3
-    };
+    });
   }
 
   /**
    * Submit a dispute about oracle data
-   * @param params - Dispute parameters
+   * @param _params - Dispute parameters (unused in mock)
+   * @param _params.oracleId - Oracle identifier
+   * @param _params.reason - Reason for dispute
+   * @param _params.evidence - Supporting evidence (optional)
    * @returns Promise resolving to dispute result
    */
-  async submitDispute(params: {
+  submitDispute(_params: {
     oracleId: string;
     reason: string;
     evidence?: string;
@@ -302,38 +325,41 @@ export class OracleAggregator {
     estimatedResolutionTime?: number;
   }> {
     // Mock dispute submission
-    return {
+    return Promise.resolve({
       disputeId: 'dispute_' + Math.random().toString(36).substr(2, 9),
       status: 'pending',
       estimatedResolutionTime: Date.now() + 3600000 // 1 hour from now
-    };
+    });
   }
 
   /**
    * Verify oracle signature
-   * @param params - Signature verification parameters
+   * @param _params - Signature verification parameters (unused in mock)
+   * @param _params.oracleId - Oracle identifier
+   * @param _params.data - Data to verify
+   * @param _params.signature - Signature to verify
    * @returns Promise resolving to verification result
    */
-  async verifyOracleSignature(params: {
+  verifyOracleSignature(_params: {
     oracleId: string;
     data: string;
     signature: string;
   }): Promise<boolean> {
     // Mock signature verification - always return true
-    return true;
+    return Promise.resolve(true);
   }
 
   /**
    * Get verifiable random number
    * @param min - Minimum value
    * @param max - Maximum value
-   * @param seed - Optional seed
+   * @param _seed - Optional seed (unused in mock)
    * @returns Promise resolving to random number result
    */
-  async getVerifiableRandom(
+  getVerifiableRandom(
     min?: number,
     max?: number,
-    seed?: string
+    _seed?: string
   ): Promise<{
     value: number;
     proof: string;
@@ -343,28 +369,28 @@ export class OracleAggregator {
     const maxVal = max ?? 100;
     const value = Math.floor(Math.random() * (maxVal - minVal + 1)) + minVal;
 
-    return {
+    return Promise.resolve({
       value,
       proof: '0x' + Math.random().toString(16).substring(2),
       blockNumber: Math.floor(Date.now() / 1000)
-    };
+    });
   }
 
   /**
    * Get external data from oracles
    * @param type - Data type
-   * @param params - Query parameters
+   * @param _params - Query parameters (unused in mock)
    * @returns Promise resolving to external data
    */
-  async getExternalData(type: string, params?: any): Promise<any> {
+  getExternalData(type: string, _params?: unknown): Promise<unknown> {
     if (type === 'weather') {
-      return {
+      return Promise.resolve({
         temperature: 20 + Math.random() * 15,
         precipitation: Math.random() * 100,
         windSpeed: Math.random() * 50
-      };
+      });
     } else if (type === 'sports') {
-      return [
+      return Promise.resolve([
         {
           homeTeam: 'Team A',
           awayTeam: 'Team B',
@@ -372,8 +398,8 @@ export class OracleAggregator {
           awayScore: Math.floor(Math.random() * 5),
           status: 'final'
         }
-      ];
+      ]);
     }
-    return null;
+    return Promise.resolve(null);
   }
 }

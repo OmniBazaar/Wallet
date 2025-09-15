@@ -421,7 +421,7 @@ export class OmniProvider extends ethers.JsonRpcProvider {
    * @param params The parameters for the RPC method
    * @returns Promise resolving to the result of the RPC call
    */
-  async send(method: string, params: unknown[] | Record<string, unknown>): Promise<unknown> {
+  override async send(method: string, params: unknown[] | Record<string, unknown>): Promise<unknown> {
     // For OmniBazaar-specific methods, use our authenticated sendRequest
     if (method.startsWith('omni_')) {
       return await this.sendRequest(method, params);

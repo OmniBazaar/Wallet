@@ -58,7 +58,7 @@ export function secureRandomBase36(length: number): string {
   for (let i = 0; i < randomBytes.length && result.length < length; i++) {
     // Convert each byte to base36, ensuring uniform distribution
     const value = randomBytes[i];
-    if (value < 252) { // 252 = 36 * 7, ensures uniform distribution
+    if (value !== undefined && value < 252) { // 252 = 36 * 7, ensures uniform distribution
       result += (value % 36).toString(36);
     }
   }
@@ -79,8 +79,12 @@ export function secureRandomUUID(): string {
   const randomBytes = crypto.randomBytes(16);
   
   // Set version (4) and variant bits according to RFC 4122
-  randomBytes[6] = (randomBytes[6] & 0x0f) | 0x40; // Version 4
-  randomBytes[8] = (randomBytes[8] & 0x3f) | 0x80; // Variant 10
+  const byte6 = randomBytes[6];
+  const byte8 = randomBytes[8];
+  if (byte6 !== undefined && byte8 !== undefined) {
+    randomBytes[6] = (byte6 & 0x0f) | 0x40; // Version 4
+    randomBytes[8] = (byte8 & 0x3f) | 0x80; // Variant 10
+  }
   
   // Convert to hex string with proper formatting
   const hex = randomBytes.toString('hex');

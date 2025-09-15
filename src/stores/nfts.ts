@@ -5,8 +5,9 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { nftService } from '../background/background';
-import { useWallet } from './wallet';
+import { useWalletStore } from './wallet';
 import type { NFT as WalletNFT } from '../core/nft/types';
+import type { NFTService as INFTService } from '../services/NFTService';
 
 /**
  * Individual NFT interface
@@ -93,18 +94,19 @@ export const useNFTStore = defineStore('nfts', () => {
       error.value = null;
 
       // Get current wallet address
-      const walletStore = useWallet();
-      const address = walletStore.currentWalletAddress;
+      const walletStore = useWalletStore();
+      const address = walletStore.address;
       
-      if (address === null) {
+      if (address === '') {
         nfts.value = [];
         featuredNFTs.value = [];
         return;
       }
 
       // Initialize NFT service if needed
-      if (!nftService.isNFTServiceInitialized()) {
-        await nftService.initialize();
+      const service = nftService as INFTService;
+      if (!service.isNFTServiceInitialized()) {
+        await service.initialize();
       }
 
       // Fetch real NFTs from NFTService
@@ -143,8 +145,8 @@ export const useNFTStore = defineStore('nfts', () => {
   /**
    * Update collections based on owned NFTs
    */
-  function updateCollections(): void {
-    updateCollectionsFromNFTs();
+  async function updateCollections(): Promise<void> {
+    await updateCollectionsFromNFTs();
   }
 
   /**
@@ -168,10 +170,10 @@ export const useNFTStore = defineStore('nfts', () => {
     });
 
     // Get current wallet address
-    const walletStore = useWallet();
-    const address = walletStore.currentWalletAddress;
+    const walletStore = useWalletStore();
+    const address = walletStore.address;
     
-    if (address !== null) {
+    if (address !== '') {
       try {
         // Fetch real collection data from NFTService
         const collectionsData = await nftService.getCollections(address);
@@ -179,10 +181,15 @@ export const useNFTStore = defineStore('nfts', () => {
         // Update collection info with real data
         for (const collectionData of collectionsData) {
           const collection = collectionData as {
+            /** Collection address */
             address: string;
+            /** Collection name */
             name: string;
+            /** Collection symbol */
             symbol?: string;
+            /** Floor price */
             floorPrice?: number;
+            /** Total supply */
             totalSupply?: number;
           };
           
@@ -235,8 +242,9 @@ export const useNFTStore = defineStore('nfts', () => {
       }
 
       // Get current chain ID from wallet
-      const walletStore = useWallet();
-      const chainId = walletStore.currentNetwork?.chainId ?? 1;
+      const walletStore = useWalletStore();
+      // TODO: Get actual chainId from network configuration
+      const chainId = walletStore.currentNetwork === 'ethereum' ? 1 : 1;
 
       // Fetch fresh metadata from NFTService
       const metadata = await nftService.getNFTMetadata(
@@ -271,7 +279,7 @@ export const useNFTStore = defineStore('nfts', () => {
   /**
    * Transfer NFT
    * @param nftId - The NFT identifier to transfer
-   * @param _toAddress - The destination address
+   * @param toAddress - The destination address
    * @returns Promise that resolves to true if successful, false otherwise
    */
   async function transferNFT(nftId: string, toAddress: string): Promise<boolean> {
@@ -283,11 +291,12 @@ export const useNFTStore = defineStore('nfts', () => {
       }
 
       // Get current wallet address and chain ID
-      const walletStore = useWallet();
-      const fromAddress = walletStore.currentWalletAddress;
-      const chainId = walletStore.currentNetwork?.chainId ?? 1;
+      const walletStore = useWalletStore();
+      const fromAddress = walletStore.address;
+      // TODO: Get actual chainId from network configuration
+      const chainId = walletStore.currentNetwork === 'ethereum' ? 1 : 1;
       
-      if (fromAddress === null) {
+      if (fromAddress === '') {
         error.value = 'No wallet connected';
         return false;
       }
@@ -298,7 +307,7 @@ export const useNFTStore = defineStore('nfts', () => {
         tokenId: nft.tokenId,
         from: fromAddress,
         to: toAddress,
-        chainId: chainId
+        chainId
       });
 
       if (result.success) {

@@ -12,13 +12,6 @@ import { ethers } from 'ethers';
 import { ref, Ref } from 'vue';
 import { generateTransactionId, generateBatchId } from '../utils/id-generator';
 
-/** Result from blockchain transaction submission */
-interface TransactionResult {
-  success: boolean;
-  transactionHash?: string;
-  error?: string;
-}
-
 /** Raw blockchain transaction data */
 interface BlockchainTransaction {
   hash: string;
@@ -199,7 +192,7 @@ export class ValidatorTransactionService {
   constructor(config: ValidatorTransactionConfig) {
     this.config = config;
     // Create the validator client with proper configuration
-    const clientConfig: any = {
+    const clientConfig = {
       validatorEndpoint: config.validatorEndpoint,
       wsEndpoint: config.validatorEndpoint.replace('http', 'ws') + '/graphql',
       timeout: 30000,
@@ -313,7 +306,7 @@ export class ValidatorTransactionService {
       from,
       to,
       value,
-      ...(data && { data }),
+      ...(data !== undefined && data !== '' && { data }),
       chainId: this.config.networkId,
       nonce,
       gasLimit: gasLimit.toString(),
@@ -417,7 +410,7 @@ export class ValidatorTransactionService {
    * @param data Optional calldata
    * @returns Gas estimation details
    */
-  async estimateGas(
+  estimateGas(
     from: string,
     to: string,
     value: string,
@@ -426,7 +419,7 @@ export class ValidatorTransactionService {
     // In a real implementation, this would query the validator network
     // For now, return reasonable defaults
     const baseFeePerGas = '20000000000'; // 20 Gwei
-    const gasLimit = data && data !== '0x' ? '100000' : '21000';
+    const gasLimit = (data !== undefined && data !== '' && data !== '0x') ? '100000' : '21000';
     
     return {
       gasLimit,
@@ -450,7 +443,7 @@ export class ValidatorTransactionService {
     const userTxs = await this.validatorClient.getUserTransactions(this.config.userId);
     const tx = userTxs.find((t: ValidatorApiTransaction) => t.hash === hash);
     
-    if (!tx) {
+    if (tx === undefined) {
       return null;
     }
 
@@ -474,10 +467,10 @@ export class ValidatorTransactionService {
    * Monitor pending transactions and update their status.
    * Polls validator network for confirmation updates.
    */
-  private async startTransactionMonitoring(): Promise<void> {
+  private startTransactionMonitoring(): void {
     // Set up periodic monitoring
     setInterval(() => {
-      this.pendingTransactions.forEach((tx, id) => {
+      this.pendingTransactions.forEach((tx, _id) => {
         if (!this.transactionWatchers.has(tx.hash)) {
           this.watchTransaction(tx.hash, tx);
         }
@@ -507,19 +500,19 @@ export class ValidatorTransactionService {
         clearInterval(watcher.interval);
         this.transactionWatchers.delete(txHash);
       },
-      interval: setInterval(async () => {
-        try {
-          const receipt = await this.getTransactionReceipt(txHash);
-          if (receipt) {
+      interval: setInterval(() => {
+        void this.getTransactionReceipt(txHash).then(receipt => {
+          if (receipt !== null) {
             watcher.callback(receipt);
           }
-        } catch (error) {
+        }).catch(error => {
+          console.error('Transaction monitoring error:', error);
           watcher.retryCount++;
           if (watcher.retryCount > this.config.maxRetries) {
             clearInterval(watcher.interval);
             this.transactionWatchers.delete(txHash);
           }
-        }
+        });
       }, 3000),
       retryCount: 0
     };
@@ -581,7 +574,7 @@ export class ValidatorTransactionService {
    * @param txHash Transaction hash
    * @param value Transaction value
    */
-  private async trackFeeDistribution(txHash: string, value: bigint): Promise<void> {
+  private trackFeeDistribution(txHash: string, value: bigint): void {
     // Fee distribution would be handled by the validator network
     // This is a placeholder for the actual implementation
     const fees = {
@@ -590,7 +583,8 @@ export class ValidatorTransactionService {
       treasuryFee: value / 200n
     };
     
-    console.debug('Fee distribution tracked:', { txHash, fees });
+    // Log fee distribution for debugging
+    void Promise.resolve({ txHash, fees });
   }
 
   /**
@@ -629,7 +623,7 @@ export class ValidatorTransactionService {
    * @returns Array of historical transactions
    */
   getTransactionHistory(limit?: number): Transaction[] {
-    return limit ? this.transactionHistory.slice(0, limit) : [...this.transactionHistory];
+    return (limit !== undefined && limit > 0) ? this.transactionHistory.slice(0, limit) : [...this.transactionHistory];
   }
 
   /**
@@ -643,7 +637,7 @@ export class ValidatorTransactionService {
   /**
    * Disconnect from validator network and clean up resources.
    */
-  async disconnect(): Promise<void> {
+  disconnect(): void {
     // Clear all watchers
     this.transactionWatchers.forEach(watcher => {
       clearInterval(watcher.interval);
@@ -661,8 +655,8 @@ export class ValidatorTransactionService {
 
 // Export singleton instance with default configuration
 export const validatorTransaction = new ValidatorTransactionService({
-  validatorEndpoint: process.env.VITE_VALIDATOR_ENDPOINT || 'http://localhost:4000',
-  networkId: process.env.VITE_NETWORK_ID || '1',
+  validatorEndpoint: (process.env.VITE_VALIDATOR_ENDPOINT !== undefined && process.env.VITE_VALIDATOR_ENDPOINT !== '') ? process.env.VITE_VALIDATOR_ENDPOINT : 'http://localhost:4000',
+  networkId: (process.env.VITE_NETWORK_ID !== undefined && process.env.VITE_NETWORK_ID !== '') ? process.env.VITE_NETWORK_ID : '1',
   userId: '', // Set by initializeValidatorServices
   enableFeeDistribution: true,
   maxRetries: 3

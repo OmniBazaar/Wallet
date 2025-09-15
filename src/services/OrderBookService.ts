@@ -12,6 +12,22 @@ import { OmniProvider } from '../core/providers/OmniProvider';
 import { OmniValidatorClient, createOmniValidatorClient } from '../../../Validator/dist/client/index';
 import { ValidatorDEXService } from '../../../DEX/dist/services/ValidatorDEXService';
 
+/** Validator order data type */
+interface ValidatorOrderData {
+  orderId: string;
+  maker: string;
+  tokenPair: string;
+  type: 'BUY' | 'SELL';
+  amount: string;
+  filled: string;
+  remainingAmount?: string;
+  filledAmount?: string;
+  price: string;
+  status: 'OPEN' | 'FILLED' | 'CANCELLED' | 'EXPIRED';
+  timestamp: number;
+  txHash?: string;
+}
+
 /** Order types */
 export enum OrderType {
   LIMIT = 'LIMIT',
@@ -224,13 +240,13 @@ export class OrderBookService {
       // Initialize validator client
       try {
         this.validatorClient = createOmniValidatorClient({
-          validatorEndpoint: process.env.VALIDATOR_ENDPOINT || 'http://localhost:4000',
-          wsEndpoint: process.env.VALIDATOR_WS_ENDPOINT || 'ws://localhost:4000/graphql'
+          validatorEndpoint: process.env.VALIDATOR_ENDPOINT !== undefined && process.env.VALIDATOR_ENDPOINT !== '' ? process.env.VALIDATOR_ENDPOINT : 'http://localhost:4000',
+          wsEndpoint: process.env.VALIDATOR_WS_ENDPOINT !== undefined && process.env.VALIDATOR_WS_ENDPOINT !== '' ? process.env.VALIDATOR_WS_ENDPOINT : 'ws://localhost:4000/graphql'
         });
         // Note: OmniValidatorClient doesn't have a connect() method - it connects automatically
         this.validatorDEXService = new ValidatorDEXService({
-          validatorEndpoint: process.env.VALIDATOR_ENDPOINT || 'http://localhost:4000',
-          wsEndpoint: process.env.VALIDATOR_WS_ENDPOINT || 'ws://localhost:4000/graphql',
+          validatorEndpoint: process.env.VALIDATOR_ENDPOINT !== undefined && process.env.VALIDATOR_ENDPOINT !== '' ? process.env.VALIDATOR_ENDPOINT : 'http://localhost:4000',
+          wsEndpoint: process.env.VALIDATOR_WS_ENDPOINT !== undefined && process.env.VALIDATOR_WS_ENDPOINT !== '' ? process.env.VALIDATOR_WS_ENDPOINT : 'ws://localhost:4000/graphql',
           networkId: 'omni-testnet',
           tradingPairs: ['XOM/USDT', 'XOM/ETH', 'XOM/BTC'],
           feeStructure: {
@@ -249,7 +265,7 @@ export class OrderBookService {
       // this.provider = this.walletService?.getOmniProvider() ?? this.provider;
 
       // Load user orders
-      await this.loadUserOrders();
+      this.loadUserOrders();
 
       this.isInitialized = true;
     } catch (error) {
@@ -270,7 +286,7 @@ export class OrderBookService {
     }
 
     try {
-      if (!this.validatorDEXService) {
+      if (this.validatorDEXService === null || this.validatorDEXService === undefined) {
         throw new Error('DEX service not available');
       }
 
@@ -286,21 +302,6 @@ export class OrderBookService {
       // Get user address
       const userAddress = await this.getUserAddress();
 
-      // Create order parameters for UnifiedOrder
-      const orderData = {
-        userId: userAddress,
-        type: 'LIMIT' as const,
-        side: params.side === OrderSide.BUY ? 'BUY' as const : 'SELL' as const,
-        pair: `${params.tokenIn}/${params.tokenOut}`,
-        quantity: params.amountIn.toString(),
-        price: params.price.toString(),
-        timeInForce: params.timeInForce === TimeInForce.GTC ? 'GTC' as const : 
-                     params.timeInForce === TimeInForce.IOC ? 'IOC' as const : 
-                     params.timeInForce === TimeInForce.FOK ? 'FOK' as const : 'GTC' as const,
-        ...(params.postOnly !== undefined ? { postOnly: params.postOnly } : {}),
-        ...(params.reduceOnly !== undefined ? { reduceOnly: params.reduceOnly } : {})
-      };
-
       // MEV protection is now handled by the validator
       // Submit order through validator client
       const tokenPair = `${params.tokenIn}/${params.tokenOut}`;
@@ -313,7 +314,7 @@ export class OrderBookService {
       });
 
       const orderId = orderResult.orderId;
-      if (orderId) {
+      if (orderId !== '') {
         // Create order object
         const order: Order = {
           orderId: orderId,
@@ -370,7 +371,7 @@ export class OrderBookService {
     }
 
     try {
-      if (!this.validatorDEXService) {
+      if (this.validatorDEXService === null || this.validatorDEXService === undefined) {
         throw new Error('DEX service not available');
       }
 
@@ -385,7 +386,7 @@ export class OrderBookService {
       }
 
       // Cancel order through validator DEX service
-      const success = await this.validatorDEXService.cancelOrder(orderId);
+      const success = await this.validatorDEXService.cancelOrder(orderId, order.maker);
 
       if (success) {
         // Update order status
@@ -519,7 +520,7 @@ export class OrderBookService {
     }
 
     try {
-      if (!this.validatorDEXService) {
+      if (this.validatorDEXService === null || this.validatorDEXService === undefined) {
         throw new Error('DEX service not available');
       }
 
@@ -532,8 +533,8 @@ export class OrderBookService {
       const bids: DepthLevel[] = orderBookData.bids.map(bid => {
         // Convert string amount to BigInt, handling decimals
         const amountParts = bid.amount.split('.');
-        const wholeAmount = BigInt(amountParts[0] || '0');
-        const decimalPart = amountParts[1] || '';
+        const wholeAmount = BigInt(amountParts[0] !== undefined && amountParts[0] !== '' ? amountParts[0] : '0');
+        const decimalPart = amountParts[1] !== undefined && amountParts[1] !== '' ? amountParts[1] : '';
         // Convert to smallest unit (assume 18 decimals)
         const decimals = 18;
         const factor = BigInt(10) ** BigInt(decimals);
@@ -553,8 +554,8 @@ export class OrderBookService {
       const asks: DepthLevel[] = orderBookData.asks.map(ask => {
         // Convert string amount to BigInt, handling decimals
         const amountParts = ask.amount.split('.');
-        const wholeAmount = BigInt(amountParts[0] || '0');
-        const decimalPart = amountParts[1] || '';
+        const wholeAmount = BigInt(amountParts[0] !== undefined && amountParts[0] !== '' ? amountParts[0] : '0');
+        const decimalPart = amountParts[1] !== undefined && amountParts[1] !== '' ? amountParts[1] : '';
         // Convert to smallest unit (assume 18 decimals)
         const decimals = 18;
         const factor = BigInt(10) ** BigInt(decimals);
@@ -623,22 +624,28 @@ export class OrderBookService {
       }
 
       // Query from validator DEX service
-      if (this.validatorDEXService) {
+      if (this.validatorDEXService !== null && this.validatorDEXService !== undefined) {
         try {
-          const orderData = await this.validatorDEXService.getOrder(orderId);
-          if (orderData) {
+          const orderData = await this.validatorDEXService.getOrder(orderId) as ValidatorOrderData | null;
+          if (orderData !== null && orderData !== undefined) {
             // Map validator order to our Order format
+            // Parse token pair to get tokenIn and tokenOut
+            const [tokenIn, tokenOut] = orderData.tokenPair.split('/');
+            const amountIn = BigInt(orderData.amount);
+            const amountFilled = BigInt(orderData.filled);
+            const amountRemaining = amountIn - amountFilled;
+
             const order: Order = {
-              orderId: orderData.id,
+              orderId: orderData.orderId,
               maker: orderData.maker,
-              tokenIn: orderData.tokenIn,
-              tokenOut: orderData.tokenOut,
-              amountIn: BigInt(orderData.amount),
-              amountRemaining: BigInt(orderData.remainingAmount || orderData.amount),
-              amountFilled: BigInt(orderData.filledAmount || '0'),
+              tokenIn: orderData.type === 'SELL' ? tokenIn : tokenOut,
+              tokenOut: orderData.type === 'SELL' ? tokenOut : tokenIn,
+              amountIn,
+              amountRemaining,
+              amountFilled,
               amountOutMin: BigInt(0),
               type: OrderType.LIMIT,
-              side: orderData.side === 'BUY' ? OrderSide.BUY : OrderSide.SELL,
+              side: orderData.type === 'BUY' ? OrderSide.BUY : OrderSide.SELL,
               price: Number(orderData.price),
               status: orderData.status === 'OPEN' ? OrderStatus.OPEN :
                      orderData.status === 'FILLED' ? OrderStatus.FILLED :
@@ -648,7 +655,9 @@ export class OrderBookService {
               createdAt: orderData.timestamp,
               updatedAt: Date.now(),
               expiration: 0,
-              txHash: orderData.txHash || ('0x' + '0'.repeat(64))
+              txHash: orderData.txHash !== undefined && orderData.txHash !== null && orderData.txHash !== ''
+                ? orderData.txHash
+                : ('0x' + '0'.repeat(64))
             };
             // Cache it
             this.userOrders.set(orderId, order);
@@ -673,7 +682,7 @@ export class OrderBookService {
    * @returns Array of historical orders
    * @throws {Error} When query fails
    */
-  async getOrderHistory(limit: number = 50, offset: number = 0): Promise<Order[]> {
+  getOrderHistory(limit: number = 50, offset: number = 0): Order[] {
     if (!this.isInitialized) {
       throw new Error('Order book service not initialized');
     }
@@ -720,36 +729,36 @@ export class OrderBookService {
    * @private
    */
   private subscribeToOrderEvents(orderId: string): void {
-    if (this.validatorDEXService) {
+    if (this.validatorDEXService !== null && this.validatorDEXService !== undefined) {
       // In production, would set up WebSocket subscription
       // For now, poll for updates
       const checkOrder = async (): Promise<void> => {
         try {
-          if (!this.validatorDEXService) return;
-          const orderData = await this.validatorDEXService.getOrder(orderId);
-          if (orderData) {
+          if (this.validatorDEXService === null || this.validatorDEXService === undefined) return;
+          const orderData = await this.validatorDEXService.getOrder(orderId) as ValidatorOrderData | null;
+          if (orderData !== null && orderData !== undefined) {
             const order = this.userOrders.get(orderId);
-            if (order && orderData.status !== order.status) {
+            if (order !== undefined && orderData.status !== order.status) {
               // Update order
               order.status = orderData.status === 'OPEN' ? OrderStatus.OPEN :
                            orderData.status === 'FILLED' ? OrderStatus.FILLED :
                            orderData.status === 'CANCELLED' ? OrderStatus.CANCELLED :
                            orderData.status === 'EXPIRED' ? OrderStatus.EXPIRED : OrderStatus.PENDING;
-              order.amountRemaining = BigInt(orderData.remainingAmount || '0');
-              order.amountFilled = BigInt(orderData.filledAmount || '0');
+              order.amountRemaining = BigInt(orderData.remainingAmount !== undefined && orderData.remainingAmount !== null && orderData.remainingAmount !== '' ? orderData.remainingAmount : '0');
+              order.amountFilled = BigInt(orderData.filledAmount !== undefined && orderData.filledAmount !== null && orderData.filledAmount !== '' ? orderData.filledAmount : '0');
               order.updatedAt = Date.now();
               this.userOrders.set(orderId, order);
 
               // Trigger callback if subscribed
               const callback = this.orderSubscriptions.get(orderId);
-              if (callback && order.amountFilled > BigInt(0)) {
+              if (callback !== undefined && order.amountFilled > BigInt(0)) {
                 callback({
                   orderId,
                   taker: 'unknown',
                   amountFilled: order.amountFilled,
                   amountOut: BigInt(0), // Would need calculation
-                  executionPrice: Number(orderData.price) || order.price,
-                  txHash: orderData.txHash || ('0x' + '0'.repeat(64)),
+                  executionPrice: orderData.price !== undefined && orderData.price !== null ? Number(orderData.price) : order.price,
+                  txHash: orderData.txHash !== undefined && orderData.txHash !== null && orderData.txHash !== '' ? orderData.txHash : ('0x' + '0'.repeat(64)),
                   timestamp: Date.now()
                 });
               }
@@ -789,7 +798,7 @@ export class OrderBookService {
    * Load user orders from order book
    * @private
    */
-  private async loadUserOrders(): Promise<void> {
+  private loadUserOrders(): void {
     try {
       // In production, this would load orders from the validator
       // For now, we start with an empty order map
@@ -817,9 +826,8 @@ export class OrderBookService {
 
   /**
    * Clear all cached orders
-   * @returns Promise that resolves when orders are cleared
    */
-  async clearOrders(): Promise<void> {
+  clearOrders(): void {
     this.userOrders.clear();
     this.orderSubscriptions.clear();
   }

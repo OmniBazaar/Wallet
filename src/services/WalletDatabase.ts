@@ -285,9 +285,10 @@ export class WalletDatabase {
       
       return new Promise<WalletAccountData | null>((resolve, reject) => {
         const request = store.get(accountId);
-        request.onsuccess = (event: any) => {
+        request.onsuccess = (event: Event) => {
           // Try to get result from multiple possible locations
-          const result = (event?.target?.result ?? request.result ?? null) as WalletAccountData | null;
+          const target = event.target as IDBRequest<WalletAccountData>;
+          const result = (target?.result ?? request.result ?? null) as WalletAccountData | null;
           resolve(result);
         };
         request.onerror = () => reject(request.error);
@@ -429,7 +430,7 @@ export class WalletDatabase {
       let resolved = false;
 
       // Helper to resolve only once
-      const resolveOnce = (value: WalletPreferences) => {
+      const resolveOnce = (value: WalletPreferences): void => {
         if (!resolved) {
           resolved = true;
           resolve(value);
@@ -471,9 +472,10 @@ export class WalletDatabase {
 
 
         // Set handlers
-        request.onsuccess = (event: any) => {
+        request.onsuccess = (event: Event) => {
           // Try to get result from multiple possible locations
-          const result = (event?.target?.result ?? request.result) as WalletPreferences | null;
+          const target = event.target as IDBRequest<WalletPreferences>;
+          const result = (target?.result ?? request.result) as WalletPreferences | null;
 
           if (result !== null && result !== undefined) {
             resolveOnce(result);
@@ -667,7 +669,7 @@ export class WalletDatabase {
         request.onsuccess = () => {
           const result = request.result as WalletAccountData | undefined;
           // Return null instead of undefined when wallet not found
-          resolve(result || null);
+          resolve(result ?? null);
         };
         request.onerror = () => reject(request.error);
       });
@@ -974,14 +976,14 @@ export class WalletDatabase {
    * @returns Promise resolving when closed
    */
   close(): void {
-    this.cleanup();
+    void this.cleanup();
   }
 
   /**
    * Cleanup database and close connection
    * @returns Promise resolving when cleanup is complete
    */
-  async cleanup(): Promise<void> {
+  cleanup(): Promise<void> {
     try {
       if (this.db !== null) {
         this.db.close();

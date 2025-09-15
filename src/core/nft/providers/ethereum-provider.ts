@@ -414,8 +414,13 @@ export class EthereumNFTProvider implements ChainProvider {
               let metadata: NFTMetadata = {};
               if (tokenURI.startsWith('data:')) {
                 // On-chain metadata
-                const json = tokenURI.split(',')[1];
-                metadata = JSON.parse(atob(json)) as NFTMetadata;
+                const parts = tokenURI.split(',');
+                if (parts.length > 1 && parts[1] !== undefined) {
+                  const json = parts[1];
+                  metadata = JSON.parse(atob(json)) as NFTMetadata;
+                } else {
+                  throw new Error('Invalid data URI format');
+                }
               } else if (tokenURI.startsWith('ipfs://')) {
                 // IPFS metadata - fetch if gateway available
                 const ipfsGateway = 'https://ipfs.io/ipfs/';

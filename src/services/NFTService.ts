@@ -1,6 +1,6 @@
 /**
  * NFTService - Wrapper for Core NFT Service
- * 
+ *
  * Provides a simplified interface to the core NFT functionality,
  * integrating with the wallet service infrastructure.
  */
@@ -142,7 +142,7 @@ export class NFTService {
 
     // Fallback: use getNFTs and filter by chain
     const allNFTs = await this.coreService.getNFTs(address);
-    return allNFTs.filter((nft: any) => {
+    return allNFTs.filter((nft: WalletNFT) => {
       const nftChainId = this.getChainId(nft.chain);
       return nftChainId === chainId;
     });
@@ -159,7 +159,7 @@ export class NFTService {
       43114: 'avalanche',
       137: 'polygon'
     };
-    return chains[chainId] || 'ethereum';
+    return chains[chainId] ?? 'ethereum';
   }
 
   /**
@@ -173,7 +173,7 @@ export class NFTService {
       'avalanche': 43114,
       'polygon': 137
     };
-    return chainMap[chain] || 1;
+    return chainMap[chain] ?? 1;
   }
 
   /**
@@ -195,8 +195,8 @@ export class NFTService {
         contract_address: contractAddress,
         token_id: tokenId,
         chain: this.getChainName(chainId),
-        type: 'ERC721' as any,
-        standard: 'ERC721' as any,
+        type: 'ERC721' as const,
+        standard: 'ERC721' as const,
         owner: '0x742d35Cc6636C0532925a3b8F0d9df0f01426443',
         name: `NFT #${tokenId}`,
         metadata: {
@@ -252,7 +252,7 @@ export class NFTService {
         success: true,
         txHash: mockHash,
         transactionHash: mockHash
-      } as any;
+      };
     }
 
     // Use core service if available
@@ -288,15 +288,15 @@ export class NFTService {
   /**
    * Mint NFT
    * @param params - Mint parameters
-   * @param params.to
-   * @param params.name
-   * @param params.description
-   * @param params.image
-   * @param params.metadataURI
-   * @param params.royaltyPercentage
-   * @param params.attributes
-   * @param params.recipient
-   * @param params.chainId
+   * @param params.to - Address to mint NFT to (alternative to recipient)
+   * @param params.name - Name of the NFT
+   * @param params.description - Description of the NFT
+   * @param params.image - Image URL for the NFT
+   * @param params.metadataURI - Metadata URI for the NFT
+   * @param params.royaltyPercentage - Royalty percentage for the NFT
+   * @param params.attributes - Attributes array for the NFT
+   * @param params.recipient - Recipient address (alternative to 'to')
+   * @param params.chainId - Chain ID to mint on
    * @returns Mint result
    */
   async mintNFT(params: {
@@ -309,9 +309,9 @@ export class NFTService {
     attributes?: Array<{ trait_type: string; value: string | number }>;
     recipient?: string;
     chainId?: number;
-  }): Promise<any> {
+  }): Promise<NFTMintResult & { contractAddress?: string; owner?: string; metadataURI?: string; tokenId?: string }> {
     // Handle test-specific minting format
-    if (params.metadataURI && params.to) {
+    if (params.metadataURI !== undefined && params.to !== undefined) {
       const tokenId = `${Date.now()}`;
       const mockHash = `0x${Array(64).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join('')}`;
 
@@ -327,19 +327,20 @@ export class NFTService {
     // Use core service for standard minting if available
     if (typeof this.coreService.mintNFT === 'function') {
       const result = await this.coreService.mintNFT({
-        name: params.name || 'Untitled NFT',
-        description: params.description || '',
-        image: params.image || '',
-        attributes: params.attributes,
-        recipient: params.recipient || params.to,
-        chainId: params.chainId
+        name: params.name ?? 'Untitled NFT',
+        description: params.description ?? '',
+        image: params.image ?? '',
+        ...(params.attributes !== undefined && { attributes: params.attributes }),
+        ...(params.recipient !== undefined && { recipient: params.recipient }),
+        ...((params.recipient === undefined && params.to !== undefined) && { recipient: params.to }),
+        ...(params.chainId !== undefined && { chainId: params.chainId })
       });
 
       return {
         ...result,
         tokenId: result.tokenId,
         contractAddress: '0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D',
-        owner: params.to || params.recipient
+        owner: params.to ?? params.recipient
       };
     }
 
@@ -351,7 +352,7 @@ export class NFTService {
       success: true,
       tokenId,
       contractAddress: '0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D',
-      owner: params.to || params.recipient || '0x742d35Cc6636C0532925a3b8F0d9df0f01426443',
+      owner: params.to ?? params.recipient ?? '0x742d35Cc6636C0532925a3b8F0d9df0f01426443',
       transactionHash: mockHash
     };
   }
@@ -462,14 +463,14 @@ export class NFTService {
    * @param recipient - Address to mint to
    * @returns Array of minted NFTs
    */
-  async batchMint(nftsToMint: Array<{ name: string; description?: string }>, recipient: string): Promise<any[]> {
+  async batchMint(nftsToMint: Array<{ name: string; description?: string }>, recipient: string): Promise<Array<NFTMintResult & { metadata?: { name: string; description?: string } }>> {
     const minted = [];
     for (let i = 0; i < nftsToMint.length; i++) {
       const nft = nftsToMint[i];
       const result = await this.mintNFT({
         to: recipient,
         name: nft.name,
-        description: nft.description || '',
+        description: nft.description ?? '',
         image: 'ipfs://default-image'
       });
       minted.push({
@@ -482,12 +483,12 @@ export class NFTService {
 
   /**
    * Get royalty information for an NFT
-   * @param contractAddress - NFT contract address
-   * @param tokenId - Token ID
+   * @param _contractAddress - NFT contract address
+   * @param _tokenId - Token ID
    * @param salePrice - Sale price to calculate royalty from
    * @returns Royalty information
    */
-  async getRoyaltyInfo(contractAddress: string, tokenId: string, salePrice: bigint): Promise<{ receiver: string; amount: bigint }> {
+  getRoyaltyInfo(_contractAddress: string, _tokenId: string, salePrice: bigint): { receiver: string; amount: bigint } {
     // Mock implementation for testing
     const royaltyPercentage = 500; // 5%
     const amount = (salePrice * BigInt(royaltyPercentage)) / BigInt(10000);
@@ -506,19 +507,19 @@ export class NFTService {
   /**
    * Create lazy mint voucher
    * @param voucher - Voucher details
-   * @param voucher.tokenId
+   * @param voucher.tokenId - Token ID for the voucher
+   * @param voucher.price - Price for the voucher
+   * @param voucher.uri - URI for the voucher
+   * @param voucher.royaltyPercentage - Royalty percentage
    * @param signer - Signer address
-   * @param voucher.price
-   * @param voucher.uri
-   * @param voucher.royaltyPercentage
    * @returns Voucher with signature
    */
-  async createLazyMintVoucher(voucher: {
+  createLazyMintVoucher(voucher: {
     tokenId: number;
     price: bigint;
     uri: string;
     royaltyPercentage: number;
-  }, signer: string): Promise<{ signature: string; voucher: any }> {
+  }, signer: string): { signature: string; voucher: typeof voucher & { signer: string } } {
     // Mock implementation
     const signature = `0x${Array(130).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join('')}`;
 
@@ -534,31 +535,33 @@ export class NFTService {
   /**
    * Redeem lazy mint voucher
    * @param voucher - Voucher with signature
-   * @param buyer - Buyer address
+   * @param voucher.voucher - Inner voucher object (optional)
+   * @param voucher.voucher.tokenId - Token ID from voucher (optional)
+   * @param _buyer - Buyer address
    * @returns Redemption result
    */
-  async redeemVoucher(voucher: any, buyer: string): Promise<{ success: boolean; tokenId: number }> {
+  redeemVoucher(voucher: { voucher?: { tokenId?: number } }, _buyer: string): { success: boolean; tokenId: number } {
     return {
       success: true,
-      tokenId: voucher.voucher?.tokenId || 1
+      tokenId: voucher.voucher?.tokenId ?? 1
     };
   }
 
   /**
    * List NFT for sale
    * @param params - Listing parameters
-   * @param params.tokenId
-   * @param params.contractAddress
-   * @param params.price
-   * @param params.currency
+   * @param params.tokenId - Token ID to list
+   * @param params.contractAddress - Contract address of the NFT
+   * @param params.price - Listing price
+   * @param params.currency - Currency for the listing
    * @returns Listing result
    */
-  async listForSale(params: {
+  listForSale(params: {
     tokenId: string;
     contractAddress: string;
     price: bigint;
     currency: string;
-  }): Promise<any> {
+  }): { listingId: string; seller: string; price: bigint; status: string; tokenId: string; contractAddress: string; currency: string } {
     const listingId = `listing_${Date.now()}`;
 
     // In test environment, use the mock wallet address
@@ -566,35 +569,36 @@ export class NFTService {
       '0xF4C9aa764684C74595213384d32E2e57798Fd2F9' : // mockWallet.address from tests
       '0x742d35Cc6636C0532925a3b8F0d9df0f01426443';
 
+    const { price, ...otherParams } = params;
     return {
       listingId,
       seller,
-      price: params.price,
+      price,
       status: 'active',
-      ...params
+      ...otherParams
     };
   }
 
   /**
    * Create NFT auction
    * @param params - Auction parameters
-   * @param params.tokenId
-   * @param params.contractAddress
-   * @param params.startingPrice
-   * @param params.reservePrice
-   * @param params.duration
+   * @param params.tokenId - Token ID to auction
+   * @param params.contractAddress - Contract address of the NFT
+   * @param params.startingPrice - Starting price for the auction
+   * @param params.reservePrice - Reserve price for the auction
+   * @param params.duration - Duration of the auction in seconds
    * @returns Auction details
    */
-  async createAuction(params: {
+  createAuction(params: {
     tokenId: string;
     contractAddress: string;
     startingPrice: bigint;
     reservePrice?: bigint;
     duration?: number;
-  }): Promise<any> {
+  }): { auctionId: string; startTime: number; endTime: number; tokenId: string; contractAddress: string; startingPrice: bigint; reservePrice?: bigint; duration?: number } {
     const auctionId = `auction_${Date.now()}`;
     const startTime = Math.floor(Date.now() / 1000);
-    const duration = params.duration || 86400; // Default 24 hours
+    const duration = params.duration ?? 86400; // Default 24 hours
 
     return {
       auctionId,
@@ -611,7 +615,7 @@ export class NFTService {
    * @param bidder - Bidder address
    * @returns Bid result
    */
-  async placeBid(auctionId: string, bidAmount: bigint, bidder: string): Promise<any> {
+  placeBid(auctionId: string, bidAmount: bigint, bidder: string): { success: boolean; bidAmount: bigint; bidder: string; auctionId: string; timestamp: number } {
     return {
       success: true,
       bidAmount,
@@ -634,7 +638,7 @@ export class NFTService {
     }
 
     const metadata = await this.getNFTMetadata(contractAddress, tokenId);
-    return metadata?.owner || '0x0000000000000000000000000000000000000000';
+    return metadata?.owner ?? '0x0000000000000000000000000000000000000000';
   }
 
   /**
@@ -648,7 +652,7 @@ export class NFTService {
     nfts: Array<{ tokenId: string; contractAddress: string }>,
     from: string,
     to: string
-  ): Promise<any[]> {
+  ): Promise<Array<NFTTransferResult>> {
     const transfers = [];
 
     for (const nft of nfts) {
@@ -670,7 +674,7 @@ export class NFTService {
    * @param chain - Chain name
    * @returns Array of NFTs on the specified chain
    */
-  async getNFTsByChain(address: string, chain: string): Promise<any[]> {
+  async getNFTsByChain(address: string, chain: string): Promise<Array<{ chain: string; contractAddress: string; [key: string]: unknown }>> {
     // Map chain names to IDs
     const chainMap: Record<string, number> = {
       'ethereum': 1,
@@ -678,14 +682,14 @@ export class NFTService {
       'polygon': 137
     };
 
-    const chainId = chainMap[chain] || 1;
+    const chainId = chainMap[chain] ?? 1;
     const nfts = await this.getNFTsForChain(address, chainId);
 
-    return nfts.map(nft => ({
-      ...nft,
+    return nfts.map((nft) => ({
+      ...(nft as Record<string, unknown>),
       chain,
-      contractAddress: nft.contract_address || '0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D'
-    }));
+      contractAddress: (nft as { contract_address?: string }).contract_address ?? '0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D'
+    })) as Array<{ chain: string; contractAddress: string; [key: string]: unknown }>;
   }
 
   /**
@@ -693,7 +697,7 @@ export class NFTService {
    * @param address - Wallet address
    * @returns Array of all NFTs
    */
-  async getAllNFTs(address: string): Promise<any[]> {
+  async getAllNFTs(address: string): Promise<Array<{ chain: string; contractAddress: string; [key: string]: unknown }>> {
     const chains = ['ethereum', 'avalanche', 'polygon'];
     const allNFTs = [];
 
@@ -701,7 +705,7 @@ export class NFTService {
       try {
         const nfts = await this.getNFTsByChain(address, chain);
         allNFTs.push(...nfts);
-      } catch (error) {
+      } catch {
         // Continue with other chains
       }
     }
@@ -712,20 +716,20 @@ export class NFTService {
   /**
    * Bridge NFT cross-chain
    * @param params - Bridge parameters
-   * @param params.tokenId
-   * @param params.contractAddress
-   * @param params.fromChain
-   * @param params.toChain
-   * @param params.recipient
+   * @param params.tokenId - Token ID to bridge
+   * @param params.contractAddress - Contract address of the NFT
+   * @param params.fromChain - Source chain name
+   * @param params.toChain - Destination chain name
+   * @param params.recipient - Recipient address on destination chain
    * @returns Bridge result
    */
-  async bridgeNFT(params: {
+  bridgeNFT(params: {
     tokenId: string;
     contractAddress: string;
     fromChain: string;
     toChain: string;
     recipient: string;
-  }): Promise<any> {
+  }): { success: boolean; destinationTokenId: string; destinationChain: string; transactionHash: string } {
     return {
       success: true,
       destinationTokenId: params.tokenId,
@@ -740,14 +744,14 @@ export class NFTService {
    * @param tokenId - Token ID
    * @returns NFT metadata
    */
-  async getMetadata(contractAddress: string, tokenId: string): Promise<any> {
+  async getMetadata(contractAddress: string, tokenId: string): Promise<{ name: string; description: string; image: string; attributes: Array<unknown> }> {
     const metadata = await this.getNFTMetadata(contractAddress, tokenId);
 
     return {
-      name: metadata?.name || `NFT #${tokenId}`,
-      description: metadata?.metadata?.description || 'NFT Description',
-      image: metadata?.metadata?.image || 'ipfs://default-image',
-      attributes: metadata?.metadata?.attributes || []
+      name: metadata?.name ?? `NFT #${tokenId}`,
+      description: metadata?.metadata?.description ?? 'NFT Description',
+      image: metadata?.metadata?.image ?? 'ipfs://default-image',
+      attributes: metadata?.metadata?.attributes ?? []
     };
   }
 
@@ -757,7 +761,7 @@ export class NFTService {
    * @param tokenId - Token ID
    * @returns Cached metadata
    */
-  async getCachedMetadata(contractAddress: string, tokenId: string): Promise<any> {
+  async getCachedMetadata(contractAddress: string, tokenId: string): Promise<{ name: string; description: string; image: string; attributes: Array<unknown> }> {
     // In test, return the same as getMetadata
     return this.getMetadata(contractAddress, tokenId);
   }
@@ -767,7 +771,7 @@ export class NFTService {
    * @param ipfsURI - IPFS URI
    * @returns Resolved metadata
    */
-  async resolveIPFSMetadata(ipfsURI: string): Promise<any> {
+  resolveIPFSMetadata(ipfsURI: string): { name: string; description: string; image: string } {
     return {
       name: 'IPFS NFT',
       description: 'NFT stored on IPFS',
@@ -781,7 +785,7 @@ export class NFTService {
    * @param tokenId - Token ID
    * @returns Refresh result
    */
-  async refreshMetadata(contractAddress: string, tokenId: string): Promise<any> {
+  async refreshMetadata(contractAddress: string, tokenId: string): Promise<{ updated: boolean; metadata: { name: string; description: string; image: string; attributes: Array<unknown> }; timestamp: number }> {
     const metadata = await this.getMetadata(contractAddress, tokenId);
 
     return {
@@ -795,11 +799,11 @@ export class NFTService {
    * Generate thumbnail for NFT image
    * @param image - Image URL
    * @param dimensions - Thumbnail dimensions
-   * @param dimensions.width
-   * @param dimensions.height
+   * @param dimensions.width - Width in pixels
+   * @param dimensions.height - Height in pixels
    * @returns Thumbnail data
    */
-  async generateThumbnail(image: string, dimensions: { width: number; height: number }): Promise<any> {
+  generateThumbnail(image: string, dimensions: { width: number; height: number }): { width: number; height: number; url: string } {
     return {
       width: dimensions.width,
       height: dimensions.height,
@@ -810,11 +814,12 @@ export class NFTService {
   /**
    * Process video NFT
    * @param videoNFT - Video NFT data
+   * @param videoNFT.animation_url - Animation URL for the video (optional)
    * @returns Processed video data
    */
-  async processVideoNFT(videoNFT: any): Promise<any> {
+  processVideoNFT(videoNFT: { animation_url?: string }): { thumbnail: string; duration: number; format: string } {
     return {
-      thumbnail: `${videoNFT.animation_url}?frame=1`,
+      thumbnail: `${videoNFT.animation_url ?? ''}?frame=1`,
       duration: 30, // Mock 30 seconds
       format: 'mp4'
     };
@@ -823,22 +828,22 @@ export class NFTService {
   /**
    * Create NFT collection
    * @param params - Collection parameters
-   * @param params.name
-   * @param params.symbol
-   * @param params.description
-   * @param params.maxSupply
-   * @param params.mintPrice
-   * @param params.owner
+   * @param params.name - Collection name
+   * @param params.symbol - Collection symbol
+   * @param params.description - Collection description
+   * @param params.maxSupply - Maximum supply of tokens (optional)
+   * @param params.mintPrice - Mint price per token (optional)
+   * @param params.owner - Collection owner address
    * @returns Collection details
    */
-  async createCollection(params: {
+  createCollection(params: {
     name: string;
     symbol: string;
     description: string;
     maxSupply?: number;
     mintPrice?: bigint;
     owner: string;
-  }): Promise<any> {
+  }): { address: string; name: string; symbol: string; description: string; maxSupply?: number; mintPrice?: bigint; owner: string } {
     const address = `0x${Array(40).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join('')}`;
 
     return {
@@ -849,10 +854,10 @@ export class NFTService {
 
   /**
    * Get collection statistics
-   * @param contractAddress - Collection contract address
+   * @param _contractAddress - Collection contract address
    * @returns Collection stats
    */
-  async getCollectionStats(contractAddress: string): Promise<any> {
+  getCollectionStats(_contractAddress: string): { totalSupply: number; owners: number; floorPrice: bigint; volume24h: bigint } {
     return {
       totalSupply: 10000,
       owners: 5432,
@@ -863,21 +868,21 @@ export class NFTService {
 
   /**
    * Check if user is collection owner
-   * @param contractAddress - Collection contract address
+   * @param _contractAddress - Collection contract address
    * @param address - User address
    * @returns Whether user is owner
    */
-  async isCollectionOwner(contractAddress: string, address: string): Promise<boolean> {
+  isCollectionOwner(_contractAddress: string, address: string): boolean {
     // Mock implementation
     return address === '0x742d35Cc6636C0532925a3b8F0d9df0f01426443';
   }
 
   /**
    * Get collection royalties
-   * @param contractAddress - Collection contract address
+   * @param _contractAddress - Collection contract address
    * @returns Royalty information
    */
-  async getCollectionRoyalties(contractAddress: string): Promise<any> {
+  getCollectionRoyalties(_contractAddress: string): { percentage: number; recipient: string } {
     return {
       percentage: 250, // 2.5%
       recipient: '0x742d35Cc6636C0532925a3b8F0d9df0f01426443'
@@ -887,16 +892,16 @@ export class NFTService {
   /**
    * Deploy ERC-721 contract
    * @param params - Deployment parameters
-   * @param params.name
-   * @param params.symbol
-   * @param params.owner
+   * @param params.name - Contract name
+   * @param params.symbol - Contract symbol
+   * @param params.owner - Contract owner address
    * @returns Deployed contract details
    */
-  async deployERC721(params: {
+  deployERC721(params: {
     name: string;
     symbol: string;
     owner: string;
-  }): Promise<any> {
+  }): { address: string; standard: string; name: string; symbol: string; owner: string } {
     const address = `0x${Array(40).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join('')}`;
 
     return {
@@ -908,10 +913,10 @@ export class NFTService {
 
   /**
    * Check if contract is ERC-721
-   * @param address - Contract address
+   * @param _address - Contract address
    * @returns Whether contract is ERC-721
    */
-  async isERC721(address: string): Promise<boolean> {
+  isERC721(_address: string): boolean {
     // Mock implementation
     return true;
   }
@@ -919,14 +924,14 @@ export class NFTService {
   /**
    * Deploy ERC-1155 contract
    * @param params - Deployment parameters
-   * @param params.uri
-   * @param params.owner
+   * @param params.uri - Base URI for tokens
+   * @param params.owner - Contract owner address
    * @returns Deployed contract details
    */
-  async deployERC1155(params: {
+  deployERC1155(params: {
     uri: string;
     owner: string;
-  }): Promise<any> {
+  }): { address: string; standard: string; uri: string; owner: string } {
     const address = `0x${Array(40).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join('')}`;
 
     return {
@@ -938,28 +943,28 @@ export class NFTService {
 
   /**
    * Check if contract is ERC-1155
-   * @param address - Contract address
+   * @param _address - Contract address
    * @returns Whether contract is ERC-1155
    */
-  async isERC1155(address: string): Promise<boolean> {
+  isERC1155(_address: string): boolean {
     // Mock implementation
     return true;
   }
 
   /**
    * Batch mint ERC-1155 tokens
-   * @param contractAddress - Contract address
-   * @param recipient - Recipient address
+   * @param _contractAddress - Contract address
+   * @param _recipient - Recipient address
    * @param tokenIds - Array of token IDs
    * @param amounts - Array of amounts
    * @returns Mint result
    */
-  async batchMintERC1155(
-    contractAddress: string,
-    recipient: string,
+  batchMintERC1155(
+    _contractAddress: string,
+    _recipient: string,
     tokenIds: number[],
     amounts: number[]
-  ): Promise<any> {
+  ): { success: boolean; tokenIds: number[]; amounts: number[]; transactionHash: string } {
     return {
       success: true,
       tokenIds,
@@ -970,22 +975,22 @@ export class NFTService {
 
   /**
    * Check if contract supports ERC-2981 royalties
-   * @param contractAddress - Contract address
+   * @param _contractAddress - Contract address
    * @returns Whether contract supports royalties
    */
-  async supportsERC2981(contractAddress: string): Promise<boolean> {
+  supportsERC2981(_contractAddress: string): boolean {
     // Mock implementation
     return true;
   }
 
   /**
    * Get royalty info for specific token
-   * @param contractAddress - Contract address
-   * @param tokenId - Token ID
+   * @param _contractAddress - Contract address
+   * @param _tokenId - Token ID
    * @param salePrice - Sale price
    * @returns Royalty information
    */
-  async royaltyInfo(contractAddress: string, tokenId: string, salePrice: bigint): Promise<any> {
+  royaltyInfo(_contractAddress: string, _tokenId: string, salePrice: bigint): { receiver: string; royaltyAmount: bigint } {
     const royaltyAmount = (salePrice * BigInt(250)) / BigInt(10000); // 2.5%
 
     return {
@@ -996,22 +1001,20 @@ export class NFTService {
 
   /**
    * Track NFT view
-   * @param contractAddress - Contract address
-   * @param tokenId - Token ID
+   * @param _contractAddress - Contract address
+   * @param _tokenId - Token ID
    */
-  async trackView(contractAddress: string, tokenId: string): Promise<void> {
+  trackView(_contractAddress: string, _tokenId: string): void {
     // Mock implementation - just return
-    void contractAddress;
-    void tokenId;
   }
 
   /**
    * Get NFT analytics
-   * @param contractAddress - Contract address
-   * @param tokenId - Token ID
+   * @param _contractAddress - Contract address
+   * @param _tokenId - Token ID
    * @returns Analytics data
    */
-  async getAnalytics(contractAddress: string, tokenId: string): Promise<any> {
+  getAnalytics(_contractAddress: string, _tokenId: string): { views: number; uniqueViewers: number } {
     return {
       views: 150,
       uniqueViewers: 75
@@ -1020,11 +1023,11 @@ export class NFTService {
 
   /**
    * Get NFT price history
-   * @param contractAddress - Contract address
-   * @param tokenId - Token ID
+   * @param _contractAddress - Contract address
+   * @param _tokenId - Token ID
    * @returns Price history
    */
-  async getPriceHistory(contractAddress: string, tokenId: string): Promise<any[]> {
+  getPriceHistory(_contractAddress: string, _tokenId: string): Array<{ price: bigint; timestamp: number; buyer: string; seller: string }> {
     return [
       {
         price: BigInt('100000000000000000'), // 0.1 ETH
@@ -1043,11 +1046,11 @@ export class NFTService {
 
   /**
    * Calculate NFT rarity
-   * @param contractAddress - Contract address
-   * @param tokenId - Token ID
+   * @param _contractAddress - Contract address
+   * @param _tokenId - Token ID
    * @returns Rarity data
    */
-  async calculateRarity(contractAddress: string, tokenId: string): Promise<any> {
+  calculateRarity(_contractAddress: string, _tokenId: string): { score: number; rank: number; traits: Array<{ trait: string; rarity: number }> } {
     return {
       score: 85.5,
       rank: 123,
@@ -1063,10 +1066,10 @@ export class NFTService {
    * @param paramsOrChainId - Either parameters object or chain ID number
    * @returns Array of trending NFTs
    */
-  async getTrendingNFTs(paramsOrChainId?: number | { period?: string; limit?: number }): Promise<any[]> {
+  async getTrendingNFTsExtended(paramsOrChainId?: number | { period?: string; limit?: number }): Promise<Array<{ contractAddress: string; name: string; volumeChange: number; salesCount: number; averagePrice: bigint }>> {
     if (typeof paramsOrChainId === 'object' && paramsOrChainId !== null) {
       // Handle parameters object
-      const limit = paramsOrChainId.limit || 10;
+      const limit = paramsOrChainId.limit ?? 10;
       const trending = [];
 
       for (let i = 0; i < limit; i++) {

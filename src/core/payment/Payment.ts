@@ -1,7 +1,7 @@
 import { ethers } from 'ethers';
 import { Wallet } from '../wallet/Wallet';
 import { Transaction } from '../wallet/Transaction';
-import { OmniCoinMetadata } from '../blockchain/OmniCoin';
+import { OmniCoinMetadata, getContractAddress } from '../blockchain/OmniCoin';
 
 /** Payment request parameters */
 export interface PaymentRequest {
@@ -64,9 +64,13 @@ export class Payment {
       // Convert amount to wei
       const amount = ethers.parseUnits(request.amount, OmniCoinMetadata.decimals);
 
+      // Get contract address for current network
+      const provider = this.wallet.getProvider();
+      const contractAddress = getContractAddress(provider);
+
       // Create and send transaction
       const tx = Transaction.createTokenTransfer(
-        OmniCoinMetadata.contractAddress,
+        contractAddress,
         request.to,
         amount
       );
@@ -136,13 +140,14 @@ export class Payment {
   async estimateGas(request: PaymentRequest): Promise<bigint> {
     try {
       const amount = ethers.parseUnits(request.amount, OmniCoinMetadata.decimals);
+      const provider = this.wallet.getProvider();
+      const contractAddress = getContractAddress(provider);
+
       const tx = Transaction.createTokenTransfer(
-        OmniCoinMetadata.contractAddress,
+        contractAddress,
         request.to,
         amount
       );
-
-      const provider = this.wallet.getProvider();
       return provider.estimateGas(tx.toEthersTransaction());
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';

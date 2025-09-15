@@ -180,7 +180,7 @@ export class ValidatorWalletService {
       }
 
       // Load existing accounts from secure storage
-      await this.loadAccountsFromStorage();
+      this.loadAccountsFromStorage();
 
       // Set up auto-backup if enabled
       if (this.config.autoBackup) {
@@ -224,7 +224,7 @@ export class ValidatorWalletService {
       createdAt: Date.now(),
       lastActivity: Date.now(),
       isPrimary: this.accounts.size === 0,
-      ...(metadata && { metadata })
+      ...(metadata !== undefined && metadata !== null ? { metadata } : {})
     };
 
     // Store private key securely using SecureIndexedDB
@@ -320,7 +320,7 @@ export class ValidatorWalletService {
    * @returns Active account or null if none selected
    */
   getActiveAccount(): WalletAccount | null {
-    return this.activeAccountId ? this.accounts.get(this.activeAccountId) || null : null;
+    return (this.activeAccountId !== null && this.activeAccountId !== '') ? this.accounts.get(this.activeAccountId) ?? null : null;
   }
 
   /**
@@ -329,7 +329,7 @@ export class ValidatorWalletService {
    */
   setActiveAccount(accountId: string): void {
     const account = this.accounts.get(accountId);
-    if (!account) {
+    if (account === undefined) {
       throw new Error('Account not found');
     }
 
@@ -345,13 +345,13 @@ export class ValidatorWalletService {
   async updateAccountBalance(accountId: string): Promise<string> {
     try {
       const account = this.accounts.get(accountId);
-      if (!account) {
+      if (account === undefined) {
         throw new Error('Account not found');
       }
 
       // Get user info from validator (includes balance)
       const userInfo = await this.client.getUser(account.address);
-      const balance = userInfo?.stakingBalance || '0';
+      const balance = (userInfo?.stakingBalance !== undefined && userInfo.stakingBalance !== '') ? userInfo.stakingBalance : '0';
 
       // Update account balance
       account.balance = balance;
@@ -377,13 +377,13 @@ export class ValidatorWalletService {
   async sendTransaction(request: TransactionRequest): Promise<TransactionResult> {
     try {
       const account = this.accounts.get(request.fromAccountId);
-      if (!account) {
+      if (account === undefined) {
         throw new Error('Account not found');
       }
 
       // Get private key
       const privateKey = await this.getPrivateKey(request.fromAccountId);
-      if (!privateKey) {
+      if (privateKey === null || privateKey === '') {
         throw new Error('Private key not found');
       }
 
@@ -395,7 +395,7 @@ export class ValidatorWalletService {
       const tx = {
         to: request.to,
         value: ethers.parseEther(ethers.formatEther(request.amount)),
-        data: request.data || '0x',
+        data: (request.data !== undefined && request.data !== '') ? request.data : '0x',
         ...(request.gasLimit !== undefined && { gasLimit: BigInt(request.gasLimit) }),
         ...(request.gasPrice !== undefined && { gasPrice: BigInt(request.gasPrice) })
       };
@@ -433,7 +433,7 @@ export class ValidatorWalletService {
       // Use validator's username resolution
       const address = await this.client.resolveUsername(ensName);
       
-      if (!address) {
+      if (address === null || address === '') {
         return null;
       }
 
@@ -464,7 +464,7 @@ export class ValidatorWalletService {
       };
 
       // Wallet data is already encrypted by SecureIndexedDB
-      const encryptedData = await this.getSecureBackupData(walletData);
+      const encryptedData = this.getSecureBackupData(walletData);
       
       // Create backup object
       const backup: WalletBackup = {
@@ -492,7 +492,7 @@ export class ValidatorWalletService {
    * @param backupId Backup identifier
    * @returns True if restore successful
    */
-  async restoreFromBackup(backupId: string): Promise<boolean> {
+  restoreFromBackup(backupId: string): boolean {
     try {
       // In production, this would retrieve from secure storage
       logger.info('Wallet restore requested for backup:', backupId);
@@ -508,9 +508,9 @@ export class ValidatorWalletService {
   /**
    * Disconnect from validator network and clean up.
    */
-  async disconnect(): Promise<void> {
+  disconnect(): void {
     // Clear auto-backup interval
-    if (this.backupInterval) {
+    if (this.backupInterval !== null) {
       clearInterval(this.backupInterval);
       this.backupInterval = null;
     }
@@ -530,7 +530,7 @@ export class ValidatorWalletService {
   /**
    * Load accounts from secure storage.
    */
-  private async loadAccountsFromStorage(): Promise<void> {
+  private loadAccountsFromStorage(): void {
     // In production, this would load from secure browser storage
     // For now, we'll start with empty accounts
     logger.info('Loading accounts from storage');
@@ -544,7 +544,7 @@ export class ValidatorWalletService {
   private async storePrivateKey(accountId: string, privateKey: string): Promise<void> {
     // Use SecureIndexedDB for secure storage
     const secureDb = this.getSecureStorage();
-    if (secureDb) {
+    if (secureDb !== null) {
       await secureDb.store(`key_${accountId}`, privateKey, 'private_key');
       logger.debug('Stored private key securely for account:', accountId);
     } else {
@@ -560,7 +560,7 @@ export class ValidatorWalletService {
   private async getPrivateKey(accountId: string): Promise<string | null> {
     // Retrieve from secure storage
     const secureDb = this.getSecureStorage();
-    if (secureDb) {
+    if (secureDb !== null) {
       try {
         const privateKey = await secureDb.retrieve(`key_${accountId}`);
         return privateKey as string;
@@ -576,7 +576,7 @@ export class ValidatorWalletService {
    * Set up automatic wallet backup.
    */
   private setupAutoBackup(): void {
-    if (this.backupInterval) {
+    if (this.backupInterval !== null) {
       clearInterval(this.backupInterval);
     }
 
@@ -597,7 +597,7 @@ export class ValidatorWalletService {
    * @returns SecureIndexedDB instance or null
    */
   private getSecureStorage(): SecureIndexedDB | null {
-    if (!this.secureStorage) {
+    if (this.secureStorage === null) {
       // Initialize secure storage with a default password
       // In production, this should be derived from user credentials
       this.secureStorage = new SecureIndexedDB('OmniWalletSecure');
@@ -611,7 +611,7 @@ export class ValidatorWalletService {
    * @param walletData Raw wallet data
    * @returns Encrypted backup data
    */
-  private async getSecureBackupData(walletData: unknown): Promise<string> {
+  private getSecureBackupData(walletData: unknown): string {
     // Convert wallet data to string and let SecureIndexedDB handle encryption
     return Buffer.from(JSON.stringify(walletData)).toString('base64');
   }
@@ -622,7 +622,7 @@ export class ValidatorWalletService {
    */
   private async storeBackupSecurely(backup: WalletBackup): Promise<void> {
     const secureDb = this.getSecureStorage();
-    if (secureDb) {
+    if (secureDb !== null) {
       await secureDb.store(`backup_${backup.id}`, backup, 'wallet_backup');
     }
   }
@@ -632,10 +632,10 @@ export class ValidatorWalletService {
 
 // Export singleton instance with default configuration
 export const validatorWallet = new ValidatorWalletService({
-  validatorEndpoint: process.env.VITE_VALIDATOR_ENDPOINT || 'http://localhost:4000',
-  wsEndpoint: process.env.VITE_VALIDATOR_WS_ENDPOINT || 'ws://localhost:4000/graphql',
-  ...(process.env.VITE_VALIDATOR_API_KEY !== undefined && { apiKey: process.env.VITE_VALIDATOR_API_KEY }),
-  networkId: process.env.VITE_NETWORK_ID || '1',
+  validatorEndpoint: process.env.VITE_VALIDATOR_ENDPOINT ?? 'http://localhost:4000',
+  wsEndpoint: process.env.VITE_VALIDATOR_WS_ENDPOINT ?? 'ws://localhost:4000/graphql',
+  ...(process.env.VITE_VALIDATOR_API_KEY !== undefined && process.env.VITE_VALIDATOR_API_KEY !== '' ? { apiKey: process.env.VITE_VALIDATOR_API_KEY } : {}),
+  networkId: process.env.VITE_NETWORK_ID ?? '1',
   userId: '', // Set by initializeValidatorServices
   autoBackup: true,
   backupInterval: 24 * 60 * 60 * 1000 // 24 hours

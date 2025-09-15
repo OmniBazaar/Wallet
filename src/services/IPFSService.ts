@@ -49,7 +49,9 @@ export class IPFSService {
    * @param walletService - Optional wallet service instance
    */
   constructor(walletService?: WalletService) {
-    this.walletService = walletService;
+    if (walletService !== undefined) {
+      this.walletService = walletService;
+    }
     this.validatorEndpoint = process.env.VALIDATOR_ENDPOINT ?? 'http://localhost:4000';
   }
 
@@ -62,7 +64,7 @@ export class IPFSService {
 
     try {
       // Initialize wallet service if needed
-      if (this.walletService && typeof this.walletService.isServiceInitialized === 'function' && !this.walletService.isServiceInitialized()) {
+      if (this.walletService !== undefined && typeof this.walletService.isServiceInitialized === 'function' && !this.walletService.isServiceInitialized()) {
         try {
           await this.walletService.init();
         } catch (error) {
@@ -109,7 +111,7 @@ export class IPFSService {
    */
   disconnect(): void {
     // Clear the API client
-    this.apiClient = undefined;
+    delete this.apiClient;
     this.isInitialized = false;
   }
 
@@ -120,7 +122,7 @@ export class IPFSService {
    * @returns IPFS hash of uploaded file
    */
   async uploadFile(file: File | ArrayBuffer | string, options?: FileUploadOptions): Promise<string> {
-    if (!this.isInitialized || !this.apiClient) {
+    if (!this.isInitialized || this.apiClient === undefined) {
       throw new Error('IPFS service not initialized');
     }
 
@@ -155,7 +157,7 @@ export class IPFSService {
       });
 
       const hash = response.data.hash ?? response.data.cid;
-      if (!hash) {
+      if (hash === undefined || hash === '') {
         throw new Error('No hash returned from upload');
       }
       return hash;
@@ -175,10 +177,10 @@ export class IPFSService {
     }
 
     // For testing purposes, return a mock IPFS hash if no API client
-    if (!this.apiClient) {
+    if (this.apiClient === undefined) {
       // Generate a mock IPFS hash that looks realistic
       const randomBytes = new Uint8Array(32);
-      if (typeof window !== 'undefined' && window.crypto) {
+      if (typeof window !== 'undefined' && window.crypto !== undefined) {
         window.crypto.getRandomValues(randomBytes);
       } else {
         // Fallback for Node.js environment
@@ -212,30 +214,34 @@ export class IPFSService {
    * @returns File data
    */
   async downloadFile(hash: string): Promise<IPFSFileData> {
-    if (!this.isInitialized || !this.apiClient) {
+    if (!this.isInitialized || this.apiClient === undefined) {
       throw new Error('IPFS service not initialized');
     }
 
     try {
       // Download through HTTP API
-      const response = await this.apiClient.get(`/download/${hash}`);
+      const response = await this.apiClient.get<{
+        data: string | ArrayBuffer;
+        metadata?: Record<string, unknown>;
+      }>(`/download/${hash}`);
 
       // Convert base64 back to ArrayBuffer if needed
       let data: ArrayBuffer;
-      if (typeof response.data.data === 'string') {
-        const binary = atob(response.data.data);
+      const responseData = response.data.data;
+      if (typeof responseData === 'string') {
+        const binary = atob(responseData);
         const bytes = new Uint8Array(binary.length);
         for (let i = 0; i < binary.length; i++) {
           bytes[i] = binary.charCodeAt(i);
         }
         data = bytes.buffer;
       } else {
-        data = response.data.data;
+        data = responseData;
       }
 
       return {
         data,
-        metadata: response.data.metadata || {}
+        metadata: response.data.metadata ?? {}
       };
     } catch (error) {
       throw new Error(`Failed to download file: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -257,7 +263,7 @@ export class IPFSService {
    */
   cleanup(): void {
     this.disconnect();
-    this.apiClient = undefined;
-    this.walletService = undefined;
+    delete this.apiClient;
+    delete this.walletService;
   }
 }

@@ -6,7 +6,6 @@
  */
 
 import { PriceOracleService as ValidatorPriceOracle } from '../../../../Validator/dist/services/PriceOracleService';
-import type { PriceData } from '../../../../Validator/dist/services/PriceOracleService';
 import { P2PNetwork } from '../../../../Validator/dist/p2p/P2PNetworkLibp2p';
 import type { P2PConfig } from '../../../../Validator/dist/p2p/P2PNetworkLibp2p';
 
@@ -14,9 +13,13 @@ import type { P2PConfig } from '../../../../Validator/dist/p2p/P2PNetworkLibp2p'
  * Price data returned by the integration
  */
 export interface WalletPriceData {
+  /** Price value */
   value: number;
+  /** Timestamp of the price data */
   timestamp: number;
+  /** Confidence level (0-1) */
   confidence: number;
+  /** Optional source identifier */
   source?: string;
 }
 
@@ -26,6 +29,7 @@ export interface WalletPriceData {
 export class PriceOracleIntegration {
   private validatorOracle: ValidatorPriceOracle;
   private static instance: PriceOracleIntegration;
+  private subscriptions: Map<string, NodeJS.Timeout> = new Map();
 
   /**
    * Private constructor for singleton pattern
@@ -57,17 +61,17 @@ export class PriceOracleIntegration {
    * @returns PriceOracleIntegration instance
    */
   static getInstance(): PriceOracleIntegration {
-    if (!this.instance) {
-      this.instance = new PriceOracleIntegration();
+    if (PriceOracleIntegration.instance === undefined) {
+      PriceOracleIntegration.instance = new PriceOracleIntegration();
     }
-    return this.instance;
+    return PriceOracleIntegration.instance;
   }
 
   /**
    * Initialize the service
    */
-  async initialize(): Promise<void> {
-    await this.validatorOracle.start();
+  initialize(): void {
+    void this.validatorOracle.start();
   }
 
   /**
@@ -83,7 +87,7 @@ export class PriceOracleIntegration {
       value: priceData.price,
       timestamp: priceData.timestamp,
       confidence: priceData.confidence,
-      source: priceData.source
+      source: priceData.source as string | undefined
     };
   }
 
@@ -96,7 +100,7 @@ export class PriceOracleIntegration {
     pairs: Array<{ base: string; quote: string }>
   ): Promise<Record<string, WalletPriceData>> {
     const symbols = pairs.map(p => p.base);
-    const quote = pairs[0]?.quote || 'USD'; // Assume same quote for batch
+    const quote = (pairs.length > 0 && pairs[0].quote !== '') ? pairs[0].quote : 'USD'; // Assume same quote for batch
 
     const prices = await this.validatorOracle.getPrices(symbols, quote);
 
@@ -106,7 +110,7 @@ export class PriceOracleIntegration {
         value: data.price,
         timestamp: data.timestamp,
         confidence: data.confidence,
-        source: data.source
+        source: data.source as string | undefined
       };
     }
 
@@ -116,6 +120,10 @@ export class PriceOracleIntegration {
   /**
    * Get historical prices (mock implementation for now)
    * @param params Query parameters
+   * @param params.pair Trading pair
+   * @param params.from Start timestamp
+   * @param params.to End timestamp
+   * @param params.interval Time interval
    * @returns Historical price data
    */
   async getHistoricalPrices(params: {
@@ -193,25 +201,27 @@ export class PriceOracleIntegration {
    * @param callback Callback function
    * @returns Subscription ID
    */
-  async subscribeToPriceUpdates(
+  subscribeToPriceUpdates(
     pair: string,
     callback: (update: { pair: string; price: WalletPriceData }) => void
-  ): Promise<{ id: string }> {
+  ): { id: string } {
     const [base, quote = 'USD'] = pair.split('/');
     const subscriptionId = `sub_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
     // Simulate price updates every 5 seconds
-    const interval = setInterval(async () => {
-      try {
-        const price = await this.getPrice(base, quote);
-        callback({ pair, price });
-      } catch (error) {
-        console.error('Error in price subscription:', error);
-      }
+    const interval = setInterval(() => {
+      void (async () => {
+        try {
+          const price = await this.getPrice(base, quote);
+          callback({ pair, price });
+        } catch (error) {
+          console.error('Error in price subscription:', error);
+        }
+      })();
     }, 5000);
 
     // Store interval for cleanup
-    (this as any)[subscriptionId] = interval;
+    this.subscriptions.set(subscriptionId, interval);
 
     return { id: subscriptionId };
   }
@@ -220,24 +230,23 @@ export class PriceOracleIntegration {
    * Unsubscribe from price updates
    * @param subscriptionId Subscription ID
    */
-  async unsubscribe(subscriptionId: string): Promise<void> {
-    const interval = (this as any)[subscriptionId];
-    if (interval) {
+  unsubscribe(subscriptionId: string): void {
+    const interval = this.subscriptions.get(subscriptionId);
+    if (interval !== undefined) {
       clearInterval(interval);
-      delete (this as any)[subscriptionId];
+      this.subscriptions.delete(subscriptionId);
     }
   }
 
   /**
    * Shutdown the service
    */
-  async shutdown(): Promise<void> {
+  shutdown(): void {
     // Clean up any subscriptions
-    const subscriptionKeys = Object.keys(this).filter(k => k.startsWith('sub_'));
-    for (const key of subscriptionKeys) {
-      await this.unsubscribe(key);
+    for (const subscriptionId of this.subscriptions.keys()) {
+      this.unsubscribe(subscriptionId);
     }
 
-    await this.validatorOracle.stop();
+    void this.validatorOracle.stop();
   }
 }

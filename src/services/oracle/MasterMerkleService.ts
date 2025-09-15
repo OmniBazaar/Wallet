@@ -35,10 +35,10 @@ export class MasterMerkleService {
    * @returns MasterMerkleService instance
    */
   static getInstance(): MasterMerkleService {
-    if (!this.instance) {
-      this.instance = new MasterMerkleService();
+    if (MasterMerkleService.instance === undefined) {
+      MasterMerkleService.instance = new MasterMerkleService();
     }
-    return this.instance;
+    return MasterMerkleService.instance;
   }
 
   /**
@@ -53,9 +53,13 @@ export class MasterMerkleService {
    * @param address User address
    * @returns User balance or null if not found
    */
-  async getUserBalance(address: string): Promise<UserBalance | null> {
+  // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents
+  getUserBalance(address: string): UserBalance | null {
     const balance = this.engine.getData(`userState.balances.${address.toLowerCase()}`);
-    return balance as UserBalance | null;
+    if (balance === null || balance === undefined) {
+      return null;
+    }
+    return balance as UserBalance;
   }
 
   /**
@@ -63,9 +67,13 @@ export class MasterMerkleService {
    * @param address User address
    * @returns User stake or null if not found
    */
-  async getUserStake(address: string): Promise<UserStake | null> {
+  // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents
+  getUserStake(address: string): UserStake | null {
     const stake = this.engine.getData(`userState.stakes.${address.toLowerCase()}`);
-    return stake as UserStake | null;
+    if (stake === null || stake === undefined) {
+      return null;
+    }
+    return stake as UserStake;
   }
 
   /**
@@ -73,9 +81,13 @@ export class MasterMerkleService {
    * @param address User address
    * @returns User reputation or null if not found
    */
-  async getUserReputation(address: string): Promise<UserReputation | null> {
+  // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents
+  getUserReputation(address: string): UserReputation | null {
     const reputation = this.engine.getData(`userState.reputation.${address.toLowerCase()}`);
-    return reputation as UserReputation | null;
+    if (reputation === null || reputation === undefined) {
+      return null;
+    }
+    return reputation as UserReputation;
   }
 
   /**
@@ -83,7 +95,7 @@ export class MasterMerkleService {
    * @param address User address
    * @param balance New balance
    */
-  async updateUserBalance(address: string, balance: UserBalance): Promise<void> {
+  updateUserBalance(address: string, balance: UserBalance): void {
     this.engine.updateData(`userState.balances.${address.toLowerCase()}`, balance);
   }
 
@@ -92,7 +104,7 @@ export class MasterMerkleService {
    * @param address User address
    * @returns Merkle proof or null if not found
    */
-  async generateBalanceProof(address: string): Promise<MerkleProof | null> {
+  generateBalanceProof(address: string): MerkleProof | null {
     return this.engine.generateProof(`userState.balances.${address.toLowerCase()}`);
   }
 
@@ -101,7 +113,7 @@ export class MasterMerkleService {
    * @param proof Merkle proof to verify
    * @returns Whether proof is valid
    */
-  async verifyProof(proof: MerkleProof): Promise<boolean> {
+  verifyProof(proof: MerkleProof): boolean {
     return this.engine.verifyProof(proof);
   }
 
@@ -109,7 +121,7 @@ export class MasterMerkleService {
    * Get current merkle root
    * @returns Root hash
    */
-  async getRoot(): Promise<string> {
+  getRoot(): string {
     return this.engine.getRoot();
   }
 
@@ -117,7 +129,7 @@ export class MasterMerkleService {
    * Get current epoch
    * @returns Epoch number
    */
-  async getEpoch(): Promise<number> {
+  getEpoch(): number {
     return this.engine.getEpoch();
   }
 
@@ -126,7 +138,7 @@ export class MasterMerkleService {
    * @param path Dot-separated path
    * @param value Value to set
    */
-  async updateData(path: string, value: unknown): Promise<void> {
+  updateData(path: string, value: unknown): void {
     this.engine.updateData(path, value);
   }
 
@@ -135,7 +147,7 @@ export class MasterMerkleService {
    * @param path Dot-separated path
    * @returns Data at path or null
    */
-  async getData(path: string): Promise<unknown> {
+  getData(path: string): unknown {
     return this.engine.getData(path);
   }
 
@@ -144,7 +156,7 @@ export class MasterMerkleService {
    * @param path Dot-separated path
    * @returns Merkle proof or null
    */
-  async generateProof(path: string): Promise<MerkleProof | null> {
+  generateProof(path: string): MerkleProof | null {
     return this.engine.generateProof(path);
   }
 
@@ -152,7 +164,7 @@ export class MasterMerkleService {
    * Export all data
    * @returns Complete merkle data structure
    */
-  async exportData(): Promise<MasterMerkleData> {
+  exportData(): MasterMerkleData {
     return this.engine.exportData();
   }
 
@@ -160,7 +172,7 @@ export class MasterMerkleService {
    * Import data structure
    * @param data Data to import
    */
-  async importData(data: MasterMerkleData): Promise<void> {
+  importData(data: MasterMerkleData): void {
     this.engine.importData(data);
   }
 
@@ -168,7 +180,7 @@ export class MasterMerkleService {
    * Increment epoch and get new root
    * @returns New root and epoch
    */
-  async incrementEpoch(): Promise<{ root: string; epoch: number }> {
+  incrementEpoch(): { root: string; epoch: number } {
     return this.engine.incrementEpoch();
   }
 
@@ -176,7 +188,7 @@ export class MasterMerkleService {
    * Get leaf count
    * @returns Number of leaves in tree
    */
-  async getLeafCount(): Promise<number> {
+  getLeafCount(): number {
     return this.engine.getLeafCount();
   }
 
