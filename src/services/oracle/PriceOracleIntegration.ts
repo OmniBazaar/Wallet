@@ -77,17 +77,24 @@ export class PriceOracleIntegration {
   /**
    * Get price for a token pair
    * @param base Base token symbol
-   * @param quote Quote token symbol (default: USD)
+   * @param _quote Quote token symbol (default: USD) - currently unused as chainId is hardcoded
    * @returns Price data
    */
-  async getPrice(base: string, quote: string = 'USD'): Promise<WalletPriceData> {
-    const priceData = await this.validatorOracle.getPrice(base, quote);
+  async getPrice(base: string, _quote: string = 'USD'): Promise<WalletPriceData> {
+    // PriceOracleService.getPrice takes chainId as second param, not quote
+    // For now, default to mainnet (chainId: 1)
+    const chainId = 1;
+    const priceData = await this.validatorOracle.getPrice(base, chainId);
+
+    if (priceData === null) {
+      throw new Error(`Price not available for ${base}`);
+    }
 
     return {
       value: priceData.price,
       timestamp: priceData.timestamp,
       confidence: priceData.confidence,
-      source: priceData.source as string | undefined
+      source: priceData.sources?.[0]?.name ?? 'unknown'
     };
   }
 
@@ -102,16 +109,20 @@ export class PriceOracleIntegration {
     const symbols = pairs.map(p => p.base);
     const quote = (pairs.length > 0 && pairs[0].quote !== '') ? pairs[0].quote : 'USD'; // Assume same quote for batch
 
-    const prices = await this.validatorOracle.getPrices(symbols, quote);
+    // getPrices takes chainId as second param
+    const chainId = 1;
+    const prices = await this.validatorOracle.getPrices(symbols, chainId);
 
     const result: Record<string, WalletPriceData> = {};
     for (const [symbol, data] of Object.entries(prices)) {
-      result[`${symbol}/${quote}`] = {
-        value: data.price,
-        timestamp: data.timestamp,
-        confidence: data.confidence,
-        source: data.source as string | undefined
-      };
+      if (data !== null && data !== undefined) {
+        result[`${symbol}/${quote}`] = {
+          value: data.price,
+          timestamp: data.timestamp,
+          confidence: data.confidence,
+          source: data.sources?.[0]?.name ?? 'aggregated'
+        };
+      }
     }
 
     return result;

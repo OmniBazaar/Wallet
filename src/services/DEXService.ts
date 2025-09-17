@@ -503,12 +503,12 @@ export class DEXService {
     );
 
     const hasSplits = params.dexes.length > 1;
-    return {
+    return Promise.resolve({
       bestPrice: mockPrices[bestDex] ?? 1,
       bestDex,
       splitRoute: hasSplits,
       ...(hasSplits && { splits })
-    };
+    });
   }
 
   /**
@@ -543,12 +543,12 @@ export class DEXService {
     const totalOutput = transactions.reduce((sum, tx) => sum + tx.amountOut, BigInt(0));
     const averagePrice = Number(totalOutput) / Number(params.amountIn);
 
-    return {
+    return Promise.resolve({
       success: true,
       transactions,
       totalOutput,
       averagePrice
-    };
+    });
   }
 
   /**

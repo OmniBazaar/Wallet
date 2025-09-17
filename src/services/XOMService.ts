@@ -42,7 +42,7 @@ export class XOMService {
     
     try {
       // Initialize staking service
-      this.stakingService = new StakingService() as StakingService;
+      this.stakingService = StakingService.getInstance();
 
       // Initialize staking engine
       // TODO: Initialize when validator module is available
@@ -389,12 +389,12 @@ export class XOMService {
     // Generate transaction hash
     const hash = '0x' + Math.random().toString(16).substring(2, 66);
 
-    return {
+    return Promise.resolve({
       hash,
       amount,
       validator,
       status: 'pending'
-    };
+    });
   }
 
   /**
@@ -471,8 +471,8 @@ export class XOMService {
   cleanup(): void {
     // StakingService doesn't have a stop method in current implementation
     // Just clear the reference
-    this.stakingService = undefined;
-    this.stakingEngine = undefined;
+    delete this.stakingService;
+    delete this.stakingEngine;
     this.isInitialized = false;
   }
 }

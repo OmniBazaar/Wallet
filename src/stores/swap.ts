@@ -7,11 +7,15 @@ import { ref } from 'vue';
 import type { BigNumberish } from 'ethers';
 import { SwapService } from '../services/SwapService';
 import { TokenService } from '../services/TokenService';
+import { WalletService } from '../services/WalletService';
 import { useWalletStore } from './wallet';
 
+// Create wallet service instance
+const walletService = new WalletService();
+
 // Create service instances
-const swapService = new SwapService();
-const tokenService = new TokenService();
+const swapService = new SwapService(walletService);
+const tokenService = new TokenService(walletService);
 
 /**
  * Token interface for swap operations
@@ -139,7 +143,7 @@ export const useSwapStore = defineStore('swap', () => {
         symbol: token.symbol,
         decimals: token.decimals,
         name: token.name,
-        logoURI: token.logoURI
+        ...(token.logoURI !== undefined && { logoURI: token.logoURI })
       }));
       
       // Also add popular tokens from TokenService
@@ -151,7 +155,7 @@ export const useSwapStore = defineStore('swap', () => {
             symbol: token.symbol,
             decimals: token.decimals,
             name: token.name,
-            logoURI: token.logoURI
+            ...(token.logoURI !== undefined && { logoURI: token.logoURI })
           });
         }
       }
@@ -175,7 +179,7 @@ export const useSwapStore = defineStore('swap', () => {
         tokenIn: params.tokenIn,
         tokenOut: params.tokenOut,
         amountIn: BigInt(params.amountIn),
-        slippage: params.slippage
+        ...(params.slippage !== undefined && { slippage: params.slippage })
       });
       
       // Calculate rate
@@ -324,7 +328,7 @@ export const useSwapStore = defineStore('swap', () => {
         amountIn: params.amountIn.toString(),
         amountOut: result.amountOut?.toString() ?? quote.value?.amountOut?.toString() ?? '0',
         timestamp: Date.now(),
-        txHash: result.txHash
+        ...(result.txHash !== undefined && { txHash: result.txHash })
       };
       
       recentSwaps.value.unshift(swap);
@@ -387,7 +391,7 @@ export const useSwapStore = defineStore('swap', () => {
         tokenIn: params.tokenIn,
         tokenOut: params.tokenOut,
         amountIn: BigInt(params.amountIn),
-        slippage: params.slippage
+        ...(params.slippage !== undefined && { slippage: params.slippage })
       });
       
       // Convert gas estimate to readable format

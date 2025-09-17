@@ -75,24 +75,7 @@ export class OracleAggregator {
    * @param params.sources - Array of source names
    * @returns Promise resolving to aggregated price data
    */
-  getAggregatedPrice(params: {
-    /** Token symbol */
-    token: string;
-    /** Chain identifier */
-    chain?: string;
-    /** Array of source names */
-    sources?: string[];
-  }): Promise<AggregatedPriceData> {
-    // Mock aggregated price
-    const basePrice = this.getMockPrice(params.token);
-    return Promise.resolve({
-      price: basePrice,
-      change24h: (Math.random() - 0.5) * 10,
-      timestamp: Date.now(),
-      sources: params.sources ?? ['mock'],
-      confidence: 0.95
-    });
-  }
+  // Removed duplicate - see overloaded implementation below
 
   /**
    * Get historical price data

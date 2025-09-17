@@ -324,7 +324,7 @@ export class ProviderManager {
    * @returns Active provider instance or null
    */
   getActiveProvider(): ProviderType | null {
-    if (this.activeChain === ChainType.Ethereum && this.activeNetwork !== 'ethereum') {
+    if (this.activeChain === ChainType.ETHEREUM && this.activeNetwork !== 'ethereum') {
       const provider = this.evmProviders.get(this.activeNetwork);
       return (provider !== undefined) ? provider : null;
     }
@@ -375,7 +375,7 @@ export class ProviderManager {
       return [];
     }
 
-    if (chainType === ChainType.Ethereum) {
+    if (chainType === ChainType.ETHEREUM) {
       // Return all EVM networks from ALL_NETWORKS
       const evmNetworks = Object.keys(ALL_NETWORKS).filter(key => {
         const network = ALL_NETWORKS[key];
@@ -389,12 +389,12 @@ export class ProviderManager {
       return evmNetworks;
     }
 
-    if (chainType === ChainType.Solana) {
+    if (chainType === ChainType.SOLANA) {
       // Explicit override for Solana networks
       return ['mainnet-beta', 'testnet', 'devnet'];
     }
 
-    if (chainType === ChainType.Substrate) {
+    if (chainType === ChainType.SUBSTRATE) {
       // Explicit override for Polkadot/Substrate networks
       return ['polkadot', 'kusama', 'westend'];
     }
@@ -556,7 +556,7 @@ export class ProviderManager {
 
     try {
       switch (chain) {
-        case ChainType.Ethereum: {
+        case ChainType.ETHEREUM: {
           // Check if we're using a specific EVM chain
           if (this.activeNetwork !== 'ethereum' && this.evmProviders.has(this.activeNetwork)) {
             const evmProvider = this.evmProviders.get(this.activeNetwork);
@@ -571,7 +571,7 @@ export class ProviderManager {
           return (balance !== undefined && balance !== null) ? balance.toString() : '1000000000000000000'; // 1 ETH in wei for tests
         }
 
-        case ChainType.Coti: {
+        case ChainType.COTI: {
           const cotiProvider = provider as LiveCOTIProvider;
           const balances = await cotiProvider.getFormattedBalance(undefined, true);
           return (balances.private !== undefined && balances.private !== '')
@@ -579,7 +579,7 @@ export class ProviderManager {
             : balances.public;
         }
 
-        case ChainType.Omnicoin: {
+        case ChainType.OMNICOIN: {
           const omniProvider = provider as LiveOmniCoinProvider;
           const balances = await omniProvider.getFormattedBalance(undefined, true);
           let result = `XOM: ${balances.public}`;
@@ -588,17 +588,17 @@ export class ProviderManager {
           return result;
         }
 
-        case ChainType.Bitcoin: {
+        case ChainType.BITCOIN: {
           const btcProvider = provider as LiveBitcoinProvider;
           return await btcProvider.getFormattedBalance();
         }
 
-        case ChainType.Substrate: {
+        case ChainType.SUBSTRATE: {
           const polkadotProvider = provider as LivePolkadotProvider;
           return await polkadotProvider.getActiveFormattedBalance();
         }
 
-        case ChainType.Solana: {
+        case ChainType.SOLANA: {
           const solanaProvider = provider as LiveSolanaProvider;
           // Get raw balance in lamports (string format) - should be 1 SOL = 1000000000 lamports
           return await solanaProvider.getActiveBalance();
@@ -654,7 +654,7 @@ export class ProviderManager {
     }
 
     // Handle Bitcoin separately
-    if (chain === ChainType.Bitcoin) {
+    if (chain === ChainType.BITCOIN) {
       const btcProvider = provider as LiveBitcoinProvider;
       // Bitcoin amounts are in satoshis (1 BTC = 100,000,000 satoshis)
       const satoshis = Math.floor(parseFloat(amount) * 1e8).toString();
@@ -662,7 +662,7 @@ export class ProviderManager {
     }
 
     // Handle Polkadot/Substrate separately
-    if (chain === ChainType.Substrate) {
+    if (chain === ChainType.SUBSTRATE) {
       const polkadotProvider = provider as LivePolkadotProvider;
       const network = polkadotProvider.getCurrentNetwork();
       // Convert amount to smallest unit based on decimals
@@ -671,7 +671,7 @@ export class ProviderManager {
     }
 
     // Handle Solana separately
-    if (chain === ChainType.Solana) {
+    if (chain === ChainType.SOLANA) {
       const solanaProvider = provider as LiveSolanaProvider;
       // Convert SOL to lamports
       const lamports = Math.floor(parseFloat(amount) * 1e9).toString();
@@ -681,11 +681,11 @@ export class ProviderManager {
     // Parse amount based on chain decimals for EVM chains
     let value: bigint;
     switch (chain) {
-      case ChainType.Omnicoin:
+      case ChainType.OMNICOIN:
         // 18 decimals (updated for EVM standard)
         value = ethers.parseUnits(amount, 18);
         break;
-      case ChainType.Coti:
+      case ChainType.COTI:
         // 6 decimals (COTI native)
         value = ethers.parseUnits(amount, 6);
         break;
@@ -701,7 +701,7 @@ export class ProviderManager {
     };
 
     switch (chain) {
-      case ChainType.Ethereum: {
+      case ChainType.ETHEREUM: {
         // Check if we're using a specific EVM chain
         if (this.activeNetwork !== 'ethereum' && this.evmProviders.has(this.activeNetwork)) {
           const evmProvider = this.evmProviders.get(this.activeNetwork);
@@ -712,12 +712,12 @@ export class ProviderManager {
         return await ethProvider.sendTransaction(transaction);
       }
 
-      case ChainType.Coti: {
+      case ChainType.COTI: {
         const cotiProvider = provider as LiveCOTIProvider;
         return await cotiProvider.sendTransaction(transaction);
       }
 
-      case ChainType.Omnicoin: {
+      case ChainType.OMNICOIN: {
         const omniProvider = provider as LiveOmniCoinProvider;
         const signer = omniProvider.getSigner();
         return await signer.sendTransaction(transaction);
@@ -759,7 +759,7 @@ export class ProviderManager {
     };
   } {
     // Handle Ethereum chain and all EVM networks
-    if (this.activeChain === ChainType.Ethereum) {
+    if (this.activeChain === ChainType.ETHEREUM) {
       // First, try to get network details for the active network
       if (this.activeNetwork !== '') {
         try {
@@ -795,7 +795,7 @@ export class ProviderManager {
 
     // Handle other chains
     switch (this.activeChain) {
-      case ChainType.Solana:
+      case ChainType.SOLANA:
         return {
           name: 'Solana Mainnet',
           chainId: 101, // Solana cluster ID
@@ -805,7 +805,7 @@ export class ProviderManager {
             decimals: 9
           }
         };
-      case ChainType.Bitcoin:
+      case ChainType.BITCOIN:
         return {
           name: 'Bitcoin Mainnet',
           chainId: 0, // Bitcoin doesn't have chainId
@@ -815,7 +815,7 @@ export class ProviderManager {
             decimals: 8
           }
         };
-      case ChainType.Substrate:
+      case ChainType.SUBSTRATE:
         return {
           name: 'Polkadot',
           chainId: 0, // Substrate chains use different ID system
@@ -866,7 +866,7 @@ export class ProviderManager {
     }
 
     // Handle EVM chains
-    if (this.activeChain === ChainType.Ethereum) {
+    if (this.activeChain === ChainType.ETHEREUM) {
       let value: bigint;
       try {
         value = ethers.parseEther(amount);
@@ -951,10 +951,10 @@ export class ProviderManager {
   enablePrivacyMode(chainType: ChainType): void {
     const provider = this.getProvider(chainType);
 
-    if (chainType === ChainType.Coti) {
+    if (chainType === ChainType.COTI) {
       const cotiProvider = provider as LiveCOTIProvider;
       cotiProvider.setPrivacyMode(true);
-    } else if (chainType === ChainType.Omnicoin) {
+    } else if (chainType === ChainType.OMNICOIN) {
       const omniProvider = provider as LiveOmniCoinProvider;
       omniProvider.setPrivacyMode(true);
     } else {
@@ -969,10 +969,10 @@ export class ProviderManager {
   disablePrivacyMode(chainType: ChainType): void {
     const provider = this.getProvider(chainType);
 
-    if (chainType === ChainType.Coti) {
+    if (chainType === ChainType.COTI) {
       const cotiProvider = provider as LiveCOTIProvider;
       cotiProvider.setPrivacyMode(false);
-    } else if (chainType === ChainType.Omnicoin) {
+    } else if (chainType === ChainType.OMNICOIN) {
       const omniProvider = provider as LiveOmniCoinProvider;
       omniProvider.setPrivacyMode(false);
     }
@@ -1012,7 +1012,7 @@ export class ProviderManager {
     }
 
     // Handle EVM chains
-    if (this.activeChain === ChainType.Ethereum || this.activeChain === ChainType.Coti) {
+    if (this.activeChain === ChainType.ETHEREUM || this.activeChain === ChainType.COTI) {
       if (this.activeNetwork !== 'ethereum' && this.evmProviders.has(this.activeNetwork)) {
         const evmProvider = this.evmProviders.get(this.activeNetwork);
         if (evmProvider !== undefined && evmProvider !== null && 'getFeeData' in evmProvider) {

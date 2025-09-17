@@ -421,14 +421,14 @@ export class ValidatorTransactionService {
     const baseFeePerGas = '20000000000'; // 20 Gwei
     const gasLimit = (data !== undefined && data !== '' && data !== '0x') ? '100000' : '21000';
     
-    return {
+    return Promise.resolve({
       gasLimit,
       baseFeePerGas,
       gasPrice: baseFeePerGas,
       maxFeePerGas: (BigInt(baseFeePerGas) * 2n).toString(),
       maxPriorityFeePerGas: '2000000000', // 2 Gwei
       totalCost: (BigInt(gasLimit) * BigInt(baseFeePerGas)).toString()
-    };
+    });
   }
 
   /**

@@ -469,8 +469,8 @@ export class PriceFeedService {
     try {
       this.clearCache();
       this.isInitialized = false;
-      this.priceOracle = undefined;
-      this.oracleAggregator = undefined;
+      delete this.priceOracle;
+      delete this.oracleAggregator;
     } catch (error) {
       // Fail silently on cleanup
     }

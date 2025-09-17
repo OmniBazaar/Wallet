@@ -253,13 +253,12 @@ export class ValidatorBalanceService {
 
       // Get native balance from wallet service
       let nativeBalance = BigInt(0);
-      if (this.walletService !== undefined) {
-        try {
-          const balanceData = await this.walletService.getBalance(address, 'latest') as BalanceData;
-          nativeBalance = BigInt(balanceData.balance);
-        } catch (error) {
-          logger.error('Failed to get native balance:', error);
-        }
+      // Get balance directly from provider
+      try {
+        const provider = new ethers.JsonRpcProvider(this.config.validatorEndpoint);
+        nativeBalance = await provider.getBalance(address);
+      } catch (error) {
+        logger.error('Failed to get native balance:', error);
       }
       const nativeBalanceFormatted = ethers.formatEther(nativeBalance);
 
@@ -738,10 +737,10 @@ export class ValidatorBalanceService {
     this.historyRef.value = {};
     
     // Clear service references
-    this.walletService = undefined;
-    this.priceOracle = undefined;
-    this.cacheService = undefined;
-    this.merkleEngine = undefined;
+    delete this.walletService;
+    delete this.priceOracle;
+    delete this.cacheService;
+    delete this.merkleEngine;
   }
 
   // Private helper methods

@@ -11,7 +11,16 @@ import { ethers } from 'ethers';
  * Contract addresses for different networks
  * These should match the deployed addresses from the Coin module
  */
-export const OMNICOIN_ADDRESSES = {
+interface ContractAddresses {
+  OmniCoin: string;
+  OmniCore: string;
+  OmniGovernance: string;
+  OmniBridge: string;
+  PrivateOmniCoin: string;
+  MinimalEscrow: string;
+}
+
+export const OMNICOIN_ADDRESSES: Record<string, ContractAddresses> = {
   // Local Hardhat network (chainId: 31337)
   hardhat: {
     OmniCoin: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
@@ -24,22 +33,22 @@ export const OMNICOIN_ADDRESSES = {
 
   // COTI Testnet (chainId: 7082400)
   'coti-testnet': {
-    OmniCoin: '', // To be deployed
-    OmniCore: '',
-    OmniGovernance: '',
-    OmniBridge: '',
-    PrivateOmniCoin: '',
-    MinimalEscrow: '',
+    OmniCoin: '0x0000000000000000000000000000000000000000', // To be deployed
+    OmniCore: '0x0000000000000000000000000000000000000000',
+    OmniGovernance: '0x0000000000000000000000000000000000000000',
+    OmniBridge: '0x0000000000000000000000000000000000000000',
+    PrivateOmniCoin: '0x0000000000000000000000000000000000000000',
+    MinimalEscrow: '0x0000000000000000000000000000000000000000',
   },
 
   // COTI Mainnet (future)
   'coti-mainnet': {
-    OmniCoin: '',
-    OmniCore: '',
-    OmniGovernance: '',
-    OmniBridge: '',
-    PrivateOmniCoin: '',
-    MinimalEscrow: '',
+    OmniCoin: '0x0000000000000000000000000000000000000000',
+    OmniCore: '0x0000000000000000000000000000000000000000',
+    OmniGovernance: '0x0000000000000000000000000000000000000000',
+    OmniBridge: '0x0000000000000000000000000000000000000000',
+    PrivateOmniCoin: '0x0000000000000000000000000000000000000000',
+    MinimalEscrow: '0x0000000000000000000000000000000000000000',
   },
 } as const;
 
@@ -88,7 +97,7 @@ export function getOmniCoinAddress(provider: ethers.Provider): string {
  * @param provider Ethers provider instance
  * @returns Object containing all OmniCoin contract addresses
  */
-export function getOmniCoinContracts(provider: ethers.Provider): typeof OMNICOIN_ADDRESSES.hardhat {
+export function getOmniCoinContracts(provider: ethers.Provider): ContractAddresses {
   // In ethers v6, network info might be under _network property
   const providerWithNetwork = provider as ethers.Provider & { _network?: { chainId?: number | string } };
   const network = providerWithNetwork._network;

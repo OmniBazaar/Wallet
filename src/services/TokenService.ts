@@ -624,7 +624,7 @@ export class TokenService {
       
       // Get historical prices from price feed service
       const historicalData = await priceFeedService.getHistoricalPrices({
-        symbol: tokenInfo.symbol,
+        token: tokenInfo.symbol,
         from,
         to: now,
         interval: period === '1d' ? '1h' : '1d'
@@ -790,5 +790,8 @@ export class TokenService {
   }
 }
 
+// Create wallet service instance
+const walletServiceInstance = new WalletService();
+
 // Export singleton instance
-export const tokenService = new TokenService();
+export const tokenService = new TokenService(walletServiceInstance);

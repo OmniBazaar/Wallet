@@ -7,6 +7,7 @@
 
 import { NFTService as CoreNFTService, NFTServiceConfig } from '../core/nft/NFTService';
 import type { NFT as WalletNFT } from '../core/nft/types';
+import { NFTType, NFTStandard } from '../core/nft/types';
 
 /**
  * Transfer result from NFT transfer operation
@@ -195,8 +196,8 @@ export class NFTService {
         contract_address: contractAddress,
         token_id: tokenId,
         chain: this.getChainName(chainId),
-        type: 'ERC721' as const,
-        standard: 'ERC721' as const,
+        type: NFTType.ERC721,
+        standard: NFTStandard.ERC721,
         owner: '0x742d35Cc6636C0532925a3b8F0d9df0f01426443',
         name: `NFT #${tokenId}`,
         metadata: {
@@ -205,7 +206,7 @@ export class NFTService {
           image: 'ipfs://test-image',
           attributes: []
         }
-      } as WalletNFT;
+      };
     }
 
     // Use core service if method exists
@@ -250,8 +251,7 @@ export class NFTService {
 
       return {
         success: true,
-        txHash: mockHash,
-        transactionHash: mockHash
+        txHash: mockHash
       };
     }
 
@@ -316,10 +316,8 @@ export class NFTService {
       const mockHash = `0x${Array(64).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join('')}`;
 
       return {
+        success: true,
         tokenId,
-        contractAddress: '0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D', // Mock BAYC address
-        owner: params.to,
-        metadataURI: params.metadataURI,
         transactionHash: mockHash
       };
     }
@@ -336,12 +334,7 @@ export class NFTService {
         ...(params.chainId !== undefined && { chainId: params.chainId })
       });
 
-      return {
-        ...result,
-        tokenId: result.tokenId,
-        contractAddress: '0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D',
-        owner: params.to ?? params.recipient
-      };
+      return result;
     }
 
     // Fallback mock implementation
@@ -351,8 +344,6 @@ export class NFTService {
     return {
       success: true,
       tokenId,
-      contractAddress: '0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D',
-      owner: params.to ?? params.recipient ?? '0x742d35Cc6636C0532925a3b8F0d9df0f01426443',
       transactionHash: mockHash
     };
   }
@@ -475,7 +466,7 @@ export class NFTService {
       });
       minted.push({
         ...result,
-        metadata: { name: nft.name, description: nft.description }
+        metadata: { name: nft.name, description: nft.description ?? '' }
       });
     }
     return minted;
@@ -1070,7 +1061,7 @@ export class NFTService {
     if (typeof paramsOrChainId === 'object' && paramsOrChainId !== null) {
       // Handle parameters object
       const limit = paramsOrChainId.limit ?? 10;
-      const trending = [];
+      const trending: Array<{ contractAddress: string; name: string; volumeChange: number; salesCount: number; averagePrice: bigint }> = [];
 
       for (let i = 0; i < limit; i++) {
         trending.push({
@@ -1082,10 +1073,10 @@ export class NFTService {
         });
       }
 
-      return trending;
+      return Promise.resolve(trending);
     }
 
     // Use core service for chain-specific trending
-    return this.coreService.getTrendingNFTs(paramsOrChainId);
+    return this.coreService.getTrendingNFTs(paramsOrChainId) as unknown as Array<{ contractAddress: string; name: string; volumeChange: number; salesCount: number; averagePrice: bigint }>;
   }
 }

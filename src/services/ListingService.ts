@@ -118,7 +118,7 @@ export class ListingService {
       id: result.id,
       title: result.title,
       description: result.description,
-      price: result.price,
+      price: result.price.toString(),
       seller: result.seller,
       category: result.category,
       images: result.images,

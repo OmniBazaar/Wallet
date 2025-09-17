@@ -241,11 +241,11 @@ export class ValidatorService {
       const contract = this.stakingContract.connect(signer) as ethers.Contract;
 
       // Register validator on-chain
-      const registerValidatorMethod = contract['registerValidator'] as (nodeUrl: string, publicKey: string, options: { value: bigint }) => Promise<ethers.ContractTransaction>;
+      const registerValidatorMethod = contract['registerValidator'] as (nodeUrl: string, publicKey: string, options: { value: bigint }) => Promise<ethers.ContractTransactionResponse>;
       const tx = await registerValidatorMethod(params.nodeUrl, params.publicKey, {
         value: ethers.parseEther(params.stake)
       });
-      await (tx.wait as () => Promise<ethers.ContractTransactionReceipt>)();
+      await tx.wait();
 
       return {
         success: true,
@@ -288,9 +288,9 @@ export class ValidatorService {
       const signer = await (this.provider as ethers.JsonRpcProvider).getSigner(params.from);
       const contract = this.stakingContract.connect(signer) as ethers.Contract;
 
-      const delegateMethod = contract['delegate'] as (address: string, amount: bigint) => Promise<ethers.ContractTransaction>;
+      const delegateMethod = contract['delegate'] as (address: string, amount: bigint) => Promise<ethers.ContractTransactionResponse>;
       const tx = await delegateMethod(params.validatorAddress, ethers.parseEther(params.amount));
-      await (tx.wait as () => Promise<ethers.ContractTransactionReceipt>)();
+      await tx.wait();
 
       // Calculate expected rewards (simplified)
       const expectedRewards = (parseFloat(params.amount) * 0.1).toString(); // 10% APY
@@ -344,9 +344,9 @@ export class ValidatorService {
       const signer = await (this.provider as ethers.JsonRpcProvider).getSigner(address);
       const contract = this.stakingContract.connect(signer) as ethers.Contract;
 
-      const claimRewardsMethod = contract['claimRewards'] as () => Promise<ethers.ContractTransaction>;
+      const claimRewardsMethod = contract['claimRewards'] as () => Promise<ethers.ContractTransactionResponse>;
       const tx = await claimRewardsMethod();
-      const receipt = await (tx.wait as () => Promise<ethers.ContractTransactionReceipt | null>)();
+      const receipt = await tx.wait();
 
       // Get claimed amount from events
       const amount = '10'; // Placeholder
@@ -398,9 +398,9 @@ export class ValidatorService {
       const [amount, rewards] = await getDelegationMethod(params.address, validator);
 
       // Withdraw
-      const undelegateMethod = contract['undelegate'] as (validator: string, amount: bigint) => Promise<ethers.ContractTransaction>;
+      const undelegateMethod = contract['undelegate'] as (validator: string, amount: bigint) => Promise<ethers.ContractTransactionResponse>;
       const tx = await undelegateMethod(validator, amount);
-      await (tx.wait as () => Promise<ethers.ContractTransactionReceipt>)();
+      await tx.wait();
 
       const principal = ethers.formatEther(amount);
       const rewardsStr = ethers.formatEther(rewards);
@@ -465,12 +465,12 @@ export class ValidatorService {
     }
 
     try {
-      const status = await this.client.getStatus() as { isConnected: boolean; isSynced: boolean };
+      const status = await this.client.getStatus();
 
       return {
         status: status.isConnected ? 'healthy' : 'unhealthy',
         lastHeartbeat: Date.now(),
-        syncStatus: status.isSynced ? 'synced' : 'syncing'
+        syncStatus: status.isConnected ? 'synced' : 'syncing'
       };
     } catch (error) {
       return {

@@ -984,15 +984,17 @@ export class WalletDatabase {
    * @returns Promise resolving when cleanup is complete
    */
   cleanup(): Promise<void> {
-    try {
-      if (this.db !== null) {
-        this.db.close();
-        this.db = null;
+    return Promise.resolve().then(() => {
+      try {
+        if (this.db !== null) {
+          this.db.close();
+          this.db = null;
+        }
+        this.isInitialized = false;
+        // // console.log('WalletDatabase cleanup completed');
+      } catch (error) {
+        console.error('Error during WalletDatabase cleanup:', error);
       }
-      this.isInitialized = false;
-      // // console.log('WalletDatabase cleanup completed');
-    } catch (error) {
-      console.error('Error during WalletDatabase cleanup:', error);
-    }
+    });
   }
 }

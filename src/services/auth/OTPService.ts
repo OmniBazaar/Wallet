@@ -231,9 +231,15 @@ export class OTPService {
 
     // Accept injected dependencies
     if (deps !== undefined) {
-      this.smsProvider = deps.smsProvider;
-      this.emailProvider = deps.emailProvider;
-      this.secureStorage = deps.secureStorage;
+      if (deps.smsProvider !== undefined) {
+        this.smsProvider = deps.smsProvider;
+      }
+      if (deps.emailProvider !== undefined) {
+        this.emailProvider = deps.emailProvider;
+      }
+      if (deps.secureStorage !== undefined) {
+        this.secureStorage = deps.secureStorage;
+      }
     }
   }
 

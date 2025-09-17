@@ -7,7 +7,7 @@ import { ref, computed } from 'vue';
 import { nftService } from '../background/background';
 import { useWalletStore } from './wallet';
 import type { NFT as WalletNFT } from '../core/nft/types';
-import type { NFTService as INFTService } from '../services/NFTService';
+// Removed unused import
 
 /**
  * Individual NFT interface
@@ -103,11 +103,7 @@ export const useNFTStore = defineStore('nfts', () => {
         return;
       }
 
-      // Initialize NFT service if needed
-      const service = nftService as INFTService;
-      if (!service.isNFTServiceInitialized()) {
-        await service.initialize();
-      }
+      // NFTService is already initialized in the constructor
 
       // Fetch real NFTs from NFTService
       const walletNFTs = await nftService.getNFTs(address);
@@ -116,17 +112,19 @@ export const useNFTStore = defineStore('nfts', () => {
       nfts.value = walletNFTs.map((nft: WalletNFT) => ({
         id: nft.id,
         name: nft.name ?? nft.metadata?.name ?? `NFT #${nft.token_id}`,
-        description: nft.metadata?.description ?? '',
         image: nft.metadata?.image ?? '',
         collectionAddress: nft.contract_address,
-        collectionName: nft.collection?.name,
         tokenId: nft.token_id,
         owner: nft.owner ?? address,
-        attributes: nft.metadata?.attributes?.map(attr => ({
-          trait_type: attr.trait_type ?? 'Trait',
-          value: attr.value
-        })) ?? [],
-        externalUrl: nft.metadata?.external_url
+        ...(nft.metadata?.description !== undefined && { description: nft.metadata.description }),
+        ...(nft.collection?.name !== undefined && { collectionName: nft.collection.name }),
+        ...(nft.metadata?.attributes !== undefined && {
+          attributes: nft.metadata.attributes.map(attr => ({
+            trait_type: attr.trait_type ?? 'Trait',
+            value: attr.value
+          }))
+        }),
+        ...(nft.metadata?.external_url !== undefined && { externalUrl: nft.metadata.external_url })
       }));
 
       // Update featured NFTs (first 3)
@@ -196,9 +194,15 @@ export const useNFTStore = defineStore('nfts', () => {
           const existing = collectionMap.get(collection.address);
           if (existing !== undefined) {
             existing.name = collection.name;
-            existing.symbol = collection.symbol;
-            existing.floorPrice = collection.floorPrice;
-            existing.totalSupply = collection.totalSupply;
+            if (collection.symbol !== undefined) {
+              existing.symbol = collection.symbol;
+            }
+            if (collection.floorPrice !== undefined) {
+              existing.floorPrice = collection.floorPrice;
+            }
+            if (collection.totalSupply !== undefined) {
+              existing.totalSupply = collection.totalSupply;
+            }
           }
         }
       } catch (_err) {
@@ -260,12 +264,14 @@ export const useNFTStore = defineStore('nfts', () => {
           nfts.value[index] = {
             ...nfts.value[index],
             name: metadata.name ?? metadata.metadata?.name ?? nfts.value[index].name,
-            description: metadata.metadata?.description ?? nfts.value[index].description,
             image: metadata.metadata?.image ?? nfts.value[index].image,
-            attributes: metadata.metadata?.attributes?.map(attr => ({
-              trait_type: attr.trait_type ?? 'Trait',
-              value: attr.value
-            })) ?? nfts.value[index].attributes
+            ...(metadata.metadata?.description !== undefined && { description: metadata.metadata.description }),
+            ...(metadata.metadata?.attributes !== undefined && {
+              attributes: metadata.metadata.attributes.map(attr => ({
+                trait_type: attr.trait_type ?? 'Trait',
+                value: attr.value
+              }))
+            })
           };
         }
       }

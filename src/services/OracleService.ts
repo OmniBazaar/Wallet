@@ -760,7 +760,7 @@ export class OracleService {
       return {
         disputeId: 'dispute-123',
         status: 'pending',
-        timestamp: Date.now()
+        resolutionTime: Date.now()
       };
     } catch (error) {
       console.error('Failed to submit dispute:', error);

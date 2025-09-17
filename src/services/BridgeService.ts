@@ -219,10 +219,10 @@ export class BridgeService {
 
       return routes.map(route => ({
         id: route.id,
-        fee: route.bridgeFee?.toString(),
-        gasFee: route.gasFee?.toString(),
-        totalFee: route.totalFee?.toString(),
-        estimatedTime: route.estimatedTime
+        ...(route.bridgeFee !== undefined && { fee: route.bridgeFee.toString() }),
+        ...(route.gasFee !== undefined && { gasFee: route.gasFee.toString() }),
+        ...(route.totalFee !== undefined && { totalFee: route.totalFee.toString() }),
+        ...(route.estimatedTime !== undefined && { estimatedTime: route.estimatedTime })
       }));
     } catch (error) {
       // Return empty array on error
@@ -306,8 +306,8 @@ export class BridgeService {
       await this.crossChainBridge.stop();
     }
 
-    this.crossChainBridge = undefined;
-    this.merkleEngine = undefined;
+    delete this.crossChainBridge;
+    delete this.merkleEngine;
     this.isInitialized = false;
   }
 

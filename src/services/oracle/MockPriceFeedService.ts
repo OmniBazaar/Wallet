@@ -41,7 +41,8 @@ export class MockPriceFeedService {
       priceUSD: price,
       change24h: 0,
       timestamp: Date.now(),
-      source: 'mock'
+      source: 'mock',
+      confidence: 1.0
     });
   }
 
@@ -70,7 +71,8 @@ export class MockPriceFeedService {
         priceUSD: currentPrice * (1 + (Math.random() - 0.5) * 0.1),
         change24h: (Math.random() - 0.5) * 10,
         timestamp: Date.now() - i * 3600000,
-        source: 'mock'
+        source: 'mock',
+        confidence: 1.0
       });
     }
 

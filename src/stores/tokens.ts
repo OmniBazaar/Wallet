@@ -78,10 +78,10 @@ export const useTokenStore = defineStore('tokens', () => {
         decimals: tb.token.decimals,
         balance: tb.balanceFormatted,
         value: tb.valueUSD ?? 0,
-        priceUSD: tb.valueUSD !== undefined && parseFloat(tb.balanceFormatted) > 0 
-          ? tb.valueUSD / parseFloat(tb.balanceFormatted)
-          : undefined,
-        logoURI: tb.token.logoURI
+        ...(tb.valueUSD !== undefined && parseFloat(tb.balanceFormatted) > 0 && {
+          priceUSD: tb.valueUSD / parseFloat(tb.balanceFormatted)
+        }),
+        ...(tb.token.logoURI !== undefined && { logoURI: tb.token.logoURI })
       }));
 
     } catch (err) {

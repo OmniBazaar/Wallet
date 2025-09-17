@@ -159,7 +159,7 @@ export class LiveEthereumProvider {
    */
   getSigner(): Promise<ethers.Signer> {
     const activeAccount = keyringService.getActiveAccount();
-    if (activeAccount === null || activeAccount === undefined || activeAccount.chainType !== ChainType.Ethereum) {
+    if (activeAccount === null || activeAccount === undefined || activeAccount.chainType !== ChainType.ETHEREUM) {
       return Promise.reject(new Error('No active Ethereum account'));
     }
 

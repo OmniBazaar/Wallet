@@ -8,11 +8,40 @@
 import { MasterMerkleEngine } from '../../../../Validator/dist/engines/MasterMerkleEngine';
 import type {
   MasterMerkleData,
-  MerkleProof,
-  UserBalance,
-  UserStake,
-  UserReputation
+  MerkleProof
 } from '../../../../Validator/dist/engines/MasterMerkleEngine';
+
+// Define types that are used in MasterMerkleData but not exported separately
+interface UserBalance {
+  /** XOM token balance */
+  xom: bigint;
+  /** pXOM privacy token balance */
+  pxom: bigint;
+  /** Other token balances */
+  tokens: Record<string, bigint>;
+}
+
+interface UserStake {
+  /** Amount of XOM staked */
+  amount: bigint;
+  /** Staking tier (1-5) */
+  tier: number;
+  /** Lock end timestamp */
+  lockEnd: number;
+  /** Accumulated rewards */
+  rewards: bigint;
+}
+
+interface UserReputation {
+  /** Overall score (0-100) */
+  score: number;
+  /** Transaction count */
+  transactionCount: number;
+  /** Total volume traded */
+  volumeTraded: bigint;
+  /** Dispute count */
+  disputeCount: number;
+}
 
 /**
  * Service for interacting with the Master Merkle Engine
