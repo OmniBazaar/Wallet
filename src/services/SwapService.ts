@@ -611,8 +611,8 @@ export class SwapService {
         const amountOut = currentAmountIn - fee;
 
         hopDetails.push({
-          tokenIn,
-          tokenOut,
+          tokenIn: tokenIn ?? '',
+          tokenOut: tokenOut ?? '0x0000000000000000000000000000000000000000',
           amountIn: currentAmountIn,
           amountOut,
           protocol: i === 0 ? 'UniswapV3' : 'OmniDEX' // Vary protocols for testing
@@ -622,7 +622,8 @@ export class SwapService {
       }
 
       // Check if final output meets minimum requirement
-      const finalAmountOut = hopDetails[hopDetails.length - 1].amountOut;
+      const lastHop = hopDetails[hopDetails.length - 1];
+      const finalAmountOut = lastHop?.amountOut ?? BigInt(0);
       if (finalAmountOut < params.amountOutMin) {
         throw new Error('Insufficient output amount after slippage');
       }
@@ -747,7 +748,7 @@ export class SwapService {
         amountOutMin: BigInt(optimalRoute.totalExpectedOut) * BigInt(95) / BigInt(100), // 5% slippage
         priceImpact: optimalRoute.totalPriceImpact,
         gasEstimate: BigInt(optimalRoute.estimatedGas),
-        exchange: optimalRoute.routes.length > 0 ? optimalRoute.routes[0].type : 'HybridRouter'
+        exchange: optimalRoute.routes.length > 0 && optimalRoute.routes[0] ? optimalRoute.routes[0].type : 'HybridRouter'
       };
 
       return route;
@@ -1007,7 +1008,12 @@ export class SwapService {
         );
         
         try {
-          permitNonce = Number(await tokenContract.nonces(userAddress));
+          const noncesMethod = tokenContract['nonces'];
+          if (noncesMethod && typeof noncesMethod === 'function') {
+            permitNonce = Number(await noncesMethod(userAddress));
+          } else {
+            permitNonce = 0;
+          }
         } catch (error) {
           // Fallback to 0 if nonces function doesn't exist
           permitNonce = 0;
@@ -1033,7 +1039,10 @@ export class SwapService {
           ['function name() view returns (string)'],
           provider
         );
-        tokenName = await tokenContract.name() as string;
+        const nameMethod = tokenContract['name'];
+        if (nameMethod && typeof nameMethod === 'function') {
+          tokenName = await nameMethod() as string;
+        }
       } catch {
         // Use default if name query fails
       }

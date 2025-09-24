@@ -107,7 +107,8 @@ export class PriceOracleIntegration {
     pairs: Array<{ base: string; quote: string }>
   ): Promise<Record<string, WalletPriceData>> {
     const symbols = pairs.map(p => p.base);
-    const quote = (pairs.length > 0 && pairs[0].quote !== '') ? pairs[0].quote : 'USD'; // Assume same quote for batch
+    const firstPair = pairs[0];
+    const quote = (pairs.length > 0 && firstPair && firstPair.quote !== '') ? firstPair.quote : 'USD'; // Assume same quote for batch
 
     // getPrices takes chainId as second param
     const chainId = 1;
@@ -147,7 +148,7 @@ export class PriceOracleIntegration {
     const [base, quote = 'USD'] = params.pair.split('/');
 
     // Get current price as a starting point
-    const currentPrice = await this.getPrice(base, quote);
+    const currentPrice = await this.getPrice(base ?? 'ETH', quote);
 
     // Generate mock historical data based on current price
     const dataPoints: Array<{ timestamp: number; price: number; volume: number }> = [];
@@ -195,7 +196,7 @@ export class PriceOracleIntegration {
     confidence: number;
   }> {
     const [base, quote = 'USD'] = pair.split('/');
-    const price = await this.getPrice(base, quote);
+    const price = await this.getPrice(base ?? 'ETH', quote);
 
     // For now, return single source data formatted as aggregated
     return {
@@ -223,7 +224,7 @@ export class PriceOracleIntegration {
     const interval = setInterval(() => {
       void (async () => {
         try {
-          const price = await this.getPrice(base, quote);
+          const price = await this.getPrice(base ?? 'ETH', quote);
           callback({ pair, price });
         } catch (error) {
           console.error('Error in price subscription:', error);
@@ -254,7 +255,8 @@ export class PriceOracleIntegration {
    */
   shutdown(): void {
     // Clean up any subscriptions
-    for (const subscriptionId of this.subscriptions.keys()) {
+    const subscriptionIds = Array.from(this.subscriptions.keys());
+    for (const subscriptionId of subscriptionIds) {
       this.unsubscribe(subscriptionId);
     }
 

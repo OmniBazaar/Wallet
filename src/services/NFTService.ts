@@ -204,7 +204,7 @@ export class NFTService {
     chainId: number = 1
   ): Promise<WalletNFT | null> {
     // Mock implementation for testing
-    if (process.env.NODE_ENV === 'test') {
+    if (process.env['NODE_ENV'] === 'test') {
       return {
         id: `${contractAddress}_${tokenId}`,
         contract_address: contractAddress,
@@ -260,12 +260,12 @@ export class NFTService {
     chainId: number;
   }): Promise<NFTTransferResult> {
     // Mock implementation for testing
-    if (process.env.NODE_ENV === 'test') {
+    if (process.env['NODE_ENV'] === 'test') {
       const mockHash = `0x${Array(64).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join('')}`;
 
       return {
         success: true,
-        transactionHash: mockHash
+        txHash: mockHash
       };
     }
 
@@ -485,6 +485,9 @@ export class NFTService {
     const minted = [];
     for (let i = 0; i < nftsToMint.length; i++) {
       const nft = nftsToMint[i];
+      if (!nft) {
+        continue;
+      }
       const result = await this.mintNFT({
         to: recipient,
         name: nft.name,
@@ -512,7 +515,7 @@ export class NFTService {
     const amount = (salePrice * BigInt(royaltyPercentage)) / BigInt(10000);
 
     // In test environment, use the mock wallet address
-    const receiver = process.env.NODE_ENV === 'test' ?
+    const receiver = process.env['NODE_ENV'] === 'test' ?
       '0xF4C9aa764684C74595213384d32E2e57798Fd2F9' : // mockWallet.address from tests
       '0x742d35Cc6636C0532925a3b8F0d9df0f01426443';
 
@@ -583,7 +586,7 @@ export class NFTService {
     const listingId = `listing_${Date.now()}`;
 
     // In test environment, use the mock wallet address
-    const seller = process.env.NODE_ENV === 'test' ?
+    const seller = process.env['NODE_ENV'] === 'test' ?
       '0xF4C9aa764684C74595213384d32E2e57798Fd2F9' : // mockWallet.address from tests
       '0x742d35Cc6636C0532925a3b8F0d9df0f01426443';
 
@@ -651,7 +654,7 @@ export class NFTService {
    */
   async getOwner(contractAddress: string, tokenId: string): Promise<string> {
     // In test environment, return mock owner
-    if (process.env.NODE_ENV === 'test') {
+    if (process.env['NODE_ENV'] === 'test') {
       return '0x9876543210987654321098765432109876543210';
     }
 
@@ -729,7 +732,7 @@ export class NFTService {
     }
 
     // In test environment, return mock NFTs if no real NFTs found
-    if (process.env.NODE_ENV === 'test' && allNFTs.length === 0) {
+    if (process.env['NODE_ENV'] === 'test' && allNFTs.length === 0) {
       return [
         {
           chain: 'ethereum',

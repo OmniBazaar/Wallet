@@ -56,7 +56,7 @@ export interface Logger {
  * Logger class for consistent logging across the application
  */
 class LoggerImpl implements Logger {
-  private readonly isDevelopment = process.env.NODE_ENV === 'development';
+  private readonly isDevelopment = process.env['NODE_ENV'] === 'development';
   private readonly prefix: string | undefined;
 
   /**

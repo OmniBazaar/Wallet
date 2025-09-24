@@ -24,7 +24,7 @@ const logger: Logger = {
     if (typeof chrome !== 'undefined' && chrome.storage?.local !== undefined) {
       const log = { level: 'warn', message, args, timestamp: Date.now() };
       void chrome.storage.local.get(['logs'], (result) => {
-        const logs = (result.logs as unknown[] | undefined) ?? [];
+        const logs = (result['logs'] as unknown[] | undefined) ?? [];
         logs.push(log);
         void chrome.storage.local.set({ logs: logs.slice(-100) }); // Keep last 100 logs
       });
@@ -34,7 +34,7 @@ const logger: Logger = {
     if (typeof chrome !== 'undefined' && chrome.storage?.local !== undefined) {
       const log = { level: 'error', message, args, timestamp: Date.now() };
       void chrome.storage.local.get(['logs'], (result) => {
-        const logs = (result.logs as unknown[] | undefined) ?? [];
+        const logs = (result['logs'] as unknown[] | undefined) ?? [];
         logs.push(log);
         void chrome.storage.local.set({ logs: logs.slice(-100) }); // Keep last 100 logs
       });

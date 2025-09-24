@@ -214,25 +214,33 @@ export class MPCKeyManager {
     const shards = this.splitSecret(Buffer.from(privateKey));
 
     // Create key shards with checksums
+    const deviceShardData = shards[0];
+    const serverShardData = shards[1];
+    const recoveryShardData = shards[2];
+
+    if (!deviceShardData || !serverShardData || !recoveryShardData) {
+      throw new Error('Failed to create key shards');
+    }
+
     const deviceShard: KeyShard = {
       type: ShardType.DEVICE,
       index: 1,
-      data: shards[0].toString('hex'),
-      checksum: this.generateChecksum(shards[0])
+      data: deviceShardData.toString('hex'),
+      checksum: this.generateChecksum(deviceShardData)
     };
 
     const serverShard: KeyShard = {
       type: ShardType.SERVER,
       index: 2,
-      data: shards[1].toString('hex'),
-      checksum: this.generateChecksum(shards[1])
+      data: serverShardData.toString('hex'),
+      checksum: this.generateChecksum(serverShardData)
     };
 
     const recoveryShard: KeyShard = {
       type: ShardType.RECOVERY,
       index: 3,
-      data: shards[2].toString('hex'),
-      checksum: this.generateChecksum(shards[2])
+      data: recoveryShardData.toString('hex'),
+      checksum: this.generateChecksum(recoveryShardData)
     };
 
     // Store server shard encrypted in database
@@ -352,25 +360,33 @@ export class MPCKeyManager {
     const shards = this.splitSecret(Buffer.from(privateKey));
 
     // Create new key shards
+    const deviceShardData = shards[0];
+    const serverShardData = shards[1];
+    const recoveryShardData = shards[2];
+
+    if (!deviceShardData || !serverShardData || !recoveryShardData) {
+      throw new Error('Failed to create key shards');
+    }
+
     const deviceShard: KeyShard = {
       type: ShardType.DEVICE,
       index: 1,
-      data: shards[0].toString('hex'),
-      checksum: this.generateChecksum(shards[0])
+      data: deviceShardData.toString('hex'),
+      checksum: this.generateChecksum(deviceShardData)
     };
 
     const serverShard: KeyShard = {
       type: ShardType.SERVER,
       index: 2,
-      data: shards[1].toString('hex'),
-      checksum: this.generateChecksum(shards[1])
+      data: serverShardData.toString('hex'),
+      checksum: this.generateChecksum(serverShardData)
     };
 
     const recoveryShard: KeyShard = {
       type: ShardType.RECOVERY,
       index: 3,
-      data: shards[2].toString('hex'),
-      checksum: this.generateChecksum(shards[2])
+      data: recoveryShardData.toString('hex'),
+      checksum: this.generateChecksum(recoveryShardData)
     };
 
     // Update stored shards
@@ -411,7 +427,11 @@ export class MPCKeyManager {
     for (let x = 1; x <= this.shamirParams.totalShares; x++) {
       let y = new BN(0);
       for (let i = 0; i < coefficients.length; i++) {
-        const term = coefficients[i].mul(new BN(x).pow(new BN(i)));
+        const coefficient = coefficients[i];
+        if (!coefficient) {
+          throw new Error(`Missing coefficient at index ${i}`);
+        }
+        const term = coefficient.mul(new BN(x).pow(new BN(i)));
         y = y.add(term).mod(this.shamirParams.prime);
       }
       
@@ -440,15 +460,23 @@ export class MPCKeyManager {
     let secret = new BN(0);
 
     for (let i = 0; i < shares.length; i++) {
-      const xi = new BN(shares[i].index);
-      const yi = new BN(shares[i].value.slice(1)); // Skip index byte
+      const share = shares[i];
+      if (!share) {
+        throw new Error(`Missing share at index ${i}`);
+      }
+      const xi = new BN(share.index);
+      const yi = new BN(share.value.slice(1)); // Skip index byte
 
       let numerator = new BN(1);
       let denominator = new BN(1);
 
       for (let j = 0; j < shares.length; j++) {
         if (i !== j) {
-          const xj = new BN(shares[j].index);
+          const shareJ = shares[j];
+          if (!shareJ) {
+            throw new Error(`Missing share at index ${j}`);
+          }
+          const xj = new BN(shareJ.index);
           numerator = numerator.mul(xj.neg()).mod(prime);
           denominator = denominator.mul(xi.sub(xj)).mod(prime);
         }
@@ -489,7 +517,7 @@ export class MPCKeyManager {
   private generateChecksum(shard: Buffer): string {
     return createHash('sha256')
       .update(shard)
-      .update(process.env.SHARD_CHECKSUM_SALT ?? 'omnibazaar_mpc')
+      .update(process.env['SHARD_CHECKSUM_SALT'] ?? 'omnibazaar_mpc')
       .digest('hex')
       .slice(0, 8);
   }
@@ -655,7 +683,12 @@ export class MPCKeyManager {
     const adjectives = ['quick', 'brown', 'lazy', 'happy', 'sad', 'bright', 'dark', 'cold'];
     const nouns = ['fox', 'dog', 'cat', 'bird', 'tree', 'cloud', 'star', 'moon'];
     
-    return adjectives[index % adjectives.length] + nouns[index % nouns.length];
+    const adjective = adjectives[index % adjectives.length];
+    const noun = nouns[index % nouns.length];
+    if (!adjective || !noun) {
+      throw new Error('Failed to generate word from index');
+    }
+    return adjective + noun;
   }
 
   /**
@@ -664,7 +697,7 @@ export class MPCKeyManager {
    * @returns Encryption key
    */
   private async deriveServerShardKey(userId: string): Promise<Buffer> {
-    const masterKey = process.env.MPC_MASTER_KEY ?? 'default_master_key';
+    const masterKey = process.env['MPC_MASTER_KEY'] ?? 'default_master_key';
     const salt = `server_shard_${userId}`;
     
     return await pbkdf2Async(masterKey, salt, 100000, 32, 'sha256');

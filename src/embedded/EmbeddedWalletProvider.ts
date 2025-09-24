@@ -311,7 +311,13 @@ export class EmbeddedWalletProvider {
     
     // Update wallet state
     if (message.event === 'accountsChanged' && message.data !== null && message.data !== undefined) {
-      this.walletState.address = (message.data as string[])[0];
+      const addresses = message.data as string[];
+      const firstAddress = addresses[0];
+      if (firstAddress) {
+        this.walletState.address = firstAddress;
+      } else {
+        delete this.walletState.address;
+      }
       this.walletState.connected = Boolean((message.data as string[])[0]);
     } else if (message.event === 'chainChanged' && message.data !== null && message.data !== undefined) {
       this.walletState.chainId = message.data as string;
@@ -422,7 +428,12 @@ export class EmbeddedWalletProvider {
     })) as string[];
     
     this.walletState.connected = true;
-    this.walletState.address = accounts[0];
+    const firstAccount = accounts[0];
+    if (firstAccount) {
+      this.walletState.address = firstAccount;
+    } else {
+      delete this.walletState.address;
+    }
     
     return accounts;
   }

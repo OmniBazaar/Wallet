@@ -77,10 +77,14 @@ function connect(
   this: LedgerEthereum | LedgerSubstrate | LedgerSolana,
   networkName: string,
 ): Promise<boolean> {
-  const appName = (networkName !== '' && ledgerAppNames[networkName] !== undefined)
-    ? ledgerAppNames[networkName]
+  const appName = (networkName !== '' && ledgerAppNames[networkName as NetworkNames] !== undefined)
+    ? ledgerAppNames[networkName as NetworkNames]
     : ledgerAppNames[NetworkNames.Ethereum];
-  
+
+  if (!appName) {
+    throw new Error(`No Ledger app name defined for network: ${networkName}`);
+  }
+
   return getDeviceInfo(this.transport)
     .then(() => {
       return openApp(this.transport, appName)

@@ -565,7 +565,7 @@ export class ParticipationService {
     const forumPoints = this.applyDecay(
       data.forumActivity?.points ?? 0,
       data.forumActivity?.lastActivityDate ?? 0,
-      this.DECAY_CONFIGS.forum,
+      this.DECAY_CONFIGS['forum'] ?? { gracePeriodDays: 30, decayRate: 0.1, decayPeriodDays: 30, minPoints: 0 },
       5
     );
     
@@ -573,7 +573,7 @@ export class ParticipationService {
     const marketplacePoints = this.applyDecay(
       data.marketplaceActivity?.points ?? 0,
       data.marketplaceActivity?.lastTransactionDate ?? 0,
-      this.DECAY_CONFIGS.marketplace,
+      this.DECAY_CONFIGS['marketplace'] ?? { gracePeriodDays: 30, decayRate: 0.1, decayPeriodDays: 30, minPoints: 0 },
       5
     );
     
@@ -581,7 +581,7 @@ export class ParticipationService {
     const policingPoints = this.applyDecay(
       data.communityPolicing?.points ?? 0,
       data.communityPolicing?.lastReportDate ?? 0,
-      this.DECAY_CONFIGS.communityPolicing,
+      this.DECAY_CONFIGS['communityPolicing'] ?? { gracePeriodDays: 30, decayRate: 0.1, decayPeriodDays: 30, minPoints: 0 },
       5
     );
     
@@ -589,7 +589,7 @@ export class ParticipationService {
     const reliabilityPoints = this.applyDecay(
       data.reliability?.points ?? 0,
       data.reliability?.lastActivityDate ?? 0,
-      this.DECAY_CONFIGS.reliability,
+      this.DECAY_CONFIGS['reliability'] ?? { gracePeriodDays: 30, decayRate: 0.1, decayPeriodDays: 30, minPoints: -5 },
       5,
       -5
     );

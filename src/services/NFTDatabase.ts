@@ -301,7 +301,7 @@ export class NFTDatabase {
   async getNFTsByOwner(owner: string, chainId?: number): Promise<NFTData[]> {
     const filters: Record<string, unknown> = { owner };
     if (chainId !== undefined) {
-      filters.chainId = chainId;
+      filters['chainId'] = chainId;
     }
     return await this.getNFTs(filters);
   }

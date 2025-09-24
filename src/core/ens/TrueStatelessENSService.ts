@@ -22,9 +22,8 @@ export class TrueStatelessENSService {
     this.contractManager = ContractManager.getInstance();
     
     // OmniCoin provider for direct queries
-    this.omnicoinProvider = new ethers.JsonRpcProvider(
-      (process?.env?.['OMNICOIN_RPC_URL']) ?? 'https://testnet.omnicoin.io/rpc'
-    );
+    const rpcUrl = (typeof process !== 'undefined' && process.env !== null && process.env !== undefined && process.env['OMNICOIN_RPC_URL'] !== null && process.env['OMNICOIN_RPC_URL'] !== undefined) ? process.env['OMNICOIN_RPC_URL'] : 'https://testnet.omnicoin.io/rpc';
+    this.omnicoinProvider = new ethers.JsonRpcProvider(rpcUrl);
     
     // OmniCoin Registry contract instance
     const REGISTRY_ABI = [
@@ -33,8 +32,9 @@ export class TrueStatelessENSService {
       "function isAvailable(string memory username) external view returns (bool)"
     ];
     
+    const registryAddress = (typeof process !== 'undefined' && process.env !== null && process.env !== undefined && process.env['OMNICOIN_REGISTRY_ADDRESS'] !== null && process.env['OMNICOIN_REGISTRY_ADDRESS'] !== undefined) ? process.env['OMNICOIN_REGISTRY_ADDRESS'] : '';
     this.omnicoinRegistryContract = new ethers.Contract(
-      (process?.env?.['OMNICOIN_REGISTRY_ADDRESS']) ?? '',
+      registryAddress,
       REGISTRY_ABI,
       this.omnicoinProvider
     );
@@ -93,7 +93,10 @@ export class TrueStatelessENSService {
       const username = name.replace('.omnicoin', '');
       
       // Query OmniCoin registry directly - NO ETH gas fees!
-      const address = await this.omnicoinRegistryContract.resolve(username) as string;
+      if (typeof this.omnicoinRegistryContract['resolve'] !== 'function') {
+        throw new Error('OmniCoin registry contract does not have resolve method');
+      }
+      const address = await this.omnicoinRegistryContract['resolve'](username) as string;
       
       return address !== ethers.ZeroAddress ? address : null;
     } catch (error) {
@@ -130,7 +133,10 @@ export class TrueStatelessENSService {
       const namehash = ethers.namehash(name);
       
       // Get resolver address from ENS registry
-      const resolverAddress = await ensRegistry.resolver(namehash) as string;
+      if (typeof ensRegistry['resolver'] !== 'function') {
+        throw new Error('ENS registry does not have resolver method');
+      }
+      const resolverAddress = await ensRegistry['resolver'](namehash) as string;
       
       if (resolverAddress === ethers.ZeroAddress) {
         return null;
@@ -144,7 +150,10 @@ export class TrueStatelessENSService {
       );
       
       // Get address from resolver
-      const address = await resolver.addr(namehash) as string;
+      if (typeof resolver['addr'] !== 'function') {
+        throw new Error('Resolver does not have addr method');
+      }
+      const address = await resolver['addr'](namehash) as string;
       
       return address !== ethers.ZeroAddress ? address : null;
     } catch (error) {
@@ -161,7 +170,10 @@ export class TrueStatelessENSService {
    */
   public async isUsernameAvailable(username: string): Promise<boolean> {
     try {
-      const isAvailable = await this.omnicoinRegistryContract.isAvailable(username) as boolean;
+      if (typeof this.omnicoinRegistryContract['isAvailable'] !== 'function') {
+        throw new Error('OmniCoin registry contract does not have isAvailable method');
+      }
+      const isAvailable = await this.omnicoinRegistryContract['isAvailable'](username) as boolean;
       return isAvailable;
     } catch (error) {
       // Error checking username availability
@@ -178,7 +190,10 @@ export class TrueStatelessENSService {
   public async reverseResolve(address: string): Promise<string | null> {
     try {
       // Query OmniCoin for reverse resolution
-      const username = await this.omnicoinRegistryContract.reverseResolve(address) as string;
+      if (typeof this.omnicoinRegistryContract['reverseResolve'] !== 'function') {
+        throw new Error('OmniCoin registry contract does not have reverseResolve method');
+      }
+      const username = await this.omnicoinRegistryContract['reverseResolve'](address) as string;
       return username !== '' ? `${username}.omnicoin` : null;
     } catch (error) {
       // Error reverse resolving address
@@ -224,7 +239,7 @@ export class TrueStatelessENSService {
     return {
       chainId: network.chainId.toString(),
       blockNumber,
-      registryAddress: (process?.env?.['OMNICOIN_REGISTRY_ADDRESS']) ?? ''
+      registryAddress: (typeof process !== 'undefined' && process.env !== null && process.env !== undefined && process.env['OMNICOIN_REGISTRY_ADDRESS'] !== null && process.env['OMNICOIN_REGISTRY_ADDRESS'] !== undefined) ? process.env['OMNICOIN_REGISTRY_ADDRESS'] : ''
     };
   }
 

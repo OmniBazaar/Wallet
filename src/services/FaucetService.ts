@@ -382,7 +382,7 @@ export class FaucetService {
       canClaim: boolean;
     }>();
     
-    const rawClaims = data.claims as Record<string, unknown> | null | undefined;
+    const rawClaims = data['claims'] as Record<string, unknown> | null | undefined;
     for (const [network, claimData] of Object.entries(rawClaims ?? {})) {
       const config = this.networkConfigs.get(network as TestnetType);
       if (config === null || config === undefined) continue;
@@ -402,7 +402,7 @@ export class FaucetService {
       });
     }
     
-    const verificationData = data.verification as { email?: boolean; phone?: boolean; twitter?: boolean; discord?: boolean; github?: boolean } | null | undefined;
+    const verificationData = data['verification'] as { email?: boolean; phone?: boolean; twitter?: boolean; discord?: boolean; github?: boolean } | null | undefined;
     
     return {
       address,
@@ -414,8 +414,8 @@ export class FaucetService {
         discord: verificationData?.discord ?? false,
         github: verificationData?.github ?? false
       },
-      trustLevel: (typeof data.trustLevel === 'number') ? data.trustLevel : 0,
-      isVIP: (typeof data.isVIP === 'boolean') ? data.isVIP : false
+      trustLevel: (typeof data['trustLevel'] === 'number') ? data['trustLevel'] : 0,
+      isVIP: (typeof data['isVIP'] === 'boolean') ? data['isVIP'] : false
     };
   }
   
@@ -571,18 +571,18 @@ export class FaucetService {
       
       const data = await response.json() as Record<string, unknown>;
       
-      const totalDistributedObj = data.totalDistributed as Record<string, unknown> | null | undefined;
-      const dailyDistributionObj = data.dailyDistribution as Record<string, unknown> | null | undefined;
-      const remainingPoolsObj = data.remainingPools as Record<string, unknown> | null | undefined;
-      const avgClaimAmountObj = data.avgClaimAmount as Record<string, unknown> | null | undefined;
+      const totalDistributedObj = data['totalDistributed'] as Record<string, unknown> | null | undefined;
+      const dailyDistributionObj = data['dailyDistribution'] as Record<string, unknown> | null | undefined;
+      const remainingPoolsObj = data['remainingPools'] as Record<string, unknown> | null | undefined;
+      const avgClaimAmountObj = data['avgClaimAmount'] as Record<string, unknown> | null | undefined;
       
       this.statsCache = {
         totalDistributed: new Map(Object.entries(totalDistributedObj ?? {}).map(([k, v]) => [k as TestnetType, String(v)])),
-        uniqueUsers: (typeof data.uniqueUsers === 'number') ? data.uniqueUsers : 0,
+        uniqueUsers: (typeof data['uniqueUsers'] === 'number') ? data['uniqueUsers'] : 0,
         dailyDistribution: new Map(Object.entries(dailyDistributionObj ?? {}).map(([k, v]) => [k as TestnetType, String(v)])),
         remainingPools: new Map(Object.entries(remainingPoolsObj ?? {}).map(([k, v]) => [k as TestnetType, String(v)])),
         avgClaimAmount: new Map(Object.entries(avgClaimAmountObj ?? {}).map(([k, v]) => [k as TestnetType, String(v)])),
-        successRate: (typeof data.successRate === 'number') ? data.successRate : 0
+        successRate: (typeof data['successRate'] === 'number') ? data['successRate'] : 0
       };
       
       return this.statsCache;

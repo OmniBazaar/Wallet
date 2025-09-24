@@ -7,6 +7,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useWallet } from './useWallet';
 import { StakingService, StakeInfo, StakingStats, StakingTier } from '../services/StakingService';
+import { BrowserProvider } from 'ethers';
 
 /** Return type for useStaking hook */
 export interface UseStakingReturn {
@@ -153,7 +154,9 @@ export const useStaking = (): UseStakingReturn => {
 
       if (provider === null) throw new Error('Provider not available');
 
-      const signer = await provider.getSigner();
+      // Create ethers provider from EIP-1193 provider and get signer
+      const ethersProvider = new BrowserProvider(provider);
+      const signer = await ethersProvider.getSigner();
       const result = await stakingService.stake(amount, durationDays, usePrivacy, signer);
 
       if (result.success) {
@@ -186,7 +189,9 @@ export const useStaking = (): UseStakingReturn => {
 
       if (provider === null) throw new Error('Provider not available');
 
-      const signer = await provider.getSigner();
+      // Create ethers provider from EIP-1193 provider and get signer
+      const ethersProvider = new BrowserProvider(provider);
+      const signer = await ethersProvider.getSigner();
       const result = await stakingService.unstake(_amount, signer);
 
       if (result.success) {
@@ -219,7 +224,9 @@ export const useStaking = (): UseStakingReturn => {
 
       if (provider === null) throw new Error('Provider not available');
 
-      const signer = await provider.getSigner();
+      // Create ethers provider from EIP-1193 provider and get signer
+      const ethersProvider = new BrowserProvider(provider);
+      const signer = await ethersProvider.getSigner();
       const result = await stakingService.claimRewards(signer);
 
       if (result.success) {
@@ -255,7 +262,9 @@ export const useStaking = (): UseStakingReturn => {
 
       if (provider === null) throw new Error('Provider not available');
 
-      const signer = await provider.getSigner();
+      // Create ethers provider from EIP-1193 provider and get signer
+      const ethersProvider = new BrowserProvider(provider);
+      const signer = await ethersProvider.getSigner();
       const result = await stakingService.compound(signer);
 
       if (result.success) {
@@ -292,7 +301,9 @@ export const useStaking = (): UseStakingReturn => {
 
       if (provider === null) throw new Error('Provider not available');
 
-      const signer = await provider.getSigner();
+      // Create ethers provider from EIP-1193 provider and get signer
+      const ethersProvider = new BrowserProvider(provider);
+      const signer = await ethersProvider.getSigner();
       const result = await stakingService.emergencyWithdraw(signer);
 
       if (result.success) {

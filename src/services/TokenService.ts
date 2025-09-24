@@ -150,7 +150,11 @@ export class TokenService {
       if ('getProvider' in provider && typeof provider.getProvider === 'function') {
         const ethersProvider = provider.getProvider();
         const contract = new Contract(tokenAddress, ERC20_ABI, ethersProvider);
-        const balance = await contract.balanceOf(address) as bigint;
+        const balanceOfMethod = contract['balanceOf'];
+        if (!balanceOfMethod || typeof balanceOfMethod !== 'function') {
+          throw new Error('balanceOf method not found on contract');
+        }
+        const balance = await balanceOfMethod(address) as bigint;
         return balance;
       } else {
         throw new Error('Provider does not support ERC20 operations');
@@ -252,7 +256,11 @@ export class TokenService {
     const signer = await provider.getSigner();
     const contract = new Contract(tokenAddress, ERC20_ABI, signer);
     
-    const tx = await contract.transfer(recipient, amount) as ethers.TransactionResponse;
+    const transferMethod = contract['transfer'];
+    if (!transferMethod || typeof transferMethod !== 'function') {
+      throw new Error('transfer method not found on contract');
+    }
+    const tx = await transferMethod(recipient, amount) as ethers.TransactionResponse;
     await tx.wait();
     
     return tx.hash;
@@ -286,7 +294,11 @@ export class TokenService {
     const signer = await provider.getSigner();
     const contract = new Contract(tokenAddress, ERC20_ABI, signer);
     
-    const tx = await contract.approve(spender, amount) as ethers.TransactionResponse;
+    const approveMethod = contract['approve'];
+    if (!approveMethod || typeof approveMethod !== 'function') {
+      throw new Error('approve method not found on contract');
+    }
+    const tx = await approveMethod(spender, amount) as ethers.TransactionResponse;
     await tx.wait();
     
     return tx.hash;
@@ -322,7 +334,11 @@ export class TokenService {
     }
     
     const contract = new Contract(tokenAddress, ERC20_ABI, contractRunner);
-    const allowance = await contract.allowance(owner, spender) as bigint;
+    const allowanceMethod = contract['allowance'];
+    if (!allowanceMethod || typeof allowanceMethod !== 'function') {
+      throw new Error('allowance method not found on contract');
+    }
+    const allowance = await allowanceMethod(owner, spender) as bigint;
     
     return allowance;
   }
@@ -350,11 +366,20 @@ export class TokenService {
     const contract = new Contract(token.address, ERC20_ABI, contractRunner);
     
     // Fetch token metadata from chain if not provided
+    const symbolMethod = contract['symbol'];
+    const nameMethod = contract['name'];
+    const decimalsMethod = contract['decimals'];
+    const totalSupplyMethod = contract['totalSupply'];
+
+    if (!symbolMethod || !nameMethod || !decimalsMethod || !totalSupplyMethod) {
+      throw new Error('Required ERC20 methods not found on contract');
+    }
+
     const [symbol, name, decimals, totalSupply] = await Promise.all([
-      token.symbol ?? contract.symbol() as Promise<string>,
-      token.name ?? contract.name() as Promise<string>,
-      token.decimals ?? contract.decimals() as Promise<number>,
-      contract.totalSupply() as Promise<bigint>
+      token.symbol ?? symbolMethod() as Promise<string>,
+      token.name ?? nameMethod() as Promise<string>,
+      token.decimals ?? decimalsMethod() as Promise<number>,
+      totalSupplyMethod() as Promise<bigint>
     ]);
     
     // Get network from provider

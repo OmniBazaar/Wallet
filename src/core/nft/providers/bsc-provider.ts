@@ -121,9 +121,17 @@ export class BSCNFTProvider implements ChainProvider {
       
       const contract = new ethers.Contract(contractAddress, erc721Abi, provider);
       
-      const tokenURIResult = await contract.tokenURI(tokenId).catch(() => '' as unknown) as unknown;
-      const nameResult = await contract.name().catch(() => 'Unknown Collection' as unknown) as unknown;
-      const ownerResult = await contract.ownerOf(tokenId).catch(() => '0x0000000000000000000000000000000000000000' as unknown) as unknown;
+      const contractMethods = contract as Record<string, unknown>;
+      const tokenURIFn = contractMethods['tokenURI'];
+      const nameFn = contractMethods['name'];
+      const ownerOfFn = contractMethods['ownerOf'];
+
+      const tokenURIResult = typeof tokenURIFn === 'function' ?
+        await Promise.resolve((tokenURIFn as (...args: unknown[]) => Promise<unknown>)(tokenId)).catch(() => '' as unknown) as unknown : '';
+      const nameResult = typeof nameFn === 'function' ?
+        await Promise.resolve((nameFn as () => Promise<unknown>)()).catch(() => 'Unknown Collection' as unknown) as unknown : 'Unknown Collection';
+      const ownerResult = typeof ownerOfFn === 'function' ?
+        await Promise.resolve((ownerOfFn as (...args: unknown[]) => Promise<unknown>)(tokenId)).catch(() => '0x0000000000000000000000000000000000000000' as unknown) as unknown : '0x0000000000000000000000000000000000000000';
       
       const tokenURI = tokenURIResult !== undefined && tokenURIResult !== null ? String(tokenURIResult) : '';
       const name = nameResult !== undefined && nameResult !== null ? String(nameResult) : 'Unknown Collection';
@@ -166,11 +174,11 @@ export class BSCNFTProvider implements ChainProvider {
       return {
         id: `bsc_${contractAddress}_${tokenId}`,
         tokenId,
-        name: (metadata.name !== undefined && metadata.name !== null ? metadata.name : null) ?? `${name} #${tokenId}`,
-        description: (metadata.description !== undefined && metadata.description !== null ? metadata.description : null) ?? '',
-        image: (metadata.image !== undefined && metadata.image !== null ? metadata.image : null) ?? '',
-        imageUrl: (metadata.image !== undefined && metadata.image !== null ? metadata.image : null) ?? '',
-        attributes: (metadata.attributes !== undefined && metadata.attributes !== null ? metadata.attributes : null) ?? [],
+        name: metadata.name ?? `${name} #${tokenId}`,
+        description: metadata.description ?? '',
+        image: metadata.image ?? '',
+        imageUrl: metadata.image ?? '',
+        attributes: metadata.attributes ?? [],
         contract: contractAddress,
         contractAddress,
         // BSC is EVM compatible; use ERC721
@@ -200,13 +208,13 @@ export class BSCNFTProvider implements ChainProvider {
         if (!collectionMap.has(nft.contractAddress)) {
           collectionMap.set(nft.contractAddress, {
             id: `bsc_collection_${nft.contractAddress}`,
-            name: (((nft.name !== undefined && nft.name !== null && nft.name.length > 0 ? nft.name : 'Unknown Collection').split('#')[0] ?? 'Unknown Collection').trim() ?? 'Unknown Collection'),
+            name: ((nft.name ?? 'Unknown Collection').split('#')[0] ?? 'Unknown Collection').trim(),
             description: '',
             contract: nft.contractAddress,
             contractAddress: nft.contractAddress,
             tokenStandard: nft.tokenStandard,
             blockchain: 'bsc',
-            creator: (nft.creator !== undefined && nft.creator !== null && nft.creator.length > 0 ? nft.creator : null) ?? address,
+            creator: nft.creator ?? address,
             verified: false,
             items: []
           });
@@ -248,7 +256,7 @@ export class BSCNFTProvider implements ChainProvider {
     }
     
     const data = await response.json() as MoralisResponse;
-    return (data.result !== undefined && data.result !== null ? data.result.map((nft) => this.transformMoralisNFT(nft)) : null) ?? [];
+    return data.result?.map((nft) => this.transformMoralisNFT(nft)) ?? [];
   }
 
   /**
@@ -269,17 +277,17 @@ export class BSCNFTProvider implements ChainProvider {
     return {
       id: `bsc_${nft.token_address}_${nft.token_id}`,
       tokenId: nft.token_id,
-      name: (nft.name !== undefined && nft.name !== null ? nft.name : metadata.name !== undefined && metadata.name !== null ? metadata.name : null) ?? `BSC NFT #${nft.token_id}`,
-      description: (metadata.description !== undefined && metadata.description !== null ? metadata.description : null) ?? '',
-      image: (metadata.image !== undefined && metadata.image !== null ? metadata.image : nft.token_uri !== undefined && nft.token_uri !== null ? nft.token_uri : null) ?? '',
-      imageUrl: (metadata.image !== undefined && metadata.image !== null ? metadata.image : nft.token_uri !== undefined && nft.token_uri !== null ? nft.token_uri : null) ?? '',
-      attributes: (metadata.attributes !== undefined && metadata.attributes !== null ? metadata.attributes : null) ?? [],
+      name: nft.name ?? metadata.name ?? `BSC NFT #${nft.token_id}`,
+      description: metadata.description ?? '',
+      image: metadata.image ?? nft.token_uri ?? '',
+      imageUrl: metadata.image ?? nft.token_uri ?? '',
+      attributes: metadata.attributes ?? [],
       contract: nft.token_address,
       contractAddress: nft.token_address,
       tokenStandard: nft.contract_type === 'ERC1155' ? 'ERC1155' : 'ERC721',
       blockchain: 'bsc',
-      owner: (nft.owner_of !== undefined && nft.owner_of !== null ? nft.owner_of : null) ?? '',
-      creator: (nft.minter_address !== undefined && nft.minter_address !== null ? nft.minter_address : null) ?? '',
+      owner: nft.owner_of ?? '',
+      creator: nft.minter_address ?? '',
       isListed: false
     };
   }
@@ -319,12 +327,18 @@ export class BSCNFTProvider implements ChainProvider {
           const contract = new ethers.Contract(contractAddress, erc721Abi, provider);
           
           // Get balance
-          const balanceResult = await contract.balanceOf(address) as unknown;
+          const contractMethods = contract as Record<string, unknown>;
+          const balanceOfFn = contractMethods['balanceOf'];
+          const nameFn = contractMethods['name'];
+
+          const balanceResult = typeof balanceOfFn === 'function' ?
+            await (balanceOfFn as (...args: unknown[]) => Promise<unknown>)(address) as unknown : BigInt(0);
           const balance = balanceResult as bigint;
           if (balance === BigInt(0)) continue;
-          
+
           // Get collection name
-          const collectionNameResult = await contract.name().catch(() => 'Unknown Collection' as unknown) as unknown;
+          const collectionNameResult = typeof nameFn === 'function' ?
+            await Promise.resolve((nameFn as () => Promise<unknown>)()).catch(() => 'Unknown Collection' as unknown) as unknown : 'Unknown Collection';
           const collectionName = collectionNameResult !== undefined && collectionNameResult !== null ? String(collectionNameResult) : 'Unknown Collection';
           
           // Get up to 10 NFTs from this collection
@@ -332,8 +346,13 @@ export class BSCNFTProvider implements ChainProvider {
           
           for (let i = 0; i < limit; i++) {
             try {
-              const tokenIdResult = await contract.tokenOfOwnerByIndex(address, i) as unknown;
-              const tokenURIResult = await contract.tokenURI(tokenIdResult).catch(() => '' as unknown) as unknown;
+              const tokenOfOwnerByIndexFn = contractMethods['tokenOfOwnerByIndex'];
+              const tokenURIFn = contractMethods['tokenURI'];
+
+              const tokenIdResult = typeof tokenOfOwnerByIndexFn === 'function' ?
+                await (tokenOfOwnerByIndexFn as (...args: unknown[]) => Promise<unknown>)(address, i) as unknown : '';
+              const tokenURIResult = typeof tokenURIFn === 'function' && tokenIdResult !== undefined && tokenIdResult !== null ?
+                await Promise.resolve((tokenURIFn as (...args: unknown[]) => Promise<unknown>)(tokenIdResult)).catch(() => '' as unknown) as unknown : '';
               const tokenId = tokenIdResult !== undefined && tokenIdResult !== null ? String(tokenIdResult) : '';
               const tokenURI = tokenURIResult !== undefined && tokenURIResult !== null ? String(tokenURIResult) : '';
               
@@ -383,11 +402,11 @@ export class BSCNFTProvider implements ChainProvider {
               nfts.push({
                 id: `bsc_${contractAddress}_${tokenId}`,
                 tokenId,
-                name: (metadata.name !== undefined && metadata.name !== null ? metadata.name : null) ?? `${collectionName} #${tokenId}`,
-                description: (metadata.description !== undefined && metadata.description !== null ? metadata.description : null) ?? '',
-                image: (metadata.image !== undefined && metadata.image !== null ? metadata.image : null) ?? '',
-                imageUrl: (metadata.image !== undefined && metadata.image !== null ? metadata.image : null) ?? '',
-                attributes: (metadata.attributes !== undefined && metadata.attributes !== null ? metadata.attributes : null) ?? [],
+                name: metadata.name ?? `${collectionName} #${tokenId}`,
+                description: metadata.description ?? '',
+                image: metadata.image ?? '',
+                imageUrl: metadata.image ?? '',
+                attributes: metadata.attributes ?? [],
                 contract: contractAddress,
                 contractAddress,
                 tokenStandard: 'ERC721',
@@ -435,7 +454,7 @@ export class BSCNFTProvider implements ChainProvider {
         
         if (response.ok) {
           const data = await response.json() as MoralisResponse;
-          return (data.result !== undefined && data.result !== null ? data.result.map((nft) => this.transformMoralisNFT(nft)) : null) ?? [];
+          return data.result?.map((nft) => this.transformMoralisNFT(nft)) ?? [];
         }
       }
       
@@ -476,7 +495,7 @@ export class BSCNFTProvider implements ChainProvider {
           
           if (response.ok) {
             const data = await response.json() as MoralisResponse;
-            const contractNfts = (data.result !== undefined && data.result !== null ? data.result.map((nft) => this.transformMoralisNFT(nft)) : null) ?? [];
+            const contractNfts = data.result?.map((nft) => this.transformMoralisNFT(nft)) ?? [];
             nfts.push(...contractNfts);
           }
         }

@@ -685,8 +685,8 @@ export class PaymentRoutingService {
 
         case 'bridge':
           // Execute bridge transfer
-          if (step.data !== null && step.data !== undefined && 'bridgeRoute' in step.data && step.data.bridgeRoute !== null && step.data.bridgeRoute !== undefined) {
-            const bridgeRoute = step.data.bridgeRoute;
+          if (step.data !== null && step.data !== undefined && 'bridgeRoute' in step.data && step.data['bridgeRoute'] !== null && step.data['bridgeRoute'] !== undefined) {
+            const bridgeRoute = step.data['bridgeRoute'];
             if (typeof bridgeRoute === 'object' && 'fromChain' in bridgeRoute && 'toChain' in bridgeRoute) {
               const bridgeId = await bridgeService.executeBridge(bridgeRoute as BridgeRoute);
               return bridgeId; // Return bridge transfer ID

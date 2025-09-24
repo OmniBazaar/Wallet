@@ -90,7 +90,7 @@ export const useWallet = (): {
             const network = await ethersProvider.getNetwork();
 
             setState({
-                address: (Array.isArray(accounts) && accounts.length > 0) ? accounts[0] : null,
+                address: (Array.isArray(accounts) && accounts.length > 0) ? accounts[0] ?? null : null,
                 chainId: Number(network.chainId),
                 provider: { request: (params: unknown) => ethersProvider.send((params as { method: string }).method, (params as { params?: unknown[] }).params ?? []) },
                 isConnected: true,

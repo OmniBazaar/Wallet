@@ -101,7 +101,7 @@ export class PriceOracleService {
     interval: string;
   }): Promise<Array<{ timestamp: number; price: number; volume: number }>> {
     const [base, quote] = options.pair.split('/');
-    const basePrice = await this.getPrice(base, quote);
+    const basePrice = await this.getPrice(base ?? 'ETH', quote ?? 'USD');
     const points = [];
     const intervalMs = this.parseInterval(options.interval);
 

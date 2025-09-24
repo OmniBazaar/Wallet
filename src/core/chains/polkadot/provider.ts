@@ -148,7 +148,7 @@ export class PolkadotProvider extends BaseProvider {
    */
   async getBalance(address: string): Promise<string> {
     const api = await this.ensureApi();
-    const system = api.query.system as unknown as {
+    const system = api.query['system'] as unknown as {
       account: (address: string) => Promise<{
         data?: { free: { toString: () => string } };
         free?: { toString: () => string };
@@ -220,7 +220,7 @@ export class PolkadotProvider extends BaseProvider {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-API-Key': process.env.SUBSCAN_API_KEY ?? ''
+          'X-API-Key': process.env['SUBSCAN_API_KEY'] ?? ''
         },
         body: JSON.stringify({
           hash: txHash
@@ -301,7 +301,7 @@ export class PolkadotProvider extends BaseProvider {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-API-Key': process.env.SUBSCAN_API_KEY ?? ''
+          'X-API-Key': process.env['SUBSCAN_API_KEY'] ?? ''
         },
         body: JSON.stringify({
           address,
@@ -442,7 +442,7 @@ export class PolkadotProvider extends BaseProvider {
    */
   async getNonce(address: string): Promise<number> {
     const api = await this.ensureApi();
-    const system = api.query.system as unknown as {
+    const system = api.query['system'] as unknown as {
       account: (address: string) => Promise<{
         nonce?: { toNumber: () => number };
       }>;

@@ -389,7 +389,7 @@ export class LiquidityService {
       }
 
       // In test environment, provide mock implementation
-      if (this.validatorDEXService === undefined && process.env.NODE_ENV === 'test') {
+      if (this.validatorDEXService === undefined && process.env['NODE_ENV'] === 'test') {
         // Mock implementation for testing
         const positionId = 'position-' + Date.now();
         const amount0 = params.amount0Desired;
@@ -667,7 +667,7 @@ export class LiquidityService {
 
     try {
       // In test environment, provide mock implementation
-      if (this.poolManager === undefined && process.env.NODE_ENV === 'test') {
+      if (this.poolManager === undefined && process.env['NODE_ENV'] === 'test') {
         // Mock implementation for testing
         if (positionId.startsWith('position-')) {
           return {
@@ -979,7 +979,7 @@ export class LiquidityService {
 
       return {
         success: true,
-        txHash: txHashes[txHashes.length - 1], // Return last tx hash
+        ...(txHashes[txHashes.length - 1] && { txHash: txHashes[txHashes.length - 1] }), // Return last tx hash
         amount0: totalFees0,
         amount1: totalFees1
       };
@@ -1266,7 +1266,10 @@ export class LiquidityService {
             version: 'V3'
           };
           
-          this.config.supportedPools[chainId].push(liquidityPool);
+          const pools = this.config.supportedPools[chainId];
+          if (pools) {
+            pools.push(liquidityPool);
+          }
           this.poolCache.set(`${chainId}-${pool.token0}-${pool.token1}`, liquidityPool);
         }
         
@@ -1289,7 +1292,10 @@ export class LiquidityService {
             version: 'V3'
           };
           
-          this.config.supportedPools[chainId].push(defaultPool);
+          const pools = this.config.supportedPools[chainId];
+          if (pools) {
+            pools.push(defaultPool);
+          }
           this.poolCache.set(`${chainId}-${defaultPool.tokenA}-${defaultPool.tokenB}`, defaultPool);
         }
       }

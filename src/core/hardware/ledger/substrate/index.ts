@@ -100,9 +100,9 @@ class LedgerSubstrate implements HWWalletProvider {
     };
     return connection
       .getAddress(
-        pathValues[0],
-        pathValues[1],
-        pathValues[2],
+        pathValues[0] ?? 0,
+        pathValues[1] ?? 0,
+        pathValues[2] ?? 0,
         options.confirmAddress,
       )
       .then((res: SubstrateAddressResponse) => ({
@@ -186,9 +186,9 @@ class LedgerSubstrate implements HWWalletProvider {
     };
     return connection
       .sign(
-        pathValues[0],
-        pathValues[1],
-        pathValues[2],
+        pathValues[0] ?? 0,
+        pathValues[1] ?? 0,
+        pathValues[2] ?? 0,
         u8aToBuffer(tx.toU8a(true)),
       )
       .then((result: SubstrateSignResponse) => {

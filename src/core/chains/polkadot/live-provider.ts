@@ -138,9 +138,9 @@ export class LivePolkadotProvider extends PolkadotProvider {
     const addr = address ?? await this.getAddress();
 
     // Get staking info
-    const staking = api.query.staking as unknown as {
+    const staking = api.query['staking'] as unknown as {
       bonded: (address: string) => Promise<{ toString: () => string } | null>;
-      nominators: (address: string) => Promise<{ 
+      nominators: (address: string) => Promise<{
         isSome: boolean;
         unwrap: () => { targets: Array<{ toString: () => string }> };
       } | null>;

@@ -683,7 +683,7 @@ export class StakingService {
       ];
 
       return stakeInfo.tier >= 0 && stakeInfo.tier < tierAmounts.length
-        ? tierAmounts[stakeInfo.tier]
+        ? (tierAmounts[stakeInfo.tier] ?? BigInt(0))
         : BigInt(0);
     } catch (error) {
       console.error('Failed to get staked balance:', error);

@@ -655,8 +655,8 @@ export class ValidatorTransactionService {
 
 // Export singleton instance with default configuration
 export const validatorTransaction = new ValidatorTransactionService({
-  validatorEndpoint: (process.env.VITE_VALIDATOR_ENDPOINT !== undefined && process.env.VITE_VALIDATOR_ENDPOINT !== '') ? process.env.VITE_VALIDATOR_ENDPOINT : 'http://localhost:4000',
-  networkId: (process.env.VITE_NETWORK_ID !== undefined && process.env.VITE_NETWORK_ID !== '') ? process.env.VITE_NETWORK_ID : '1',
+  validatorEndpoint: (process.env['VITE_VALIDATOR_ENDPOINT'] !== undefined && process.env['VITE_VALIDATOR_ENDPOINT'] !== '') ? process.env['VITE_VALIDATOR_ENDPOINT'] : 'http://localhost:4000',
+  networkId: (process.env['VITE_NETWORK_ID'] !== undefined && process.env['VITE_NETWORK_ID'] !== '') ? process.env['VITE_NETWORK_ID'] : '1',
   userId: '', // Set by initializeValidatorServices
   enableFeeDistribution: true,
   maxRetries: 3

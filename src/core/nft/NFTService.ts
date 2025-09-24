@@ -200,7 +200,7 @@ export class NFTService {
     chainId: number = 1
   ): Promise<WalletNFT | null> {
     // Return mock metadata in test environment when no provider
-    if (process.env.NODE_ENV === 'test' && this.providers.size === 0) {
+    if (process.env['NODE_ENV'] === 'test' && this.providers.size === 0) {
       return {
         id: `${contractAddress}_${tokenId}`,
         contract_address: contractAddress,
@@ -346,7 +346,7 @@ export class NFTService {
       }
       
       // In test environment, return mock transaction
-      if (process.env.NODE_ENV === 'test') {
+      if (process.env['NODE_ENV'] === 'test') {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         const { generateSecureMockTxHash } = require('../utils/secure-random') as { generateSecureMockTxHash: () => string };
         const mockHash = generateSecureMockTxHash();

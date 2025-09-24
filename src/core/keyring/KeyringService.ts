@@ -581,12 +581,18 @@ export class KeyringService {
     
     // Update the name of the first account if provided
     if (name !== '' && this.state.accounts.length > 0) {
-      this.state.accounts[0].name = name;
+      const firstAccount = this.state.accounts[0];
+      if (firstAccount) {
+        firstAccount.name = name;
+      }
     }
-    
+
     // Return the first account (the one created from the seed)
     if (this.state.accounts.length > 0) {
-      return this.state.accounts[0];
+      const firstAccount = this.state.accounts[0];
+      if (firstAccount) {
+        return firstAccount;
+      }
     }
     
     throw new Error('Failed to create account from seed');
@@ -693,7 +699,7 @@ export class KeyringService {
     if (provider === undefined) {
       this.logger.warn(`No provider for chain: ${account.chainType}`);
       // In test environment, gracefully return 0 instead of throwing for missing providers
-      if (process.env.NODE_ENV === 'test') {
+      if (process.env['NODE_ENV'] === 'test') {
         return '0'; 
       }
       throw new Error(`No provider for chain: ${account.chainType}`);
@@ -1010,7 +1016,7 @@ export class KeyringService {
           const balanceWei = ethers.parseEther(balance);
           
           // Only check balance if we have a positive balance or not in test environment
-          if (balanceWei > 0n || process.env.NODE_ENV !== 'test') {
+          if (balanceWei > 0n || process.env['NODE_ENV'] !== 'test') {
             // Estimate gas cost
             const gasLimit = BigInt(transaction.gasLimit !== undefined && transaction.gasLimit !== '' ? transaction.gasLimit : '21000');
             const gasPrice = BigInt(

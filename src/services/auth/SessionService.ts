@@ -305,7 +305,7 @@ export class SessionService {
       refreshTokenLifetime: config?.refreshTokenLifetime ?? 7 * 24 * 60 * 60, // 7 days
       maxSessionsPerUser: config?.maxSessionsPerUser ?? 5,
       idleTimeout: config?.idleTimeout ?? 60 * 60, // 1 hour
-      jwtSecret: (config?.jwtSecret !== undefined && config.jwtSecret !== '') ? config.jwtSecret : ((process.env.JWT_SECRET !== undefined && process.env.JWT_SECRET !== '') ? process.env.JWT_SECRET : this.generateSecret())
+      jwtSecret: (config?.jwtSecret !== undefined && config.jwtSecret !== '') ? config.jwtSecret : ((process.env['JWT_SECRET'] !== undefined && process.env['JWT_SECRET'] !== '') ? process.env['JWT_SECRET'] : this.generateSecret())
     };
   }
 
@@ -558,17 +558,17 @@ export class SessionService {
     const result = await this.db.query(query, [userId]);
     
     return result.rows.map((row: Record<string, unknown>) => ({
-      id: row.id as string,
-      userId: row.user_id as string,
-      deviceFingerprint: row.device_fingerprint as string,
-      userAgent: row.user_agent as string,
-      ipAddress: row.ip_address as string,
-      createdAt: row.created_at as Date,
-      lastActivityAt: row.last_activity_at as Date,
-      accessTokenExpiresAt: row.access_token_expires_at as Date,
-      refreshTokenExpiresAt: row.refresh_token_expires_at as Date,
-      isActive: row.is_active as boolean,
-      metadata: row.metadata as Record<string, unknown>
+      id: row['id'] as string,
+      userId: row['user_id'] as string,
+      deviceFingerprint: row['device_fingerprint'] as string,
+      userAgent: row['user_agent'] as string,
+      ipAddress: row['ip_address'] as string,
+      createdAt: row['created_at'] as Date,
+      lastActivityAt: row['last_activity_at'] as Date,
+      accessTokenExpiresAt: row['access_token_expires_at'] as Date,
+      refreshTokenExpiresAt: row['refresh_token_expires_at'] as Date,
+      isActive: row['is_active'] as boolean,
+      metadata: row['metadata'] as Record<string, unknown>
     }));
   }
 
@@ -665,7 +665,7 @@ export class SessionService {
    */
   private hashDeviceFingerprint(fingerprint: string): string {
     return createHash('sha256')
-      .update(fingerprint + ((process.env.FINGERPRINT_SALT !== undefined && process.env.FINGERPRINT_SALT !== '') ? process.env.FINGERPRINT_SALT : 'default_salt'))
+      .update(fingerprint + ((process.env['FINGERPRINT_SALT'] !== undefined && process.env['FINGERPRINT_SALT'] !== '') ? process.env['FINGERPRINT_SALT'] : 'default_salt'))
       .digest('hex');
   }
 
@@ -715,19 +715,22 @@ export class SessionService {
     }
     
     const row = result.rows[0];
-    
+    if (!row) {
+      throw new Error('No session data found');
+    }
+
     return {
-      id: row.id as string,
-      userId: row.user_id as string,
-      deviceFingerprint: row.device_fingerprint as string,
-      userAgent: row.user_agent as string,
-      ipAddress: row.ip_address as string,
-      createdAt: row.created_at as Date,
-      lastActivityAt: row.last_activity_at as Date,
-      accessTokenExpiresAt: row.access_token_expires_at as Date,
-      refreshTokenExpiresAt: row.refresh_token_expires_at as Date,
-      isActive: row.is_active as boolean,
-      metadata: row.metadata as Record<string, unknown>
+      id: row['id'] as string,
+      userId: row['user_id'] as string,
+      deviceFingerprint: row['device_fingerprint'] as string,
+      userAgent: row['user_agent'] as string,
+      ipAddress: row['ip_address'] as string,
+      createdAt: row['created_at'] as Date,
+      lastActivityAt: row['last_activity_at'] as Date,
+      accessTokenExpiresAt: row['access_token_expires_at'] as Date,
+      refreshTokenExpiresAt: row['refresh_token_expires_at'] as Date,
+      isActive: row['is_active'] as boolean,
+      metadata: row['metadata'] as Record<string, unknown>
     };
   }
 

@@ -261,10 +261,14 @@ export const useNFTStore = defineStore('nfts', () => {
         // Update the NFT in our store with fresh metadata
         const index = nfts.value.findIndex(n => n.id === nftId);
         if (index >= 0) {
+          const existingNft = nfts.value[index];
+          if (!existingNft) {
+            return;
+          }
           nfts.value[index] = {
-            ...nfts.value[index],
-            name: metadata.name ?? metadata.metadata?.name ?? nfts.value[index].name,
-            image: metadata.metadata?.image ?? nfts.value[index].image,
+            ...existingNft,
+            name: metadata.name ?? metadata.metadata?.name ?? existingNft.name,
+            image: metadata.metadata?.image ?? existingNft.image,
             ...(metadata.metadata?.description !== undefined && { description: metadata.metadata.description }),
             ...(metadata.metadata?.attributes !== undefined && {
               attributes: metadata.metadata.attributes.map(attr => ({

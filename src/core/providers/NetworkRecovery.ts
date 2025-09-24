@@ -170,6 +170,9 @@ export class NetworkRecoveryService {
       
       try {
         // Test provider connectivity
+        if (!provider) {
+          continue;
+        }
         await this.withTimeout(provider.getBlockNumber(), 5000);
         
         // Update current index if we had to switch
@@ -177,7 +180,7 @@ export class NetworkRecoveryService {
           this.currentProviderIndex.set(network, index);
         }
         
-        return provider;
+        return provider ?? null;
       } catch (error) {
         // Try next provider
         continue;

@@ -517,11 +517,20 @@ export class BlockExplorerService {
         ];
         
         const contract = new ethers.Contract(tokenAddress, erc20Abi, this.provider);
+        const nameMethod = contract['name'];
+        const symbolMethod = contract['symbol'];
+        const decimalsMethod = contract['decimals'];
+        const totalSupplyMethod = contract['totalSupply'];
+
+        if (!nameMethod || !symbolMethod || !decimalsMethod || !totalSupplyMethod) {
+          throw new Error('Required ERC20 methods not found on contract');
+        }
+
         const [name, symbol, decimals, totalSupply] = await Promise.all([
-          contract.name() as Promise<string>,
-          contract.symbol() as Promise<string>,
-          contract.decimals() as Promise<number>,
-          contract.totalSupply() as Promise<bigint>,
+          nameMethod() as Promise<string>,
+          symbolMethod() as Promise<string>,
+          decimalsMethod() as Promise<number>,
+          totalSupplyMethod() as Promise<bigint>,
         ]);
         
         const details: TokenDetails = {

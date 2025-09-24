@@ -160,7 +160,7 @@ export class LiveSolanaProvider extends SolanaProvider {
    * Estimate the fee for a transfer
    * @returns Promise resolving to fee estimate in lamports as string
    */
-  estimateFee(): Promise<string> {
+  override estimateFee(): Promise<string> {
     // Return typical Solana transaction fee
     return Promise.resolve('5000'); // 0.000005 SOL
   }
@@ -220,7 +220,7 @@ export class LiveSolanaProvider extends SolanaProvider {
    * Switch to a different Solana network.
    * @param config Network configuration
    */
-  switchNetwork(config: SolanaNetworkConfig): void {
+  override switchNetwork(config: SolanaNetworkConfig): void {
     if (config === null || config === undefined) {
       throw new Error('Network config is required');
     }

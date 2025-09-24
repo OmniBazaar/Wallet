@@ -82,11 +82,11 @@ class MockUserRegistryDatabase implements IUserRegistryDatabase {
 
   getUser(userId: string): Promise<{ email?: string } | null> {
     const user = this.users.get(userId);
-    return Promise.resolve(user != null ? { email: user.email as string } : null);
+    return Promise.resolve(user != null ? { email: user['email'] as string } : null);
   }
 
   createSession(sessionData: Record<string, unknown>): Promise<void> {
-    const sessionId = sessionData.tokenId as string;
+    const sessionId = sessionData['tokenId'] as string;
     this.sessions.set(sessionId, sessionData);
     return Promise.resolve();
   }
@@ -94,8 +94,8 @@ class MockUserRegistryDatabase implements IUserRegistryDatabase {
   getSession(sessionId: string): Promise<{ refreshToken: string; provider: string } | null> {
     const session = this.sessions.get(sessionId);
     return Promise.resolve(session != null ? { 
-      refreshToken: session.refreshToken as string, 
-      provider: session.provider as string 
+      refreshToken: session['refreshToken'] as string,
+      provider: session['provider'] as string 
     } : null);
   }
 
@@ -234,7 +234,7 @@ export class OAuthService {
     this.secureStorage = deps?.secureStorage ?? new MockSecureStorageService();
     this.emailProvider = deps?.emailProvider ?? new MockEmailProvider();
     this.smsProvider = deps?.smsProvider ?? new MockSMSProvider();
-    this.jwtSecret = process.env.JWT_SECRET ?? this.generateSecureSecret();
+    this.jwtSecret = process.env['JWT_SECRET'] ?? this.generateSecureSecret();
     this.configs = this.initializeConfigs();
   }
 
@@ -246,9 +246,9 @@ export class OAuthService {
     const configs = new Map<OAuthProvider, OAuthConfig>();
 
     configs.set(OAuthProvider.GOOGLE, {
-      clientId: process.env.GOOGLE_CLIENT_ID ?? '',
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? '',
-      redirectUri: process.env.GOOGLE_REDIRECT_URI ?? 'http://localhost:3000/auth/google/callback',
+      clientId: process.env['GOOGLE_CLIENT_ID'] ?? '',
+      clientSecret: process.env['GOOGLE_CLIENT_SECRET'] ?? '',
+      redirectUri: process.env['GOOGLE_REDIRECT_URI'] ?? 'http://localhost:3000/auth/google/callback',
       authorizationUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
       tokenUrl: 'https://oauth2.googleapis.com/token',
       userInfoUrl: 'https://www.googleapis.com/oauth2/v2/userinfo',
@@ -256,9 +256,9 @@ export class OAuthService {
     });
 
     configs.set(OAuthProvider.TWITTER, {
-      clientId: process.env.TWITTER_CLIENT_ID ?? '',
-      clientSecret: process.env.TWITTER_CLIENT_SECRET ?? '',
-      redirectUri: process.env.TWITTER_REDIRECT_URI ?? 'http://localhost:3000/auth/twitter/callback',
+      clientId: process.env['TWITTER_CLIENT_ID'] ?? '',
+      clientSecret: process.env['TWITTER_CLIENT_SECRET'] ?? '',
+      redirectUri: process.env['TWITTER_REDIRECT_URI'] ?? 'http://localhost:3000/auth/twitter/callback',
       authorizationUrl: 'https://twitter.com/i/oauth2/authorize',
       tokenUrl: 'https://api.twitter.com/2/oauth2/token',
       userInfoUrl: 'https://api.twitter.com/2/users/me',
@@ -266,9 +266,9 @@ export class OAuthService {
     });
 
     configs.set(OAuthProvider.GITHUB, {
-      clientId: process.env.GITHUB_CLIENT_ID ?? '',
-      clientSecret: process.env.GITHUB_CLIENT_SECRET ?? '',
-      redirectUri: process.env.GITHUB_REDIRECT_URI ?? 'http://localhost:3000/auth/github/callback',
+      clientId: process.env['GITHUB_CLIENT_ID'] ?? '',
+      clientSecret: process.env['GITHUB_CLIENT_SECRET'] ?? '',
+      redirectUri: process.env['GITHUB_REDIRECT_URI'] ?? 'http://localhost:3000/auth/github/callback',
       authorizationUrl: 'https://github.com/login/oauth/authorize',
       tokenUrl: 'https://github.com/login/oauth/access_token',
       userInfoUrl: 'https://api.github.com/user',
@@ -341,7 +341,7 @@ export class OAuthService {
     };
 
     if (provider === OAuthProvider.TWITTER && codeVerifier !== undefined && codeVerifier !== '') {
-      params.code_verifier = codeVerifier;
+      params['code_verifier'] = codeVerifier;
     }
 
     const response = await fetch(config.tokenUrl, {
@@ -498,9 +498,9 @@ export class OAuthService {
     const publicKey = this.derivePublicKey(privateKey);
     
     const shards: MPCKeyShards = {
-      deviceShard: shares[0].toString('hex'),
-      serverShard: shares[1].toString('hex'),
-      recoveryShard: shares[2].toString('hex'),
+      deviceShard: shares[0]?.toString('hex') ?? '',
+      serverShard: shares[1]?.toString('hex') ?? '',
+      recoveryShard: shares[2]?.toString('hex') ?? '',
       publicKey: publicKey.toString('hex')
     };
 
@@ -704,7 +704,11 @@ export class OAuthService {
     const lastShare = Buffer.from(secret);
     for (const share of shares) {
       for (let j = 0; j < lastShare.length; j++) {
-        lastShare[j] ^= share[j];
+        const shareByte = share[j];
+        const lastShareByte = lastShare[j];
+        if (shareByte !== undefined && lastShareByte !== undefined) {
+          lastShare[j] = lastShareByte ^ shareByte;
+        }
       }
     }
     shares.push(lastShare);

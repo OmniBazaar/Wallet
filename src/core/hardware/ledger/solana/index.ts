@@ -160,7 +160,7 @@ class LedgerSolana implements HWWalletProvider {
    * @returns Array of supported path types
    */
   getSupportedPaths(): PathType[] {
-    return supportedPaths[this.network];
+    return supportedPaths[this.network] ?? [];
   }
 
   /**

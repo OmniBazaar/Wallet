@@ -632,10 +632,10 @@ export class ValidatorWalletService {
 
 // Export singleton instance with default configuration
 export const validatorWallet = new ValidatorWalletService({
-  validatorEndpoint: process.env.VITE_VALIDATOR_ENDPOINT ?? 'http://localhost:4000',
-  wsEndpoint: process.env.VITE_VALIDATOR_WS_ENDPOINT ?? 'ws://localhost:4000/graphql',
-  ...(process.env.VITE_VALIDATOR_API_KEY !== undefined && process.env.VITE_VALIDATOR_API_KEY !== '' ? { apiKey: process.env.VITE_VALIDATOR_API_KEY } : {}),
-  networkId: process.env.VITE_NETWORK_ID ?? '1',
+  validatorEndpoint: process.env['VITE_VALIDATOR_ENDPOINT'] ?? 'http://localhost:4000',
+  wsEndpoint: process.env['VITE_VALIDATOR_WS_ENDPOINT'] ?? 'ws://localhost:4000/graphql',
+  ...(process.env['VITE_VALIDATOR_API_KEY'] !== undefined && process.env['VITE_VALIDATOR_API_KEY'] !== '' ? { apiKey: process.env['VITE_VALIDATOR_API_KEY'] } : {}),
+  networkId: process.env['VITE_NETWORK_ID'] ?? '1',
   userId: '', // Set by initializeValidatorServices
   autoBackup: true,
   backupInterval: 24 * 60 * 60 * 1000 // 24 hours

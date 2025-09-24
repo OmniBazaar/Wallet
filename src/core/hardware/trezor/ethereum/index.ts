@@ -91,7 +91,11 @@ class TrezorEthereum implements HWWalletProvider {
       hdKey.chainCode = Buffer.from(rootPub.payload.chainCode, "hex");
       this.HDNodes[options.pathType.basePath] = hdKey;
     }
-    const pubkey = this.HDNodes[options.pathType.basePath].derive(
+    const hdNode = this.HDNodes[options.pathType.basePath];
+    if (!hdNode) {
+      throw new Error("HD node not found for base path");
+    }
+    const pubkey = hdNode.derive(
       `m/${options.pathIndex}`,
     ).publicKey;
     return {

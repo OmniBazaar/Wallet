@@ -99,7 +99,7 @@ export class OptimismNFTProvider implements ChainProvider {
         this.safeCallContract(contract, 'name', [], 'Unknown Collection'),
         this.safeCallContract(contract, 'ownerOf', [tokenId], '0x0000000000000000000000000000000000000000')
       ]);
-      
+
       // Parse metadata
       interface NFTMetadata {
         name?: string;
@@ -107,16 +107,17 @@ export class OptimismNFTProvider implements ChainProvider {
         image?: string;
         attributes?: Array<{ trait_type: string; value: string | number }>;
       }
-      
-      let metadata: NFTMetadata = { name: `${name} #${tokenId}`, description: '' };
+
+      const nameStr = String(name);
+      let metadata: NFTMetadata = { name: `${nameStr} #${tokenId}`, description: '' };
       if (typeof tokenURI === 'string' && tokenURI.length > 0) {
-        metadata = await this.parseTokenURI(tokenURI, name, tokenId);
+        metadata = await this.parseTokenURI(tokenURI, nameStr, tokenId);
       }
-      
+
       return {
         id: `optimism_${contractAddress}_${tokenId}`,
         tokenId,
-        name: metadata.name ?? `${name} #${tokenId}`,
+        name: metadata.name ?? `${nameStr} #${tokenId}`,
         description: metadata.description ?? '',
         image: metadata.image ?? '',
         imageUrl: metadata.image ?? '',
@@ -231,21 +232,22 @@ export class OptimismNFTProvider implements ChainProvider {
     }
     
     const metadata = nft.metadata ?? {};
-    
+    const metadataObj = metadata as Record<string, unknown>;
+
     return {
       id: `optimism_${nft.contract.address}_${nft.id.tokenId}`,
       tokenId: nft.id.tokenId,
-      name: metadata.name ?? nft.title ?? `Optimism NFT #${nft.id.tokenId}`,
-      description: metadata.description ?? nft.description ?? '',
-      image: metadata.image ?? nft.media?.[0]?.gateway ?? '',
-      imageUrl: metadata.image ?? nft.media?.[0]?.gateway ?? '',
-      attributes: metadata.attributes ?? [],
+      name: (typeof metadataObj['name'] === 'string' ? metadataObj['name'] : undefined) ?? nft.title ?? `Optimism NFT #${nft.id.tokenId}`,
+      description: (typeof metadataObj['description'] === 'string' ? metadataObj['description'] : undefined) ?? nft.description ?? '',
+      image: (typeof metadataObj['image'] === 'string' ? metadataObj['image'] : undefined) ?? nft.media?.[0]?.gateway ?? '',
+      imageUrl: (typeof metadataObj['image'] === 'string' ? metadataObj['image'] : undefined) ?? nft.media?.[0]?.gateway ?? '',
+      attributes: (Array.isArray(metadataObj['attributes']) ? metadataObj['attributes'] as Array<{ trait_type: string; value: string | number }> : undefined) ?? [],
       contract: nft.contract.address,
       contractAddress: nft.contract.address,
       tokenStandard: (nft.id.tokenMetadata?.tokenType === 'ERC721' || nft.id.tokenMetadata?.tokenType === 'ERC1155') ? nft.id.tokenMetadata.tokenType : 'ERC721',
       blockchain: 'optimism',
       owner: '',
-      creator: metadata.creator ?? '',
+      creator: (typeof metadataObj['creator'] === 'string' ? metadataObj['creator'] : undefined) ?? '',
       isListed: false
     };
   }
@@ -589,12 +591,13 @@ export class OptimismNFTProvider implements ChainProvider {
         return defaultValue;
       }
       
-      // Get the method function
-      const fn = contract[method];
+      // Get the method function using bracket notation for index signature
+      const contractMethods = contract as Record<string, unknown>;
+      const fn = contractMethods[method];
       if (typeof fn !== 'function') {
         return defaultValue;
       }
-      
+
       // Call the method
       const result: unknown = await fn(...args);
       return result as T;
@@ -685,21 +688,21 @@ export class OptimismNFTProvider implements ChainProvider {
     }
     
     const obj = data as Record<string, unknown>;
-    
+
     // Check optional fields
-    if ('name' in obj && typeof obj.name !== 'string') {
+    if ('name' in obj && typeof obj['name'] !== 'string') {
       return false;
     }
-    
-    if ('description' in obj && typeof obj.description !== 'string') {
+
+    if ('description' in obj && typeof obj['description'] !== 'string') {
       return false;
     }
-    
-    if ('image' in obj && typeof obj.image !== 'string') {
+
+    if ('image' in obj && typeof obj['image'] !== 'string') {
       return false;
     }
-    
-    if ('attributes' in obj && !Array.isArray(obj.attributes)) {
+
+    if ('attributes' in obj && !Array.isArray(obj['attributes'])) {
       return false;
     }
     
@@ -730,10 +733,10 @@ export class OptimismNFTProvider implements ChainProvider {
     if (typeof data !== 'object' || data === null) {
       return false;
     }
-    
+
     const obj = data as Record<string, unknown>;
-    
-    if (!('ownedNfts' in obj) || !Array.isArray(obj.ownedNfts)) {
+
+    if (!('ownedNfts' in obj) || !Array.isArray(obj['ownedNfts'])) {
       return false;
     }
     
@@ -764,10 +767,10 @@ export class OptimismNFTProvider implements ChainProvider {
     if (typeof data !== 'object' || data === null) {
       return false;
     }
-    
+
     const obj = data as Record<string, unknown>;
-    
-    if (!('nfts' in obj) || !Array.isArray(obj.nfts)) {
+
+    if (!('nfts' in obj) || !Array.isArray(obj['nfts'])) {
       return false;
     }
     
@@ -800,21 +803,21 @@ export class OptimismNFTProvider implements ChainProvider {
     const obj = data as Record<string, unknown>;
     
     // Required fields
-    if (!('id' in obj) || typeof obj.id !== 'object' || obj.id === null) {
+    if (!('id' in obj) || typeof obj['id'] !== 'object' || obj['id'] === null) {
       return false;
     }
-    
-    const id = obj.id as Record<string, unknown>;
-    if (!('tokenId' in id) || typeof id.tokenId !== 'string') {
+
+    const id = obj['id'] as Record<string, unknown>;
+    if (!('tokenId' in id) || typeof id['tokenId'] !== 'string') {
       return false;
     }
-    
-    if (!('contract' in obj) || typeof obj.contract !== 'object' || obj.contract === null) {
+
+    if (!('contract' in obj) || typeof obj['contract'] !== 'object' || obj['contract'] === null) {
       return false;
     }
-    
-    const contract = obj.contract as Record<string, unknown>;
-    if (!('address' in contract) || typeof contract.address !== 'string') {
+
+    const contract = obj['contract'] as Record<string, unknown>;
+    if (!('address' in contract) || typeof contract['address'] !== 'string') {
       return false;
     }
     
@@ -845,10 +848,10 @@ export class OptimismNFTProvider implements ChainProvider {
     if (typeof data !== 'object' || data === null) {
       return false;
     }
-    
+
     const obj = data as Record<string, unknown>;
-    
-    if (!('nfts' in obj) || !Array.isArray(obj.nfts)) {
+
+    if (!('nfts' in obj) || !Array.isArray(obj['nfts'])) {
       return false;
     }
     
@@ -879,13 +882,13 @@ export class OptimismNFTProvider implements ChainProvider {
     }
     
     const obj = data as Record<string, unknown>;
-    
+
     // Required fields
-    if (!('token_id' in obj) || typeof obj.token_id !== 'string') {
+    if (!('token_id' in obj) || typeof obj['token_id'] !== 'string') {
       return false;
     }
-    
-    if (!('contract_address' in obj) || typeof obj.contract_address !== 'string') {
+
+    if (!('contract_address' in obj) || typeof obj['contract_address'] !== 'string') {
       return false;
     }
     
@@ -905,8 +908,8 @@ export class OptimismNFTProvider implements ChainProvider {
     }
     
     const obj = data as Record<string, unknown>;
-    
-    if (!('collections' in obj) || !Array.isArray(obj.collections)) {
+
+    if (!('collections' in obj) || !Array.isArray(obj['collections'])) {
       return false;
     }
     

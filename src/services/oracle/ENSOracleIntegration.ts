@@ -23,7 +23,7 @@ export class ENSOracleIntegration {
    */
   private constructor() {
     // Create validator client for ENS oracle
-    const validatorEndpoint = process.env.VITE_VALIDATOR_ENDPOINT ?? process.env.TEST_VALIDATOR_ENDPOINT ?? 'http://localhost:4000';
+    const validatorEndpoint = process.env['VITE_VALIDATOR_ENDPOINT'] ?? process.env['TEST_VALIDATOR_ENDPOINT'] ?? 'http://localhost:4000';
     const validatorClient = createOmniValidatorClient({
       validatorEndpoint,
       wsEndpoint: validatorEndpoint.replace('http', 'ws') + '/graphql',
@@ -34,15 +34,15 @@ export class ENSOracleIntegration {
     // Create config for ENS oracle
     const config: ValidatorENSOracleConfig = {
       validatorClient,
-      ethereumRpcUrl: process.env.VITE_ETH_RPC_URL ?? 'https://eth-mainnet.alchemyapi.io/v2/demo',
-      cotiRpcUrl: process.env.VITE_AVALANCHE_RPC_URL ?? 'https://api.avax.network/ext/bc/C/rpc',
-      oracleContractAddress: process.env.VITE_ENS_ORACLE_CONTRACT ?? '0x0000000000000000000000000000000000000000',
-      resolverContractAddress: process.env.VITE_ENS_RESOLVER_CONTRACT ?? '0x0000000000000000000000000000000000000000',
-      registryContractAddress: process.env.VITE_ENS_REGISTRY_CONTRACT ?? '0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e',
+      ethereumRpcUrl: process.env['VITE_ETH_RPC_URL'] ?? 'https://eth-mainnet.alchemyapi.io/v2/demo',
+      cotiRpcUrl: process.env['VITE_AVALANCHE_RPC_URL'] ?? 'https://api.avax.network/ext/bc/C/rpc',
+      oracleContractAddress: process.env['VITE_ENS_ORACLE_CONTRACT'] ?? '0x0000000000000000000000000000000000000000',
+      resolverContractAddress: process.env['VITE_ENS_RESOLVER_CONTRACT'] ?? '0x0000000000000000000000000000000000000000',
+      registryContractAddress: process.env['VITE_ENS_REGISTRY_CONTRACT'] ?? '0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e',
       updateInterval: 300,
       batchSize: 10,
       nodeId: `wallet-ens-${Date.now()}`,
-      privateKey: process.env.VITE_WALLET_PRIVATE_KEY ?? '0x' + '0'.repeat(64)
+      privateKey: process.env['VITE_WALLET_PRIVATE_KEY'] ?? '0x' + '0'.repeat(64)
     };
 
     this.ensOracle = new ValidatorENSOracle(config);

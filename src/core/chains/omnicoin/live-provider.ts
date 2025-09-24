@@ -121,7 +121,7 @@ export class LiveOmniCoinProvider {
     }
 
     // Merge custom config with base network
-    this.network = config ? { ...baseNetwork, ...config } : baseNetwork;
+    this.network = config !== null && config !== undefined ? { ...baseNetwork, ...config } : baseNetwork;
     this.provider = new ethers.JsonRpcProvider(this.network.rpcUrl, {
       chainId: this.network.chainId,
       name: this.network.name
@@ -530,7 +530,7 @@ export class LiveOmniCoinProvider {
       throw new Error('Privacy features not supported on this network');
     }
 
-    const signer = this.getSigner() as OmniCoinKeyringSigner;
+    const signer = this.getSigner();
     return await signer.sendPrivateTransaction({
       to: transaction.to as string,
       data: transaction.data as string,
@@ -541,10 +541,10 @@ export class LiveOmniCoinProvider {
   /**
    * Stake XOM tokens (alias for stakeOmniCoin)
    * @param amount - Amount to stake in wei
-   * @param validatorAddress - Validator address to stake to
+   * @param _validatorAddress - Validator address to stake to (unused)
    * @returns Transaction response
    */
-  async stake(amount: bigint, validatorAddress: string): Promise<ethers.TransactionResponse> {
+  async stake(amount: bigint, _validatorAddress: string): Promise<ethers.TransactionResponse> {
     // Default staking duration of 30 days
     const duration = 30 * 24 * 60 * 60;
     return await this.stakeOmniCoin(amount, duration);

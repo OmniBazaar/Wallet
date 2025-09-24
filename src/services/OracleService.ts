@@ -355,7 +355,7 @@ export class OracleService {
     const [base, quote] = pair.split('/');
     
     // Send initial price immediately
-    this.getPrice(base, quote).then(priceData => {
+    this.getPrice(base ?? 'ETH', quote ?? 'USD').then(priceData => {
       callback({
         pair,
         price: priceData
@@ -366,7 +366,7 @@ export class OracleService {
 
     // Poll for real price updates
     const timer = setInterval(() => {
-      void this.getPrice(base, quote).then(priceData => {
+      void this.getPrice(base ?? 'ETH', quote ?? 'USD').then(priceData => {
         callback({
           pair,
           price: priceData

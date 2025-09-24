@@ -88,7 +88,7 @@ export class OracleAggregatorIntegration {
         name: 'internal-api',
         priority: 1,
         type: 'api',
-        endpoint: process.env.TEST_VALIDATOR_ENDPOINT !== undefined && process.env.TEST_VALIDATOR_ENDPOINT !== '' ? `${process.env.TEST_VALIDATOR_ENDPOINT}/api/prices` : 'http://localhost:4000/api/prices',
+        endpoint: process.env['TEST_VALIDATOR_ENDPOINT'] !== undefined && process.env['TEST_VALIDATOR_ENDPOINT'] !== '' ? `${process.env['TEST_VALIDATOR_ENDPOINT']}/api/prices` : 'http://localhost:4000/api/prices',
         decimals: 18,
         heartbeat: 300 // 5 minutes
       },
@@ -339,13 +339,13 @@ export class OracleAggregatorIntegration {
     for (const param of params.parameters) {
       switch (param) {
         case 'temperature':
-          result.temperature = 15 + Math.random() * 20; // 15-35°C
+          result['temperature'] = 15 + Math.random() * 20; // 15-35°C
           break;
         case 'precipitation':
-          result.precipitation = Math.random() * 10; // 0-10mm
+          result['precipitation'] = Math.random() * 10; // 0-10mm
           break;
         case 'windSpeed':
-          result.windSpeed = Math.random() * 30; // 0-30 km/h
+          result['windSpeed'] = Math.random() * 30; // 0-30 km/h
           break;
         default:
           result[param] = Math.random() * 100;
@@ -379,9 +379,14 @@ export class OracleAggregatorIntegration {
     const results = [];
 
     for (let i = 0; i < 3; i++) {
+      const homeTeam = teams[i * 2];
+      const awayTeam = teams[i * 2 + 1];
+      if (!homeTeam || !awayTeam) {
+        continue;
+      }
       results.push({
-        homeTeam: teams[i * 2],
-        awayTeam: teams[i * 2 + 1],
+        homeTeam,
+        awayTeam,
         homeScore: Math.floor(Math.random() * 5),
         awayScore: Math.floor(Math.random() * 5),
         status: 'final'

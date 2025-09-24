@@ -52,7 +52,7 @@ export class IPFSService {
     if (walletService !== undefined) {
       this.walletService = walletService;
     }
-    this.validatorEndpoint = process.env.VALIDATOR_ENDPOINT ?? 'http://localhost:4000';
+    this.validatorEndpoint = process.env['VALIDATOR_ENDPOINT'] ?? 'http://localhost:4000';
   }
 
   /**
@@ -73,7 +73,7 @@ export class IPFSService {
       }
 
       // Don't try to connect to real services in test environment
-      if (process.env.NODE_ENV !== 'test') {
+      if (process.env['NODE_ENV'] !== 'test') {
         // Initialize HTTP client for storage API
         try {
           this.apiClient = axios.create({
@@ -141,7 +141,10 @@ export class IPFSService {
     const bytes = new Uint8Array(fileData);
     let binary = '';
     for (let i = 0; i < bytes.byteLength; i++) {
-      binary += String.fromCharCode(bytes[i]);
+      const byte = bytes[i];
+      if (byte !== undefined) {
+        binary += String.fromCharCode(byte);
+      }
     }
     const finalBase64Data = btoa(binary);
 

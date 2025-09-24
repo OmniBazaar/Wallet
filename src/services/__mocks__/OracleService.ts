@@ -153,26 +153,6 @@ export class OracleService {
     };
   }
 
-  async getHistoricalPrices(symbol: string, from: number, to: number): Promise<PriceData[]> {
-    if (!this.isConnected) {
-      throw new Error('OracleService not connected');
-    }
-
-    const basePrice = symbol === 'ETH' ? 1650 : symbol === 'BTC' ? 30000 : 1;
-    const prices: PriceData[] = [];
-    const interval = (to - from) / 10;
-
-    for (let i = 0; i < 10; i++) {
-      prices.push({
-        symbol,
-        price: basePrice * (1 + (Math.random() - 0.5) * 0.1),
-        timestamp: from + interval * i,
-        source: 'mock-oracle'
-      });
-    }
-
-    return prices;
-  }
 
   async validateState(stateHash: string, validators: number): Promise<boolean> {
     if (!this.isConnected) {
@@ -198,14 +178,6 @@ export class OracleService {
     return result;
   }
 
-  async subscribeToPriceUpdates(base: string, quote: string, callback: (price: any) => void): Promise<string> {
-    if (!this.isConnected) {
-      throw new Error('OracleService not connected');
-    }
-
-    // Return a mock subscription ID
-    return `sub_${base}_${quote}_${Date.now()}`;
-  }
 
   async unsubscribe(subscriptionId: string): Promise<void> {
     // Mock unsubscribe
@@ -229,7 +201,7 @@ export class OracleService {
     }
 
     const [base, quote] = pair.split('/');
-    const price = await this.getPrice(base, quote);
+    const price = await this.getPrice(base ?? 'ETH', quote ?? 'USD');
 
     return {
       median: price.value,
@@ -252,11 +224,11 @@ export class OracleService {
 
     // Send initial price immediately
     setTimeout(async () => {
-      const price = await this.getPrice(base, quote);
+      const price = await this.getPrice(base ?? 'ETH', quote ?? 'USD');
       callback({
         pair,
         price: {
-          symbol: base,
+          symbol: base ?? 'ETH',
           price: price.value,
           timestamp: price.timestamp,
           source: 'mock-oracle',
@@ -512,10 +484,15 @@ export class OracleService {
       };
     }
 
-    return {
+    const result: CrossChainValidationResult = {
       isConsistent,
-      states,
-      discrepancies: isConsistent ? undefined : [{ type: 'balance_mismatch' }]
+      states
     };
+
+    if (!isConsistent) {
+      result.discrepancies = [{ type: 'balance_mismatch' }];
+    }
+
+    return result;
   }
 }

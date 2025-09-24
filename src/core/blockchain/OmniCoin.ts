@@ -12,7 +12,9 @@ import {
  */
 export const OmniCoinMetadata = {
   ...OMNICOIN_METADATA,
-  contractAddress: process.env.OMNICOIN_CONTRACT_ADDRESS || '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512' // Default Hardhat address
+  contractAddress: process.env['OMNICOIN_CONTRACT_ADDRESS'] !== undefined && process.env['OMNICOIN_CONTRACT_ADDRESS'] !== ''
+    ? process.env['OMNICOIN_CONTRACT_ADDRESS']
+    : '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512' // Default Hardhat address
 };
 
 /**
@@ -36,7 +38,11 @@ export async function getOmniCoinBalance(
 ): Promise<bigint> {
   try {
     const contract = createOmniCoinContract(provider);
-    const balance = await contract.balanceOf(address) as unknown;
+    const balanceOfMethod = contract['balanceOf'];
+    if (balanceOfMethod === undefined) {
+      throw new Error('balanceOf method not found on contract');
+    }
+    const balance = await balanceOfMethod(address) as unknown;
     // Handle different return types from the contract
     if (typeof balance === 'bigint') {
       return balance;

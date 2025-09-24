@@ -101,7 +101,10 @@ export class ENSService {
 
       // Use our stateless resolver
       const resolverContract = this.contractManager.getResolverContract();
-      const address = await resolverContract.resolve(username) as string;
+      if (typeof resolverContract['resolve'] !== 'function') {
+        throw new Error('Resolver contract does not have resolve method');
+      }
+      const address = await resolverContract['resolve'](username) as string;
 
       return address !== ethers.ZeroAddress ? address : null;
     } catch (error) {
@@ -121,7 +124,10 @@ export class ENSService {
       const namehash = ethers.namehash(name);
 
       // Get resolver address from ENS registry
-      const resolverAddress = await this.ensRegistry.resolver(namehash) as string;
+      if (typeof this.ensRegistry['resolver'] !== 'function') {
+        throw new Error('ENS registry does not have resolver method');
+      }
+      const resolverAddress = await this.ensRegistry['resolver'](namehash) as string;
 
       if (resolverAddress === ethers.ZeroAddress) {
         return null;
@@ -139,7 +145,10 @@ export class ENSService {
       );
 
       // Get address from resolver
-      const address = await resolver.addr(namehash) as string;
+      if (typeof resolver['addr'] !== 'function') {
+        throw new Error('Resolver does not have addr method');
+      }
+      const address = await resolver['addr'](namehash) as string;
 
       return address !== ethers.ZeroAddress ? address : null;
     } catch (error) {
@@ -165,7 +174,10 @@ export class ENSService {
       // For .eth addresses, use ENS multicoin support
       if (name.endsWith('.eth')) {
         const namehash = ethers.namehash(name);
-        const resolverAddress = await this.ensRegistry.resolver(namehash) as string;
+        if (typeof this.ensRegistry['resolver'] !== 'function') {
+          throw new Error('ENS registry does not have resolver method');
+        }
+        const resolverAddress = await this.ensRegistry['resolver'](namehash) as string;
 
         if (resolverAddress === ethers.ZeroAddress) {
           return null;
@@ -181,7 +193,10 @@ export class ENSService {
           this.contractManager.getEthereumProvider()
         );
 
-        const addressBytes = await resolver.addr(namehash, coinType) as string;
+        if (typeof resolver['addr'] !== 'function') {
+          throw new Error('Resolver does not have addr method');
+        }
+        const addressBytes = await resolver['addr'](namehash, coinType) as string;
 
         if (addressBytes === '0x' || addressBytes.length === 0) {
           return null;
@@ -212,10 +227,10 @@ export class ENSService {
       POL: 966, // Polygon
       ARB: 60,  // Arbitrum (uses ETH format)
       OPT: 60   // Optimism (uses ETH format)
-    };
+    } as const;
 
     // For EVM-compatible chains, treat as Ethereum address
-    if (coinType === COIN_TYPES.ETH || coinType === COIN_TYPES.ARB || coinType === COIN_TYPES.OPT) {
+    if (coinType === COIN_TYPES['ETH'] || coinType === COIN_TYPES['ARB'] || coinType === COIN_TYPES['OPT']) {
       // Remove 0x prefix if present and ensure proper length
       const cleanBytes = addressBytes.replace('0x', '');
       if (cleanBytes.length === 40) {
@@ -228,7 +243,7 @@ export class ENSService {
     }
 
     // For Polygon, also use ETH format
-    if (coinType === COIN_TYPES.POL) {
+    if (coinType === COIN_TYPES['POL']) {
       const cleanBytes = addressBytes.replace('0x', '');
       if (cleanBytes.length === 40) {
         return '0x' + cleanBytes;
@@ -266,7 +281,10 @@ export class ENSService {
       // Try ENS reverse resolution
       const reverseName = `${address.slice(2).toLowerCase()}.addr.reverse`;
       const namehash = ethers.namehash(reverseName);
-      const resolverAddress = await this.ensRegistry.resolver(namehash) as string;
+      if (typeof this.ensRegistry['resolver'] !== 'function') {
+        throw new Error('ENS registry does not have resolver method');
+      }
+      const resolverAddress = await this.ensRegistry['resolver'](namehash) as string;
 
       if (resolverAddress === ethers.ZeroAddress) {
         return null;
@@ -282,7 +300,10 @@ export class ENSService {
         this.contractManager.getEthereumProvider()
       );
 
-      const name = await resolver.name(namehash) as string;
+      if (typeof resolver['name'] !== 'function') {
+        throw new Error('Resolver does not have name method');
+      }
+      const name = await resolver['name'](namehash) as string;
       return (name !== null && name !== undefined && name !== '') ? name : null;
     } catch (error) {
       // Error reverse resolving address

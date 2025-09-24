@@ -210,8 +210,10 @@ export class DEXService {
 
     // Calculate market data from order book
     const lastPrice = ethers.parseEther('100'); // Mock price
-    const bid = orderBook.bids.length > 0 ? orderBook.bids[0].price : BigInt(0);
-    const ask = orderBook.asks.length > 0 ? orderBook.asks[0].price : BigInt(0);
+    const firstBid = orderBook.bids[0];
+    const firstAsk = orderBook.asks[0];
+    const bid = firstBid ? firstBid.price : BigInt(0);
+    const ask = firstAsk ? firstAsk.price : BigInt(0);
 
     return {
       pair,
@@ -383,8 +385,11 @@ export class DEXService {
       // Add to bids (sorted by price descending)
       const existingIndex = orderBook.bids.findIndex(bid => bid.price === order.price);
       if (existingIndex >= 0) {
-        orderBook.bids[existingIndex].quantity += order.quantity;
-        orderBook.bids[existingIndex].orderCount += 1;
+        const existingBid = orderBook.bids[existingIndex];
+        if (existingBid) {
+          existingBid.quantity += order.quantity;
+          existingBid.orderCount += 1;
+        }
       } else {
         orderBook.bids.push(entry);
         orderBook.bids.sort((a, b) => b.price > a.price ? 1 : -1);
@@ -393,8 +398,11 @@ export class DEXService {
       // Add to asks (sorted by price ascending)
       const existingIndex = orderBook.asks.findIndex(ask => ask.price === order.price);
       if (existingIndex >= 0) {
-        orderBook.asks[existingIndex].quantity += order.quantity;
-        orderBook.asks[existingIndex].orderCount += 1;
+        const existingAsk = orderBook.asks[existingIndex];
+        if (existingAsk) {
+          existingAsk.quantity += order.quantity;
+          existingAsk.orderCount += 1;
+        }
       } else {
         orderBook.asks.push(entry);
         orderBook.asks.sort((a, b) => a.price > b.price ? 1 : -1);
@@ -420,19 +428,25 @@ export class DEXService {
     if (order.side === OrderSide.BUY) {
       const bidIndex = orderBook.bids.findIndex(bid => bid.price === order.price);
       if (bidIndex >= 0) {
-        orderBook.bids[bidIndex].quantity -= remainingQuantity;
-        orderBook.bids[bidIndex].orderCount -= 1;
-        if (orderBook.bids[bidIndex].quantity <= 0) {
-          orderBook.bids.splice(bidIndex, 1);
+        const bid = orderBook.bids[bidIndex];
+        if (bid) {
+          bid.quantity -= remainingQuantity;
+          bid.orderCount -= 1;
+          if (bid.quantity <= 0) {
+            orderBook.bids.splice(bidIndex, 1);
+          }
         }
       }
     } else {
       const askIndex = orderBook.asks.findIndex(ask => ask.price === order.price);
       if (askIndex >= 0) {
-        orderBook.asks[askIndex].quantity -= remainingQuantity;
-        orderBook.asks[askIndex].orderCount -= 1;
-        if (orderBook.asks[askIndex].quantity <= 0) {
-          orderBook.asks.splice(askIndex, 1);
+        const ask = orderBook.asks[askIndex];
+        if (ask) {
+          ask.quantity -= remainingQuantity;
+          ask.orderCount -= 1;
+          if (ask.quantity <= 0) {
+            orderBook.asks.splice(askIndex, 1);
+          }
         }
       }
     }

@@ -240,13 +240,13 @@ export class OrderBookService {
       // Initialize validator client
       try {
         this.validatorClient = createOmniValidatorClient({
-          validatorEndpoint: process.env.VALIDATOR_ENDPOINT !== undefined && process.env.VALIDATOR_ENDPOINT !== '' ? process.env.VALIDATOR_ENDPOINT : 'http://localhost:4000',
-          wsEndpoint: process.env.VALIDATOR_WS_ENDPOINT !== undefined && process.env.VALIDATOR_WS_ENDPOINT !== '' ? process.env.VALIDATOR_WS_ENDPOINT : 'ws://localhost:4000/graphql'
+          validatorEndpoint: process.env['VALIDATOR_ENDPOINT'] !== undefined && process.env['VALIDATOR_ENDPOINT'] !== '' ? process.env['VALIDATOR_ENDPOINT'] : 'http://localhost:4000',
+          wsEndpoint: process.env['VALIDATOR_WS_ENDPOINT'] !== undefined && process.env['VALIDATOR_WS_ENDPOINT'] !== '' ? process.env['VALIDATOR_WS_ENDPOINT'] : 'ws://localhost:4000/graphql'
         });
         // Note: OmniValidatorClient doesn't have a connect() method - it connects automatically
         this.validatorDEXService = new ValidatorDEXService({
-          validatorEndpoint: process.env.VALIDATOR_ENDPOINT !== undefined && process.env.VALIDATOR_ENDPOINT !== '' ? process.env.VALIDATOR_ENDPOINT : 'http://localhost:4000',
-          wsEndpoint: process.env.VALIDATOR_WS_ENDPOINT !== undefined && process.env.VALIDATOR_WS_ENDPOINT !== '' ? process.env.VALIDATOR_WS_ENDPOINT : 'ws://localhost:4000/graphql',
+          validatorEndpoint: process.env['VALIDATOR_ENDPOINT'] !== undefined && process.env['VALIDATOR_ENDPOINT'] !== '' ? process.env['VALIDATOR_ENDPOINT'] : 'http://localhost:4000',
+          wsEndpoint: process.env['VALIDATOR_WS_ENDPOINT'] !== undefined && process.env['VALIDATOR_WS_ENDPOINT'] !== '' ? process.env['VALIDATOR_WS_ENDPOINT'] : 'ws://localhost:4000/graphql',
           networkId: 'omni-testnet',
           tradingPairs: ['XOM/USDT', 'XOM/ETH', 'XOM/BTC'],
           feeStructure: {
@@ -287,7 +287,7 @@ export class OrderBookService {
 
     try {
       // In test environment, provide mock implementation
-      if ((this.validatorDEXService === null || this.validatorDEXService === undefined) && process.env.NODE_ENV === 'test') {
+      if ((this.validatorDEXService === null || this.validatorDEXService === undefined) && process.env['NODE_ENV'] === 'test') {
         // Mock implementation for testing
         const userAddress = await this.getUserAddress();
         const orderId = 'order-' + Date.now();
@@ -307,8 +307,12 @@ export class OrderBookService {
           status: OrderStatus.OPEN,
           timeInForce: params.timeInForce ?? TimeInForce.GTC,
           createdAt: Date.now(),
-          expiration: params.expiration
+          updatedAt: Date.now()
         };
+
+        if (params.expiration !== undefined) {
+          order.expiration = params.expiration;
+        }
 
         // Store order
         this.userOrders.set(orderId, order);
@@ -407,7 +411,7 @@ export class OrderBookService {
 
     try {
       // In test environment, provide mock implementation
-      if ((this.validatorDEXService === null || this.validatorDEXService === undefined) && process.env.NODE_ENV === 'test') {
+      if ((this.validatorDEXService === null || this.validatorDEXService === undefined) && process.env['NODE_ENV'] === 'test') {
         // Mock implementation for testing
         const order = this.userOrders.get(orderId);
         if (order === undefined) {
@@ -581,7 +585,7 @@ export class OrderBookService {
 
     try {
       // In test environment, provide mock implementation
-      if ((this.validatorDEXService === null || this.validatorDEXService === undefined) && process.env.NODE_ENV === 'test') {
+      if ((this.validatorDEXService === null || this.validatorDEXService === undefined) && process.env['NODE_ENV'] === 'test') {
         // Mock implementation for testing
         const mockBids: DepthLevel[] = [
           { price: 0.95, amount: BigInt('1000000000000000000000'), orderCount: 2, cumulative: BigInt('1000000000000000000000') },
@@ -593,13 +597,12 @@ export class OrderBookService {
         ];
 
         return {
-          tokenIn,
-          tokenOut,
+          pair: `${tokenIn}/${tokenOut}`,
           bids: mockBids,
           asks: mockAsks,
           spread: 0.10, // 10% spread
           midPrice: 1.0,
-          lastUpdated: Date.now()
+          timestamp: Date.now()
         };
       }
 
@@ -721,8 +724,8 @@ export class OrderBookService {
             const order: Order = {
               orderId: orderData.orderId,
               maker: orderData.maker,
-              tokenIn: orderData.type === 'SELL' ? tokenIn : tokenOut,
-              tokenOut: orderData.type === 'SELL' ? tokenOut : tokenIn,
+              tokenIn: (orderData.type === 'SELL' ? tokenIn : tokenOut) ?? '0x0000000000000000000000000000000000000000',
+              tokenOut: (orderData.type === 'SELL' ? tokenOut : tokenIn) ?? '0x0000000000000000000000000000000000000000',
               amountIn,
               amountRemaining,
               amountFilled,

@@ -104,13 +104,21 @@ export const useNFTTransfer = (contractAddress?: string): NFTTransferHook => {
       }
       
       // Verify ownership of the NFT
-      const owner = await nftContract.ownerOf(tokenId) as string;
+      const ownerOfMethod = nftContract['ownerOf'];
+      if (!ownerOfMethod) {
+        throw new Error('ownerOf method not found on contract');
+      }
+      const owner = await ownerOfMethod(tokenId) as string;
       if (owner.toLowerCase() !== currentAddress.toLowerCase()) {
         throw new Error('You do not own this NFT');
       }
       
       // Execute the transfer using transferFrom (safer than transfer)
-      const transaction = await nftContract.transferFrom(
+      const transferFromMethod = nftContract['transferFrom'];
+      if (!transferFromMethod) {
+        throw new Error('transferFrom method not found on contract');
+      }
+      const transaction = await transferFromMethod(
         currentAddress, 
         recipient, 
         tokenId

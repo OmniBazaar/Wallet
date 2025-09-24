@@ -242,14 +242,17 @@ export class WalletService {
    */
   async getAddress(): Promise<string> {
     // In test environment without wallet, use keyring accounts
-    if (process.env.NODE_ENV === 'test' && this.wallet === null && this.keyringService !== null) {
+    if (process.env['NODE_ENV'] === 'test' && this.wallet === null && this.keyringService !== null) {
       const activeAccount = this.keyringService.getActiveAccount();
       if (activeAccount !== null) {
         return activeAccount.address;
       }
       const accounts = this.keyringService.getAccounts();
       if (accounts.length > 0) {
-        return accounts[0].address;
+        const firstAccount = accounts[0];
+        if (firstAccount) {
+          return firstAccount.address;
+        }
       }
     }
 
@@ -261,14 +264,17 @@ export class WalletService {
       return await this.wallet.getAddress();
     } catch (error) {
       // In test environment, return active account address from keyring
-      if (process.env.NODE_ENV === 'test' && this.keyringService !== null) {
+      if (process.env['NODE_ENV'] === 'test' && this.keyringService !== null) {
         const activeAccount = this.keyringService.getActiveAccount();
         if (activeAccount !== null) {
           return activeAccount.address;
         }
         const accounts = this.keyringService.getAccounts();
         if (accounts.length > 0) {
-          return accounts[0].address;
+          const firstAccount = accounts[0];
+          if (firstAccount) {
+            return firstAccount.address;
+          }
         }
       }
       throw error;
@@ -282,7 +288,7 @@ export class WalletService {
    */
   async getBalance(assetSymbol?: string): Promise<bigint | string> {
     // In test environment without wallet, return mock balance
-    if (process.env.NODE_ENV === 'test' && this.wallet === null) {
+    if (process.env['NODE_ENV'] === 'test' && this.wallet === null) {
       return BigInt('1000000000000000000'); // 1 ETH in wei
     }
 
@@ -306,7 +312,7 @@ export class WalletService {
       return await this.wallet.getChainId();
     } catch (error) {
       // In test environment, return current chainId from config
-      if (process.env.NODE_ENV === 'test') {
+      if (process.env['NODE_ENV'] === 'test') {
         return this.config.defaultChainId;
       }
       throw error;
@@ -406,7 +412,7 @@ export class WalletService {
       return await this.keyringService.signMessage(address, message);
     } catch (error) {
       // In test environment, return a mock signature
-      if (process.env.NODE_ENV === 'test') {
+      if (process.env['NODE_ENV'] === 'test') {
         // Mock signature format: 0x + r (32 bytes) + s (32 bytes) + v (1 byte)
         const r = crypto.randomBytes(32).toString('hex');
         const s = crypto.randomBytes(32).toString('hex');
@@ -501,7 +507,7 @@ export class WalletService {
       };
     } catch (error) {
       // In test environment, return a mock transaction response
-      if (process.env.NODE_ENV === 'test') {
+      if (process.env['NODE_ENV'] === 'test') {
         const mockHash = '0x' + crypto.randomBytes(32).toString('hex');
         const from = await this.getAddress();
         return {

@@ -136,7 +136,10 @@ class LedgerEthereum implements HWWalletProvider {
         this.HDNodes[options.pathType.basePath] = hdKey;
       }
       const node = this.HDNodes[options.pathType.basePath];
-      const derivedNode = node.derive(`m/${options.pathIndex}`);
+      const derivedNode = node?.derive(`m/${options.pathIndex}`);
+      if (!derivedNode) {
+        throw new Error("Failed to derive node from HD key");
+      }
       const pubkey = derivedNode.publicKey;
       return {
         address: bufferToHex(Buffer.from(publicToAddress(pubkey, true))),
@@ -272,10 +275,7 @@ class LedgerEthereum implements HWWalletProvider {
    * @returns Promise that resolves when closed
    */
   close(): Promise<void> {
-    if (this.transport === null) {
-      return Promise.resolve();
-    }
-    return this.transport.close().catch(() => {});
+    return this.transport?.close().catch(() => {}) ?? Promise.resolve();
   }
 
   /**

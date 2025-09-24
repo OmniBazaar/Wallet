@@ -205,7 +205,7 @@ export class TransactionService {
       const session = this.keyringManager.getSession() as Session | null;
       
       // In test environment, try to get account from wallet
-      if (session === null && process.env.NODE_ENV === 'test') {
+      if (session === null && process.env['NODE_ENV'] === 'test') {
         // SECURITY: Never use 'from' field from request - always derive from wallet/keyring
         if (this.wallet !== null) {
           try {
@@ -259,14 +259,14 @@ export class TransactionService {
       if (request.value !== undefined && request.value !== '0') {
         try {
           // Check if we have a provider to check balance
-          if (this.provider !== undefined || this.wallet?.provider !== undefined) {
-            const provider = this.provider ?? this.wallet!.provider;
+          const provider = this.provider ?? this.wallet?.provider;
+          if (provider !== undefined) {
             const balance = await provider.getBalance(account.address);
             const requiredAmount = BigInt(request.value);
 
             // Add gas costs to required amount
             const gasLimit = BigInt(request.gasLimit ?? 21000);
-            const gasPrice = BigInt(request.gasPrice ?? request.maxFeePerGas ?? '20000000000');
+            const gasPrice = BigInt(request.gasPrice ?? '20000000000');
             const gasCost = gasLimit * gasPrice;
             const totalRequired = requiredAmount + gasCost;
 
@@ -296,7 +296,7 @@ export class TransactionService {
       let signedTx: SignedTransaction | null = null;
       
       // In test environment, try KeyringService first
-      if (process.env.NODE_ENV === 'test' && (session === null || (account !== null && session.accounts === undefined))) {
+      if (process.env['NODE_ENV'] === 'test' && (session === null || (account !== null && session.accounts === undefined))) {
         try {
           type KeyringModule = { KeyringService: { getInstance(): { getActiveAccount(): { address: string } | null; signTransaction(address: string, tx: unknown): Promise<string> } } };
           const { KeyringService } = await import('../keyring/KeyringService') as unknown as KeyringModule;
@@ -344,7 +344,7 @@ export class TransactionService {
       // Fall back to KeyringManager if not handled above
       if (signedTx === null) {
         // In test environment without session, use mock signature
-        if (process.env.NODE_ENV === 'test' && session === null && account !== null && account.address !== '') {
+        if (process.env['NODE_ENV'] === 'test' && session === null && account !== null && account.address !== '') {
           type CryptoModule = { randomBytes(size: number): Buffer };
           const crypto = await import('crypto') as unknown as CryptoModule;
           const mockHash = '0x' + crypto.randomBytes(32).toString('hex');
@@ -380,11 +380,11 @@ export class TransactionService {
       let signedTxData: SignedTransaction = signedTx;
 
       // In test environment, if we have a wallet with signer, try to send through it
-      if (process.env.NODE_ENV === 'test' && this.wallet !== null && this.provider !== undefined) {
+      if (process.env['NODE_ENV'] === 'test' && this.wallet !== null && this.provider !== undefined) {
         try {
-          // Try to get signer from provider
-          const signer = await this.provider.getSigner();
-          if (signer && typeof signer.sendTransaction === 'function') {
+          // Use the wallet itself as signer if it has sendTransaction method
+          const signer = this.wallet;
+          if (signer && typeof (signer as any).sendTransaction === 'function') {
             const txRequest = {
               to: transaction.to,
               value: transaction.value,
@@ -392,7 +392,7 @@ export class TransactionService {
               gasLimit: transaction.gasLimit,
               gasPrice: transaction.gasPrice
             };
-            const txResponse = await signer.sendTransaction(txRequest);
+            const txResponse = await (signer as any).sendTransaction(txRequest);
             txHash = txResponse.hash;
           } else {
             // Fallback to hash from signed transaction
@@ -605,7 +605,7 @@ export class TransactionService {
    */
   public estimateGas(request: Partial<TransactionRequest>): Promise<bigint> {
     // For testing, return a default gas estimate
-    if (process.env.NODE_ENV === 'test') {
+    if (process.env['NODE_ENV'] === 'test') {
       const baseGas = BigInt(21000); // Basic transfer
       const dataGas = request.data !== undefined && request.data !== '' ? BigInt((request.data.length - 2) / 2 * 68) : BigInt(0); // Data cost
       return Promise.resolve(baseGas + dataGas);
@@ -698,7 +698,7 @@ export class TransactionService {
     chainId?: number;
   }): Promise<string> {
     // For testing, return a mock signed transaction
-    if (process.env.NODE_ENV === 'test') {
+    if (process.env['NODE_ENV'] === 'test') {
       return '0x' + 'f'.repeat(200); // Mock signed transaction hex
     }
     

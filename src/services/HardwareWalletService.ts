@@ -497,7 +497,7 @@ export class HardwareWalletService {
       });
       
       // In test environment, return mock data
-      if (process.env.NODE_ENV === 'test') {
+      if (process.env['NODE_ENV'] === 'test') {
         return {
           connected: true,
           deviceId: device.serialNumber,

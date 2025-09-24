@@ -446,7 +446,7 @@ export class WalletImpl implements Wallet {
       await this.provider.send('wallet_switchEthereumChain', [{ chainId: `0x${chainId.toString(16)}` }]);
       
       // Update state with new chain ID in test environment
-      if (process.env.NODE_ENV === 'test' && this.state != null) {
+      if (process.env['NODE_ENV'] === 'test' && this.state != null) {
         this.state.chainId = chainId;
       }
     } catch (error: unknown) {

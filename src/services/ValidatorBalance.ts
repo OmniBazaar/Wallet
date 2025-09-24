@@ -405,7 +405,10 @@ export class ValidatorBalanceService {
         
         batchResults.forEach((result, index) => {
           if (result !== null) {
-            balances[batch[index]] = result;
+            const tokenAddress = batch[index];
+            if (tokenAddress) {
+              balances[tokenAddress] = result;
+            }
           }
         });
       }
@@ -886,8 +889,8 @@ export class ValidatorBalanceService {
  * The userId should be set when a user logs in using validatorBalance.setUserId(userId).
  */
 export const validatorBalance = new ValidatorBalanceService({
-  validatorEndpoint: process.env.VITE_VALIDATOR_ENDPOINT ?? 'localhost:3000',
-  networkId: process.env.VITE_NETWORK_ID ?? 'omnibazaar-mainnet',
+  validatorEndpoint: process.env['VITE_VALIDATOR_ENDPOINT'] ?? 'localhost:3000',
+  networkId: process.env['VITE_NETWORK_ID'] ?? 'omnibazaar-mainnet',
   userId: '', // Will be set when user logs in
   enableCaching: true,
   cacheTimeout: 30000, // 30 seconds

@@ -180,19 +180,19 @@ export class ValidatorService {
     try {
       // Initialize the validator client
       this.client = createOmniValidatorClient({
-        validatorEndpoint: process.env.VITE_VALIDATOR_ENDPOINT ?? 'http://localhost:4000',
-        wsEndpoint: (process.env.VITE_VALIDATOR_ENDPOINT ?? 'http://localhost:4000').replace('http', 'ws') + '/graphql',
+        validatorEndpoint: process.env['VITE_VALIDATOR_ENDPOINT'] ?? 'http://localhost:4000',
+        wsEndpoint: (process.env['VITE_VALIDATOR_ENDPOINT'] ?? 'http://localhost:4000').replace('http', 'ws') + '/graphql',
         timeout: 30000,
         retryAttempts: 3
       });
 
       // Initialize ethers provider for on-chain operations
       this.provider = new ethers.JsonRpcProvider(
-        process.env.VITE_RPC_URL ?? 'http://localhost:8545'
+        process.env['VITE_RPC_URL'] ?? 'http://localhost:8545'
       );
 
       // Initialize staking contract
-      const stakingAddress = process.env.VITE_STAKING_CONTRACT ?? '0x5FbDB2315678afecb367f032d93F642f64180aa3';
+      const stakingAddress = process.env['VITE_STAKING_CONTRACT'] ?? '0x5FbDB2315678afecb367f032d93F642f64180aa3';
       const stakingABI = [
         'function stake(uint256 amount) external',
         'function unstake(uint256 amount) external',
@@ -227,7 +227,7 @@ export class ValidatorService {
 
     try {
       // Skip actual blockchain transaction in test environment
-      if (process.env.NODE_ENV === 'test') {
+      if (process.env['NODE_ENV'] === 'test') {
         return {
           success: true,
           validatorId: params.address,
@@ -277,7 +277,7 @@ export class ValidatorService {
 
     try {
       // Skip actual blockchain transaction in test environment
-      if (process.env.NODE_ENV === 'test') {
+      if (process.env['NODE_ENV'] === 'test') {
         return {
           success: true,
           delegationId: `${params.from}-${params.validatorAddress}`,
@@ -333,7 +333,7 @@ export class ValidatorService {
 
     try {
       // Skip actual blockchain transaction in test environment
-      if (process.env.NODE_ENV === 'test') {
+      if (process.env['NODE_ENV'] === 'test') {
         return {
           success: true,
           amount: '10',
@@ -381,7 +381,7 @@ export class ValidatorService {
 
     try {
       // Skip actual blockchain transaction in test environment
-      if (process.env.NODE_ENV === 'test') {
+      if (process.env['NODE_ENV'] === 'test') {
         return {
           success: true,
           principal: '100',
@@ -395,11 +395,11 @@ export class ValidatorService {
 
       // Get current delegation info
       const getDelegationMethod = contract['getDelegation'] as (delegator: string, validator: string) => Promise<[bigint, bigint]>;
-      const [amount, rewards] = await getDelegationMethod(params.address, validator);
+      const [amount, rewards] = await getDelegationMethod(params.address, validator ?? '');
 
       // Withdraw
       const undelegateMethod = contract['undelegate'] as (validator: string, amount: bigint) => Promise<ethers.ContractTransactionResponse>;
-      const tx = await undelegateMethod(validator, amount);
+      const tx = await undelegateMethod(validator ?? '', amount);
       await tx.wait();
 
       const principal = ethers.formatEther(amount);
@@ -452,7 +452,7 @@ export class ValidatorService {
    */
   async getHealthStatus(_address: string): Promise<HealthStatus> {
     // Return mock health status in test environment
-    if (process.env.NODE_ENV === 'test') {
+    if (process.env['NODE_ENV'] === 'test') {
       return {
         status: 'healthy',
         lastHeartbeat: Date.now(),
@@ -488,7 +488,7 @@ export class ValidatorService {
    */
   async getValidatorStatus(address?: string): Promise<ValidatorStatus> {
     // If no address provided, use default validator
-    const validatorAddress = address ?? process.env.VITE_DEFAULT_VALIDATOR ?? '0x0000000000000000000000000000000000000000';
+    const validatorAddress = address ?? process.env['VITE_DEFAULT_VALIDATOR'] ?? '0x0000000000000000000000000000000000000000';
 
     // Check cache first
     const cached = this.getFromCache<ValidatorStatus>(`validator-status-${validatorAddress}`);
@@ -496,7 +496,7 @@ export class ValidatorService {
 
     if (this.stakingContract === null || this.client === null) {
       // Return mock data in test environment
-      if (process.env.NODE_ENV === 'test') {
+      if (process.env['NODE_ENV'] === 'test') {
         const mockStatus: ValidatorStatus = {
           status: 'active',
           uptime: 99.9,
@@ -516,7 +516,7 @@ export class ValidatorService {
 
     try {
       // Get on-chain validator info
-      const getValidatorInfo = (this.stakingContract.getValidatorInfo ?? this.stakingContract.validators) as ((address: string) => Promise<[boolean, bigint, bigint, bigint]>) | undefined;
+      const getValidatorInfo = (this.stakingContract['getValidatorInfo'] ?? this.stakingContract['validators']) as ((address: string) => Promise<[boolean, bigint, bigint, bigint]>) | undefined;
       if (getValidatorInfo === undefined) {
         throw new Error('Staking contract does not have getValidatorInfo or validators method');
       }

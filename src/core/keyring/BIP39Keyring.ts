@@ -175,8 +175,8 @@ export class BIP39Keyring {
    * @returns Promise that resolves when import is complete
    */
   async importFromMnemonic(mnemonic: string, password: string): Promise<void> {
-    // Ensure mnemonic is a string
-    const mnemonicStr = typeof mnemonic === 'string' ? mnemonic : mnemonic.toString();
+    // The mnemonic parameter is already typed as string, so no conversion needed
+    const mnemonicStr = mnemonic;
 
     if (!bip39.validateMnemonic(mnemonicStr)) {
       throw new Error('Invalid mnemonic phrase');
@@ -412,6 +412,9 @@ export class BIP39Keyring {
     }
 
     const derivationPathFn = DERIVATION_PATHS[chainType] ?? DERIVATION_PATHS[ChainType.ETHEREUM];
+    if (!derivationPathFn) {
+      throw new Error(`No derivation path function for chain type: ${chainType}`);
+    }
     const derivationPath = derivationPathFn(accountIndex);
     
     if (this.rootNode === null) {

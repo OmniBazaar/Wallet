@@ -89,7 +89,7 @@ class LedgerBitcoin implements HWWalletProvider {
    * @returns Promise resolving to address response with address and public key
    */
   async getAddress(options: GetAddressRequest): Promise<AddressResponse> {
-    if (supportedPaths[this.network] === undefined)
+    if (supportedPaths[this.network as NetworkNames] === undefined)
       return Promise.reject(new Error("ledger-bitcoin: Invalid network name"));
     const isHardened = options.pathType.basePath.split("/").length - 1 === 2;
     
@@ -110,7 +110,10 @@ class LedgerBitcoin implements HWWalletProvider {
         this.HDNodes[options.pathType.basePath] = hdKey;
       }
       const node = this.HDNodes[options.pathType.basePath];
-      const derivedNode = node.derive(`m/${options.pathIndex}`);
+      const derivedNode = node?.derive(`m/${options.pathIndex}`);
+      if (!derivedNode) {
+        throw new Error("Failed to derive node from HD key");
+      }
       const pubkey = derivedNode.publicKey;
       return {
         address: bufferToHex(pubkey),
@@ -339,7 +342,7 @@ class LedgerBitcoin implements HWWalletProvider {
    * @returns Array of supported path types
    */
   getSupportedPaths(): PathType[] {
-    const paths = supportedPaths[this.network];
+    const paths = supportedPaths[this.network as NetworkNames];
     if (paths === null || paths === undefined) {
       return [];
     }

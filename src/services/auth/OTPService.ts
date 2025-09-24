@@ -17,19 +17,19 @@ interface Logger {
 const logger: Logger = {
   warn: (message: string, ...args: unknown[]) => {
     // In production, this would use a proper logging service
-    if (process.env.NODE_ENV !== 'test') {
+    if (process.env['NODE_ENV'] !== 'test') {
       process.stderr.write(`[WARN] ${message} ${args.join(' ')}\n`);
     }
   },
   error: (message: string, ...args: unknown[]) => {
     // In production, this would use a proper logging service
-    if (process.env.NODE_ENV !== 'test') {
+    if (process.env['NODE_ENV'] !== 'test') {
       process.stderr.write(`[ERROR] ${message} ${args.join(' ')}\n`);
     }
   },
   info: (message: string, ...args: unknown[]) => {
     // In production, this would use a proper logging service
-    if (process.env.NODE_ENV !== 'test') {
+    if (process.env['NODE_ENV'] !== 'test') {
       process.stdout.write(`[INFO] ${message} ${args.join(' ')}\n`);
     }
   }
@@ -595,7 +595,7 @@ export class OTPService {
    */
   private hashOTP(otp: string): string {
     return createHash('sha256')
-      .update(otp + (process.env.OTP_SALT !== undefined && process.env.OTP_SALT !== '' ? process.env.OTP_SALT : 'default_salt'))
+      .update(otp + (process.env['OTP_SALT'] !== undefined && process.env['OTP_SALT'] !== '' ? process.env['OTP_SALT'] : 'default_salt'))
       .digest('hex');
   }
 

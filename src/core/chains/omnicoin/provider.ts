@@ -5,8 +5,8 @@ import {
   ProviderRPCRequest,
   OnMessageResponse,
   ProviderName
-} from '@/types/provider';
-import { EthereumNetwork } from '@/types/base-network';
+} from '../../../types/provider';
+import { EthereumNetwork } from '../../../types/base-network';
 import { CotiProvider } from '../coti/provider';
 import { ethers } from 'ethers';
 
@@ -893,9 +893,16 @@ export class OmniCoinProvider extends CotiProvider {
       const tokenContract = new ethers.Contract(tokenAddress, tokenABI, this.provider);
       
       // Type-safe contract calls using bracket notation
+      const balanceOfFunc = tokenContract['balanceOf'];
+      const decimalsFunc = tokenContract['decimals'];
+
+      if (!balanceOfFunc || !decimalsFunc) {
+        throw new Error('Invalid token contract: missing required functions');
+      }
+
       const [balance, decimals] = await Promise.all([
-        tokenContract['balanceOf'](userAddress) as Promise<bigint>,
-        tokenContract['decimals']() as Promise<bigint>
+        balanceOfFunc(userAddress) as Promise<bigint>,
+        decimalsFunc() as Promise<bigint>
       ]);
 
       return ethers.formatUnits(balance, Number(decimals));
@@ -913,12 +920,12 @@ export class OmniCoinProvider extends CotiProvider {
   override async getTransactionHistory(
     address: string,
     limit = 100
-  ): Promise<import('@/types').Transaction[]> {
+  ): Promise<import('../../../types').Transaction[]> {
     try {
       // Note: This is a simplified version. In practice, you'd need to use
       // an indexing service or scan blocks for transactions
       const currentBlock = await this.getBlockNumber();
-      const transactions: import('@/types').Transaction[] = [];
+      const transactions: import('../../../types').Transaction[] = [];
 
       // Scan recent blocks for transactions involving this address
       const startBlock = Math.max(currentBlock - limit, 0);
@@ -933,7 +940,7 @@ export class OmniCoinProvider extends CotiProvider {
                 const txResponse = tx as ethers.TransactionResponse;
                 if ((txResponse.from === address || txResponse.to === address) && txResponse.hash !== '') {
                   // Convert to base Transaction interface
-                  const transaction: import('@/types').Transaction = {
+                  const transaction: import('../../../types').Transaction = {
                     hash: txResponse.hash,
                     from: txResponse.from,
                     to: txResponse.to ?? '',

@@ -79,14 +79,24 @@ export function getOmniCoinAddress(provider: ethers.Provider): string {
 
   switch (chainId) {
     case 31337: // Hardhat
-    case 1337:  // Hardhat alternative
-      return OMNICOIN_ADDRESSES.hardhat.OmniCoin;
-    case 7082400: // COTI Testnet
-      return OMNICOIN_ADDRESSES['coti-testnet'].OmniCoin;
+    case 1337: { // Hardhat alternative
+      const hardhatAddresses = OMNICOIN_ADDRESSES['hardhat'];
+      if (hardhatAddresses === undefined) {
+        throw new Error('Hardhat addresses not configured');
+      }
+      return hardhatAddresses.OmniCoin;
+    }
+    case 7082400: { // COTI Testnet
+      const cotiTestnetAddresses = OMNICOIN_ADDRESSES['coti-testnet'];
+      if (cotiTestnetAddresses === undefined) {
+        throw new Error('COTI testnet addresses not configured');
+      }
+      return cotiTestnetAddresses.OmniCoin;
+    }
     default:
       // Fallback to environment variable or throw
-      if (process.env.OMNICOIN_CONTRACT_ADDRESS !== undefined && process.env.OMNICOIN_CONTRACT_ADDRESS !== '') {
-        return process.env.OMNICOIN_CONTRACT_ADDRESS;
+      if (process.env['OMNICOIN_CONTRACT_ADDRESS'] !== undefined && process.env['OMNICOIN_CONTRACT_ADDRESS'] !== '') {
+        return process.env['OMNICOIN_CONTRACT_ADDRESS'];
       }
       throw new Error(`OmniCoin contract not deployed on chain ${chainId}`);
   }
@@ -109,10 +119,20 @@ export function getOmniCoinContracts(provider: ethers.Provider): ContractAddress
 
   switch (chainId) {
     case 31337: // Hardhat
-    case 1337:  // Hardhat alternative
-      return OMNICOIN_ADDRESSES.hardhat;
-    case 7082400: // COTI Testnet
-      return OMNICOIN_ADDRESSES['coti-testnet'];
+    case 1337: { // Hardhat alternative
+      const hardhatAddresses = OMNICOIN_ADDRESSES['hardhat'];
+      if (hardhatAddresses === undefined) {
+        throw new Error('Hardhat addresses not configured');
+      }
+      return hardhatAddresses;
+    }
+    case 7082400: { // COTI Testnet
+      const cotiTestnetAddresses = OMNICOIN_ADDRESSES['coti-testnet'];
+      if (cotiTestnetAddresses === undefined) {
+        throw new Error('COTI testnet addresses not configured');
+      }
+      return cotiTestnetAddresses;
+    }
     default:
       throw new Error(`OmniCoin contracts not deployed on chain ${chainId}`);
   }
