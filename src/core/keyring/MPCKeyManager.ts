@@ -81,6 +81,7 @@ import { randomBytes, createCipheriv, createDecipheriv, createHash, pbkdf2 } fro
 import { promisify } from 'util';
 import * as secp256k1 from 'secp256k1';
 import BN from 'bn.js';
+import { keccak256 } from 'js-sha3';
 
 const pbkdf2Async = promisify(pbkdf2);
 
@@ -470,13 +471,13 @@ export class MPCKeyManager {
   private generateAddress(publicKey: Uint8Array): string {
     // Remove the first byte (0x04) from uncompressed public key
     const publicKeyWithoutPrefix = publicKey.slice(1);
-    
+
     // Keccak256 hash of public key
-    const hash = createHash('sha256').update(publicKeyWithoutPrefix).digest();
-    
+    const hash = Buffer.from(keccak256.array(publicKeyWithoutPrefix));
+
     // Take last 20 bytes
     const address = '0x' + hash.slice(-20).toString('hex');
-    
+
     return address;
   }
 

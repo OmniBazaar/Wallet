@@ -2,46 +2,66 @@
  * Test suite for ENS Service
  */
 
+// Don't use the manual mock - we're testing the real implementation
+jest.unmock('../../../src/core/ens/ENSService');
+
 import { ENSService } from '../../../src/core/ens/ENSService';
 import { ContractManager } from '../../../src/core/contracts/ContractConfig';
 
 // Mock the contract manager
+const mockResolverContract = {
+  resolve: jest.fn().mockResolvedValue('0x1234567890123456789012345678901234567890')
+};
+
+const mockProvider = {};
+
 jest.mock('../../../src/core/contracts/ContractConfig', () => ({
   ContractManager: {
-    getInstance: jest.fn().mockReturnValue({
-      getResolverContract: jest.fn().mockReturnValue({
-        resolve: jest.fn().mockResolvedValue('0x1234567890123456789012345678901234567890')
-      }),
-      getEthereumProvider: jest.fn().mockReturnValue({
-        // Mock provider
-      })
-    })
+    getInstance: jest.fn(() => ({
+      getResolverContract: jest.fn(() => mockResolverContract),
+      getEthereumProvider: jest.fn(() => mockProvider)
+    })),
+    initialize: jest.fn(() => ({
+      getResolverContract: jest.fn(() => mockResolverContract),
+      getEthereumProvider: jest.fn(() => mockProvider)
+    }))
   },
   ENS_CONFIG: {
     domain: 'omnibazaar.eth',
     subdomain: 'omnicoin.omnibazaar.eth',
     registryAddress: '0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e',
     resolverAddress: '0x1234567890123456789012345678901234567890'
-  }
+  },
+  defaultConfig: {}
 }));
 
 // Mock ethers
-jest.mock('ethers', () => ({
-  ethers: {
-    isAddress: jest.fn((addr: string) => addr.startsWith('0x') && addr.length === 42),
-    ZeroAddress: '0x0000000000000000000000000000000000000000',
-    namehash: jest.fn((name: string) => '0x' + '1'.repeat(64)), // Mock namehash
-    Contract: jest.fn().mockImplementation(() => ({
-      resolver: jest.fn().mockResolvedValue('0x1234567890123456789012345678901234567890'),
-      addr: jest.fn().mockResolvedValue('0x1234567890123456789012345678901234567890')
-    }))
-  }
-}));
+const mockEnsContract = {
+  resolver: jest.fn().mockResolvedValue('0x1234567890123456789012345678901234567890'),
+  addr: jest.fn().mockResolvedValue('0x1234567890123456789012345678901234567890')
+};
+
+jest.mock('ethers', () => {
+  const actual = jest.requireActual('ethers');
+  return {
+    ...actual,
+    ethers: {
+      ...actual.ethers,
+      isAddress: jest.fn((addr: string) => addr.startsWith('0x') && addr.length === 42),
+      ZeroAddress: '0x0000000000000000000000000000000000000000',
+      namehash: jest.fn((name: string) => '0x' + '1'.repeat(64)), // Mock namehash
+      Contract: jest.fn(() => mockEnsContract),
+      JsonRpcProvider: jest.fn(() => mockProvider)
+    }
+  };
+});
 
 describe('ENSService', () => {
   let ensService: ENSService;
 
   beforeEach(() => {
+    // Clear any cached instance
+    (ENSService as any).instance = undefined;
     ensService = ENSService.getInstance();
   });
 

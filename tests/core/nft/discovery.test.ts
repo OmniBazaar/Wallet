@@ -240,7 +240,7 @@ describe('NFTDiscoveryService', () => {
         chains: ['solana']
       });
       
-      expect(result.nfts[0].type).toBe(NFTType.SolanaBGUM);
+      expect(result.nfts[0].type).toBe(NFTType.SOLANA_BGUM);
     });
   });
 

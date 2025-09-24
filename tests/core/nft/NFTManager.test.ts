@@ -26,6 +26,14 @@ jest.mock('../../../src/core/nft/discovery', () => ({
   NFTDiscoveryService: jest.fn().mockImplementation(() => mockDiscoveryService)
 }));
 
+// Mock ethers.Interface for contract encoding
+jest.mock('ethers', () => ({
+  ...jest.requireActual('ethers'),
+  Interface: jest.fn().mockImplementation(() => ({
+    encodeFunctionData: jest.fn().mockReturnValue('0x23b872dd' + '0'.repeat(192)) // safeTransferFrom encoded
+  }))
+}));
+
 // Mock provider manager before importing NFTManager
 jest.mock('../../../src/core/providers/ProviderManager', () => {
   const mockProvider = {
@@ -50,7 +58,13 @@ jest.mock('../../../src/core/providers/ProviderManager', () => {
     evmProviders: new Map([['ethereum', mockEVMProvider]]),
     activeChain: 'ethereum',
     activeNetwork: 'ethereum',
-    getProvider: jest.fn().mockReturnValue(mockProvider),
+    getProvider: jest.fn().mockImplementation((chainType) => {
+      // Return provider for ethereum, otherwise return null
+      if (chainType === 'ethereum') {
+        return mockProvider;
+      }
+      return null;
+    }),
     getActiveProvider: jest.fn().mockReturnValue(mockEVMProvider),
     switchEVMNetwork: jest.fn().mockResolvedValue(undefined),
     getEVMProvider: jest.fn().mockReturnValue(mockEVMProvider),
@@ -192,10 +206,11 @@ describe('NFTManager', () => {
         chain: 'ethereum' as Chain
       };
 
-      const txHash = await nftManager.transferNFT(
-        erc721NFT,
-        TEST_ADDRESSES.ethereum,
-      );
+      const txHash = await nftManager.transferNFT({
+        nft: erc721NFT,
+        from: TEST_ADDRESSES.ethereum,
+        to: '0xRecipientAddress'
+      });
 
       expect(txHash).toBe('0x123');
       expect(providerManager.getProvider).toHaveBeenCalledWith('ethereum');
@@ -208,11 +223,12 @@ describe('NFTManager', () => {
         chain: 'ethereum' as Chain
       };
 
-      const txHash = await nftManager.transferNFT(
-        erc1155NFT,
-        TEST_ADDRESSES.ethereum,
-        '5'
-      );
+      const txHash = await nftManager.transferNFT({
+        nft: erc1155NFT,
+        from: TEST_ADDRESSES.ethereum,
+        to: '0xRecipient',
+        amount: '5'
+      });
 
       expect(txHash).toBe('0x123');
       expect(providerManager.getProvider).toHaveBeenCalledWith('ethereum');
@@ -225,7 +241,11 @@ describe('NFTManager', () => {
       };
 
       await expect(
-        nftManager.transferNFT(unsupportedNFT, TEST_ADDRESSES.ethereum)
+        nftManager.transferNFT({
+          nft: unsupportedNFT,
+          from: TEST_ADDRESSES.ethereum,
+          to: '0xRecipient'
+        })
       ).rejects.toThrow('not supported');
     });
 
@@ -237,7 +257,11 @@ describe('NFTManager', () => {
       };
 
       await expect(
-        nftManager.transferNFT(unsupportedNFT, TEST_ADDRESSES.ethereum)
+        nftManager.transferNFT({
+          nft: unsupportedNFT,
+          from: TEST_ADDRESSES.ethereum,
+          to: '0xRecipient'
+        })
       ).rejects.toThrow('Unsupported NFT type');
     });
 
@@ -252,7 +276,11 @@ describe('NFTManager', () => {
       };
 
       await expect(
-        nftManager.transferNFT(nft, TEST_ADDRESSES.ethereum)
+        nftManager.transferNFT({
+          nft: nft,
+          from: TEST_ADDRESSES.ethereum,
+          to: '0xRecipient'
+        })
       ).rejects.toThrow('No active account');
     });
   });

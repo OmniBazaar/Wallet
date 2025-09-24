@@ -10,7 +10,10 @@ import {
  * OmniCoin token metadata used across the wallet.
  * Now properly integrated with deployed contracts from Coin module.
  */
-export const OmniCoinMetadata = OMNICOIN_METADATA;
+export const OmniCoinMetadata = {
+  ...OMNICOIN_METADATA,
+  contractAddress: process.env.OMNICOIN_CONTRACT_ADDRESS || '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512' // Default Hardhat address
+};
 
 /**
  * Get the OmniCoin contract address for the current network

@@ -401,7 +401,7 @@ describe('BrowserExtensionService', () => {
         mockSender
       );
 
-      service.disconnectSite(TEST_ORIGIN);
+      await service.disconnect(TEST_ORIGIN);
 
       expect(service.getConnectedSites()).not.toContain(TEST_ORIGIN);
 

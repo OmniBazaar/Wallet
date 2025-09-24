@@ -3,14 +3,22 @@
  * Tests wallet integration with validator nodes and oracle services
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from '@jest/globals';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, jest } from '@jest/globals';
 import { WalletService } from '../../src/services/WalletService';
+import { mockWallet, createMockProvider } from '../setup';
+import { ethers } from 'ethers';
+
+// Mock the validator module imports
+jest.mock('../../src/services/ValidatorService');
+jest.mock('../../src/services/OracleService');
+jest.mock('../../src/services/KYCService');
+jest.mock('../../src/services/ReputationService');
+
+// Import mocked services
 import { ValidatorService } from '../../src/services/ValidatorService';
 import { OracleService } from '../../src/services/OracleService';
 import { KYCService } from '../../src/services/KYCService';
 import { ReputationService } from '../../src/services/ReputationService';
-import { mockWallet, createMockProvider } from '../setup';
-import { ethers } from 'ethers';
 
 describe('Validator/Oracle Integration', () => {
   let walletService: WalletService;
@@ -30,9 +38,8 @@ describe('Validator/Oracle Integration', () => {
     validatorService = new ValidatorService();
     oracleService = new OracleService();
 
-    // KYCService requires a provider parameter
-    const provider = new ethers.JsonRpcProvider('http://localhost:8545');
-    kycService = new KYCService(provider);
+    // KYCService requires a provider parameter - use mock provider
+    kycService = new KYCService(mockProvider);
 
     reputationService = new ReputationService();
 

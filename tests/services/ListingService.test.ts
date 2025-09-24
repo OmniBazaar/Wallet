@@ -93,28 +93,15 @@ describe('ListingService', () => {
     experience: 'Senior level'
   };
 
-  const mockProductListing: ListingMetadata = {
-    id: 'listing-001',
-    type: 'product',
-    seller: mockSeller,
-    details: mockProductDetails,
-    listingNode: {
-      address: '0xNode123',
-      name: 'SF Node 1',
-      location: mockSeller.location,
-      status: 'active',
-      lastSync: '2024-01-01T00:00:00Z'
-    },
-    createdAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-01T00:00:00Z',
-    status: 'active',
-    views: 100,
-    favorites: 15,
-    sales: 0,
-    reviews: {
-      rating: 0,
-      count: 0
-    }
+  const mockProductListing: any = {
+    title: 'High-Quality Electronics',
+    description: 'Premium electronics with warranty',
+    price: '100', // Price in XOM
+    seller: mockSeller.address,
+    category: 'Electronics',
+    images: ['image1.jpg', 'image2.jpg'],
+    tags: ['electronics', 'premium'],
+    location: mockSeller.location.city
   };
 
   beforeEach(() => {
@@ -148,25 +135,32 @@ describe('ListingService', () => {
 
     it('should create a product listing', async () => {
       const listing = await listingService.createListing(mockProductListing);
-      
+
       expect(listing).toBeDefined();
       expect(listing.id).toBeDefined();
-      expect(listing.type).toBe('product');
-      expect(listing.seller).toEqual(mockSeller);
-      expect(listing.details).toEqual(mockProductDetails);
+      expect(listing.title).toBe('High-Quality Electronics');
+      expect(listing.seller).toBe(mockSeller.address);
+      expect(listing.price).toBe('100');
+      expect(listing.category).toBe('Electronics');
     });
 
     it('should create a service listing', async () => {
       const serviceListing = {
-        ...mockProductListing,
-        type: 'service' as const,
-        details: mockServiceDetails
+        title: 'Professional Service',
+        description: 'Expert service available',
+        price: '200',
+        seller: mockSeller.address,
+        category: 'Services',
+        images: [],
+        tags: ['service', 'professional'],
+        location: mockSeller.location.city
       };
-      
+
       const listing = await listingService.createListing(serviceListing);
-      
-      expect(listing.type).toBe('service');
-      expect(listing.details).toEqual(mockServiceDetails);
+
+      expect(listing.title).toBe('Professional Service');
+      expect(listing.category).toBe('Services');
+      expect(listing.price).toBe('200');
     });
 
     it('should generate unique listing IDs', async () => {

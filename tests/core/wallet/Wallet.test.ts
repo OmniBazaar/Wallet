@@ -30,6 +30,7 @@ jest.mock('ethers', () => ({
 // Mock OmniCoin functions
 jest.mock('../../../src/core/blockchain/OmniCoin', () => ({
   getOmniCoinBalance: jest.fn().mockResolvedValue(BigInt('50000000000000000000')), // 50 OMNI
+  getContractAddress: jest.fn().mockReturnValue('0x742d35Cc6B34C4532E3F4b7c5b4E6b41c2b14BD3'),
   OmniCoinMetadata: {
     contractAddress: '0x742d35Cc6B34C4532E3F4b7c5b4E6b41c2b14BD3'
   }
@@ -290,15 +291,14 @@ describe('Wallet Core Implementation', () => {
   describe('Privacy Features', () => {
     beforeEach(async () => {
       await wallet.connect();
-      // Mock localStorage
-      Object.defineProperty(window, 'localStorage', {
-        value: {
-          getItem: jest.fn(),
-          setItem: jest.fn(),
-          removeItem: jest.fn()
-        },
-        writable: true
-      });
+      // Mock localStorage for Node environment
+      const localStorageMock = {
+        getItem: jest.fn(),
+        setItem: jest.fn(),
+        removeItem: jest.fn(),
+        clear: jest.fn()
+      };
+      global.localStorage = localStorageMock as any;
     });
 
     it('should create privacy account', async () => {

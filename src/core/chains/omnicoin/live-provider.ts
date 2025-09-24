@@ -112,19 +112,21 @@ export class LiveOmniCoinProvider {
   /**
    * Create new LiveOmniCoinProvider instance
    * @param networkName - OmniCoin network name (mainnet/testnet)
+   * @param config - Optional custom configuration
    */
-  constructor(networkName: keyof typeof OMNICOIN_NETWORKS = 'testnet') {
-    const network = OMNICOIN_NETWORKS[networkName];
-    if (network === null || network === undefined) {
+  constructor(networkName: keyof typeof OMNICOIN_NETWORKS = 'testnet', config?: Partial<OmniCoinNetwork>) {
+    const baseNetwork = OMNICOIN_NETWORKS[networkName];
+    if (baseNetwork === null || baseNetwork === undefined) {
       throw new Error(`Unknown OmniCoin network: ${networkName}`);
     }
-    
-    this.network = network;
-    this.provider = new ethers.JsonRpcProvider(network.rpcUrl, {
-      chainId: network.chainId,
-      name: network.name
+
+    // Merge custom config with base network
+    this.network = config ? { ...baseNetwork, ...config } : baseNetwork;
+    this.provider = new ethers.JsonRpcProvider(this.network.rpcUrl, {
+      chainId: this.network.chainId,
+      name: this.network.name
     });
-    
+
     // Initialize validator client for off-chain features
     void this.initializeValidatorClient();
   }
@@ -235,12 +237,27 @@ export class LiveOmniCoinProvider {
   }
 
   /**
-   * Get account balance (XOM and XOMP)
+   * Get account balance (XOM)
+   * @param address - Address to get balance for (defaults to active account)
+   * @returns Balance in wei
+   */
+  async getBalance(address?: string): Promise<bigint> {
+    const targetAddress = address ?? keyringService.getActiveAccount()?.address;
+    if (targetAddress === undefined || targetAddress === '') {
+      throw new Error('No address provided');
+    }
+
+    // Get public balance
+    return await this.provider.getBalance(targetAddress);
+  }
+
+  /**
+   * Get extended balance information (XOM, XOMP, and staked)
    * @param address - Address to get balance for (defaults to active account)
    * @param includePrivate - Whether to include private balance
    * @returns Balance information including public, private, and staked amounts
    */
-  async getBalance(address?: string, includePrivate = false): Promise<{
+  async getExtendedBalance(address?: string, includePrivate = false): Promise<{
     public: bigint;
     private?: bigint;
     staked?: bigint;
@@ -249,12 +266,12 @@ export class LiveOmniCoinProvider {
     if (targetAddress === undefined || targetAddress === '') {
       throw new Error('No address provided');
     }
-    
+
     // Get public balance
     const publicBalance = await this.provider.getBalance(targetAddress);
-    
+
     const result: { public: bigint; private?: bigint; staked?: bigint } = { public: publicBalance };
-    
+
     // Get private balance if requested
     if (includePrivate && this.network.features.privacy) {
       try {
@@ -264,7 +281,7 @@ export class LiveOmniCoinProvider {
         console.warn('Could not fetch private balance:', error);
       }
     }
-    
+
     // Get staked balance if validator client is available
     if (this.validatorClient !== null && this.network.features.staking === true) {
       try {
@@ -276,7 +293,7 @@ export class LiveOmniCoinProvider {
         console.warn('Could not fetch staked balance:', error);
       }
     }
-    
+
     return result;
   }
 
@@ -302,23 +319,23 @@ export class LiveOmniCoinProvider {
    * @returns Formatted balance information
    */
   async getFormattedBalance(address?: string, includePrivate = false): Promise<{ public: string; private?: string; staked?: string }> {
-    const balances = await this.getBalance(address, includePrivate);
-    
-    // Format with 6 decimals for OmniCoin
+    const balances = await this.getExtendedBalance(address, includePrivate);
+
+    // Format with 18 decimals for OmniCoin (EVM standard)
     const formatOmniCoin = (value: bigint): string => {
       return ethers.formatUnits(value, this.network.nativeCurrency.decimals);
     };
-    
+
     const result: { public: string; private?: string; staked?: string } = { public: formatOmniCoin(balances.public) };
-    
+
     if (balances.private !== undefined) {
       result.private = formatOmniCoin(balances.private);
     }
-    
+
     if (balances.staked !== undefined) {
       result.staked = formatOmniCoin(balances.staked);
     }
-    
+
     return result;
   }
 
@@ -491,6 +508,79 @@ export class LiveOmniCoinProvider {
   getContractWithSigner(address: string, abi: InterfaceAbi): ethers.Contract {
     const signer = this.getSigner();
     return new ethers.Contract(address, abi, signer);
+  }
+
+  /**
+   * Broadcast a signed transaction
+   * @param transaction - Transaction to broadcast
+   * @returns Transaction response
+   */
+  async broadcastTransaction(transaction: ethers.TransactionRequest): Promise<ethers.TransactionResponse> {
+    const signer = this.getSigner();
+    return await signer.sendTransaction(transaction);
+  }
+
+  /**
+   * Send a private transaction
+   * @param transaction - Transaction to send privately
+   * @returns Transaction response
+   */
+  async sendPrivateTransaction(transaction: ethers.TransactionRequest): Promise<ethers.TransactionResponse> {
+    if (!this.network.features.privacy) {
+      throw new Error('Privacy features not supported on this network');
+    }
+
+    const signer = this.getSigner() as OmniCoinKeyringSigner;
+    return await signer.sendPrivateTransaction({
+      to: transaction.to as string,
+      data: transaction.data as string,
+      private: true
+    });
+  }
+
+  /**
+   * Stake XOM tokens (alias for stakeOmniCoin)
+   * @param amount - Amount to stake in wei
+   * @param validatorAddress - Validator address to stake to
+   * @returns Transaction response
+   */
+  async stake(amount: bigint, validatorAddress: string): Promise<ethers.TransactionResponse> {
+    // Default staking duration of 30 days
+    const duration = 30 * 24 * 60 * 60;
+    return await this.stakeOmniCoin(amount, duration);
+  }
+
+  /**
+   * Get staking information for an address
+   * @param address - Address to get staking info for
+   * @returns Staking information
+   */
+  async getStakingInfo(address: string): Promise<{ totalStaked: bigint; validators: string[] }> {
+    const stakingContract = this.getContract(
+      '0x0000000000000000000000000000000000000002', // OmniCoin staking contract
+      [
+        'function getStakingInfo(address user) view returns (uint256 totalStaked, address[] validators)'
+      ]
+    ) as ethers.Contract & {
+      getStakingInfo: (user: string) => Promise<[bigint, string[]]>;
+    };
+
+    try {
+      const [totalStaked, validators] = await stakingContract.getStakingInfo(address);
+      return { totalStaked, validators };
+    } catch (error) {
+      // Return default values if contract call fails
+      return { totalStaked: 0n, validators: [] };
+    }
+  }
+
+  /**
+   * Get user reputation (alias for getReputationScore)
+   * @param address - User address
+   * @returns Reputation score
+   */
+  async getReputation(address: string): Promise<number> {
+    return await this.getReputationScore(address);
   }
 }
 

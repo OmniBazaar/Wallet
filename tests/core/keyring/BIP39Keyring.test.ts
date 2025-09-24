@@ -73,8 +73,8 @@ describe('BIP39Keyring', () => {
     });
 
     it('should create Ethereum accounts with correct derivation path', () => {
-      const account1 = keyring.createAccount(ChainType.Ethereum, 0);
-      const account2 = keyring.createAccount(ChainType.Ethereum, 1);
+      const account1 = keyring.createAccount(ChainType.ETHEREUM, 0);
+      const account2 = keyring.createAccount(ChainType.ETHEREUM, 1);
       
       expect(account1.address).toMatch(/^0x[a-fA-F0-9]{40}$/);
       expect(account2.address).toMatch(/^0x[a-fA-F0-9]{40}$/);
@@ -84,39 +84,39 @@ describe('BIP39Keyring', () => {
     });
 
     it('should create Bitcoin accounts with correct derivation path', () => {
-      const account = keyring.createAccount(ChainType.Bitcoin, 0);
-      
+      const account = keyring.createAccount(ChainType.BITCOIN, 0);
+
       expect(account.address).toMatch(/^(bc1|[13])[a-zA-HJ-NP-Z0-9]{25,87}$/);
       expect(account.derivationPath).toBe("m/44'/0'/0'/0/0"); // BIP44 for Bitcoin
     });
 
     it('should create Solana accounts with correct derivation path', () => {
-      const account = keyring.createAccount(ChainType.Solana, 0);
+      const account = keyring.createAccount(ChainType.SOLANA, 0);
       
       expect(account.address).toMatch(/^[1-9A-HJ-NP-Za-km-z]{32,44}$/);
       expect(account.derivationPath).toBe("m/44'/501'/0'/0'");
     });
 
     it('should create Substrate accounts with correct derivation path', () => {
-      const account = keyring.createAccount(ChainType.Substrate, 0);
+      const account = keyring.createAccount(ChainType.SUBSTRATE, 0);
       
       expect(account.address).toMatch(/^[1-9A-HJ-NP-Za-km-z]{47,48}$/);
       expect(account.derivationPath).toBe("m/44'/354'/0'/0/0");
     });
 
     it('should get all accounts', () => {
-      keyring.createAccount(ChainType.Ethereum, 0);
-      keyring.createAccount(ChainType.Bitcoin, 0);
-      keyring.createAccount(ChainType.Solana, 0);
-      keyring.createAccount(ChainType.Substrate, 0);
+      keyring.createAccount(ChainType.ETHEREUM, 0);
+      keyring.createAccount(ChainType.BITCOIN, 0);
+      keyring.createAccount(ChainType.SOLANA, 0);
+      keyring.createAccount(ChainType.SUBSTRATE, 0);
       
       const accounts = keyring.getAccounts();
       expect(accounts).toHaveLength(4);
       expect(accounts.map(a => a.chainType)).toEqual([
-        ChainType.Ethereum,
-        ChainType.Bitcoin,
-        ChainType.Solana,
-        ChainType.Substrate
+        ChainType.ETHEREUM,
+        ChainType.BITCOIN,
+        ChainType.SOLANA,
+        ChainType.SUBSTRATE
       ]);
     });
   });
@@ -127,14 +127,14 @@ describe('BIP39Keyring', () => {
     });
 
     it('should export Ethereum private key in hex format', () => {
-      const account = keyring.createAccount(ChainType.Ethereum, 0);
+      const account = keyring.createAccount(ChainType.ETHEREUM, 0);
       const privateKey = keyring.exportPrivateKey(account.id);
       
       expect(privateKey).toMatch(/^0x[a-fA-F0-9]{64}$/);
     });
 
     it('should export Bitcoin private key in WIF format', () => {
-      const account = keyring.createAccount(ChainType.Bitcoin, 0);
+      const account = keyring.createAccount(ChainType.BITCOIN, 0);
       const privateKey = keyring.exportPrivateKey(account.id);
       
       // WIF format for mainnet starts with K, L, or 5
@@ -142,7 +142,7 @@ describe('BIP39Keyring', () => {
     });
 
     it('should export Solana private key in base58 format', () => {
-      const account = keyring.createAccount(ChainType.Solana, 0);
+      const account = keyring.createAccount(ChainType.SOLANA, 0);
       const privateKey = keyring.exportPrivateKey(account.id);
       
       // Solana private keys are 64 bytes encoded in base58
@@ -150,7 +150,7 @@ describe('BIP39Keyring', () => {
     });
 
     it('should export Substrate private key in hex format', () => {
-      const account = keyring.createAccount(ChainType.Substrate, 0);
+      const account = keyring.createAccount(ChainType.SUBSTRATE, 0);
       const privateKey = keyring.exportPrivateKey(account.id);
       
       expect(privateKey).toMatch(/^0x[a-fA-F0-9]{64}$/);
@@ -169,7 +169,7 @@ describe('BIP39Keyring', () => {
     });
 
     it('should sign message with Ethereum account', async () => {
-      const account = keyring.createAccount(ChainType.Ethereum, 0);
+      const account = keyring.createAccount(ChainType.ETHEREUM, 0);
       const message = 'Hello, OmniBazaar!';
       
       const signature = await keyring.signMessage(account.id, message);
@@ -177,7 +177,7 @@ describe('BIP39Keyring', () => {
     });
 
     it('should sign message with Bitcoin account', async () => {
-      const account = keyring.createAccount(ChainType.Bitcoin, 0);
+      const account = keyring.createAccount(ChainType.BITCOIN, 0);
       const message = 'Hello, Bitcoin!';
       
       const signature = await keyring.signMessage(account.id, message);
@@ -186,7 +186,7 @@ describe('BIP39Keyring', () => {
     });
 
     it('should sign message with Solana account', async () => {
-      const account = keyring.createAccount(ChainType.Solana, 0);
+      const account = keyring.createAccount(ChainType.SOLANA, 0);
       const message = 'Hello, Solana!';
       
       const signature = await keyring.signMessage(account.id, message);
@@ -194,7 +194,7 @@ describe('BIP39Keyring', () => {
     });
 
     it('should sign message with Substrate account', async () => {
-      const account = keyring.createAccount(ChainType.Substrate, 0);
+      const account = keyring.createAccount(ChainType.SUBSTRATE, 0);
       const message = 'Hello, Polkadot!';
       
       const signature = await keyring.signMessage(account.id, message);
@@ -208,7 +208,7 @@ describe('BIP39Keyring', () => {
     });
 
     it('should sign Ethereum transaction', async () => {
-      const account = keyring.createAccount(ChainType.Ethereum, 0);
+      const account = keyring.createAccount(ChainType.ETHEREUM, 0);
       const tx = {
         to: TEST_ADDRESSES.ethereum,
         value: '0x1',
@@ -223,7 +223,7 @@ describe('BIP39Keyring', () => {
     });
 
     it('should sign Bitcoin transaction', async () => {
-      const account = keyring.createAccount(ChainType.Bitcoin, 0);
+      const account = keyring.createAccount(ChainType.BITCOIN, 0);
       const tx = {
         inputs: [{
           txid: '0'.repeat(64),
@@ -242,7 +242,7 @@ describe('BIP39Keyring', () => {
     });
 
     it('should sign Solana transaction', async () => {
-      const account = keyring.createAccount(ChainType.Solana, 0);
+      const account = keyring.createAccount(ChainType.SOLANA, 0);
       const tx = {
         recentBlockhash: '11111111111111111111111111111111',
         feePayer: account.address,
@@ -260,17 +260,17 @@ describe('BIP39Keyring', () => {
       const keyring1 = new BIP39Keyring();
       await keyring1.initFromMnemonic(TEST_MNEMONIC);
       
-      const eth1 = keyring1.createAccount(ChainType.Ethereum, 0);
-      const btc1 = keyring1.createAccount(ChainType.Bitcoin, 0);
-      const sol1 = keyring1.createAccount(ChainType.Solana, 0);
+      const eth1 = keyring1.createAccount(ChainType.ETHEREUM, 0);
+      const btc1 = keyring1.createAccount(ChainType.BITCOIN, 0);
+      const sol1 = keyring1.createAccount(ChainType.SOLANA, 0);
       
       // Create accounts with second keyring using same mnemonic
       const keyring2 = new BIP39Keyring();
       await keyring2.initFromMnemonic(TEST_MNEMONIC);
       
-      const eth2 = keyring2.createAccount(ChainType.Ethereum, 0);
-      const btc2 = keyring2.createAccount(ChainType.Bitcoin, 0);
-      const sol2 = keyring2.createAccount(ChainType.Solana, 0);
+      const eth2 = keyring2.createAccount(ChainType.ETHEREUM, 0);
+      const btc2 = keyring2.createAccount(ChainType.BITCOIN, 0);
+      const sol2 = keyring2.createAccount(ChainType.SOLANA, 0);
       
       // Addresses should match
       expect(eth1.address).toBe(eth2.address);
@@ -284,14 +284,14 @@ describe('BIP39Keyring', () => {
       keyring.initFromMnemonic(TEST_MNEMONIC);
       
       // Create account with high index
-      const account = keyring.createAccount(ChainType.Ethereum, 999999);
+      const account = keyring.createAccount(ChainType.ETHEREUM, 999999);
       expect(account.address).toMatch(/^0x[a-fA-F0-9]{40}$/);
       expect(account.derivationPath).toBe("m/44'/60'/0'/0/999999");
     });
 
     it('should prevent operations on uninitialized keyring', () => {
       expect(() => {
-        keyring.createAccount(ChainType.Ethereum, 0);
+        keyring.createAccount(ChainType.ETHEREUM, 0);
       }).toThrow('Keyring not initialized');
       
       expect(() => {

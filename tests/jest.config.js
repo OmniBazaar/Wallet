@@ -14,14 +14,25 @@ export default {
     '^.+\\.(ts|tsx)$': ['ts-jest', {
       tsconfig: '<rootDir>/tsconfig.test.json',
       jsx: 'react-jsx'
+    }],
+    '^.+\\.vue$': ['@vue/vue3-jest', {
+      compilerOptions: {
+        propsDestructure: true
+      }
     }]
   },
   transformIgnorePatterns: [
-    'node_modules/(?!(uuid|@solana|@polkadot|jayson|bip39|bitcoinjs-lib|elliptic|bs58)/)'
+    'node_modules/(?!(uuid|@solana|@polkadot|jayson|bip39|bitcoinjs-lib|elliptic|bs58|ecpair|tiny-secp256k1|vue|@vue)/)'
   ],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/../src/$1',
-    '\\.(css|less|scss|sass)$': 'identity-obj-proxy'
+    '\\.(css|less|scss|sass)$': 'identity-obj-proxy',
+    '^ecpair$': '<rootDir>/../__mocks__/ecpair/index.js',
+    '^tiny-secp256k1$': '<rootDir>/../__mocks__/tiny-secp256k1.js',
+    '^bip32$': '<rootDir>/../__mocks__/bip32.js',
+    '^bip39$': '<rootDir>/../__mocks__/bip39.js',
+    '^@solana/web3\\.js$': '<rootDir>/../__mocks__/@solana/web3.js.js',
+    '^@solana/spl-token$': '<rootDir>/../__mocks__/@solana/spl-token.js'
   },
   collectCoverageFrom: [
     'src/**/*.{js,ts,tsx}',

@@ -4,6 +4,11 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from '@jest/globals';
+// Mock the database modules to use in-memory implementations
+jest.mock('../../src/services/TransactionDatabase');
+jest.mock('../../src/services/WalletDatabase');
+jest.mock('../../src/services/NFTDatabase');
+
 import { WalletDatabase } from '../../src/services/WalletDatabase';
 import { TransactionDatabase } from '../../src/services/TransactionDatabase';
 import { NFTDatabase } from '../../src/services/NFTDatabase';
@@ -112,13 +117,14 @@ describe('Wallet Database Integration', () => {
 
   describe('Transaction History', () => {
     it('should store transaction records', async () => {
-      await transactionDB.saveTransaction(mockTransaction);
-      
+      const saved = await transactionDB.saveTransaction(mockTransaction);
+      expect(saved).toBe(true);
+
       const tx = await transactionDB.getTransaction(mockTransaction.hash);
       expect(tx).toBeDefined();
-      expect(tx.hash).toBe(mockTransaction.hash);
-      expect(tx.from).toBe(mockTransaction.from);
-      expect(tx.to).toBe(mockTransaction.to);
+      expect(tx!.hash).toBe(mockTransaction.hash);
+      expect(tx!.from).toBe(mockTransaction.from);
+      expect(tx!.to).toBe(mockTransaction.to);
     });
 
     it('should retrieve transactions by address', async () => {
@@ -161,14 +167,16 @@ describe('Wallet Database Integration', () => {
         status: 'pending'
       });
 
-      await transactionDB.updateTransactionStatus(mockTransaction.hash, 'confirmed', {
+      const updateResult = await transactionDB.updateTransactionStatus(mockTransaction.hash, 'confirmed', {
         blockNumber: 12345,
         confirmations: 12
       });
+      expect(updateResult).toBe(true);
 
       const updated = await transactionDB.getTransaction(mockTransaction.hash);
-      expect(updated.status).toBe('confirmed');
-      expect(updated.blockNumber).toBe(12345);
+      expect(updated).toBeDefined();
+      expect(updated!.status).toBe('confirmed');
+      expect(updated!.blockNumber).toBe(12345);
     });
 
     it('should calculate transaction statistics', async () => {
@@ -234,6 +242,9 @@ describe('Wallet Database Integration', () => {
     });
 
     it('should cache NFT metadata', async () => {
+      // First save the NFT
+      await nftDB.saveNFT(mockNFT);
+
       const metadata = {
         name: 'Test NFT',
         description: 'Test Description',
@@ -244,7 +255,7 @@ describe('Wallet Database Integration', () => {
       };
 
       await nftDB.cacheMetadata(mockNFT.contractAddress, mockNFT.tokenId, metadata);
-      
+
       const cached = await nftDB.getCachedMetadata(mockNFT.contractAddress, mockNFT.tokenId);
       expect(cached).toEqual(metadata);
     });
@@ -322,8 +333,28 @@ describe('Wallet Database Integration', () => {
         }
       };
 
+      // Clear existing data first
+      await walletDB.clear();
+      await transactionDB.clear();
+      await nftDB.clear();
+
+      // Restore wallet data
       await walletDB.restoreFromBackup(backup);
-      
+
+      // Restore transaction data
+      if (backup.data.transactions) {
+        for (const tx of backup.data.transactions) {
+          await transactionDB.saveTransaction(tx);
+        }
+      }
+
+      // Restore NFT data
+      if (backup.data.nfts) {
+        for (const nft of backup.data.nfts) {
+          await nftDB.saveNFT(nft);
+        }
+      }
+
       expect(await walletDB.getWallet(mockWallet.address)).toBeDefined();
       expect(await transactionDB.getTransaction(mockTransaction.hash)).toBeDefined();
       expect(await nftDB.getNFT(mockNFT.contractAddress, mockNFT.tokenId)).toBeDefined();

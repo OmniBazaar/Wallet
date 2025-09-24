@@ -303,7 +303,7 @@ export class HardwareWalletService {
       for (let i = startIndex; i < startIndex + count; i++) {
         const path = `m/44'/60'/${i}'/0/0`; // Ethereum derivation path
         // Mock address and public key generation
-        const mockAddress = '0x' + Math.random().toString(16).substr(2, 40);
+        const mockAddress = '0x' + Array(40).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join('');
         const mockPublicKey = '0x' + Array(130).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join('');
 
         accounts.push({

@@ -46,8 +46,10 @@ describe('OmniCoin Integration', () => {
       const originalContract = ethers.Contract;
       (ethers as any).Contract = jest.fn().mockReturnValue(mockContract);
 
-      // Create a mock provider
-      const mockProvider = {} as any;
+      // Create a mock provider with network info
+      const mockProvider = {
+        _network: { chainId: 31337, name: 'hardhat' }
+      } as any;
 
       const balance = await getOmniCoinBalance('0x742d35Cc6B34C4532E3F4b7c5b4E6b41c2b14BD3', mockProvider);
       expect(balance).toBe(BigInt('1000000000000000000'));
@@ -76,12 +78,14 @@ describe('OmniCoin Integration', () => {
       const originalContract = ethers.Contract;
       (ethers as any).Contract = jest.fn().mockReturnValue(mockContract);
 
-      // Create a mock provider
-      const mockProvider = {} as any;
+      // Create a mock provider with network info
+      const mockProvider = {
+        _network: { chainId: 31337, name: 'hardhat' }
+      } as any;
 
       await expect(
         getOmniCoinBalance('0x742d35Cc6B34C4532E3F4b7c5b4E6b41c2b14BD3', mockProvider)
-      ).rejects.toThrow('Contract error');
+      ).rejects.toThrow('Error fetching OmniCoin balance: Contract error');
 
       // Restore
       (ethers as any).Contract = originalContract;
@@ -95,12 +99,14 @@ describe('OmniCoin Integration', () => {
       const originalContract = ethers.Contract;
       (ethers as any).Contract = jest.fn().mockReturnValue(mockContract);
 
-      // Create a mock provider
-      const mockProvider = {} as any;
+      // Create a mock provider with network info
+      const mockProvider = {
+        _network: { chainId: 31337, name: 'hardhat' }
+      } as any;
 
       await expect(
         getOmniCoinBalance('0x742d35Cc6B34C4532E3F4b7c5b4E6b41c2b14BD3', mockProvider)
-      ).rejects.toThrow('balanceOf method not found on contract');
+      ).rejects.toThrow('Error fetching OmniCoin balance');
 
       // Restore
       (ethers as any).Contract = originalContract;

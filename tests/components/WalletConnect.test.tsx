@@ -1,6 +1,7 @@
 /**
  * WalletConnect React Component Tests
  * Tests TypeScript strict compliance, wallet connection states, and user interactions
+ * @jest-environment jsdom
  */
 
 import React from 'react';

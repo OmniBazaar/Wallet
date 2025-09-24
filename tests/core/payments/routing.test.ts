@@ -3,12 +3,18 @@
  * Tests DePay-inspired payment routing functionality
  */
 
-import { paymentRouter, PaymentRoute } from '../../../src/core/payments/routing';
-import { bridgeService } from '../../../src/core/bridge';
-import { providerManager } from '../../../src/core/providers/ProviderManager';
-import { keyringService } from '../../../src/core/keyring/KeyringService';
 import { TEST_ADDRESSES, TEST_PASSWORD, MOCK_TOKENS, cleanupTest } from '../../setup';
 import { ethers } from 'ethers';
+import { ChainType } from '../../../src/core/keyring/BIP39Keyring';
+
+// Mock provider manager module FIRST before importing anything that uses it
+jest.mock('../../../src/core/providers/ProviderManager', () => {
+  const { createMockProviderManager } = require('../../mocks/provider-manager-mock');
+  return {
+    providerManager: createMockProviderManager(),
+    resetProviderManager: jest.fn()
+  };
+});
 
 // Mock required modules before any imports
 jest.mock('../../../src/core/keyring/KeyringService', () => ({
@@ -55,28 +61,44 @@ jest.mock('../../../src/core/bridge', () => ({
   }
 }));
 
-// Mock provider manager
-jest.mock('../../../src/core/providers/ProviderManager', () => ({
-  providerManager: {
-    providers: new Map(),
-    getProvider: jest.fn().mockReturnValue({
-      getBalance: jest.fn().mockResolvedValue(1000000000000000000n), // 1 ETH in wei
-      sendTransaction: jest.fn().mockResolvedValue('0x' + '1'.repeat(64))
-    }),
-    switchEVMNetwork: jest.fn().mockResolvedValue(undefined),
-    setActiveChain: jest.fn().mockResolvedValue(undefined),
-    sendTransaction: jest.fn().mockResolvedValue('0x' + '1'.repeat(64)),
-    getActiveProvider: jest.fn().mockReturnValue({
-      getBalance: jest.fn().mockResolvedValue(1000000000000000000n)
-    })
-  }
-}));
+// Now import modules that depend on the mocks
+import { paymentRouter, PaymentRoute } from '../../../src/core/payments/routing';
+import { bridgeService } from '../../../src/core/bridge';
 
 describe('PaymentRoutingService', () => {
+  // Get the actual provider manager mock from the module
+  const providerManagerMock = require('../../../src/core/providers/ProviderManager').providerManager;
+
   beforeEach(async () => {
     // Reset mocks
     (bridgeService.getQuotes as jest.Mock).mockClear();
-    (providerManager.getProvider as jest.Mock).mockClear();
+
+    // Reset and initialize mock provider manager
+    providerManagerMock.reset();
+    providerManagerMock.initialize('testnet');
+
+    // Set up mock balances
+    providerManagerMock.setMockBalance(ChainType.ETHEREUM, '1000000000000000000'); // 1 ETH
+
+    // Set up provider behavior
+    const mockEthProvider = providerManagerMock.getMockProvider(ChainType.ETHEREUM);
+    if (mockEthProvider) {
+      mockEthProvider.getBalance = jest.fn().mockResolvedValue(1000000000000000000n);
+      mockEthProvider.sendTransaction = jest.fn().mockResolvedValue({
+        hash: '0x' + '1'.repeat(64),
+        wait: jest.fn().mockResolvedValue({
+          status: 1,
+          blockNumber: 1000001
+        })
+      });
+    }
+
+    // Override specific methods on providerManagerMock for test compatibility
+    providerManagerMock.getProvider = jest.fn().mockImplementation(() => mockEthProvider);
+    providerManagerMock.switchEVMNetwork = jest.fn().mockResolvedValue(undefined);
+    providerManagerMock.setActiveChain = jest.fn().mockResolvedValue(undefined);
+    providerManagerMock.sendTransaction = jest.fn().mockResolvedValue('0x' + '1'.repeat(64));
+    providerManagerMock.getActiveProvider = jest.fn().mockReturnValue(mockEthProvider);
   });
 
   afterEach(() => {
@@ -176,7 +198,7 @@ describe('PaymentRoutingService', () => {
           return ethers.parseEther('1'); // 1 ETH
         })
       };
-      (providerManager.getProvider as jest.Mock).mockReturnValue(mockProvider);
+      providerManagerMock.getProvider = jest.fn().mockReturnValue(mockProvider);
       
       const request = {
         from: [TEST_ADDRESSES.ethereum],
@@ -249,7 +271,7 @@ describe('PaymentRoutingService', () => {
           return 1000000000000000000n; // Has balance
         })
       };
-      (providerManager.getProvider as jest.Mock).mockReturnValue(mockProvider);
+      providerManagerMock.getProvider = jest.fn().mockReturnValue(mockProvider);
       
       const request = {
         from: [TEST_ADDRESSES.ethereum],
@@ -322,17 +344,17 @@ describe('PaymentRoutingService', () => {
       const txHash = await paymentRouter.executeRoute(route);
       
       expect(txHash).toBe('0x' + '1'.repeat(64));
-      expect(providerManager.sendTransaction).toHaveBeenCalledWith(
+      expect(providerManagerMock.sendTransaction).toHaveBeenCalledWith(
         TEST_ADDRESSES.ethereum,
         '100000000',
         'ethereum'
       );
-      expect(providerManager.switchEVMNetwork).toHaveBeenCalledWith('ethereum');
+      expect(providerManagerMock.switchEVMNetwork).toHaveBeenCalledWith('ethereum');
     });
 
     it('should execute bridge transfer', async () => {
       // Override provider manager methods
-      providerManager.switchEVMNetwork = jest.fn().mockResolvedValue(undefined);
+      providerManagerMock.switchEVMNetwork = jest.fn().mockResolvedValue(undefined);
       const route: PaymentRoute = {
         blockchain: 'polygon',
         fromAddress: TEST_ADDRESSES.ethereum,
@@ -361,8 +383,8 @@ describe('PaymentRoutingService', () => {
 
     it.skip('should switch networks before execution', async () => {
       // Override provider manager methods
-      providerManager.switchEVMNetwork = jest.fn().mockResolvedValue(undefined);
-      providerManager.sendTransaction = jest.fn().mockResolvedValue('0x' + '1'.repeat(64));
+      providerManagerMock.switchEVMNetwork = jest.fn().mockResolvedValue(undefined);
+      providerManagerMock.sendTransaction = jest.fn().mockResolvedValue('0x' + '1'.repeat(64));
       const route: PaymentRoute = {
         blockchain: 'polygon',
         fromAddress: TEST_ADDRESSES.ethereum,
@@ -371,16 +393,16 @@ describe('PaymentRoutingService', () => {
         exchangeRoutes: [],
         steps: []
       } as PaymentRoute;
-      
+
       await paymentRouter.executeRoute(route);
-      
-      expect(providerManager.switchEVMNetwork).toHaveBeenCalledWith('polygon');
+
+      expect(providerManagerMock.switchEVMNetwork).toHaveBeenCalledWith('polygon');
     });
 
     it.skip('should handle Solana transactions', async () => {
       // Override provider manager methods
-      providerManager.setActiveChain = jest.fn().mockResolvedValue(undefined);
-      providerManager.sendTransaction = jest.fn().mockResolvedValue('solana-tx-signature');
+      providerManagerMock.setActiveChain = jest.fn().mockResolvedValue(undefined);
+      providerManagerMock.sendTransaction = jest.fn().mockResolvedValue('solana-tx-signature');
       const route: PaymentRoute = {
         blockchain: 'solana',
         fromAddress: TEST_ADDRESSES.solana,
@@ -392,17 +414,16 @@ describe('PaymentRoutingService', () => {
           description: 'Transfer SOL'
         }]
       } as PaymentRoute;
-      
       await paymentRouter.executeRoute(route);
-      
-      expect(providerManager.setActiveChain).toHaveBeenCalledWith('solana');
+
+      expect(providerManagerMock.setActiveChain).toHaveBeenCalledWith('solana');
     });
   });
 
   describe('Token Balance Checking', () => {
     it('should check native token balance', async () => {
       // Use the mocked provider
-      const provider = (providerManager.getProvider as jest.Mock)();
+      const provider = providerManagerMock.getProvider(ChainType.ETHEREUM);
       expect(provider).toBeDefined();
       
       // Manually test balance conversion
@@ -425,8 +446,10 @@ describe('PaymentRoutingService', () => {
     });
 
     it('should handle balance check errors', async () => {
-      const mockProvider = providerManager.getProvider('ethereum' as any);
-      mockProvider.getBalance = jest.fn().mockRejectedValue(new Error('Network error'));
+      const mockProvider = providerManagerMock.getProvider(ChainType.ETHEREUM);
+      if (mockProvider) {
+        (mockProvider as any).getBalance = jest.fn().mockRejectedValue(new Error('Network error'));
+      }
       
       // Test that error is handled gracefully
       // Balance should return '0' on error as seen in console warning
@@ -491,7 +514,7 @@ describe('PaymentRoutingService', () => {
 
     it.skip('should throw on route execution failure', async () => {
       // Override provider manager methods
-      providerManager.switchEVMNetwork = jest.fn().mockResolvedValue(undefined);
+      providerManagerMock.switchEVMNetwork = jest.fn().mockResolvedValue(undefined);
       const route: PaymentRoute = {
         blockchain: 'ethereum',
         steps: [{

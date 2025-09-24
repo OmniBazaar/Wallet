@@ -258,7 +258,7 @@ export class FaucetService {
           error: 'Unsupported testnet'
         };
       }
-      
+
       // Check if user can claim
       const status = await this.getUserStatus(request.address);
       const networkStatus = status.claims.get(request.testnet);
@@ -535,11 +535,15 @@ export class FaucetService {
           error
         };
       }
-      
-      // Clear cache to force refresh
-      this.userStatusCache.delete(address);
-      
-      return { success: true };
+
+      const result = await response.json() as { success: boolean; error?: string };
+
+      if (result.success) {
+        // Clear cache to force refresh
+        this.userStatusCache.delete(address);
+      }
+
+      return result;
       
     } catch (error) {
       console.error('Error verifying identity:', error);

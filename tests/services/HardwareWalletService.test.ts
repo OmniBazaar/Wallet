@@ -15,24 +15,24 @@ import {
 describe('HardwareWalletService', () => {
   let service: HardwareWalletService;
 
-  beforeEach(async () => {
+  beforeEach(() => {
     service = new HardwareWalletService();
-    await service.init();
+    service.init();
   });
 
-  afterEach(async () => {
-    await service.cleanup();
+  afterEach(() => {
+    service.cleanup();
   });
 
   describe('Initialization', () => {
-    it('should initialize successfully', async () => {
+    it('should initialize successfully', () => {
       const newService = new HardwareWalletService();
-      await expect(newService.init()).resolves.not.toThrow();
+      expect(() => newService.init()).not.toThrow();
     });
 
     it('should handle multiple initialization calls', async () => {
-      await service.init(); // Already initialized in beforeEach
-      await service.init(); // Should not throw
+      service.init(); // Already initialized in beforeEach
+      service.init(); // Should not throw
     });
 
     it('should detect hardware wallet support', () => {
@@ -84,11 +84,11 @@ describe('HardwareWalletService', () => {
       }
     });
 
-    it('should throw when not initialized', async () => {
+    it('should throw when not initialized', () => {
       const uninitService = new HardwareWalletService();
-      
-      await expect(uninitService.discoverDevices())
-        .rejects.toThrow('Hardware wallet service not initialized');
+
+      expect(() => uninitService.discoverDevices())
+        .toThrow('Hardware wallet service not initialized');
     });
   });
 
@@ -232,7 +232,7 @@ describe('HardwareWalletService', () => {
     });
 
     it('should get accounts from device', async () => {
-      const accounts = await service.getAccounts(device.serialNumber);
+      const accounts = service.getAccounts(device.serialNumber);
       
       expect(accounts).toHaveLength(5); // Default count
       
@@ -249,7 +249,7 @@ describe('HardwareWalletService', () => {
       const startIndex = 5;
       const count = 10;
       
-      const accounts = await service.getAccounts(device.serialNumber, startIndex, count);
+      const accounts = service.getAccounts(device.serialNumber, startIndex, count);
       
       expect(accounts).toHaveLength(count);
       expect(accounts[0].index).toBe(startIndex);
@@ -263,7 +263,7 @@ describe('HardwareWalletService', () => {
         derivationPath: "m/44'/60'/0'"
       };
       
-      const accounts = await service.deriveAccounts(device, options);
+      const accounts = service.deriveAccounts(device, options);
       
       expect(accounts).toHaveLength(3);
       accounts.forEach((account, index) => {
@@ -273,9 +273,9 @@ describe('HardwareWalletService', () => {
       });
     });
 
-    it('should throw when device not connected', async () => {
-      await expect(service.getAccounts('non-existent-device'))
-        .rejects.toThrow('Device not connected');
+    it('should throw when device not connected', () => {
+      expect(() => service.getAccounts('non-existent-device'))
+        .toThrow('Device not connected');
     });
   });
 
@@ -446,21 +446,21 @@ describe('HardwareWalletService', () => {
       service.on('deviceConnected', () => {});
       service.on('deviceDisconnected', () => {});
       
-      await service.cleanup();
+      service.cleanup();
       
       // Verify all devices are disconnected
       expect(service.getConnectedDevices()).toHaveLength(0);
     });
 
-    it('should handle cleanup errors gracefully', async () => {
+    it('should handle cleanup errors gracefully', () => {
       // Mock console.error to verify error handling
       const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
-      
+
       // Force an error by manipulating internal state
       service['connectedDevices'] = null as any;
-      
-      await expect(service.cleanup()).resolves.not.toThrow();
-      
+
+      expect(() => service.cleanup()).not.toThrow();
+
       consoleSpy.mockRestore();
     });
   });
@@ -512,48 +512,73 @@ describe('HardwareWalletService', () => {
 
     it('should detect Node.js environment', () => {
       const originalProcess = (global as any).process;
-      
-      // Simulate Node.js environment
-      (global as any).process = { versions: { node: '16.0.0' } };
-      expect(service.isHardwareWalletSupported()).toBe(true);
-      
-      (global as any).process = originalProcess;
+      const originalNavigator = (global as any).navigator;
+
+      try {
+        // Clear navigator to ensure Node.js detection
+        delete (global as any).navigator;
+
+        // Simulate Node.js environment
+        (global as any).process = { versions: { node: '16.0.0' } };
+
+        // Create new service instance to test with modified environment
+        const testService = new HardwareWalletService();
+        expect(testService.isHardwareWalletSupported()).toBe(true);
+      } finally {
+        (global as any).process = originalProcess;
+        (global as any).navigator = originalNavigator;
+      }
     });
   });
 
   describe('Connection Options', () => {
     it('should respect timeout option', async () => {
+      const testService = new HardwareWalletService();
+      testService.init();
+
       const startTime = Date.now();
-      const device = await service.connect({ 
+      const device = await testService.connect({
         type: 'ledger',
         timeout: 100 // Very short timeout
       });
       const endTime = Date.now();
-      
+
       // Connection should still succeed (mocked)
       expect(device.status).toBe('connected');
       // But should take at least the simulated delay
       expect(endTime - startTime).toBeGreaterThanOrEqual(1000);
+
+      testService.cleanup();
     });
 
     it('should handle auto-reconnect option', async () => {
-      const device = await service.connect({
+      const testService = new HardwareWalletService();
+      testService.init();
+
+      const device = await testService.connect({
         type: 'ledger',
         autoReconnect: true
       });
-      
+
       // In a real implementation, would test reconnection behavior
       expect(device).toBeDefined();
+
+      testService.cleanup();
     });
 
     it('should handle require approval option', async () => {
-      const device = await service.connect({
+      const testService = new HardwareWalletService();
+      testService.init();
+
+      const device = await testService.connect({
         type: 'ledger',
         requireApproval: true
       });
-      
+
       // In a real implementation, would test approval flow
       expect(device).toBeDefined();
+
+      testService.cleanup();
     });
   });
 });

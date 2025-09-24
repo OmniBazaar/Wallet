@@ -63,7 +63,7 @@ export default {
     '^@coti-io/coti-sdk-typescript$': '<rootDir>/__mocks__/@coti-io/coti-sdk-typescript.js',
     '^bip32$': '<rootDir>/__mocks__/bip32.js',
     '^tiny-secp256k1$': '<rootDir>/__mocks__/tiny-secp256k1.js',
-    '^ecpair$': '<rootDir>/__mocks__/ecpair.js',
+    '^ecpair$': '<rootDir>/__mocks__/ecpair/index.js',
     '^bitcoinjs-lib$': '<rootDir>/__mocks__/bitcoinjs-lib.js',
     '^uint8array-tools$': '<rootDir>/__mocks__/uint8array-tools.js',
     '^libp2p$': '<rootDir>/__mocks__/libp2p.js'

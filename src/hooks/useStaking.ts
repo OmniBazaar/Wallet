@@ -95,6 +95,7 @@ export const useStaking = (): UseStakingReturn => {
         setPendingRewards(rewards);
       }
     } catch (err: unknown) {
+      console.error('Failed to fetch stake info:', err);
       const error = err instanceof Error ? err.message : 'Failed to fetch stake info';
       setError(error);
     } finally {
@@ -139,7 +140,7 @@ export const useStaking = (): UseStakingReturn => {
   const stake = useCallback(async (
     amount: string,
     durationDays: number,
-_usePrivacy: boolean = false
+    usePrivacy: boolean = false
   ): Promise<boolean> => {
     if (provider === null) {
       setError('No wallet connected');
@@ -151,19 +152,19 @@ _usePrivacy: boolean = false
       setError(null);
 
       if (provider === null) throw new Error('Provider not available');
-      
-      // For now, return a simple success for testing
-      // TODO: Integrate with actual staking service when provider interface is complete
-      const result = { success: true };
+
+      const signer = await provider.getSigner();
+      const result = await stakingService.stake(amount, durationDays, usePrivacy, signer);
 
       if (result.success) {
         await refresh();
         return true;
       } else {
-        setError('Staking failed');
+        setError(result.error ?? 'Staking failed');
         return false;
       }
     } catch (err: unknown) {
+      console.error('Staking error:', err);
       const message = err instanceof Error ? err.message : 'Staking failed';
       setError(message);
       return false;
@@ -184,19 +185,19 @@ _usePrivacy: boolean = false
       setError(null);
 
       if (provider === null) throw new Error('Provider not available');
-      
-      // For now, return a simple success for testing
-      // TODO: Integrate with actual staking service when provider interface is complete
-      const result = { success: true };
+
+      const signer = await provider.getSigner();
+      const result = await stakingService.unstake(_amount, signer);
 
       if (result.success) {
         await refresh();
         return true;
       } else {
-        setError('Unstaking failed');
+        setError(result.error ?? 'Unstaking failed');
         return false;
       }
     } catch (err: unknown) {
+      console.error('Unstaking error:', err);
       const message = err instanceof Error ? err.message : 'Unstaking failed';
       setError(message);
       return false;
@@ -217,22 +218,22 @@ _usePrivacy: boolean = false
       setError(null);
 
       if (provider === null) throw new Error('Provider not available');
-      
-      // For now, return a simple success for testing
-      // TODO: Integrate with actual staking service when provider interface is complete
-      const result = { success: true, amount: '0' };
+
+      const signer = await provider.getSigner();
+      const result = await stakingService.claimRewards(signer);
 
       if (result.success) {
         await refresh();
-        return { 
-          success: true, 
+        return {
+          success: true,
           ...(result.amount !== undefined && { amount: result.amount })
         };
       } else {
-        setError('Claim failed');
+        setError(result.error ?? 'Claim failed');
         return { success: false };
       }
     } catch (err: unknown) {
+      console.error('Claim rewards error:', err);
       const message = err instanceof Error ? err.message : 'Claim failed';
       setError(message);
       return { success: false };
@@ -253,19 +254,19 @@ _usePrivacy: boolean = false
       setError(null);
 
       if (provider === null) throw new Error('Provider not available');
-      
-      // For now, return a simple success for testing
-      // TODO: Integrate with actual staking service when provider interface is complete
-      const result = { success: true };
+
+      const signer = await provider.getSigner();
+      const result = await stakingService.compound(signer);
 
       if (result.success) {
         await refresh();
         return true;
       } else {
-        setError('Compound failed');
+        setError(result.error ?? 'Compound failed');
         return false;
       }
     } catch (err: unknown) {
+      console.error('Compound error:', err);
       const message = err instanceof Error ? err.message : 'Compound failed';
       setError(message);
       return false;
@@ -290,19 +291,19 @@ _usePrivacy: boolean = false
       setError(null);
 
       if (provider === null) throw new Error('Provider not available');
-      
-      // For now, return a simple success for testing
-      // TODO: Integrate with actual staking service when provider interface is complete
-      const result = { success: true };
+
+      const signer = await provider.getSigner();
+      const result = await stakingService.emergencyWithdraw(signer);
 
       if (result.success) {
         await refresh();
         return true;
       } else {
-        setError('Emergency withdraw failed');
+        setError(result.error ?? 'Emergency withdraw failed');
         return false;
       }
     } catch (err: unknown) {
+      console.error('Emergency withdraw error:', err);
       const message = err instanceof Error ? err.message : 'Emergency withdraw failed';
       setError(message);
       return false;

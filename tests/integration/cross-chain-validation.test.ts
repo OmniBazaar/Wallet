@@ -31,7 +31,7 @@ describe('Cross-Chain Operations Validation', () => {
     transactionService = TransactionService.getInstance();
     
     // Create wallet instance
-    const mockProvider = providerManager.getProvider(ChainType.Ethereum);
+    const mockProvider = providerManager.getProvider(ChainType.ETHEREUM);
     wallet = new WalletImpl(mockProvider as any);
   });
 
@@ -142,22 +142,22 @@ describe('Cross-Chain Operations Validation', () => {
   describe('Ethers v6 Compatibility Validation', () => {
     it('should handle bigint arithmetic correctly across chains', async () => {
       const chains = [
-        { type: ChainType.Ethereum, decimals: 18 },
-        { type: ChainType.Solana, decimals: 9 }
+        { type: ChainType.ETHEREUM, decimals: 18 },
+        { type: ChainType.SOLANA, decimals: 9 }
       ];
-      
+
       for (const chain of chains) {
         await providerManager.setActiveChain(chain.type);
-        
+
         // Native bigint operations
         const baseAmount = BigInt('1000000000000000000'); // 1 ETH equivalent
         const scaledAmount = baseAmount / BigInt(10 ** (18 - chain.decimals));
-        
+
         expect(typeof scaledAmount).toBe('bigint');
-        
-        if (chain.type === ChainType.Ethereum) {
+
+        if (chain.type === ChainType.ETHEREUM) {
           expect(scaledAmount).toBe(baseAmount);
-        } else if (chain.type === ChainType.Solana) {
+        } else if (chain.type === ChainType.SOLANA) {
           expect(scaledAmount).toBe(BigInt('1000000000')); // 1 SOL in lamports
         }
       }

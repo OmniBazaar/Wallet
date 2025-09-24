@@ -76,15 +76,43 @@ describe('LegacyMigrationService', () => {
     };
 
     // Mock key derivation that returns valid private key for alice
+    // Since it's extremely difficult to find a private key that generates a specific address,
+    // we'll spy on ethers.Wallet constructor to intercept wallet creation
+    const originalWallet = ethers.Wallet;
+
     mockKeyDerivation = {
       derivePrivateKey: jest.fn().mockImplementation((username: string, password: string) => {
         if (username === 'alice' && password === 'password123') {
-          // This would be replaced with actual v1 derivation
+          // Return a valid private key - the service will validate it
           return '0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+        }
+        if (username === 'bob' && password === 'password456') {
+          // For bob's tests if needed
+          return '0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcd00';
         }
         throw new Error('Invalid credentials');
       })
     };
+
+    // Override ethers.Wallet constructor to return the expected address for alice's key
+    jest.spyOn(ethers, 'Wallet').mockImplementation((privateKey: any, provider?: any) => {
+      if (privateKey === '0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef') {
+        // Return a wallet mock that has Alice's address
+        return {
+          privateKey,
+          provider,
+          address: '0x742d35Cc6634C0532925a3b844Bc9e7595f3e53A',
+          signingKey: {
+            publicKey: '0x04bfcab8722991ae774db48f1ca3b2deb6abe7c6e5fd7a3b16a3c' +
+                      '7a6e2a14c5b3e2d1c0a9b8c7d6e5f4a3b2c1d0e9f8a7b6c5d4e3f2a1b0c9d8e7f6'
+          },
+          connect: jest.fn().mockReturnThis(),
+          getAddress: jest.fn().mockResolvedValue('0x742d35Cc6634C0532925a3b844Bc9e7595f3e53A')
+        } as any;
+      }
+      // For other private keys, return original behavior
+      return new originalWallet(privateKey, provider);
+    });
 
     service = new LegacyMigrationService(mockProvider, mockKeyDerivation);
   });
@@ -94,33 +122,33 @@ describe('LegacyMigrationService', () => {
   });
 
   describe('Initialization', () => {
-    it('should initialize with legacy user data', async () => {
-      await service.initialize(TEST_LEGACY_USERS);
-      
+    it('should initialize with legacy user data', () => {
+      service.initialize(TEST_LEGACY_USERS);
+
       const alice = service.getLegacyUser('alice');
       expect(alice).toEqual(TEST_LEGACY_USERS[0]);
-      
+
       const bob = service.getLegacyUser('bob');
       expect(bob).toEqual(TEST_LEGACY_USERS[1]);
     });
 
-    it('should handle case-insensitive usernames', async () => {
-      await service.initialize(TEST_LEGACY_USERS);
-      
+    it('should handle case-insensitive usernames', () => {
+      service.initialize(TEST_LEGACY_USERS);
+
       const alice = service.getLegacyUser('ALICE');
       expect(alice).toEqual(TEST_LEGACY_USERS[0]);
     });
 
-    it('should throw error when CSV loading not implemented', async () => {
-      await expect(service.initialize()).rejects.toThrow(
+    it('should throw error when CSV loading not implemented', () => {
+      expect(() => service.initialize()).toThrow(
         'CSV loading not implemented. Use initialize() with data array.'
       );
     });
   });
 
   describe('Legacy User Lookup', () => {
-    beforeEach(async () => {
-      await service.initialize(TEST_LEGACY_USERS);
+    beforeEach(() => {
+      service.initialize(TEST_LEGACY_USERS);
     });
 
     it('should return legacy user data', () => {
@@ -148,8 +176,8 @@ describe('LegacyMigrationService', () => {
   });
 
   describe('Migration Status', () => {
-    beforeEach(async () => {
-      await service.initialize(TEST_LEGACY_USERS);
+    beforeEach(() => {
+      service.initialize(TEST_LEGACY_USERS);
     });
 
     it('should return status for legacy user with minted tokens', async () => {
@@ -203,8 +231,8 @@ describe('LegacyMigrationService', () => {
   });
 
   describe('Credential Validation with Key Derivation', () => {
-    beforeEach(async () => {
-      await service.initialize(TEST_LEGACY_USERS);
+    beforeEach(() => {
+      service.initialize(TEST_LEGACY_USERS);
     });
 
     it('should validate correct credentials', async () => {
@@ -244,24 +272,33 @@ describe('LegacyMigrationService', () => {
 
     it('should verify derived key matches stored public key', async () => {
       // Mock derivation that produces different address
+      // This private key will generate a different address than Alice's
       mockKeyDerivation.derivePrivateKey.mockReturnValueOnce(
         '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef'
       );
-      
-      const MockWallet = ethers.Wallet as jest.MockedClass<typeof ethers.Wallet>;
-      MockWallet.mockImplementationOnce((privateKey, provider) => ({
-        privateKey,
-        provider,
-        address: '0xWrongAddress123456789012345678901234567890',
-        signingKey: {
-          publicKey: '0xwrongpublickey'
-        },
-        connect: jest.fn().mockReturnThis(),
-        getAddress: jest.fn().mockResolvedValue('0xWrongAddress123456789012345678901234567890')
-      } as any));
-      
-      const result = await service.validateLegacyCredentials('alice', 'password123');
-      
+
+      // Also need to override the ethers.Wallet mock for this different key
+      const originalImplementation = (ethers.Wallet as jest.MockedFunction<any>).getMockImplementation();
+      (ethers.Wallet as jest.MockedFunction<any>).mockImplementationOnce((privateKey: any, provider?: any) => {
+        if (privateKey === '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef') {
+          // Return a wallet with a different address
+          return {
+            privateKey,
+            provider,
+            address: '0xDeaDBeeF00000000000000000000000000000000', // Different address
+            signingKey: {
+              publicKey: '0x04differentpublickey'
+            },
+            connect: jest.fn().mockReturnThis(),
+            getAddress: jest.fn().mockResolvedValue('0xDeaDBeeF00000000000000000000000000000000')
+          } as any;
+        }
+        // Fallback to original
+        return originalImplementation?.(privateKey, provider);
+      });
+
+      const result = service.validateLegacyCredentials('alice', 'password123');
+
       expect(result).toMatchObject({
         isValid: false,
         error: 'Invalid password - derived key does not match'
@@ -283,13 +320,13 @@ describe('LegacyMigrationService', () => {
   });
 
   describe('Access Legacy Balance', () => {
-    beforeEach(async () => {
-      await service.initialize(TEST_LEGACY_USERS);
+    beforeEach(() => {
+      service.initialize(TEST_LEGACY_USERS);
     });
 
     it('should provide access to pre-minted tokens', async () => {
       const result = await service.accessLegacyBalance('alice', 'password123');
-      
+
       expect(result).toMatchObject({
         success: true,
         address: '0x742d35Cc6634C0532925a3b844Bc9e7595f3e53A',
@@ -375,8 +412,8 @@ describe('LegacyMigrationService', () => {
   });
 
   describe('Migration Statistics', () => {
-    beforeEach(async () => {
-      await service.initialize(TEST_LEGACY_USERS);
+    beforeEach(() => {
+      service.initialize(TEST_LEGACY_USERS);
     });
 
     it('should calculate migration statistics', async () => {
@@ -407,8 +444,8 @@ describe('LegacyMigrationService', () => {
   });
 
   describe('Unaccessed Users Export', () => {
-    beforeEach(async () => {
-      await service.initialize(TEST_LEGACY_USERS);
+    beforeEach(() => {
+      service.initialize(TEST_LEGACY_USERS);
     });
 
     it('should export users without accessed balance', async () => {
@@ -438,8 +475,8 @@ describe('LegacyMigrationService', () => {
   });
 
   describe('Search Operations', () => {
-    beforeEach(async () => {
-      await service.initialize(TEST_LEGACY_USERS);
+    beforeEach(() => {
+      service.initialize(TEST_LEGACY_USERS);
     });
 
     it('should search legacy users by username', async () => {
@@ -500,8 +537,8 @@ describe('LegacyMigrationService', () => {
   });
 
   describe('Gas Estimation', () => {
-    beforeEach(async () => {
-      await service.initialize(TEST_LEGACY_USERS);
+    beforeEach(() => {
+      service.initialize(TEST_LEGACY_USERS);
     });
 
     it('should estimate gas for transfers', async () => {
@@ -553,8 +590,8 @@ describe('LegacyMigrationService', () => {
   });
 
   describe('Edge Cases and Error Handling', () => {
-    beforeEach(async () => {
-      await service.initialize(TEST_LEGACY_USERS);
+    beforeEach(() => {
+      service.initialize(TEST_LEGACY_USERS);
     });
 
     it('should handle empty username', async () => {

@@ -480,14 +480,14 @@ export class BazaarIntegration {
    * @param buyerAddress - Address of the buyer
    * @returns Promise resolving to transaction details
    */
-  initiatePurchase(
+  async initiatePurchase(
     listingId: string,
     buyerAddress: string
-  ): {
+  ): Promise<{
     transactionId: string;
     buyer: string;
     status: string;
-  } {
+  }> {
     if (!this.isConnected()) {
       throw new Error('Wallet not connected');
     }
@@ -892,7 +892,7 @@ export class BazaarIntegration {
    * Get listings
    * @returns Array of listings
    */
-  getListings(): Listing[] {
+  async getListings(): Promise<Listing[]> {
     if (this.networkError) {
       throw new Error('Network error: Unable to fetch listings');
     }

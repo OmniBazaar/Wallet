@@ -33,7 +33,7 @@ export const useTokenApproval = (tokenAddress: string, spenderAddress: string): 
     const [allowance, setAllowance] = useState<string>('0');
 
     const checkAllowance = useCallback(async (): Promise<void> => {
-        if (provider === null || address === null || tokenAddress.trim() === '' || spenderAddress.trim() === '') {
+        if (provider === null || address === null || !tokenAddress || tokenAddress.trim() === '' || !spenderAddress || spenderAddress.trim() === '') {
             return;
         }
 
@@ -51,13 +51,14 @@ export const useTokenApproval = (tokenAddress: string, spenderAddress: string): 
             const currentAllowance = decoded[0] as bigint;
             setAllowance(currentAllowance.toString());
         } catch (err: unknown) {
+            console.error('Error checking allowance:', err);
             const error = err as Error;
             setError(`Failed to check token allowance: ${error.message ?? 'Unknown error'}`);
         }
     }, [provider, address, tokenAddress, spenderAddress]);
 
     const approve = useCallback(async (amount: string): Promise<string> => {
-        if (provider === null || address === null || tokenAddress.trim() === '' || spenderAddress.trim() === '') {
+        if (provider === null || address === null || !tokenAddress || tokenAddress.trim() === '' || !spenderAddress || spenderAddress.trim() === '') {
             throw new Error('Missing required parameters for approval');
         }
 

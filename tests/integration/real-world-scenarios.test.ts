@@ -950,22 +950,22 @@ describe('Real-World Scenarios Integration Tests', () => {
             case 'balance_check':
               operationPromise = walletService.getBalance();
               break;
-              
+
             case 'transaction':
               operationPromise = transactionService.estimateGas({
                 to: '0x742d35Cc6634C0532925a3b8D5C1e1B3c5b5B5b5',
                 value: ethers.parseEther('0.01')
               });
               break;
-              
+
             case 'nft_query':
               operationPromise = nftService.getActiveAccountNFTs();
               break;
-              
+
             case 'dex_order':
               operationPromise = dexService.getMarketData('OMNI/USDC');
               break;
-              
+
             default:
               operationPromise = Promise.resolve();
           }

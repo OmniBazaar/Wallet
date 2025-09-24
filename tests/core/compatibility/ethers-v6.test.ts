@@ -164,14 +164,25 @@ describe('Ethers v6 Compatibility', () => {
         removeListener: jest.fn(),
         isMetaMask: true
       };
-      
-      Object.defineProperty(window, 'ethereum', {
+
+      // Create window mock in Node environment
+      if (typeof window === 'undefined') {
+        (global as any).window = {};
+      }
+
+      Object.defineProperty(global.window, 'ethereum', {
         value: mockEthereum,
-        writable: true
+        writable: true,
+        configurable: true
       });
-      
+
       // BrowserProvider should accept the mock
       expect(() => new BrowserProvider(mockEthereum as any)).not.toThrow();
+
+      // Cleanup
+      if ((global as any).window?.ethereum) {
+        delete (global as any).window.ethereum;
+      }
     });
 
     it('should handle JsonRpcProvider with URLs', () => {

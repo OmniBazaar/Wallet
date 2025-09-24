@@ -175,13 +175,16 @@ export class BIP39Keyring {
    * @returns Promise that resolves when import is complete
    */
   async importFromMnemonic(mnemonic: string, password: string): Promise<void> {
-    if (!bip39.validateMnemonic(mnemonic)) {
+    // Ensure mnemonic is a string
+    const mnemonicStr = typeof mnemonic === 'string' ? mnemonic : mnemonic.toString();
+
+    if (!bip39.validateMnemonic(mnemonicStr)) {
       throw new Error('Invalid mnemonic phrase');
     }
 
-    this.mnemonic = mnemonic;
+    this.mnemonic = mnemonicStr;
     this.password = password;
-    const mnemonicObj = Mnemonic.fromPhrase(mnemonic);
+    const mnemonicObj = Mnemonic.fromPhrase(mnemonicStr);
     // Get actual root node at depth 0 by specifying "m" path
     this.rootNode = HDNodeWallet.fromMnemonic(mnemonicObj, "m");
     this.isLocked = false;
@@ -712,18 +715,12 @@ export class BIP39Keyring {
     // Default to ethereum if chainType is undefined or null
     const chain = chainType ?? ChainType.ETHEREUM;
 
-    // Handle EVM-compatible chains
-    const evmChains = ['ethereum', 'coti', 'omnicoin', 'polygon', 'arbitrum', 'optimism', 'bsc', 'avalanche'];
-    if (evmChains.includes(chain.toLowerCase())) {
-      return {
-        address: hdNode.address,
-        publicKey: hdNode.publicKey
-      };
-    }
-
     // Convert chain type string to lowercase for comparison
-    const chainTypeLower = chain.toLowerCase();
-    
+    const chainTypeLower = String(chain).toLowerCase();
+
+    // Debug logging
+    // console.log(`getAddressForChain: chainType=${chainType}, chain=${chain}, chainTypeLower=${chainTypeLower}`);
+
     if (chainTypeLower === 'bitcoin') {
       return this.getBitcoinAddress(hdNode);
     } else if (chainTypeLower === 'solana') {
@@ -731,6 +728,14 @@ export class BIP39Keyring {
     } else if (chainTypeLower === 'substrate') {
       return this.getSubstrateAddress(hdNode);
     } else {
+      // Handle EVM-compatible chains
+      const evmChains = ['ethereum', 'coti', 'omnicoin', 'polygon', 'arbitrum', 'optimism', 'bsc', 'avalanche'];
+      if (evmChains.includes(chainTypeLower)) {
+        return {
+          address: hdNode.address,
+          publicKey: hdNode.publicKey
+        };
+      }
       throw new Error(`Unsupported chain type: ${chainType}`);
     }
   }

@@ -22,11 +22,15 @@ const mockECPair = {
   toWIF: jest.fn(() => 'KzvkjCxQuFFmby1HR8H5gf2HJUPs17nCKa5ZnY7AaqD6nJxGU2QD')
 };
 
-const ECPairFactory = jest.fn(() => ({
+// Create the mocked ECPair object that ECPairFactory will return
+const ECPairAPI = {
   fromPrivateKey: jest.fn(() => mockECPair),
   fromPublicKey: jest.fn(() => mockECPair),
   fromWIF: jest.fn(() => mockECPair),
   makeRandom: jest.fn(() => mockECPair)
-}));
+};
+
+// ECPairFactory is a function that takes an ecc library and returns the ECPair API
+const ECPairFactory = jest.fn((ecc) => ECPairAPI);
 
 module.exports = { ECPairFactory };

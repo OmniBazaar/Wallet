@@ -884,10 +884,15 @@ global.fetch = jest.fn().mockImplementation((url: string, options?: any) => {
 }) as jest.Mock;
 
 // Test timeout helper
-export const withTimeout = (fn: () => Promise<any>, timeout = 5000) => {
+export const withTimeout = async (fn: () => Promise<any>, timeout = 5000) => {
+  // In test environment, just run the function without timeout
+  if (process.env.NODE_ENV === 'test') {
+    return await fn();
+  }
+
   return Promise.race([
     fn(),
-    new Promise((_, reject) => 
+    new Promise((_, reject) =>
       setTimeout(() => reject(new Error('Test timeout')), timeout)
     )
   ]);

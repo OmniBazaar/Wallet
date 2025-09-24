@@ -168,7 +168,9 @@ export class TransactionDatabase {
       // Ensure transaction has an ID - use hash if ID not provided
       const txToSave = {
         ...transaction,
-        id: (transaction.id !== undefined && transaction.id !== '') ? transaction.id : (transaction.hash !== undefined && transaction.hash !== '') ? transaction.hash : `tx-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+        id: (transaction.id !== undefined && transaction.id !== '') ? transaction.id : (transaction.hash !== undefined && transaction.hash !== '') ? transaction.hash : `tx-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        // Ensure hash is always present for indexing
+        hash: transaction.hash || `0x${Date.now().toString(16)}${Math.random().toString(16).substr(2)}`
       };
 
       const tx = this.db.transaction(['transactions'], 'readwrite');

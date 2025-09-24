@@ -38,29 +38,24 @@ export class LiquidityPoolManager {
   }
 
   /**
-   * Get liquidity pool for token pair
-   * @param tokenA - First token symbol
-   * @param tokenB - Second token symbol
-   * @param fee - Pool fee tier
-   * @returns Promise resolving to pool info or null
+   * Get liquidity pool - handles both signatures for compatibility
+   * @param tokenAOrAddress - First token symbol or pool address
+   * @param tokenB - Second token symbol (optional)
+   * @param fee - Pool fee tier (optional)
+   * @returns Pool info or promise of pool info
    */
-  getPool(tokenA: string, tokenB: string, fee?: number): Promise<{
-    /** Pool contract address */
-    address: string;
-    /** First token (sorted) */
-    token0: string;
-    /** Second token (sorted) */
-    token1: string;
-    /** Fee tier in basis points */
-    fee: number;
-    /** Current liquidity */
-    liquidity: bigint;
-    /** Square root price in X96 format */
-    sqrtPriceX96: bigint;
-    /** Current tick */
-    tick: number;
-  } | null> {
-    // Return mock pool
+  getPool(tokenAOrAddress: string, tokenB?: string, fee?: number): any {
+    // If called with one argument, it's the sync version for getPoolAnalytics
+    if (tokenB === undefined) {
+      return {
+        sqrtPriceX96: BigInt('1461446703485210103287273052203988822378723970342'),
+        liquidity: BigInt(1000000),
+        tick: 0
+      };
+    }
+
+    // Otherwise it's the async version for token pairs
+    const tokenA = tokenAOrAddress;
     return Promise.resolve({
       address: '0x' + Math.random().toString(16).substring(2, 42),
       token0: tokenA < tokenB ? tokenA : tokenB,
@@ -341,4 +336,5 @@ export class LiquidityPoolManager {
   }>> {
     return Promise.resolve(Array.from(this.pools.values()));
   }
+
 }

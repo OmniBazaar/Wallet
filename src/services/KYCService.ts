@@ -269,7 +269,7 @@ export class KYCService {
     try {
       // Fetch from validator
       const response = await fetch(`${this.config.validatorEndpoint}/status/${address}`);
-      if (!response.ok) {
+      if (response === null || response === undefined || !response.ok) {
         return this.getDefaultKYCData(address);
       }
       

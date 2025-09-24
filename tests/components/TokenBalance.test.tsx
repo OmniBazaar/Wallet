@@ -1,6 +1,7 @@
 /**
  * TokenBalance React Component Tests
  * Tests TypeScript strict compliance, form handling, and token operations
+ * @jest-environment jsdom
  */
 
 import React from 'react';

@@ -18,26 +18,58 @@ export class MockTransactionDatabase {
     this.transactions.clear();
   }
 
-  async saveTransaction(transaction: any): Promise<void> {
+  async saveTransaction(transaction: any): Promise<boolean> {
     if (!this.isInitialized) throw new Error('Database not initialized');
-    this.transactions.set(transaction.hash, transaction);
+    // Store by ID, but also keep a hash index
+    const id = transaction.id || transaction.hash || `tx-${Date.now()}`;
+    const txToSave = { ...transaction, id };
+    this.transactions.set(id, txToSave);
+    if (transaction.hash) {
+      this.transactions.set(transaction.hash, txToSave);
+    }
+    return true;
   }
 
-  async getTransaction(hash: string): Promise<any | null> {
+  async getTransaction(idOrHash: string): Promise<any | null> {
     if (!this.isInitialized) throw new Error('Database not initialized');
-    return this.transactions.get(hash) || null;
+    return this.transactions.get(idOrHash) || null;
   }
 
   async getTransactionsByAddress(address: string): Promise<any[]> {
     if (!this.isInitialized) throw new Error('Database not initialized');
-    return Array.from(this.transactions.values()).filter(
-      tx => tx.from === address || tx.to === address
-    );
+    const uniqueTxs = new Map();
+    for (const [key, tx] of this.transactions) {
+      if ((tx.from === address || tx.to === address) && !uniqueTxs.has(tx.id)) {
+        uniqueTxs.set(tx.id, tx);
+      }
+    }
+    return Array.from(uniqueTxs.values());
   }
 
   async getStatistics(address: string): Promise<{ totalTransactions: number }> {
     const transactions = await this.getTransactionsByAddress(address);
     return { totalTransactions: transactions.length };
+  }
+
+  async getTransactionsByDateRange(startDate: Date, endDate: Date): Promise<any[]> {
+    if (!this.isInitialized) throw new Error('Database not initialized');
+    const uniqueTxs = new Map();
+    for (const [key, tx] of this.transactions) {
+      if (tx.timestamp >= startDate.getTime() && tx.timestamp <= endDate.getTime() && !uniqueTxs.has(tx.id)) {
+        uniqueTxs.set(tx.id, tx);
+      }
+    }
+    return Array.from(uniqueTxs.values());
+  }
+
+  async updateTransactionStatus(hash: string, status: string, updates?: any): Promise<boolean> {
+    if (!this.isInitialized) throw new Error('Database not initialized');
+    const tx = await this.getTransaction(hash);
+    if (!tx) return false;
+
+    const updatedTx = { ...tx, status, ...updates };
+    await this.saveTransaction(updatedTx);
+    return true;
   }
 
   async close(): Promise<void> {

@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
-import { renderHook, act, waitFor } from '@testing-library/react-hooks';
+import { renderHook, act, waitFor } from '@testing-library/react';
 import { useListings } from '../../src/hooks/useListings';
 import { ListingMetadata, SearchFilters, ProductDetails, ServiceDetails } from '../../src/types/listing';
 import * as useWalletModule from '../../src/hooks/useWallet';
@@ -381,16 +381,25 @@ describe('useListings', () => {
 
       const { result } = renderHook(() => useListings(TEST_CONTRACT_ADDRESS));
 
-      const searchPromise = act(async () => {
-        await result.current.searchListings({});
+      // Start the search without waiting
+      act(() => {
+        result.current.searchListings({});
       });
 
-      expect(result.current.isLoading).toBe(true);
+      // Now check loading state
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(true);
+      });
 
-      resolveSearch({ listings: [], total: 0 });
-      await searchPromise;
+      // Resolve the promise
+      await act(async () => {
+        resolveSearch({ listings: [], total: 0 });
+      });
 
-      expect(result.current.isLoading).toBe(false);
+      // Check loading state is false
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
     });
   });
 
@@ -401,6 +410,11 @@ describe('useListings', () => {
       });
 
       const { result } = renderHook(() => useListings(TEST_CONTRACT_ADDRESS));
+
+      // Wait for the provider to initialize
+      await waitFor(() => {
+        expect(require('../../src/core/providers/OmniProvider').OmniProvider).toHaveBeenCalled();
+      });
 
       let listing: ListingMetadata | null = null;
       await act(async () => {
@@ -422,6 +436,11 @@ describe('useListings', () => {
       });
 
       const { result } = renderHook(() => useListings(TEST_CONTRACT_ADDRESS));
+
+      // Wait for the provider to initialize
+      await waitFor(() => {
+        expect(require('../../src/core/providers/OmniProvider').OmniProvider).toHaveBeenCalled();
+      });
 
       let listing: ListingMetadata | null = null;
       await act(async () => {
@@ -533,16 +552,30 @@ describe('useListings', () => {
 
       const { result } = renderHook(() => useListings(TEST_CONTRACT_ADDRESS));
 
-      const refreshPromise = act(async () => {
-        await result.current.refreshListings();
+      // Wait for the provider to initialize
+      await waitFor(() => {
+        expect(require('../../src/core/providers/OmniProvider').OmniProvider).toHaveBeenCalled();
       });
 
-      expect(result.current.isLoading).toBe(true);
+      // Start the refresh without waiting
+      act(() => {
+        result.current.refreshListings();
+      });
 
-      resolveRefresh({ listings: [], total: 0 });
-      await refreshPromise;
+      // Now check loading state
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(true);
+      });
 
-      expect(result.current.isLoading).toBe(false);
+      // Resolve the promise
+      await act(async () => {
+        resolveRefresh({ listings: [], total: 0 });
+      });
+
+      // Check loading state is false
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
     });
   });
 
@@ -716,6 +749,11 @@ describe('useListings', () => {
 
       const { result } = renderHook(() => useListings(TEST_CONTRACT_ADDRESS));
 
+      // Wait for the provider to initialize
+      await waitFor(() => {
+        expect(require('../../src/core/providers/OmniProvider').OmniProvider).toHaveBeenCalled();
+      });
+
       await act(async () => {
         await result.current.searchListings({
           tags: ['special!@#$%^&*()', 'unicode: 你好']
@@ -732,7 +770,10 @@ describe('useListings', () => {
   describe('Console Logging', () => {
     it('should log OmniProvider initialization errors', async () => {
       const consoleError = jest.spyOn(console, 'error').mockImplementation();
-      
+
+      // Save the original mock implementation
+      const originalMock = jest.mocked(require('../../src/core/providers/OmniProvider').OmniProvider).getMockImplementation();
+
       jest.mocked(require('../../src/core/providers/OmniProvider').OmniProvider).mockImplementationOnce(() => {
         throw new Error('Init error');
       });
@@ -743,16 +784,23 @@ describe('useListings', () => {
         expect(consoleError).toHaveBeenCalledWith('Failed to initialize OmniProvider:', expect.any(Error));
       });
 
+      // Restore original implementation
+      jest.mocked(require('../../src/core/providers/OmniProvider').OmniProvider).mockImplementation(originalMock as any);
       consoleError.mockRestore();
     });
 
     it('should log search errors', async () => {
       const consoleError = jest.spyOn(console, 'error').mockImplementation();
-      
+
       mockOmniProvider.send.mockRejectedValueOnce(new Error('Search error'));
       (global.fetch as jest.Mock).mockRejectedValueOnce(new Error('API error'));
 
       const { result } = renderHook(() => useListings(TEST_CONTRACT_ADDRESS));
+
+      // Wait for the provider to initialize
+      await waitFor(() => {
+        expect(require('../../src/core/providers/OmniProvider').OmniProvider).toHaveBeenCalled();
+      });
 
       await act(async () => {
         await result.current.searchListings({});
@@ -765,11 +813,16 @@ describe('useListings', () => {
 
     it('should log refresh errors', async () => {
       const consoleError = jest.spyOn(console, 'error').mockImplementation();
-      
+
       mockOmniProvider.send.mockRejectedValueOnce(new Error('Refresh error'));
       (global.fetch as jest.Mock).mockRejectedValueOnce(new Error('API error'));
 
       const { result } = renderHook(() => useListings(TEST_CONTRACT_ADDRESS));
+
+      // Wait for the provider to initialize
+      await waitFor(() => {
+        expect(require('../../src/core/providers/OmniProvider').OmniProvider).toHaveBeenCalled();
+      });
 
       await act(async () => {
         await result.current.refreshListings();
@@ -782,10 +835,15 @@ describe('useListings', () => {
 
     it('should warn about OmniProvider fallbacks', async () => {
       const consoleWarn = jest.spyOn(console, 'warn').mockImplementation();
-      
+
       mockOmniProvider.send.mockRejectedValueOnce(new Error('Provider error'));
 
       const { result } = renderHook(() => useListings(TEST_CONTRACT_ADDRESS));
+
+      // Wait for the provider to initialize
+      await waitFor(() => {
+        expect(require('../../src/core/providers/OmniProvider').OmniProvider).toHaveBeenCalled();
+      });
 
       (global.fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,

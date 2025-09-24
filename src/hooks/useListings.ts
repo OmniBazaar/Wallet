@@ -41,10 +41,10 @@ export const useListings = (contractAddress: string): UseListingsReturn => {
                 const provider = new OmniProvider('marketplace-listings');
                 setOmniProvider(provider);
             } catch (error: unknown) {
-                // Silently handle provider initialization error
+                console.error('Failed to initialize OmniProvider:', error);
             }
         };
-        
+
         initProvider();
     }, []);
 
@@ -72,7 +72,7 @@ export const useListings = (contractAddress: string): UseListingsReturn => {
                         return;
                     }
                 } catch (error: unknown) {
-                    // Silently fall back to API
+                    console.warn('OmniProvider search failed, falling back to API:', error);
                 }
             }
 
@@ -101,6 +101,7 @@ export const useListings = (contractAddress: string): UseListingsReturn => {
             setCurrentPage(filters.page ?? 1);
 
         } catch (err: unknown) {
+            console.error('Error searching listings:', err);
             setError(err instanceof Error ? err.message : 'Failed to search listings');
         } finally {
             setIsLoading(false);
@@ -120,7 +121,7 @@ export const useListings = (contractAddress: string): UseListingsReturn => {
                         return resultData.listing;
                     }
                 } catch (error: unknown) {
-                    // Silently fall back to API
+                    console.warn('OmniProvider get listing failed, falling back to API:', error);
                 }
             }
 
@@ -137,6 +138,7 @@ export const useListings = (contractAddress: string): UseListingsReturn => {
             return data.listing;
 
         } catch (err: unknown) {
+            console.error('Error getting listing:', err);
             return null;
         }
     }, [omniProvider, contractAddress]);
@@ -160,7 +162,7 @@ export const useListings = (contractAddress: string): UseListingsReturn => {
                         return;
                     }
                 } catch (error: unknown) {
-                    // Silently fall back to API
+                    console.warn('OmniProvider refresh failed, falling back to API:', error);
                 }
             }
 
@@ -179,6 +181,7 @@ export const useListings = (contractAddress: string): UseListingsReturn => {
             setTotalResults(data.total);
 
         } catch (err: unknown) {
+            console.error('Error refreshing listings:', err);
             setError(err instanceof Error ? err.message : 'Failed to refresh listings');
         } finally {
             setIsLoading(false);

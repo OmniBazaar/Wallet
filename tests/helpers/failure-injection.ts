@@ -69,18 +69,62 @@ export function injectTransactionFailure(
   provider: any,
   config: FailureConfig = {}
 ): void {
+  // Store the original getSigner implementation
   const originalGetSigner = provider.getSigner;
 
   provider.getSigner = jest.fn().mockImplementation(async () => {
-    const signer = await originalGetSigner.call(provider);
+    // If getSigner is already a mock, get the return value
+    let signer;
+    if (originalGetSigner && typeof originalGetSigner === 'function') {
+      // Check if it's a jest mock
+      if ((originalGetSigner as any).mockResolvedValue) {
+        // Get the value that the mock returns
+        const mockImpl = (originalGetSigner as jest.Mock).getMockImplementation();
+        if (mockImpl) {
+          signer = await mockImpl();
+        } else {
+          // Use the resolved value from mockResolvedValue
+          signer = {
+            getAddress: jest.fn().mockResolvedValue('0x' + '1'.repeat(40)),
+            signMessage: jest.fn().mockResolvedValue('0xsignature'),
+            signTransaction: jest.fn().mockResolvedValue('0xsignedtx'),
+            sendTransaction: jest.fn().mockResolvedValue({ hash: '0x' + '1'.repeat(64) })
+          };
+        }
+      } else {
+        // It's a real function, call it
+        try {
+          signer = await originalGetSigner.call(provider);
+        } catch {
+          // If calling fails, create a basic signer
+          signer = {
+            getAddress: jest.fn().mockResolvedValue('0x' + '1'.repeat(40)),
+            signMessage: jest.fn().mockResolvedValue('0xsignature'),
+            signTransaction: jest.fn().mockResolvedValue('0xsignedtx'),
+            sendTransaction: jest.fn().mockResolvedValue({ hash: '0x' + '1'.repeat(64) })
+          };
+        }
+      }
+    } else {
+      // Create a basic signer
+      signer = {
+        getAddress: jest.fn().mockResolvedValue('0x' + '1'.repeat(40)),
+        signMessage: jest.fn().mockResolvedValue('0xsignature'),
+        signTransaction: jest.fn().mockResolvedValue('0xsignedtx'),
+        sendTransaction: jest.fn().mockResolvedValue({ hash: '0x' + '1'.repeat(64) })
+      };
+    }
+
+    // Clone the signer to avoid modifying the original
+    const failingSigner = { ...signer };
 
     // Replace sendTransaction with failing version
-    signer.sendTransaction = createFailingMock(
+    failingSigner.sendTransaction = createFailingMock(
       { hash: '0x' + '1'.repeat(64) },
       config
     );
 
-    return signer;
+    return failingSigner;
   });
 }
 

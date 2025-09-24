@@ -1,6 +1,7 @@
 /**
  * useTokenBalance Hook Tests
  * Tests the token balance hook for TypeScript strict compliance and functionality
+ * @jest-environment jsdom
  */
 
 import { renderHook } from '@testing-library/react';

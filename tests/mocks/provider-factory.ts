@@ -79,11 +79,11 @@ export class TestProviderFactory {
     
     provider.sendTransaction = jest.fn(async (signedTx: string) => {
       mockCallHistory.push({ method: 'sendTransaction', signedTx });
-      
+
       if (mockTransactionResponse) {
         return mockTransactionResponse;
       }
-      
+
       // Default mock response
       const hash = '0x' + Math.random().toString(16).substring(2);
       return {
@@ -96,11 +96,19 @@ export class TestProviderFactory {
         }))
       };
     });
+
+    provider.broadcastTransaction = provider.sendTransaction;
     
     provider.getNetwork = jest.fn(async () => ({
       chainId: BigInt(31337), // Hardhat chainId
       name: 'omnicoin-testnet'
     }));
+
+    // Add _network property for ethers v6 compatibility
+    (provider as any)._network = {
+      chainId: 31337,
+      name: 'omnicoin-testnet'
+    };
     
     // Mock methods for testing
     provider.setMockBalance = (address: string, balance: bigint) => {

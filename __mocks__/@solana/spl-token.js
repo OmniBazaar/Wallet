@@ -1,7 +1,7 @@
 // Mock for @solana/spl-token in Jest environment
 
-// Mock PublicKey that matches web3.js mock
-class MockPublicKey {
+// Define PublicKey locally to avoid circular dependency
+class PublicKey {
   constructor(value) {
     if (typeof value === 'string') {
       this._value = value;
@@ -13,23 +13,23 @@ class MockPublicKey {
       this._value = '11111111111111111111111111111111';
     }
   }
-  
+
   toString() {
     return this._value;
   }
-  
+
   toBase58() {
     return this._value;
   }
 }
 
-const TOKEN_PROGRAM_ID = new MockPublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
-const ASSOCIATED_TOKEN_PROGRAM_ID = new MockPublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
+const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
+const ASSOCIATED_TOKEN_PROGRAM_ID = new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
 
 async function getAssociatedTokenAddress(mint, owner, allowOwnerOffCurve = false, programId = TOKEN_PROGRAM_ID) {
   // Mock implementation - returns a deterministic address based on mint and owner
   const mockAddress = `ATA-${mint.toString().slice(0, 6)}-${owner.toString().slice(0, 6)}`;
-  return new MockPublicKey(mockAddress.padEnd(44, '1'));
+  return new PublicKey(mockAddress.padEnd(44, '1'));
 }
 
 function createAssociatedTokenAccountInstruction(
@@ -46,7 +46,7 @@ function createAssociatedTokenAccountInstruction(
       { pubkey: associatedToken, isSigner: false, isWritable: true },
       { pubkey: owner, isSigner: false, isWritable: false },
       { pubkey: mint, isSigner: false, isWritable: false },
-      { pubkey: new MockPublicKey('11111111111111111111111111111111'), isSigner: false, isWritable: false },
+      { pubkey: new PublicKey('11111111111111111111111111111111'), isSigner: false, isWritable: false },
       { pubkey: programId, isSigner: false, isWritable: false },
       { pubkey: new MockPublicKey('SysvarRent111111111111111111111111111111111'), isSigner: false, isWritable: false },
     ],

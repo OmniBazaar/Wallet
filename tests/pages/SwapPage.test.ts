@@ -1,4 +1,8 @@
 /**
+ * @jest-environment jsdom
+ */
+
+/**
  * SwapPage Tests
  * Tests for the token swap page
  */
@@ -304,8 +308,18 @@ describe('SwapPage', () => {
     });
 
     it('should approve token', async () => {
-      swapStore.needsApproval = true;
       const approveSpy = jest.spyOn(swapStore, 'approveToken').mockResolvedValue(true);
+
+      // Mock getQuote to set needsApproval when called
+      const getQuoteSpy = jest.spyOn(swapStore, 'getQuote').mockImplementation(async () => {
+        swapStore.needsApproval = true;
+        swapStore.quote = {
+          amountOut: ethers.parseEther('90'),
+          priceImpact: 0.5,
+          route: ['USDC', 'XOM']
+        };
+        return swapStore.quote;
+      });
 
       wrapper = mount(SwapPage, {
         global: {
@@ -320,16 +334,18 @@ describe('SwapPage', () => {
       await wrapper.find('[data-testid="token-option-XOM"]').trigger('click');
       await wrapper.find('[data-testid="amount-input"]').setValue('100');
 
+      // Wait for quote to be fetched
+      await wrapper.vm.$nextTick();
+
       await wrapper.find('[data-testid="swap-button"]').trigger('click');
-      
+
       expect(approveSpy).toHaveBeenCalled();
     });
 
     it('should execute swap', async () => {
-      swapStore.needsApproval = false;
-
-      // Mock getQuote to set quote when called
+      // Mock getQuote to set quote when called and ensure no approval needed
       const getQuoteSpy = jest.spyOn(swapStore, 'getQuote').mockImplementation(async () => {
+        swapStore.needsApproval = false;
         swapStore.quote = {
           amountOut: ethers.parseEther('90'),
           priceImpact: 0.5,
@@ -354,19 +370,24 @@ describe('SwapPage', () => {
       await wrapper.find('[data-testid="select-token-to"]').trigger('click');
       await wrapper.find('[data-testid="token-option-XOM"]').trigger('click');
       await wrapper.find('[data-testid="amount-input"]').setValue('100');
-      
-      // Wait for quote to be fetched
-      await new Promise(resolve => setTimeout(resolve, 600));
-      
+
+      // Wait for quote to be fetched and component to update
+      await wrapper.vm.$nextTick();
+      await new Promise(resolve => setTimeout(resolve, 100));
+
       // Click swap button to show confirmation modal
       await wrapper.find('[data-testid="swap-button"]').trigger('click');
       await wrapper.vm.$nextTick();
-      
+
+      // Check that confirmation modal is visible
+      const modal = wrapper.find('[data-testid="confirmation-modal"]');
+      expect(modal.exists()).toBe(true);
+
       // Click confirm button in modal
-      const confirmBtn = wrapper.find('[data-testid="confirmation-modal"] .confirm-btn');
+      const confirmBtn = wrapper.find('.confirmation-modal .confirm-btn');
       expect(confirmBtn.exists()).toBe(true);
       await confirmBtn.trigger('click');
-      
+
       expect(executeSwapSpy).toHaveBeenCalled();
     });
 

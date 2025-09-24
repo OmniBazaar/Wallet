@@ -311,6 +311,14 @@ export class BlockExplorerService {
       }]
     ]);
   }
+
+  /**
+   * Initialize the service (for compatibility)
+   */
+  async initialize(): Promise<void> {
+    // Service is ready to use after construction
+    // This method exists for API compatibility
+  }
   
   /**
    * Get transaction details for any supported network.
@@ -329,7 +337,7 @@ export class BlockExplorerService {
     try {
       if (network === ExplorerNetwork.OMNICOIN) {
         // Use validator endpoint
-        const response = await fetch(`${this.validatorEndpoint}/tx/${txHash}`);
+        const response = await fetch(`${this.validatorEndpoint}/transaction/${txHash}`);
         if (!response.ok) throw new Error('Transaction not found');
         
         const data = await response.json() as unknown;
@@ -495,7 +503,7 @@ export class BlockExplorerService {
         if (!response.ok) throw new Error('Token not found');
         
         const data = await response.json() as unknown;
-        const details = this.processTokenData(data);
+        const details = this.processTokenData(data, tokenAddress);
         this.setCache(cacheKey, details);
         return details;
         
@@ -819,7 +827,7 @@ export class BlockExplorerService {
       gasPrice: txData.gasPrice,
       blockNumber: txData.blockNumber,
       timestamp: txData.timestamp,
-      status: txData.status === 1 ? 'success' : 'failed',
+      status: txData.status === 1 ? 'success' : txData.status === 0 ? 'failed' : 'success',
       ...(txData.method !== undefined && txData.method !== null && txData.method !== '' && { method: txData.method }),
       ...(txData.tokenTransfers !== undefined && txData.tokenTransfers !== null && { tokenTransfers: txData.tokenTransfers }),
       ...(txData.input !== undefined && txData.input !== null && txData.input !== '' && { input: txData.input }),
@@ -914,7 +922,7 @@ export class BlockExplorerService {
     };
   }
   
-  private processTokenData(data: unknown): TokenDetails {
+  private processTokenData(data: unknown, tokenAddress: string): TokenDetails {
     const tokenData = data as {
       address: string;
       name: string;
@@ -930,7 +938,7 @@ export class BlockExplorerService {
       social?: Record<string, string>;
     };
     return {
-      address: tokenData.address,
+      address: tokenData.address || tokenAddress,
       name: tokenData.name,
       symbol: tokenData.symbol,
       decimals: tokenData.decimals,

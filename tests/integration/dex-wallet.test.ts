@@ -109,7 +109,7 @@ describe('DEX Wallet Integration', () => {
 
       expect(multiHopSwap.hops).toBe(2);
       expect(multiHopSwap.path).toHaveLength(3);
-      expect(multiHopSwap.transactionHash).toBeDefined();
+      expect(multiHopSwap.txHash).toBeDefined();
     });
 
     it('should find best swap route', async () => {
@@ -121,7 +121,7 @@ describe('DEX Wallet Integration', () => {
 
       expect(route).toBeDefined();
       expect(route.path).toBeDefined();
-      expect(route.expectedOutput).toBeDefined();
+      expect(route.amountOut).toBeDefined();
       expect(route.priceImpact).toBeDefined();
       expect(route.exchange).toBeDefined();
     });
@@ -163,18 +163,20 @@ describe('DEX Wallet Integration', () => {
   describe('Liquidity Provision', () => {
     it('should add liquidity to pool', async () => {
       const liquidity = await liquidityService.addLiquidity({
-        tokenA: MOCK_TOKENS.ethereum.USDC.address,
-        tokenB: 'XOM',
-        amountA: ethers.parseUnits('1000', 6),
-        amountB: ethers.parseEther('1000'),
-        minAmountA: ethers.parseUnits('990', 6),
-        minAmountB: ethers.parseEther('990'),
+        token0: MOCK_TOKENS.ethereum.USDC.address,
+        token1: 'XOM',
+        amount0Desired: ethers.parseUnits('1000', 6),
+        amount1Desired: ethers.parseEther('1000'),
+        amount0Min: ethers.parseUnits('990', 6),
+        amount1Min: ethers.parseEther('990'),
         recipient: mockWallet.address
       });
 
-      expect(liquidity.lpTokens).toBeDefined();
-      expect(liquidity.share).toBeDefined();
-      expect(liquidity.transactionHash).toBeDefined();
+      expect(liquidity.success).toBe(true);
+      expect(liquidity.txHash).toBeDefined();
+      expect(liquidity.positionId).toBeDefined();
+      expect(liquidity.amount0).toBeDefined();
+      expect(liquidity.amount1).toBeDefined();
     });
 
     it('should remove liquidity from pool', async () => {
@@ -193,18 +195,30 @@ describe('DEX Wallet Integration', () => {
     });
 
     it('should get liquidity position', async () => {
-      const position = await liquidityService.getPosition(
-        mockWallet.address,
-        MOCK_TOKENS.ethereum.USDC.address,
-        'XOM'
-      );
+      // First, add liquidity to get a positionId
+      const addResult = await liquidityService.addLiquidity({
+        token0: MOCK_TOKENS.ethereum.USDC.address,
+        token1: 'XOM',
+        amount0Desired: ethers.parseUnits('1000', 6),
+        amount1Desired: ethers.parseEther('1000'),
+        amount0Min: ethers.parseUnits('990', 6),
+        amount1Min: ethers.parseEther('990'),
+        recipient: mockWallet.address
+      });
+
+      if (!addResult.positionId) {
+        throw new Error('No positionId returned from addLiquidity');
+      }
+
+      const position = await liquidityService.getPosition(addResult.positionId);
 
       expect(position).toBeDefined();
-      expect(position.lpTokens).toBeDefined();
-      expect(position.share).toBeDefined();
-      expect(position.valueUSD).toBeDefined();
-      expect(position.fees24h).toBeDefined();
-      expect(position.apy).toBeDefined();
+      expect(position).not.toBeNull();
+      if (position) {
+        expect(position.liquidity).toBeDefined();
+        expect(position.valueUSD).toBeDefined();
+        expect(position.poolAddress).toBeDefined();
+      }
     });
 
     it('should calculate impermanent loss', async () => {
@@ -222,7 +236,7 @@ describe('DEX Wallet Integration', () => {
     });
 
     it('should harvest liquidity rewards', async () => {
-      const rewards = await liquidityService.harvestRewards(
+      const rewards = await liquidityService.harvestRewardsByTokens(
         mockWallet.address,
         MOCK_TOKENS.ethereum.USDC.address,
         'XOM'
@@ -241,11 +255,12 @@ describe('DEX Wallet Integration', () => {
       );
 
       expect(analytics).toBeDefined();
-      expect(analytics.tvl).toBeDefined();
-      expect(analytics.volume24h).toBeDefined();
-      expect(analytics.fees24h).toBeDefined();
+      expect(analytics.tvlUSD).toBeDefined();
+      expect(analytics.volume24hUSD).toBeDefined();
+      expect(analytics.fees24hUSD).toBeDefined();
       expect(analytics.apy).toBeDefined();
-      expect(analytics.utilization).toBeDefined();
+      expect(analytics.price0).toBeDefined();
+      expect(analytics.price1).toBeDefined();
     });
   });
 

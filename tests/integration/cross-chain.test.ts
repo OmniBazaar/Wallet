@@ -36,10 +36,10 @@ describe('Cross-Chain Integration', () => {
       expect(accounts).toHaveLength(4);
       
       // Verify correct chain types
-      expect(ethAccount.chainType).toBe(ChainType.Ethereum);
-      expect(btcAccount.chainType).toBe(ChainType.Bitcoin);
-      expect(solAccount.chainType).toBe(ChainType.Solana);
-      expect(dotAccount.chainType).toBe(ChainType.Substrate);
+      expect(ethAccount.chainType).toBe(ChainType.ETHEREUM);
+      expect(btcAccount.chainType).toBe(ChainType.BITCOIN);
+      expect(solAccount.chainType).toBe(ChainType.SOLANA);
+      expect(dotAccount.chainType).toBe(ChainType.SUBSTRATE);
       
       // Verify addresses are valid format
       expect(ethAccount.address).toMatch(/^0x[a-fA-F0-9]{40}$/);
@@ -289,20 +289,20 @@ describe('Cross-Chain Integration', () => {
 
     it('should switch between different chain types', async () => {
       // EVM to Solana
-      await providerManager.setActiveChain(ChainType.Solana);
-      expect(providerManager.getActiveChain()).toBe(ChainType.Solana);
-      
+      await providerManager.setActiveChain(ChainType.SOLANA);
+      expect(providerManager.getActiveChain()).toBe(ChainType.SOLANA);
+
       // Solana to Bitcoin
-      await providerManager.setActiveChain(ChainType.Bitcoin);
-      expect(providerManager.getActiveChain()).toBe(ChainType.Bitcoin);
-      
+      await providerManager.setActiveChain(ChainType.BITCOIN);
+      expect(providerManager.getActiveChain()).toBe(ChainType.BITCOIN);
+
       // Bitcoin to Substrate
-      await providerManager.setActiveChain(ChainType.Substrate);
-      expect(providerManager.getActiveChain()).toBe(ChainType.Substrate);
-      
+      await providerManager.setActiveChain(ChainType.SUBSTRATE);
+      expect(providerManager.getActiveChain()).toBe(ChainType.SUBSTRATE);
+
       // Back to EVM
-      await providerManager.setActiveChain(ChainType.Ethereum);
-      expect(providerManager.getActiveChain()).toBe(ChainType.Ethereum);
+      await providerManager.setActiveChain(ChainType.ETHEREUM);
+      expect(providerManager.getActiveChain()).toBe(ChainType.ETHEREUM);
     });
   });
 

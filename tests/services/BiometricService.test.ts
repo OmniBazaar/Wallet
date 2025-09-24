@@ -56,8 +56,9 @@ describe('BiometricService', () => {
     // Reset mocks
     jest.clearAllMocks();
     localStorageMock.getItem.mockReturnValue(null);
+    localStorageMock.setItem.mockImplementation(() => {});
     mockPublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable.mockResolvedValue(true);
-    
+
     service = new BiometricService();
     await service.init();
   });

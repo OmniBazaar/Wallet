@@ -178,9 +178,9 @@ task("network-check", "Check network connectivity")
 
 // Custom task to deploy to specific network
 task("deploy-all", "Deploy all contracts to specified network")
-  .addParam("network", "The network to deploy to")
+  .addParam("targetNetwork", "The network to deploy to")
   .setAction(async (taskArgs, hre) => {
-    const network = taskArgs.network;
+    const network = taskArgs.targetNetwork;
     
     console.log(`🚀 Deploying to ${network}...`);
     

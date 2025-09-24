@@ -195,9 +195,9 @@ export class DEXService {
   /**
    * Get market data for a trading pair
    * @param symbol - Trading pair symbol
-   * @returns Market data
+   * @returns Promise resolving to market data
    */
-  getMarketData(symbol: string): MarketData | null {
+  async getMarketData(symbol: string): Promise<MarketData | null> {
     const pair = this.config.supportedPairs.find(p => p.symbol === symbol);
     if (pair === null || pair === undefined) {
       return null;

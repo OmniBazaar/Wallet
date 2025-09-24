@@ -185,24 +185,36 @@ export class BiometricService {
    * @returns Array of biometric capabilities
    */
   async getCapabilities(): Promise<BiometricCapability[]> {
-    const capabilities: BiometricCapability[] = [
-      {
-        type: 'fingerprint',
-        available: await this.isBiometricAvailable(),
-        configured: this.hasCredentials(),
-        displayName: 'Fingerprint',
-        icon: '👆'
-      },
-      {
+    const isAvailable = await this.isBiometricAvailable();
+
+    if (!isAvailable) {
+      return [];
+    }
+
+    const capabilities: BiometricCapability[] = [];
+
+    // Add fingerprint capability (available on most platforms)
+    capabilities.push({
+      type: 'fingerprint',
+      available: true,
+      configured: this.hasCredentials(),
+      displayName: 'Fingerprint',
+      icon: '👆'
+    });
+
+    // Add face capability for iOS devices
+    if (typeof navigator !== 'undefined' &&
+        (navigator.userAgent.includes('iPhone') || navigator.userAgent.includes('iPad'))) {
+      capabilities.push({
         type: 'face',
-        available: await this.isBiometricAvailable(),
+        available: true,
         configured: this.hasCredentials(),
         displayName: 'Face Recognition',
         icon: '😊'
-      }
-    ];
+      });
+    }
 
-    return capabilities.filter(cap => cap.available);
+    return capabilities;
   }
 
   /**
@@ -251,11 +263,11 @@ export class BiometricService {
         attestation: 'direct'
       };
 
-      const credential = await navigator.credentials.create({
+      const credential = await window.navigator.credentials.create({
         publicKey: publicKeyCredentialCreationOptions
-      }) as PublicKeyCredential;
+      }) as PublicKeyCredential | null;
 
-      if (credential === null || credential === undefined) {
+      if (!credential) {
         return {
           success: false,
           error: 'Failed to create credential'
@@ -275,7 +287,7 @@ export class BiometricService {
       };
 
       this.credentials.set(credential.id, biometricCredential);
-      this.saveCredentials();
+      await this.saveCredentials();
 
       // console.log('Biometric credential enrolled successfully');
       return {
@@ -341,11 +353,11 @@ export class BiometricService {
         timeout: options.timeout ?? 60000
       };
 
-      const assertion = await navigator.credentials.get({
+      const assertion = await window.navigator.credentials.get({
         publicKey: publicKeyCredentialRequestOptions
-      }) as PublicKeyCredential;
+      }) as PublicKeyCredential | null;
 
-      if (assertion === null || assertion === undefined) {
+      if (!assertion) {
         return {
           success: false,
           error: 'Authentication failed'
@@ -354,7 +366,7 @@ export class BiometricService {
 
       // Find matching credential
       const credential = this.credentials.get(assertion.id);
-      if (credential === null || credential === undefined) {
+      if (!credential) {
         return {
           success: false,
           error: 'Unknown credential'
@@ -364,7 +376,7 @@ export class BiometricService {
       // Update last used timestamp
       credential.lastUsedAt = Date.now();
       this.credentials.set(credential.id, credential);
-      this.saveCredentials();
+      await this.saveCredentials();
 
       const response = assertion.response as AuthenticatorAssertionResponse;
       
@@ -399,10 +411,10 @@ export class BiometricService {
    * @param credentialId - Credential ID to remove
    * @returns Success status
    */
-  removeCredential(credentialId: string): boolean {
+  async removeCredential(credentialId: string): Promise<boolean> {
     if (this.credentials.has(credentialId)) {
       this.credentials.delete(credentialId);
-      this.saveCredentials();
+      await this.saveCredentials();
       // console.log(`Credential ${credentialId} removed`);
       return true;
     }
@@ -421,10 +433,16 @@ export class BiometricService {
    * Clear all biometric credentials
    * @returns Success status
    */
-  clearCredentials(): boolean {
+  async clearCredentials(): Promise<boolean> {
     try {
       this.credentials.clear();
-      this.saveCredentials();
+
+      // Try to save the cleared state
+      const saved = await this.saveCredentials();
+      if (!saved) {
+        return false;
+      }
+
       // console.log('All biometric credentials cleared');
       return true;
     } catch (error) {
@@ -505,30 +523,33 @@ export class BiometricService {
 
   /**
    * Save credentials to storage
+   * @returns Promise that resolves to true if successful, false otherwise
    * @private
    */
-  private saveCredentials(): void {
+  private async saveCredentials(): Promise<boolean> {
     try {
       const credentialData: Record<string, Omit<BiometricCredential, 'rawId' | 'publicKey'> & { rawIdBase64: string; publicKeyBase64: string; }> = {};
       for (const [id, credential] of Array.from(this.credentials.entries())) {
         // Convert Uint8Array to base64 for storage
         const rawIdArray = Array.from(credential.rawId);
         const publicKeyArray = Array.from(credential.publicKey);
-        
+
         const storableCredential = {
           ...credential,
           rawIdBase64: btoa(String.fromCharCode(...rawIdArray)),
           publicKeyBase64: btoa(String.fromCharCode(...publicKeyArray))
         };
-        
+
         // Remove the original Uint8Array properties
         const { rawId: _rawId, publicKey: _publicKey, ...credentialWithoutArrays } = storableCredential;
-        
+
         credentialData[id] = credentialWithoutArrays;
       }
       localStorage.setItem('biometric_credentials', JSON.stringify(credentialData));
+      return true;
     } catch (error) {
       console.warn('Error saving biometric credentials:', error);
+      return false;
     }
   }
 
@@ -542,8 +563,9 @@ export class BiometricService {
 
   /**
    * Cleanup service and release resources
+   * @returns Promise that resolves when cleanup is complete
    */
-  cleanup(): void {
+  async cleanup(): Promise<void> {
     try {
       this.credentials.clear();
       this.supportedTypes = [];

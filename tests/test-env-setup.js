@@ -45,6 +45,40 @@ if (typeof globalThis.indexedDB === 'undefined') {
   require('fake-indexeddb/auto');
 }
 
+// localStorage polyfill for Node.js
+if (typeof globalThis.localStorage === 'undefined') {
+  const mockLocalStorage = (() => {
+    let store = {};
+    return {
+      getItem: (key) => store[key] || null,
+      setItem: (key, value) => store[key] = value,
+      removeItem: (key) => delete store[key],
+      clear: () => store = {},
+      get length() {
+        return Object.keys(store).length;
+      },
+      key: (index) => {
+        const keys = Object.keys(store);
+        return keys[index] || null;
+      }
+    };
+  })();
+
+  globalThis.localStorage = mockLocalStorage;
+  global.localStorage = mockLocalStorage;
+}
+
+// Base64 encoding/decoding polyfills for Node.js
+if (typeof globalThis.btoa === 'undefined') {
+  globalThis.btoa = (str) => Buffer.from(str, 'binary').toString('base64');
+  global.btoa = globalThis.btoa;
+}
+
+if (typeof globalThis.atob === 'undefined') {
+  globalThis.atob = (str) => Buffer.from(str, 'base64').toString('binary');
+  global.atob = globalThis.atob;
+}
+
 // WebSocket polyfill for Node.js
 if (typeof globalThis.WebSocket === 'undefined') {
   globalThis.WebSocket = require('ws');

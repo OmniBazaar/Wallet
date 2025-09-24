@@ -92,10 +92,10 @@ describe('Multi-Chain Operations Integration', () => {
   describe('Cross-Chain Provider Management', () => {
     it('should initialize providers for all supported chains', async () => {
       const supportedChains = [
-        ChainType.Ethereum,
-        ChainType.Bitcoin,
-        ChainType.Solana,
-        ChainType.Substrate
+        ChainType.ETHEREUM,
+        ChainType.BITCOIN,
+        ChainType.SOLANA,
+        ChainType.SUBSTRATE
       ];
       
       supportedChains.forEach(chainType => {
@@ -106,19 +106,19 @@ describe('Multi-Chain Operations Integration', () => {
 
     it('should switch between different chain providers', async () => {
       // Start with Ethereum
-      expect(providerManager.getActiveChain()).toBe(ChainType.Ethereum);
+      expect(providerManager.getActiveChain()).toBe(ChainType.ETHEREUM);
       
       // Switch to Solana
-      await providerManager.setActiveChain(ChainType.Solana);
-      expect(providerManager.getActiveChain()).toBe(ChainType.Solana);
+      await providerManager.setActiveChain(ChainType.SOLANA);
+      expect(providerManager.getActiveChain()).toBe(ChainType.SOLANA);
       
       // Switch to Bitcoin
-      await providerManager.setActiveChain(ChainType.Bitcoin);
-      expect(providerManager.getActiveChain()).toBe(ChainType.Bitcoin);
+      await providerManager.setActiveChain(ChainType.BITCOIN);
+      expect(providerManager.getActiveChain()).toBe(ChainType.BITCOIN);
       
       // Back to Ethereum
-      await providerManager.setActiveChain(ChainType.Ethereum);
-      expect(providerManager.getActiveChain()).toBe(ChainType.Ethereum);
+      await providerManager.setActiveChain(ChainType.ETHEREUM);
+      expect(providerManager.getActiveChain()).toBe(ChainType.ETHEREUM);
     });
 
     it('should handle EVM network switching', async () => {
@@ -138,7 +138,7 @@ describe('Multi-Chain Operations Integration', () => {
 
   describe('Cross-Chain Balance Operations', () => {
     it('should get balances across multiple chains', async () => {
-      const chains = [ChainType.Ethereum, ChainType.Solana];
+      const chains = [ChainType.ETHEREUM, ChainType.SOLANA];
       const balances: Record<string, string> = {};
       
       for (const chain of chains) {
@@ -157,8 +157,8 @@ describe('Multi-Chain Operations Integration', () => {
 
     it('should get formatted balances with proper decimals', async () => {
       const testCases = [
-        { chain: ChainType.Ethereum, expectedDecimals: 18 },
-        { chain: ChainType.Solana, expectedDecimals: 9 }
+        { chain: ChainType.ETHEREUM, expectedDecimals: 18 },
+        { chain: ChainType.SOLANA, expectedDecimals: 9 }
       ];
       
       for (const { chain, expectedDecimals } of testCases) {
@@ -179,7 +179,7 @@ describe('Multi-Chain Operations Integration', () => {
       const transactionService = TransactionService.getInstance();
       
       // Test Ethereum transaction
-      await providerManager.setActiveChain(ChainType.Ethereum);
+      await providerManager.setActiveChain(ChainType.ETHEREUM);
       const ethTxResult = await transactionService.sendTransaction({
         to: TEST_ADDRESSES.ethereum,
         value: '1000000000000000000', // 1 ETH
@@ -401,11 +401,35 @@ describe('Multi-Chain Operations Integration', () => {
         fromAmount: '500000',
         toAmount: '495000',
         bridge: 'hop',
-        estimatedTime: 600
+        estimatedTime: 600,
+        fee: {
+          amount: '5000',
+          token: MOCK_TOKENS.polygon.USDC,
+          inToken: true
+        },
+        steps: [
+          {
+            type: 'bridge' as const,
+            protocol: 'hop',
+            fromChain: 'polygon',
+            toChain: 'ethereum',
+            fromToken: MOCK_TOKENS.polygon.USDC,
+            toToken: MOCK_TOKENS.ethereum.USDC,
+            fromAmount: '500000',
+            toAmount: '495000',
+            estimatedGas: '200000',
+            transaction: {
+              to: '0xBridgeContract',
+              data: '0x1234567890',
+              value: '0',
+              gasLimit: '200000'
+            }
+          }
+        ]
       };
-      
+
       const txHash = await bridgeService.executeBridge(bridgeRoute as any);
-      
+
       expect(txHash).toBeDefined();
       expect(typeof txHash).toBe('string');
       // Should return a valid transaction hash
@@ -430,10 +454,10 @@ describe('Multi-Chain Operations Integration', () => {
 
     it('should handle chain switching with type safety', async () => {
       const chains = [
-        ChainType.Ethereum,
-        ChainType.Solana,
-        ChainType.Bitcoin,
-        ChainType.Substrate
+        ChainType.ETHEREUM,
+        ChainType.SOLANA,
+        ChainType.BITCOIN,
+        ChainType.SUBSTRATE
       ];
       
       for (const chain of chains) {
@@ -514,7 +538,7 @@ describe('Multi-Chain Operations Integration', () => {
     it('should perform chain switching efficiently', async () => {
       const start = performance.now();
       
-      const chains = [ChainType.Ethereum, ChainType.Solana, ChainType.Bitcoin];
+      const chains = [ChainType.ETHEREUM, ChainType.SOLANA, ChainType.BITCOIN];
       for (let i = 0; i < 10; i++) {
         const chain = chains[i % chains.length];
         await providerManager.setActiveChain(chain);
@@ -527,8 +551,8 @@ describe('Multi-Chain Operations Integration', () => {
     });
 
     it('should cache provider instances', () => {
-      const provider1 = providerManager.getProvider(ChainType.Ethereum);
-      const provider2 = providerManager.getProvider(ChainType.Ethereum);
+      const provider1 = providerManager.getProvider(ChainType.ETHEREUM);
+      const provider2 = providerManager.getProvider(ChainType.ETHEREUM);
       
       // Should return same instance (cached)
       expect(provider1).toBe(provider2);

@@ -26,18 +26,27 @@ const ethers = {
     const hex = value.startsWith('0x') ? value.slice(2) : value;
     return '0x' + hex.padStart(length * 2, '0');
   },
-  Interface: class MockInterface {
-    constructor(abi) {
-      this.abi = abi;
-    }
-    encodeFunctionData(functionName, params) {
-      // Simple mock that returns hex data
-      return '0xa9059cbb' + '0'.repeat(56); // transfer function selector + padding
-    }
-    decodeFunctionResult(functionName, data) {
+  Interface: jest.fn().mockImplementation(function MockInterface(abi) {
+    this.abi = abi;
+    this.encodeFunctionData = jest.fn().mockImplementation((functionName, params) => {
+      // Simple mock that returns hex data based on function name
+      if (functionName === 'allowance') {
+        return '0xdd62ed3e' + '0'.repeat(56); // allowance function selector
+      } else if (functionName === 'approve') {
+        return '0x095ea7b3' + '0'.repeat(56); // approve function selector
+      } else if (functionName === 'transfer') {
+        return '0xa9059cbb' + '0'.repeat(56); // transfer function selector
+      }
+      return '0x' + '0'.repeat(64);
+    });
+    this.decodeFunctionResult = jest.fn().mockImplementation((functionName, data) => {
+      if (functionName === 'allowance') {
+        // Return BigInt allowance
+        return [BigInt('1000000')];
+      }
       return [true]; // Mock successful result
-    }
-  },
+    });
+  }),
   formatEther: (wei) => {
     // Convert wei to ether (divide by 10^18)
     const weiValue = typeof wei === 'string' ? BigInt(wei) : BigInt(wei.toString());
