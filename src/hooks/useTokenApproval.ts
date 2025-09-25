@@ -1,7 +1,15 @@
+/**
+ * Token Approval Hook
+ *
+ * Provides ERC-20 token approval functionality using ethers.js to interact
+ * with token contracts for approving spending allowances.
+ */
+
 import { useState, useCallback } from 'react';
 import { ethers } from 'ethers';
 import { useWallet } from './useWallet';
 
+/** ERC-20 ABI for approval and allowance functions */
 const ERC20_ABI = [
     'function approve(address spender, uint256 amount) returns (bool)',
     'function allowance(address owner, address spender) view returns (uint256)'
@@ -33,7 +41,7 @@ export const useTokenApproval = (tokenAddress: string, spenderAddress: string): 
     const [allowance, setAllowance] = useState<string>('0');
 
     const checkAllowance = useCallback(async (): Promise<void> => {
-        if (provider === null || address === null || !tokenAddress || tokenAddress.trim() === '' || !spenderAddress || spenderAddress.trim() === '') {
+        if (provider === null || address === null || tokenAddress === '' || tokenAddress.trim() === '' || spenderAddress === '' || spenderAddress.trim() === '') {
             return;
         }
 
@@ -51,14 +59,13 @@ export const useTokenApproval = (tokenAddress: string, spenderAddress: string): 
             const currentAllowance = decoded[0] as bigint;
             setAllowance(currentAllowance.toString());
         } catch (err: unknown) {
-            console.error('Error checking allowance:', err);
             const error = err as Error;
             setError(`Failed to check token allowance: ${error.message ?? 'Unknown error'}`);
         }
     }, [provider, address, tokenAddress, spenderAddress]);
 
     const approve = useCallback(async (amount: string): Promise<string> => {
-        if (provider === null || address === null || !tokenAddress || tokenAddress.trim() === '' || !spenderAddress || spenderAddress.trim() === '') {
+        if (provider === null || address === null || tokenAddress === '' || tokenAddress.trim() === '' || spenderAddress === '' || spenderAddress.trim() === '') {
             throw new Error('Missing required parameters for approval');
         }
 

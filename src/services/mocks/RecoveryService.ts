@@ -6,13 +6,25 @@
 import { ethers } from 'ethers';
 
 /**
- * Recovery data structure
+ * Merkle proof structure for recovery verification
+ */
+export interface MerkleProof {
+  /** Merkle root hash */
+  root: string;
+  /** Array of proof hashes */
+  proof: string[];
+  /** Leaf hash being proved */
+  leaf: string;
+}
+
+/**
+ * Recovery data structure for account recovery operations
  */
 export interface RecoveryData {
   /** Recovery shards for key reconstruction */
   shards: string[];
   /** Recovery merkle proof */
-  merkleProof?: any;
+  merkleProof?: MerkleProof;
   /** Recovery threshold */
   threshold: number;
   /** Total number of shards */
@@ -29,8 +41,11 @@ export class RecoveryService {
 
   /**
    * Initialize the service
+   * @returns Promise that resolves when initialization is complete
    */
   async init(): Promise<void> {
+    // Simulate async initialization
+    await Promise.resolve();
     this.initialized = true;
   }
 
@@ -44,6 +59,8 @@ export class RecoveryService {
     if (!this.initialized) {
       throw new Error('RecoveryService not initialized');
     }
+    // Simulate async storage
+    await Promise.resolve();
     this.recoveryData.set(userId, data);
   }
 
@@ -56,6 +73,8 @@ export class RecoveryService {
     if (!this.initialized) {
       throw new Error('RecoveryService not initialized');
     }
+    // Simulate async retrieval
+    await Promise.resolve();
     return this.recoveryData.get(userId) ?? null;
   }
 
@@ -64,12 +83,13 @@ export class RecoveryService {
    * @param data Data to create proof for
    * @returns Promise resolving to merkle proof
    */
-  async generateMerkleProof(data: any): Promise<any> {
+  async generateMerkleProof(data: unknown): Promise<MerkleProof> {
     if (!this.initialized) {
       throw new Error('RecoveryService not initialized');
     }
 
     // Mock merkle proof generation
+    await Promise.resolve();
     const hash = ethers.keccak256(ethers.toUtf8Bytes(JSON.stringify(data)));
     return {
       root: hash,
@@ -81,16 +101,28 @@ export class RecoveryService {
   /**
    * Verify recovery merkle proof
    * @param proof Merkle proof to verify
-   * @param data Data to verify
+   * @param _data Data to verify (unused in mock)
    * @returns Promise resolving to true if proof is valid
    */
-  async verifyMerkleProof(proof: any, data: any): Promise<boolean> {
+  async verifyMerkleProof(proof: MerkleProof, _data: unknown): Promise<boolean> {
     if (!this.initialized) {
       throw new Error('RecoveryService not initialized');
     }
 
     // Mock verification - always return true for testing
-    return true;
+    await Promise.resolve();
+    // In a real implementation, this would verify the merkle proof
+    // For now, we just check that the proof has the required structure
+    return Boolean(
+      proof !== null &&
+      proof !== undefined &&
+      proof.root !== '' &&
+      proof.root.length > 0 &&
+      Array.isArray(proof.proof) &&
+      proof.proof.length > 0 &&
+      proof.leaf !== '' &&
+      proof.leaf.length > 0
+    );
   }
 
   /**
@@ -102,6 +134,8 @@ export class RecoveryService {
     if (!this.initialized) {
       throw new Error('RecoveryService not initialized');
     }
+    // Simulate async deletion
+    await Promise.resolve();
     this.recoveryData.delete(userId);
   }
 }

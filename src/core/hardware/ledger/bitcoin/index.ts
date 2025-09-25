@@ -11,6 +11,13 @@ interface HDKeyInstance {
   derive(path: string): HDKeyInstance;
 }
 
+// Define GlobalXpub interface locally to avoid import issues
+interface GlobalXpub {
+  extendedPubkey: Buffer;
+  masterFingerprint: Buffer;
+  path: string;
+}
+
 // Import hdkey with proper typing
 import hdkey from "hdkey";
 const HDKey = hdkey as unknown as new () => HDKeyInstance;
@@ -111,7 +118,7 @@ class LedgerBitcoin implements HWWalletProvider {
       }
       const node = this.HDNodes[options.pathType.basePath];
       const derivedNode = node?.derive(`m/${options.pathIndex}`);
-      if (!derivedNode) {
+      if (derivedNode === null || derivedNode === undefined) {
         throw new Error("Failed to derive node from HD key");
       }
       const pubkey = derivedNode.publicKey;
@@ -194,14 +201,13 @@ class LedgerBitcoin implements HWWalletProvider {
         firstInput.bip32Derivation[0].masterFingerprint = Buffer.from(fpr, "hex");
         firstInput.bip32Derivation[0].path = accountPath;
       }
+      const xpubUpdate: GlobalXpub = {
+        extendedPubkey: Buffer.from(accountRootPubkey, "hex"),
+        masterFingerprint: Buffer.from(fpr, "hex"),
+        path: accountPath,
+      };
       options.psbtTx.updateGlobal({
-        globalXpub: [
-          {
-            extendedPubkey: Buffer.from(accountRootPubkey, "hex"),
-            masterFingerprint: Buffer.from(fpr, "hex"),
-            path: accountPath,
-          },
-        ],
+        globalXpub: [xpubUpdate],
       });
       
       // BtcApp doesn't support signPsbt, so we need to use the standard transaction signing

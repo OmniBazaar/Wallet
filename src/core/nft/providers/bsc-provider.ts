@@ -127,11 +127,11 @@ export class BSCNFTProvider implements ChainProvider {
       const ownerOfFn = contractMethods['ownerOf'];
 
       const tokenURIResult = typeof tokenURIFn === 'function' ?
-        await Promise.resolve((tokenURIFn as (...args: unknown[]) => Promise<unknown>)(tokenId)).catch(() => '' as unknown) as unknown : '';
+        await Promise.resolve((tokenURIFn as (...args: unknown[]) => Promise<unknown>)(tokenId)).catch(() => '') : '';
       const nameResult = typeof nameFn === 'function' ?
-        await Promise.resolve((nameFn as () => Promise<unknown>)()).catch(() => 'Unknown Collection' as unknown) as unknown : 'Unknown Collection';
+        await Promise.resolve((nameFn as () => Promise<unknown>)()).catch(() => 'Unknown Collection') : 'Unknown Collection';
       const ownerResult = typeof ownerOfFn === 'function' ?
-        await Promise.resolve((ownerOfFn as (...args: unknown[]) => Promise<unknown>)(tokenId)).catch(() => '0x0000000000000000000000000000000000000000' as unknown) as unknown : '0x0000000000000000000000000000000000000000';
+        await Promise.resolve((ownerOfFn as (...args: unknown[]) => Promise<unknown>)(tokenId)).catch(() => '0x0000000000000000000000000000000000000000') : '0x0000000000000000000000000000000000000000';
       
       const tokenURI = tokenURIResult !== undefined && tokenURIResult !== null ? String(tokenURIResult) : '';
       const name = nameResult !== undefined && nameResult !== null ? String(nameResult) : 'Unknown Collection';
@@ -332,13 +332,13 @@ export class BSCNFTProvider implements ChainProvider {
           const nameFn = contractMethods['name'];
 
           const balanceResult = typeof balanceOfFn === 'function' ?
-            await (balanceOfFn as (...args: unknown[]) => Promise<unknown>)(address) as unknown : BigInt(0);
+            await (balanceOfFn as (...args: unknown[]) => Promise<unknown>)(address) : BigInt(0);
           const balance = balanceResult as bigint;
           if (balance === BigInt(0)) continue;
 
           // Get collection name
           const collectionNameResult = typeof nameFn === 'function' ?
-            await Promise.resolve((nameFn as () => Promise<unknown>)()).catch(() => 'Unknown Collection' as unknown) as unknown : 'Unknown Collection';
+            await Promise.resolve((nameFn as () => Promise<unknown>)()).catch(() => 'Unknown Collection') : 'Unknown Collection';
           const collectionName = collectionNameResult !== undefined && collectionNameResult !== null ? String(collectionNameResult) : 'Unknown Collection';
           
           // Get up to 10 NFTs from this collection
@@ -350,9 +350,9 @@ export class BSCNFTProvider implements ChainProvider {
               const tokenURIFn = contractMethods['tokenURI'];
 
               const tokenIdResult = typeof tokenOfOwnerByIndexFn === 'function' ?
-                await (tokenOfOwnerByIndexFn as (...args: unknown[]) => Promise<unknown>)(address, i) as unknown : '';
+                await (tokenOfOwnerByIndexFn as (...args: unknown[]) => Promise<unknown>)(address, i) : '';
               const tokenURIResult = typeof tokenURIFn === 'function' && tokenIdResult !== undefined && tokenIdResult !== null ?
-                await Promise.resolve((tokenURIFn as (...args: unknown[]) => Promise<unknown>)(tokenIdResult)).catch(() => '' as unknown) as unknown : '';
+                await Promise.resolve((tokenURIFn as (...args: unknown[]) => Promise<unknown>)(tokenIdResult)).catch(() => '') : '';
               const tokenId = tokenIdResult !== undefined && tokenIdResult !== null ? String(tokenIdResult) : '';
               const tokenURI = tokenURIResult !== undefined && tokenURIResult !== null ? String(tokenURIResult) : '';
               

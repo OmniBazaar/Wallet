@@ -170,7 +170,7 @@ export class NetworkRecoveryService {
       
       try {
         // Test provider connectivity
-        if (!provider) {
+        if (provider === undefined) {
           continue;
         }
         await this.withTimeout(provider.getBlockNumber(), 5000);

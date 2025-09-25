@@ -3,6 +3,9 @@
  * Main coordination point for wallet functionality
  */
 
+// Import polyfills first
+import '../../polyfills.js';
+
 import EthereumProvider from '../core/chains/ethereum/provider';
 import { ProviderName, ProviderRPCRequest, OnMessageResponse } from '../types/provider';
 import { EthereumNetworks } from '../core/chains/ethereum/provider';

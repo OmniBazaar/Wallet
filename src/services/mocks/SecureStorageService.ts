@@ -8,13 +8,16 @@
  * Provides encrypted storage operations for testing
  */
 export class SecureStorageService {
-  private storage: Map<string, any> = new Map();
+  private storage: Map<string, unknown> = new Map();
   private initialized = false;
 
   /**
    * Initialize the service
+   * @returns Promise that resolves when initialization is complete
    */
   async init(): Promise<void> {
+    // Simulate async initialization
+    await Promise.resolve();
     this.initialized = true;
   }
 
@@ -24,10 +27,12 @@ export class SecureStorageService {
    * @param data Data to store
    * @returns Promise resolving when data is stored
    */
-  async store(key: string, data: any): Promise<void> {
+  async store(key: string, data: unknown): Promise<void> {
     if (!this.initialized) {
       throw new Error('SecureStorageService not initialized');
     }
+    // Simulate async storage operation
+    await Promise.resolve();
     this.storage.set(key, data);
   }
 
@@ -36,11 +41,14 @@ export class SecureStorageService {
    * @param key Storage key
    * @returns Promise resolving to stored data or null if not found
    */
-  async retrieve(key: string): Promise<any> {
+  async retrieve(key: string): Promise<unknown> {
     if (!this.initialized) {
       throw new Error('SecureStorageService not initialized');
     }
-    return this.storage.get(key) ?? null;
+    // Simulate async retrieval operation
+    await Promise.resolve();
+    const value = this.storage.get(key);
+    return value !== undefined ? value : null;
   }
 
   /**
@@ -52,6 +60,8 @@ export class SecureStorageService {
     if (!this.initialized) {
       throw new Error('SecureStorageService not initialized');
     }
+    // Simulate async delete operation
+    await Promise.resolve();
     this.storage.delete(key);
   }
 
@@ -64,6 +74,8 @@ export class SecureStorageService {
     if (!this.initialized) {
       throw new Error('SecureStorageService not initialized');
     }
+    // Simulate async existence check
+    await Promise.resolve();
     return this.storage.has(key);
   }
 
@@ -75,6 +87,8 @@ export class SecureStorageService {
     if (!this.initialized) {
       throw new Error('SecureStorageService not initialized');
     }
+    // Simulate async clear operation
+    await Promise.resolve();
     this.storage.clear();
   }
 }

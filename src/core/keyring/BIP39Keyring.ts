@@ -412,7 +412,7 @@ export class BIP39Keyring {
     }
 
     const derivationPathFn = DERIVATION_PATHS[chainType] ?? DERIVATION_PATHS[ChainType.ETHEREUM];
-    if (!derivationPathFn) {
+    if (typeof derivationPathFn !== 'function') {
       throw new Error(`No derivation path function for chain type: ${chainType}`);
     }
     const derivationPath = derivationPathFn(accountIndex);

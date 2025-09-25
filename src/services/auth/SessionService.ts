@@ -715,7 +715,7 @@ export class SessionService {
     }
     
     const row = result.rows[0];
-    if (!row) {
+    if (row === undefined) {
       throw new Error('No session data found');
     }
 

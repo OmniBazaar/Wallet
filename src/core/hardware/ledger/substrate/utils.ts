@@ -23,7 +23,7 @@ const bip32ToAddressNList = (path: string): number[] => {
   const ret = new Array(segments.length);
   for (let i = 0; i < segments.length; i++) {
     const segment = segments[i];
-    if (!segment || segment === '') {
+    if (segment === null || segment === undefined || segment === '') {
       throw new Error("Invalid segment");
     }
     const tmp = /(\d+)([hH']?)/.exec(segment);
@@ -31,7 +31,7 @@ const bip32ToAddressNList = (path: string): number[] => {
       throw new Error("Invalid input");
     }
     const childIndex = tmp[1];
-    if (!childIndex) {
+    if (childIndex === null || childIndex === undefined || childIndex === '') {
       throw new Error("Invalid child index format");
     }
     ret[i] = parseInt(childIndex, 10);

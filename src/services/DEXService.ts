@@ -195,9 +195,9 @@ export class DEXService {
   /**
    * Get market data for a trading pair
    * @param symbol - Trading pair symbol
-   * @returns Promise resolving to market data
+   * @returns Market data or null if not found
    */
-  async getMarketData(symbol: string): Promise<MarketData | null> {
+  getMarketData(symbol: string): MarketData | null {
     const pair = this.config.supportedPairs.find(p => p.symbol === symbol);
     if (pair === null || pair === undefined) {
       return null;
@@ -212,8 +212,8 @@ export class DEXService {
     const lastPrice = ethers.parseEther('100'); // Mock price
     const firstBid = orderBook.bids[0];
     const firstAsk = orderBook.asks[0];
-    const bid = firstBid ? firstBid.price : BigInt(0);
-    const ask = firstAsk ? firstAsk.price : BigInt(0);
+    const bid = (firstBid !== null && firstBid !== undefined) ? firstBid.price : BigInt(0);
+    const ask = (firstAsk !== null && firstAsk !== undefined) ? firstAsk.price : BigInt(0);
 
     return {
       pair,
@@ -386,7 +386,7 @@ export class DEXService {
       const existingIndex = orderBook.bids.findIndex(bid => bid.price === order.price);
       if (existingIndex >= 0) {
         const existingBid = orderBook.bids[existingIndex];
-        if (existingBid) {
+        if (existingBid !== null && existingBid !== undefined) {
           existingBid.quantity += order.quantity;
           existingBid.orderCount += 1;
         }
@@ -399,7 +399,7 @@ export class DEXService {
       const existingIndex = orderBook.asks.findIndex(ask => ask.price === order.price);
       if (existingIndex >= 0) {
         const existingAsk = orderBook.asks[existingIndex];
-        if (existingAsk) {
+        if (existingAsk !== null && existingAsk !== undefined) {
           existingAsk.quantity += order.quantity;
           existingAsk.orderCount += 1;
         }
@@ -429,7 +429,7 @@ export class DEXService {
       const bidIndex = orderBook.bids.findIndex(bid => bid.price === order.price);
       if (bidIndex >= 0) {
         const bid = orderBook.bids[bidIndex];
-        if (bid) {
+        if (bid !== null && bid !== undefined) {
           bid.quantity -= remainingQuantity;
           bid.orderCount -= 1;
           if (bid.quantity <= 0) {
@@ -441,7 +441,7 @@ export class DEXService {
       const askIndex = orderBook.asks.findIndex(ask => ask.price === order.price);
       if (askIndex >= 0) {
         const ask = orderBook.asks[askIndex];
-        if (ask) {
+        if (ask !== null && ask !== undefined) {
           ask.quantity -= remainingQuantity;
           ask.orderCount -= 1;
           if (ask.quantity <= 0) {

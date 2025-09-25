@@ -313,7 +313,7 @@ export class EmbeddedWalletProvider {
     if (message.event === 'accountsChanged' && message.data !== null && message.data !== undefined) {
       const addresses = message.data as string[];
       const firstAddress = addresses[0];
-      if (firstAddress) {
+      if (firstAddress !== undefined && firstAddress !== '') {
         this.walletState.address = firstAddress;
       } else {
         delete this.walletState.address;
@@ -429,7 +429,7 @@ export class EmbeddedWalletProvider {
     
     this.walletState.connected = true;
     const firstAccount = accounts[0];
-    if (firstAccount) {
+    if (firstAccount !== undefined && firstAccount !== '') {
       this.walletState.address = firstAccount;
     } else {
       delete this.walletState.address;

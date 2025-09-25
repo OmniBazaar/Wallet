@@ -480,7 +480,7 @@ export class BazaarIntegration {
    * @param buyerAddress - Address of the buyer
    * @returns Promise resolving to transaction details
    */
-  async initiatePurchase(
+  initiatePurchase(
     listingId: string,
     buyerAddress: string
   ): Promise<{
@@ -497,11 +497,12 @@ export class BazaarIntegration {
       throw new Error('Insufficient balance');
     }
 
-    return {
+    // Return a resolved promise for consistency with the async interface
+    return Promise.resolve({
       transactionId: `tx-${Date.now()}`,
       buyer: buyerAddress,
       status: 'pending'
-    };
+    });
   }
 
   /**
@@ -892,11 +893,12 @@ export class BazaarIntegration {
    * Get listings
    * @returns Array of listings
    */
-  async getListings(): Promise<Listing[]> {
+  getListings(): Promise<Listing[]> {
     if (this.networkError) {
       throw new Error('Network error: Unable to fetch listings');
     }
-    return [];
+    // Return a resolved promise for consistency with the async interface
+    return Promise.resolve([]);
   }
 
   /**

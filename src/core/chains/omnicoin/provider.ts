@@ -896,7 +896,7 @@ export class OmniCoinProvider extends CotiProvider {
       const balanceOfFunc = tokenContract['balanceOf'];
       const decimalsFunc = tokenContract['decimals'];
 
-      if (!balanceOfFunc || !decimalsFunc) {
+      if (typeof balanceOfFunc !== 'function' || typeof decimalsFunc !== 'function') {
         throw new Error('Invalid token contract: missing required functions');
       }
 

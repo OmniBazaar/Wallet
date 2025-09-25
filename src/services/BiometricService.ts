@@ -267,7 +267,7 @@ export class BiometricService {
         publicKey: publicKeyCredentialCreationOptions
       }) as PublicKeyCredential | null;
 
-      if (!credential) {
+      if (credential === null || credential === undefined) {
         return {
           success: false,
           error: 'Failed to create credential'
@@ -287,7 +287,7 @@ export class BiometricService {
       };
 
       this.credentials.set(credential.id, biometricCredential);
-      await this.saveCredentials();
+      this.saveCredentials();
 
       // console.log('Biometric credential enrolled successfully');
       return {
@@ -357,7 +357,7 @@ export class BiometricService {
         publicKey: publicKeyCredentialRequestOptions
       }) as PublicKeyCredential | null;
 
-      if (!assertion) {
+      if (assertion === null || assertion === undefined) {
         return {
           success: false,
           error: 'Authentication failed'
@@ -366,7 +366,7 @@ export class BiometricService {
 
       // Find matching credential
       const credential = this.credentials.get(assertion.id);
-      if (!credential) {
+      if (credential === null || credential === undefined) {
         return {
           success: false,
           error: 'Unknown credential'
@@ -376,7 +376,7 @@ export class BiometricService {
       // Update last used timestamp
       credential.lastUsedAt = Date.now();
       this.credentials.set(credential.id, credential);
-      await this.saveCredentials();
+      this.saveCredentials();
 
       const response = assertion.response as AuthenticatorAssertionResponse;
       
@@ -411,10 +411,10 @@ export class BiometricService {
    * @param credentialId - Credential ID to remove
    * @returns Success status
    */
-  async removeCredential(credentialId: string): Promise<boolean> {
+  removeCredential(credentialId: string): boolean {
     if (this.credentials.has(credentialId)) {
       this.credentials.delete(credentialId);
-      await this.saveCredentials();
+      this.saveCredentials();
       // console.log(`Credential ${credentialId} removed`);
       return true;
     }
@@ -433,12 +433,12 @@ export class BiometricService {
    * Clear all biometric credentials
    * @returns Success status
    */
-  async clearCredentials(): Promise<boolean> {
+  clearCredentials(): boolean {
     try {
       this.credentials.clear();
 
       // Try to save the cleared state
-      const saved = await this.saveCredentials();
+      const saved = this.saveCredentials();
       if (!saved) {
         return false;
       }
@@ -523,10 +523,10 @@ export class BiometricService {
 
   /**
    * Save credentials to storage
-   * @returns Promise that resolves to true if successful, false otherwise
+   * @returns True if successful, false otherwise
    * @private
    */
-  private async saveCredentials(): Promise<boolean> {
+  private saveCredentials(): boolean {
     try {
       const credentialData: Record<string, Omit<BiometricCredential, 'rawId' | 'publicKey'> & { rawIdBase64: string; publicKeyBase64: string; }> = {};
       for (const [id, credential] of Array.from(this.credentials.entries())) {
@@ -563,9 +563,8 @@ export class BiometricService {
 
   /**
    * Cleanup service and release resources
-   * @returns Promise that resolves when cleanup is complete
    */
-  async cleanup(): Promise<void> {
+  cleanup(): void {
     try {
       this.credentials.clear();
       this.supportedTypes = [];

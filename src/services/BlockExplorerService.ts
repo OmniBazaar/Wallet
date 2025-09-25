@@ -517,12 +517,12 @@ export class BlockExplorerService {
         ];
         
         const contract = new ethers.Contract(tokenAddress, erc20Abi, this.provider);
-        const nameMethod = contract['name'];
-        const symbolMethod = contract['symbol'];
-        const decimalsMethod = contract['decimals'];
-        const totalSupplyMethod = contract['totalSupply'];
+        const nameMethod = contract['name'] as ethers.Contract['name'] | undefined;
+        const symbolMethod = contract['symbol'] as ethers.Contract['symbol'] | undefined;
+        const decimalsMethod = contract['decimals'] as ethers.Contract['decimals'] | undefined;
+        const totalSupplyMethod = contract['totalSupply'] as ethers.Contract['totalSupply'] | undefined;
 
-        if (!nameMethod || !symbolMethod || !decimalsMethod || !totalSupplyMethod) {
+        if (nameMethod === undefined || symbolMethod === undefined || decimalsMethod === undefined || totalSupplyMethod === undefined) {
           throw new Error('Required ERC20 methods not found on contract');
         }
 
@@ -803,7 +803,12 @@ export class BlockExplorerService {
   }
   
   // Helper methods
-  
+
+  /**
+   * Process raw transaction data from OmniCoin validator into TransactionDetails
+   * @param data Raw transaction data from validator API
+   * @returns Processed transaction details
+   */
   private processTransactionData(data: unknown): TransactionDetails {
     const txData = data as {
       hash: string;
@@ -844,7 +849,13 @@ export class BlockExplorerService {
       confirmations: txData.confirmations ?? 0
     };
   }
-  
+
+  /**
+   * Process raw transaction data from external blockchain explorers into TransactionDetails
+   * @param data Raw transaction data from external explorer API
+   * @param _network The network being queried (unused but kept for potential future use)
+   * @returns Processed transaction details
+   */
   private processExternalTransactionData(data: unknown, _network: ExplorerNetwork): TransactionDetails {
     const txData = data as {
       hash: string;
@@ -876,7 +887,11 @@ export class BlockExplorerService {
       confirmations: txData.confirmations ?? 0
     };
   }
-  
+  /**
+   * Process raw block data into BlockDetails format
+   * @param data Raw block data from API
+   * @returns Processed block details
+   */
   private processBlockData(data: unknown): BlockDetails {
     const blockData = data as {
       number: number;
@@ -907,7 +922,11 @@ export class BlockExplorerService {
       difficulty: blockData.difficulty ?? '0'
     };
   }
-  
+  /**
+   * Process raw address data into AddressDetails format
+   * @param data Raw address data from API
+   * @returns Processed address details
+   */
   private processAddressData(data: unknown): AddressDetails {
     const addressData = data as {
       address: string;
@@ -930,7 +949,12 @@ export class BlockExplorerService {
       ...(addressData.ensName !== undefined && { ensName: addressData.ensName })
     };
   }
-  
+  /**
+   * Process raw token data into TokenDetails format
+   * @param data Raw token data from API
+   * @param tokenAddress The token contract address
+   * @returns Processed token details
+   */
   private processTokenData(data: unknown, tokenAddress: string): TokenDetails {
     const tokenData = data as {
       address: string;
@@ -947,7 +971,7 @@ export class BlockExplorerService {
       social?: Record<string, string>;
     };
     return {
-      address: tokenData.address || tokenAddress,
+      address: tokenData.address !== '' ? tokenData.address : tokenAddress,
       name: tokenData.name,
       symbol: tokenData.symbol,
       decimals: tokenData.decimals,
@@ -961,7 +985,11 @@ export class BlockExplorerService {
       ...(tokenData.social !== undefined && { social: tokenData.social })
     };
   }
-  
+  /**
+   * Get data from cache if it exists and hasn't expired
+   * @param key Cache key
+   * @returns Cached data or undefined if not found or expired
+   */
   private getFromCache(key: string): unknown {
     const cached = this.cache.get(key);
     if (cached !== undefined && Date.now() - cached.timestamp < this.cacheTimeout) {
@@ -969,7 +997,11 @@ export class BlockExplorerService {
     }
     return undefined;
   }
-  
+  /**
+   * Set data in cache with current timestamp
+   * @param key Cache key
+   * @param data Data to cache
+   */
   private setCache(key: string, data: unknown): void {
     this.cache.set(key, { data, timestamp: Date.now() });
     

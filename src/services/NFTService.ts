@@ -139,7 +139,7 @@ export class NFTService {
     // Always try to use core service method first
     try {
       // Try to use getNFTsForChain if available
-      if (this.coreService.getNFTsForChain) {
+      if (typeof this.coreService.getNFTsForChain === 'function') {
         return await this.coreService.getNFTsForChain(address, chainId);
       }
     } catch (error) {
@@ -148,7 +148,7 @@ export class NFTService {
 
     try {
       // Fallback: use getNFTs and filter by chain
-      if (this.coreService.getNFTs) {
+      if (typeof this.coreService.getNFTs === 'function') {
         const allNFTs = await this.coreService.getNFTs(address);
         return allNFTs.filter((nft: WalletNFT) => {
           const nftChainId = this.getChainId(nft.chain);
@@ -391,7 +391,7 @@ export class NFTService {
    */
   async getTrendingNFTs(chainId?: number): Promise<unknown[]> {
     try {
-      if (this.coreService.getTrendingNFTs) {
+      if (typeof this.coreService.getTrendingNFTs === 'function') {
         return await this.coreService.getTrendingNFTs(chainId);
       }
     } catch (error) {
@@ -485,7 +485,7 @@ export class NFTService {
     const minted = [];
     for (let i = 0; i < nftsToMint.length; i++) {
       const nft = nftsToMint[i];
-      if (!nft) {
+      if (nft === undefined) {
         continue;
       }
       const result = await this.mintNFT({

@@ -2,113 +2,211 @@
  * Mock KYCService for testing
  */
 
-import { jest } from '@jest/globals';
 import { ethers } from 'ethers';
 
+/**
+ * KYC verification result interface
+ */
 export interface KYCResult {
+  /** Whether the user is verified */
   verified: boolean;
+  /** KYC verification level (0-4) */
   level: number;
+  /** Timestamp when verification occurred */
   timestamp: number;
+  /** Address of the verifier */
   verifier: string;
+  /** Optional expiry date for verification */
   expiryDate?: number;
 }
 
+/**
+ * KYC verification tiers
+ */
 export enum KYCTier {
+  /** Unverified user */
   TIER_0 = 0,
+  /** Basic verification (email/phone) */
   TIER_1 = 1,
+  /** ID verification */
   TIER_2 = 2,
+  /** Enhanced verification (address proof) */
   TIER_3 = 3,
+  /** Institutional verification */
   TIER_4 = 4
 }
 
+/**
+ * KYC verification status
+ */
 export enum VerificationStatus {
+  /** Verification not started */
   NOT_STARTED = 'NOT_STARTED',
+  /** Verification pending */
   PENDING = 'PENDING',
+  /** Under review */
   IN_REVIEW = 'IN_REVIEW',
+  /** Approved */
   APPROVED = 'APPROVED',
+  /** Rejected */
   REJECTED = 'REJECTED',
+  /** Expired */
   EXPIRED = 'EXPIRED'
 }
 
+/**
+ * User KYC data interface
+ */
 export interface UserKYCData {
+  /** User's wallet address */
   address: string;
+  /** Current KYC tier */
   currentTier: KYCTier;
+  /** Verification status */
   status: VerificationStatus;
+  /** Optional applicant ID from KYC provider */
   applicantId?: string;
+  /** Tier-specific verification status */
   tierStatus: {
+    /** Tier 1 status */
     tier1: {
+      /** User's email */
       email?: string;
+      /** Email verification status */
       emailVerified: boolean;
+      /** User's phone number */
       phone?: string;
+      /** Phone verification status */
       phoneVerified: boolean;
+      /** When tier was verified */
       verifiedAt?: number;
     };
+    /** Tier 2 status */
     tier2: {
+      /** Type of document provided */
       documentType?: string;
+      /** Document number */
       documentNumber?: string;
+      /** Document verification status */
       documentVerified: boolean;
+      /** User's first name */
       firstName?: string;
+      /** User's last name */
       lastName?: string;
+      /** Date of birth */
       dateOfBirth?: string;
+      /** User's nationality */
       nationality?: string;
+      /** When tier was verified */
       verifiedAt?: number;
     };
+    /** Tier 3 status */
     tier3: {
+      /** Address verification status */
       addressVerified: boolean;
+      /** Address line 1 */
       addressLine1?: string;
+      /** Address line 2 */
       addressLine2?: string;
+      /** City */
       city?: string;
+      /** State or province */
       state?: string;
+      /** Postal code */
       postalCode?: string;
+      /** Country */
       country?: string;
+      /** When tier was verified */
       verifiedAt?: number;
     };
+    /** Tier 4 status */
     tier4: {
+      /** Company name */
       companyName?: string;
+      /** Company registration number */
       companyNumber?: string;
+      /** Company verification status */
       companyVerified: boolean;
+      /** Authorized signatory status */
       authorizedSignatory: boolean;
+      /** When tier was verified */
       verifiedAt?: number;
     };
   };
+  /** Transaction limits based on tier */
   limits: {
+    /** Daily limit in USD */
     daily: string;
+    /** Monthly limit in USD */
     monthly: string;
+    /** Per transaction limit in USD */
     perTransaction: string;
   };
+  /** Last update timestamp */
   lastUpdated: number;
+  /** Optional expiry date for verification */
   expiryDate?: number;
 }
 
+/**
+ * KYC tier information interface
+ */
 export interface TierInfo {
+  /** Tier name */
   name: string;
+  /** Tier description */
   description: string;
+  /** Requirements for this tier */
   requirements: string[];
+  /** Optional benefits */
   benefits?: string[];
+  /** Transaction limits */
   limits: {
+    /** Daily limit in USD */
     daily: string;
+    /** Monthly limit in USD */
     monthly: string;
+    /** Per transaction limit in USD */
     perTransaction: string;
   };
 }
 
+/**
+ * Mock KYC Service for testing
+ */
 export class KYCService {
   private isInitialized = false;
   private provider: ethers.Provider;
 
+  /**
+   * Constructor
+   * @param provider - Ethereum provider instance
+   */
   constructor(provider: ethers.Provider) {
     this.provider = provider;
   }
 
+  /**
+   * Initialize the KYC service
+   * @returns Promise that resolves when initialized
+   */
   async initialize(): Promise<void> {
     this.isInitialized = true;
+    await Promise.resolve();
   }
 
+  /**
+   * Verify a user's KYC status
+   * @param userAddress - User's wallet address
+   * @param level - KYC level to verify
+   * @returns Promise with KYC result
+   */
   async verifyUser(userAddress: string, level: number): Promise<KYCResult> {
     if (!this.isInitialized) {
       throw new Error('KYCService not initialized');
     }
 
+    await Promise.resolve();
     return {
       verified: true,
       level,
@@ -118,11 +216,17 @@ export class KYCService {
     };
   }
 
+  /**
+   * Get KYC status for a user
+   * @param userAddress - User's wallet address
+   * @returns Promise with KYC result or null if not found
+   */
   async getKYCStatus(userAddress: string): Promise<KYCResult | null> {
     if (!this.isInitialized) {
       throw new Error('KYCService not initialized');
     }
 
+    await Promise.resolve();
     // Return verified status for test addresses
     if (userAddress.startsWith('0x')) {
       return {
@@ -137,22 +241,34 @@ export class KYCService {
     return null;
   }
 
-  async revokeKYC(userAddress: string): Promise<{ success: boolean; txHash: string }> {
+  /**
+   * Revoke KYC for a user
+   * @param _userAddress - User's wallet address (unused in mock)
+   * @returns Promise with success status and transaction hash
+   */
+  async revokeKYC(_userAddress: string): Promise<{ success: boolean; txHash: string }> {
     if (!this.isInitialized) {
       throw new Error('KYCService not initialized');
     }
 
+    await Promise.resolve();
     return {
       success: true,
       txHash: '0x' + '4'.repeat(64)
     };
   }
 
+  /**
+   * Get required KYC level for an operation
+   * @param operation - Operation name
+   * @returns Promise with required KYC level
+   */
   async getRequiredKYCLevel(operation: string): Promise<number> {
     if (!this.isInitialized) {
       throw new Error('KYCService not initialized');
     }
 
+    await Promise.resolve();
     const levels: Record<string, number> = {
       'transfer': 1,
       'swap': 1,
@@ -162,20 +278,39 @@ export class KYCService {
       'lend': 3
     };
 
-    return levels[operation] || 0;
+    return levels[operation] ?? 0;
   }
 
-  async submitKYCDocuments(userAddress: string, documents: any[]): Promise<{ success: boolean; referenceId: string }> {
+  /**
+   * Submit KYC documents for verification
+   * @param _userAddress - User's wallet address (unused in mock)
+   * @param _documents - Array of documents (unused in mock)
+   * @returns Promise with success status and reference ID
+   */
+  async submitKYCDocuments(
+    _userAddress: string,
+    _documents: unknown[]
+  ): Promise<{ success: boolean; referenceId: string }> {
     if (!this.isInitialized) {
       throw new Error('KYCService not initialized');
     }
 
+    await Promise.resolve();
     return {
       success: true,
       referenceId: 'KYC_' + Date.now()
     };
   }
 
+  /**
+   * Start KYC verification process
+   * @param address - User's wallet address
+   * @param targetTier - Target KYC tier
+   * @param userData - Optional user data for tier 1
+   * @param userData.email - User's email address
+   * @param userData.phone - User's phone number
+   * @returns Promise with verification result
+   */
   async startVerification(
     address: string,
     targetTier: KYCTier,
@@ -185,11 +320,16 @@ export class KYCService {
       throw new Error('KYCService not initialized');
     }
 
-    if (targetTier === KYCTier.TIER_1 && (!userData?.email || !userData?.phone)) {
-      return {
-        success: false,
-        error: 'Email and phone required for Tier 1'
-      };
+    await Promise.resolve();
+    if (targetTier === KYCTier.TIER_1) {
+      const emailTrimmed = userData?.email?.trim();
+      const phoneTrimmed = userData?.phone?.trim();
+      if (emailTrimmed === undefined || emailTrimmed === '' || phoneTrimmed === undefined || phoneTrimmed === '') {
+        return {
+          success: false,
+          error: 'Email and phone required for Tier 1'
+        };
+      }
     }
 
     return {
@@ -198,11 +338,17 @@ export class KYCService {
     };
   }
 
+  /**
+   * Get user's KYC status and data
+   * @param address - User's wallet address
+   * @returns Promise with user KYC data
+   */
   async getUserKYCStatus(address: string): Promise<UserKYCData> {
     if (!this.isInitialized) {
       throw new Error('KYCService not initialized');
     }
 
+    await Promise.resolve();
     // Return mock KYC data
     return {
       address,
@@ -238,6 +384,11 @@ export class KYCService {
     };
   }
 
+  /**
+   * Get tier information
+   * @param tier - KYC tier
+   * @returns Tier information
+   */
   getTierInfo(tier: KYCTier): TierInfo {
     const tierInfoMap: Record<KYCTier, TierInfo> = {
       [KYCTier.TIER_0]: {
@@ -280,17 +431,27 @@ export class KYCService {
     return tierInfoMap[tier];
   }
 
+  /**
+   * Verify tier 1 verification codes
+   * @param _address - User's wallet address (unused in mock)
+   * @param _email - User's email (unused in mock)
+   * @param emailCode - Email verification code
+   * @param _phone - User's phone (unused in mock)
+   * @param phoneCode - Phone verification code
+   * @returns Promise with verification result
+   */
   async verifyTier1Codes(
-    address: string,
-    email: string,
+    _address: string,
+    _email: string,
     emailCode: string,
-    phone: string,
+    _phone: string,
     phoneCode: string
   ): Promise<{ success: boolean; error?: string }> {
     if (!this.isInitialized) {
       throw new Error('KYCService not initialized');
     }
 
+    await Promise.resolve();
     // Mock verification - accept codes '123456' and '654321'
     if (emailCode === '123456' && phoneCode === '654321') {
       return { success: true };

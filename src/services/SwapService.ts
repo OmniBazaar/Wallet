@@ -748,7 +748,7 @@ export class SwapService {
         amountOutMin: BigInt(optimalRoute.totalExpectedOut) * BigInt(95) / BigInt(100), // 5% slippage
         priceImpact: optimalRoute.totalPriceImpact,
         gasEstimate: BigInt(optimalRoute.estimatedGas),
-        exchange: optimalRoute.routes.length > 0 && optimalRoute.routes[0] ? optimalRoute.routes[0].type : 'HybridRouter'
+        exchange: optimalRoute.routes.length > 0 && optimalRoute.routes[0] !== undefined ? optimalRoute.routes[0].type : 'HybridRouter'
       };
 
       return route;
@@ -1009,7 +1009,7 @@ export class SwapService {
         
         try {
           const noncesMethod = tokenContract['nonces'];
-          if (noncesMethod && typeof noncesMethod === 'function') {
+          if (noncesMethod !== undefined && typeof noncesMethod === 'function') {
             permitNonce = Number(await noncesMethod(userAddress));
           } else {
             permitNonce = 0;
@@ -1040,7 +1040,7 @@ export class SwapService {
           provider
         );
         const nameMethod = tokenContract['name'];
-        if (nameMethod && typeof nameMethod === 'function') {
+        if (nameMethod !== undefined && typeof nameMethod === 'function') {
           tokenName = await nameMethod() as string;
         }
       } catch {

@@ -263,9 +263,9 @@ export class OracleNodeService extends EventEmitter {
 
     // Test oracle health
     try {
-      const isHealthyMethod = this.oracleContract['isHealthy'];
-      if (isHealthyMethod && typeof isHealthyMethod === 'function') {
-        const _isHealthy = await isHealthyMethod() as boolean;
+      if (typeof this.oracleContract['isHealthy'] === 'function') {
+        const isHealthyMethod = this.oracleContract['isHealthy'] as () => Promise<boolean>;
+        const _isHealthy = await isHealthyMethod();
       }
       // Oracle health check complete
     } catch (error) {

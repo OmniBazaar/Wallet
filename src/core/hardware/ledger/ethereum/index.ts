@@ -137,7 +137,7 @@ class LedgerEthereum implements HWWalletProvider {
       }
       const node = this.HDNodes[options.pathType.basePath];
       const derivedNode = node?.derive(`m/${options.pathIndex}`);
-      if (!derivedNode) {
+      if (derivedNode === null || derivedNode === undefined) {
         throw new Error("Failed to derive node from HD key");
       }
       const pubkey = derivedNode.publicKey;
@@ -211,13 +211,13 @@ class LedgerEthereum implements HWWalletProvider {
           const rv = BigInt(parseInt(result.v, 16));
           const cv = tx.common.chainId() * BigInt(2) + BigInt(35);
           return toRpcSig(
-            Number(rv - cv),
+            BigInt(rv - cv),
             hexToBuffer(result.r),
             hexToBuffer(result.s),
           );
         }
         return toRpcSig(
-          Number(BigInt(`0x${result.v}`)),
+          BigInt(`0x${result.v}`),
           hexToBuffer(result.r),
           hexToBuffer(result.s),
         );
@@ -253,7 +253,7 @@ class LedgerEthereum implements HWWalletProvider {
         bufferToHex(messageHash),
       )
       .then((result) => {
-        const v = result.v - 27;
+        const v = BigInt(result.v - 27);
         return toRpcSig(v, hexToBuffer(result.r), hexToBuffer(result.s));
       });
   }

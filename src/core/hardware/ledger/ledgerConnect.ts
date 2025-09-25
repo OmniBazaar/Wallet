@@ -81,7 +81,7 @@ function connect(
     ? ledgerAppNames[networkName as NetworkNames]
     : ledgerAppNames[NetworkNames.Ethereum];
 
-  if (!appName) {
+  if (appName === null || appName === undefined || appName === '') {
     throw new Error(`No Ledger app name defined for network: ${networkName}`);
   }
 

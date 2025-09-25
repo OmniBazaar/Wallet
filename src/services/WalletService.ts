@@ -250,7 +250,7 @@ export class WalletService {
       const accounts = this.keyringService.getAccounts();
       if (accounts.length > 0) {
         const firstAccount = accounts[0];
-        if (firstAccount) {
+        if (firstAccount !== undefined) {
           return firstAccount.address;
         }
       }
@@ -272,7 +272,7 @@ export class WalletService {
         const accounts = this.keyringService.getAccounts();
         if (accounts.length > 0) {
           const firstAccount = accounts[0];
-          if (firstAccount) {
+          if (firstAccount !== undefined) {
             return firstAccount.address;
           }
         }

@@ -94,7 +94,7 @@ class TrezorBitcoin implements HWWalletProvider {
       this.HDNodes[options.pathType.basePath] = hdKey;
     }
     const hdNode = this.HDNodes[options.pathType.basePath];
-    if (!hdNode) {
+    if (hdNode === null || hdNode === undefined) {
       throw new Error("HD node not found for base path");
     }
     const derivedNode = hdNode.derive(

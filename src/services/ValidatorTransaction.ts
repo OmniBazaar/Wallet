@@ -6,8 +6,8 @@
 
 // Import the validator client from the Validator module
 // Using relative imports in monorepo structure
-import { OmniValidatorClient, createOmniValidatorClient } from '../../../Validator/dist/client/index';
-import type { Transaction as ValidatorApiTransaction } from '../../../Validator/dist/api/types';
+import { OmniValidatorClient, createOmniValidatorClient } from '../../../Validator/src/client';
+import type { Transaction as ValidatorApiTransaction } from '../../../Validator/src/api/types';
 import { ethers } from 'ethers';
 import { ref, Ref } from 'vue';
 import { generateTransactionId, generateBatchId } from '../utils/id-generator';

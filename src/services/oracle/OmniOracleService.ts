@@ -145,7 +145,7 @@ export class OmniOracleService {
    */
   async getTokenPairPrice(baseToken: string, quoteToken: string): Promise<number> {
     const [base, quote] = await this.getMultipleTokenPrices([baseToken, quoteToken]);
-    if (!base || !quote) {
+    if (base === null || base === undefined || quote === null || quote === undefined) {
       throw new Error('Failed to get token prices');
     }
     return base.price / quote.price;

@@ -44,10 +44,14 @@ export class LiquidityPoolManager {
    * @param fee - Pool fee tier (optional)
    * @returns Pool info or promise of pool info
    */
-  getPool(tokenAOrAddress: string, tokenB?: string, fee?: number): any {
+  getPool(tokenAOrAddress: string, tokenB?: string, fee?: number): Pool | Promise<Pool> {
     // If called with one argument, it's the sync version for getPoolAnalytics
     if (tokenB === undefined) {
       return {
+        address: '0x' + Math.random().toString(16).substring(2, 42),
+        token0: '0x0000000000000000000000000000000000000001',
+        token1: '0x0000000000000000000000000000000000000002',
+        fee: 3000,
         sqrtPriceX96: BigInt('1461446703485210103287273052203988822378723970342'),
         liquidity: BigInt(1000000),
         tick: 0

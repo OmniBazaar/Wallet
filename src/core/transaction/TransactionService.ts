@@ -58,6 +58,14 @@ interface WalletInterface {
   getAddress(): Promise<string>;
   /** Provider instance */
   provider?: ethers.Provider;
+  /** Send transaction method (optional) */
+  sendTransaction?: (request: {
+    to: string;
+    value: string;
+    data: string;
+    gasLimit: number;
+    gasPrice: string;
+  }) => Promise<{ hash: string }>;
 }
 
 /**
@@ -383,8 +391,7 @@ export class TransactionService {
       if (process.env['NODE_ENV'] === 'test' && this.wallet !== null && this.provider !== undefined) {
         try {
           // Use the wallet itself as signer if it has sendTransaction method
-          const signer = this.wallet;
-          if (signer && typeof (signer as any).sendTransaction === 'function') {
+          if (this.wallet.sendTransaction !== undefined) {
             const txRequest = {
               to: transaction.to,
               value: transaction.value,
@@ -392,7 +399,7 @@ export class TransactionService {
               gasLimit: transaction.gasLimit,
               gasPrice: transaction.gasPrice
             };
-            const txResponse = await (signer as any).sendTransaction(txRequest);
+            const txResponse = await this.wallet.sendTransaction(txRequest);
             txHash = txResponse.hash;
           } else {
             // Fallback to hash from signed transaction

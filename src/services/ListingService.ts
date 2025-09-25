@@ -74,22 +74,22 @@ export class ListingService {
       this.marketplaceService = {
         start: async () => Promise.resolve(),
         stop: async () => Promise.resolve(),
-        createListing: async (listing: MarketplaceListing) => {
-          return {
+        createListing: (listing: MarketplaceListing) => {
+          return Promise.resolve({
             ...listing,
-            id: listing.id || `listing-${Date.now()}`,
-            metadata: listing.metadata || 'mock-ipfs-hash',
-            createdAt: listing.createdAt || Date.now()
-          };
+            id: listing.id !== '' ? listing.id : `listing-${Date.now()}`,
+            metadata: listing.metadata !== '' ? listing.metadata : 'mock-ipfs-hash',
+            createdAt: listing.createdAt !== 0 ? listing.createdAt : Date.now()
+          });
         },
-        searchListings: async (query: { status?: string; category?: string; seller?: string }) => {
+        searchListings: (query: { status?: string; category?: string; seller?: string }) => {
           // Return mock listings for testing
           const mockListings: MarketplaceListing[] = [];
           if (query.status === 'active') {
             // Return empty array for now
-            return mockListings;
+            return Promise.resolve(mockListings);
           }
-          return mockListings;
+          return Promise.resolve(mockListings);
         }
       };
 

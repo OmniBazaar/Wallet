@@ -4,6 +4,9 @@
  * Provides both OmniBazaar-specific and Ethereum-compatible provider APIs
  */
 
+// Import polyfills first
+import '../../polyfills.js';
+
 import { ProviderName, ProviderRPCRequest } from '@/types/provider';
 
 /**

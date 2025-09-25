@@ -381,7 +381,7 @@ export class OracleAggregatorIntegration {
     for (let i = 0; i < 3; i++) {
       const homeTeam = teams[i * 2];
       const awayTeam = teams[i * 2 + 1];
-      if (!homeTeam || !awayTeam) {
+      if (homeTeam === undefined || awayTeam === undefined) {
         continue;
       }
       results.push({

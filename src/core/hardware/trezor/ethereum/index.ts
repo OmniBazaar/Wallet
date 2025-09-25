@@ -92,14 +92,14 @@ class TrezorEthereum implements HWWalletProvider {
       this.HDNodes[options.pathType.basePath] = hdKey;
     }
     const hdNode = this.HDNodes[options.pathType.basePath];
-    if (!hdNode) {
+    if (hdNode === null || hdNode === undefined) {
       throw new Error("HD node not found for base path");
     }
     const pubkey = hdNode.derive(
       `m/${options.pathIndex}`,
     ).publicKey;
     return {
-      address: bufferToHex(publicToAddress(pubkey, true)),
+      address: bufferToHex(Buffer.from(publicToAddress(pubkey, true))),
       publicKey: bufferToHex(pubkey),
     };
   }
@@ -179,7 +179,7 @@ class TrezorEthereum implements HWWalletProvider {
         const rv = BigInt(parseInt(typedResult.payload.v, 16));
         const cv = tx.common.chainId() * BigInt(2) + BigInt(35);
         return toRpcSig(
-          Number(rv - cv),
+          BigInt(rv - cv),
           hexToBuffer(typedResult.payload.r),
           hexToBuffer(typedResult.payload.s),
         );
@@ -198,7 +198,7 @@ class TrezorEthereum implements HWWalletProvider {
       const typedResult = result as { success: boolean; payload: { error?: string; v: string; r: string; s: string } };
       if (!typedResult.success) throw new Error(typedResult.payload.error !== null && typedResult.payload.error !== undefined && typedResult.payload.error !== '' ? typedResult.payload.error : 'Transaction failed');
       return toRpcSig(
-        Number(typedResult.payload.v),
+        BigInt(typedResult.payload.v),
         hexToBuffer(typedResult.payload.r),
         hexToBuffer(typedResult.payload.s),
       );

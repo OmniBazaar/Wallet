@@ -170,7 +170,7 @@ export class TransactionDatabase {
         ...transaction,
         id: (transaction.id !== undefined && transaction.id !== '') ? transaction.id : (transaction.hash !== undefined && transaction.hash !== '') ? transaction.hash : `tx-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         // Ensure hash is always present for indexing
-        hash: transaction.hash || `0x${Date.now().toString(16)}${Math.random().toString(16).substr(2)}`
+        hash: (transaction.hash !== undefined && transaction.hash !== '') ? transaction.hash : `0x${Date.now().toString(16)}${Math.random().toString(16).substr(2)}`
       };
 
       const tx = this.db.transaction(['transactions'], 'readwrite');

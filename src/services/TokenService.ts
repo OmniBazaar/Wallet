@@ -151,7 +151,7 @@ export class TokenService {
         const ethersProvider = provider.getProvider();
         const contract = new Contract(tokenAddress, ERC20_ABI, ethersProvider);
         const balanceOfMethod = contract['balanceOf'];
-        if (!balanceOfMethod || typeof balanceOfMethod !== 'function') {
+        if (balanceOfMethod === undefined || typeof balanceOfMethod !== 'function') {
           throw new Error('balanceOf method not found on contract');
         }
         const balance = await balanceOfMethod(address) as bigint;
@@ -257,7 +257,7 @@ export class TokenService {
     const contract = new Contract(tokenAddress, ERC20_ABI, signer);
     
     const transferMethod = contract['transfer'];
-    if (!transferMethod || typeof transferMethod !== 'function') {
+    if (transferMethod === undefined || typeof transferMethod !== 'function') {
       throw new Error('transfer method not found on contract');
     }
     const tx = await transferMethod(recipient, amount) as ethers.TransactionResponse;
@@ -295,7 +295,7 @@ export class TokenService {
     const contract = new Contract(tokenAddress, ERC20_ABI, signer);
     
     const approveMethod = contract['approve'];
-    if (!approveMethod || typeof approveMethod !== 'function') {
+    if (approveMethod === undefined || typeof approveMethod !== 'function') {
       throw new Error('approve method not found on contract');
     }
     const tx = await approveMethod(spender, amount) as ethers.TransactionResponse;
@@ -335,7 +335,7 @@ export class TokenService {
     
     const contract = new Contract(tokenAddress, ERC20_ABI, contractRunner);
     const allowanceMethod = contract['allowance'];
-    if (!allowanceMethod || typeof allowanceMethod !== 'function') {
+    if (allowanceMethod === undefined || typeof allowanceMethod !== 'function') {
       throw new Error('allowance method not found on contract');
     }
     const allowance = await allowanceMethod(owner, spender) as bigint;
@@ -371,7 +371,7 @@ export class TokenService {
     const decimalsMethod = contract['decimals'];
     const totalSupplyMethod = contract['totalSupply'];
 
-    if (!symbolMethod || !nameMethod || !decimalsMethod || !totalSupplyMethod) {
+    if (symbolMethod === undefined || nameMethod === undefined || decimalsMethod === undefined || totalSupplyMethod === undefined) {
       throw new Error('Required ERC20 methods not found on contract');
     }
 

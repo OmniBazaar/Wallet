@@ -582,7 +582,7 @@ export class KeyringService {
     // Update the name of the first account if provided
     if (name !== '' && this.state.accounts.length > 0) {
       const firstAccount = this.state.accounts[0];
-      if (firstAccount) {
+      if (firstAccount !== undefined) {
         firstAccount.name = name;
       }
     }
@@ -590,7 +590,7 @@ export class KeyringService {
     // Return the first account (the one created from the seed)
     if (this.state.accounts.length > 0) {
       const firstAccount = this.state.accounts[0];
-      if (firstAccount) {
+      if (firstAccount !== undefined) {
         return firstAccount;
       }
     }

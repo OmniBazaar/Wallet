@@ -406,7 +406,7 @@ export class ValidatorBalanceService {
         batchResults.forEach((result, index) => {
           if (result !== null) {
             const tokenAddress = batch[index];
-            if (tokenAddress) {
+            if (tokenAddress !== undefined && tokenAddress !== '') {
               balances[tokenAddress] = result;
             }
           }

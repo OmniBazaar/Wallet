@@ -108,7 +108,7 @@ export class PriceOracleIntegration {
   ): Promise<Record<string, WalletPriceData>> {
     const symbols = pairs.map(p => p.base);
     const firstPair = pairs[0];
-    const quote = (pairs.length > 0 && firstPair && firstPair.quote !== '') ? firstPair.quote : 'USD'; // Assume same quote for batch
+    const quote = (pairs.length > 0 && firstPair !== undefined && firstPair.quote !== '') ? firstPair.quote : 'USD'; // Assume same quote for batch
 
     // getPrices takes chainId as second param
     const chainId = 1;

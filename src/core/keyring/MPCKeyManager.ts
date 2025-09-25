@@ -80,6 +80,7 @@ class Database {
 import { randomBytes, createCipheriv, createDecipheriv, createHash, pbkdf2 } from 'crypto';
 import { promisify } from 'util';
 import * as secp256k1 from 'secp256k1';
+// @ts-expect-error - BN.js type definitions issue with esModuleInterop
 import BN from 'bn.js';
 import { keccak256 } from 'js-sha3';
 
@@ -218,7 +219,7 @@ export class MPCKeyManager {
     const serverShardData = shards[1];
     const recoveryShardData = shards[2];
 
-    if (!deviceShardData || !serverShardData || !recoveryShardData) {
+    if (deviceShardData === undefined || serverShardData === undefined || recoveryShardData === undefined) {
       throw new Error('Failed to create key shards');
     }
 
@@ -364,7 +365,7 @@ export class MPCKeyManager {
     const serverShardData = shards[1];
     const recoveryShardData = shards[2];
 
-    if (!deviceShardData || !serverShardData || !recoveryShardData) {
+    if (deviceShardData === undefined || serverShardData === undefined || recoveryShardData === undefined) {
       throw new Error('Failed to create key shards');
     }
 
@@ -428,7 +429,7 @@ export class MPCKeyManager {
       let y = new BN(0);
       for (let i = 0; i < coefficients.length; i++) {
         const coefficient = coefficients[i];
-        if (!coefficient) {
+        if (coefficient === undefined) {
           throw new Error(`Missing coefficient at index ${i}`);
         }
         const term = coefficient.mul(new BN(x).pow(new BN(i)));
@@ -461,7 +462,7 @@ export class MPCKeyManager {
 
     for (let i = 0; i < shares.length; i++) {
       const share = shares[i];
-      if (!share) {
+      if (share === undefined) {
         throw new Error(`Missing share at index ${i}`);
       }
       const xi = new BN(share.index);
@@ -473,7 +474,7 @@ export class MPCKeyManager {
       for (let j = 0; j < shares.length; j++) {
         if (i !== j) {
           const shareJ = shares[j];
-          if (!shareJ) {
+          if (shareJ === undefined) {
             throw new Error(`Missing share at index ${j}`);
           }
           const xj = new BN(shareJ.index);
@@ -685,7 +686,7 @@ export class MPCKeyManager {
     
     const adjective = adjectives[index % adjectives.length];
     const noun = nouns[index % nouns.length];
-    if (!adjective || !noun) {
+    if (adjective === undefined || noun === undefined) {
       throw new Error('Failed to generate word from index');
     }
     return adjective + noun;

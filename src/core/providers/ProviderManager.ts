@@ -380,7 +380,7 @@ export class ProviderManager {
       const evmNetworks = Object.keys(ALL_NETWORKS).filter(key => {
         const network = ALL_NETWORKS[key];
         // Filter out testnets if in mainnet mode
-        return network && (this.networkType === 'testnet' || network.testnet !== true);
+        return network !== undefined && (this.networkType === 'testnet' || network.testnet !== true);
       });
       // Add ethereum mainnet as it's not in ALL_NETWORKS
       if (!evmNetworks.includes('ethereum')) {
@@ -449,7 +449,7 @@ export class ProviderManager {
         name: evmNetwork.name,
         shortName: evmNetwork.shortName,
         currency: evmNetwork.currency,
-        ...(rpcUrl && { rpcUrl }),
+        ...(rpcUrl !== '' && rpcUrl !== undefined ? { rpcUrl } : {}),
         explorer: evmNetwork.explorer,
         nativeCurrency: { symbol: evmNetwork.currency, decimals: 18 }
       };

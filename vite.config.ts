@@ -2,17 +2,28 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { resolve } from 'path'
 import webExtension from 'vite-plugin-web-extension'
+import wasm from 'vite-plugin-wasm'
+import topLevelAwait from 'vite-plugin-top-level-await'
 
 const targetBrowser = process.env.TARGET_BROWSER || 'chrome'
 
 export default defineConfig({
   plugins: [
-    vue(),
-    webExtension({
-      manifest: `manifest/${targetBrowser === 'firefox' ? 'v2' : 'v3'}/manifest.json`,
-      watchFilePaths: ['src/**/*'],
-      verbose: true,
+    wasm({
+      sync: ['*'],
     }),
+    topLevelAwait({
+      promiseExportName: '__tla',
+      promiseImportName: (i) => `__tla_${i}`,
+    }),
+    vue(),
+    // Temporarily disable web extension plugin to debug build issue
+    // webExtension({
+    //   manifest: `manifest/${targetBrowser === 'firefox' ? 'v2' : 'v3'}/manifest.json`,
+    //   watchFilePaths: ['src/**/*'],
+    //   verbose: true,
+    //   disableAutoLaunch: true,
+    // }),
   ],
   resolve: {
     alias: {
@@ -24,12 +35,24 @@ export default defineConfig({
       '@/omnibazaar': resolve(__dirname, 'src/omnibazaar'),
       '@/types': resolve(__dirname, 'src/types'),
       '@/utils': resolve(__dirname, 'src/core/utils'),
+      '@polkadot/x-globalThis': resolve(__dirname, 'polyfills.js'),
+      'crypto': 'crypto-browserify',
+      'stream': 'stream-browserify',
+      'buffer': 'buffer',
+      'process': 'process/browser',
+      'path': 'path-browserify',
+      'fs': resolve(__dirname, 'empty-module.js'),
+      'os': resolve(__dirname, 'empty-module.js'),
+      'http': resolve(__dirname, 'empty-module.js'),
+      'https': resolve(__dirname, 'empty-module.js'),
+      'zlib': resolve(__dirname, 'empty-module.js'),
+      'vm': resolve(__dirname, 'empty-module.js'),
     },
   },
   define: {
-    global: 'globalThis',
     __VUE_OPTIONS_API__: true,
     __VUE_PROD_DEVTOOLS__: false,
+    'process.env': {},
   },
   build: {
     target: 'esnext',
@@ -44,8 +67,9 @@ export default defineConfig({
       },
       output: {
         entryFileNames: '[name].js',
-        chunkFileNames: 'chunks/[name].[hash].js',
-        assetFileNames: 'assets/[name].[hash].[ext]',
+        assetFileNames: 'assets/[name].[ext]',
+        chunkFileNames: '[name].js',
+        format: 'es',
       },
     },
   },
@@ -57,5 +81,12 @@ export default defineConfig({
   },
   esbuild: {
     target: 'esnext',
+  },
+  optimizeDeps: {
+    include: ['@polkadot/util', '@polkadot/keyring', '@polkadot/api'],
+    exclude: ['tiny-secp256k1'],
+    esbuildOptions: {
+      // Don't define global here - it causes issues with module paths
+    },
   },
 }) 

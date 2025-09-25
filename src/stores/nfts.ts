@@ -262,7 +262,7 @@ export const useNFTStore = defineStore('nfts', () => {
         const index = nfts.value.findIndex(n => n.id === nftId);
         if (index >= 0) {
           const existingNft = nfts.value[index];
-          if (!existingNft) {
+          if (existingNft === undefined) {
             return;
           }
           nfts.value[index] = {

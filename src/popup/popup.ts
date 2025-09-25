@@ -2,6 +2,9 @@
  * Popup entry point for OmniWallet browser extension
  */
 
+// Import polyfills first
+import '../../polyfills.js';
+
 /**
  * Logger instance for consistent logging across popup script
  */

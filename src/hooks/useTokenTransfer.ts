@@ -104,11 +104,7 @@ export const useTokenTransfer = (tokenAddress: string): TokenTransferHook => {
       const tokenContract = new Contract(tokenAddress, ERC20_ABI, signer);
       
       // Get token decimals to properly format the amount
-      const decimalsMethod = tokenContract['decimals'];
-      if (!decimalsMethod) {
-        throw new Error('decimals method not found on contract');
-      }
-      const decimals = await decimalsMethod() as number;
+      const decimals = await (tokenContract.decimals as () => Promise<number>)();
       
       // Convert amount to wei (proper token units)
       const tokenAmount = ethers.parseUnits(amount, decimals);
@@ -124,11 +120,10 @@ export const useTokenTransfer = (tokenAddress: string): TokenTransferHook => {
       }
       
       // Execute the transfer
-      const transferMethod = tokenContract['transfer'];
-      if (!transferMethod) {
-        throw new Error('transfer method not found on contract');
-      }
-      const transaction = await transferMethod(recipient, tokenAmount) as { hash: string; wait: () => Promise<unknown> };
+      const transaction = await (tokenContract.transfer as (
+        to: string,
+        amount: bigint
+      ) => Promise<{ hash: string; wait: () => Promise<unknown> }>)(recipient, tokenAmount);
       
       // Wait for transaction confirmation
       await transaction.wait();
