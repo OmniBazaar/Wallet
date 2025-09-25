@@ -17,13 +17,8 @@ export default defineConfig({
       promiseImportName: (i) => `__tla_${i}`,
     }),
     vue(),
-    // Temporarily disable web extension plugin to debug build issue
-    // webExtension({
-    //   manifest: `manifest/${targetBrowser === 'firefox' ? 'v2' : 'v3'}/manifest.json`,
-    //   watchFilePaths: ['src/**/*'],
-    //   verbose: true,
-    //   disableAutoLaunch: true,
-    // }),
+    // Web extension plugin disabled - using post-build script instead
+    // The plugin forces IIFE format which breaks our top-level await usage
   ],
   resolve: {
     alias: {

@@ -20,6 +20,9 @@
     "network:ethereum": "hardhat network-check --network sepolia",
     "build:firefox": "cross-env TARGET_BROWSER=firefox vite build",
     "build:all": "npm run build:chrome && npm run build:firefox",
+    "build:extension": "node scripts/build-extension.js",
+    "build:extension:chrome": "cross-env TARGET_BROWSER=chrome node scripts/build-extension.js",
+    "build:extension:firefox": "cross-env TARGET_BROWSER=firefox node scripts/build-extension.js",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
@@ -180,7 +183,7 @@
     "vite": "^4.5.0",
     "vite-plugin-top-level-await": "^1.6.0",
     "vite-plugin-wasm": "^3.5.0",
-    "vite-plugin-web-extension": "^3.2.0",
+    "vite-plugin-web-extension": "^4.4.5",
     "vitest": "^0.34.0",
     "vue-tsc": "^1.8.0"
   },
