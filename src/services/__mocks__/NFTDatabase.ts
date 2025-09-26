@@ -148,7 +148,9 @@ export class NFTDatabase {
     if (!this.isInitialized) throw new Error('Database not initialized');
     const nft = await this.getNFT(contractAddress, tokenId);
     if (nft !== null) {
-      nft.metadata = metadata;
+      if (metadata !== undefined) {
+        nft.metadata = metadata;
+      }
       nft.metadataCachedAt = Date.now();
       await this.saveNFT(nft);
     }

@@ -211,13 +211,13 @@ class LedgerEthereum implements HWWalletProvider {
           const rv = BigInt(parseInt(result.v, 16));
           const cv = tx.common.chainId() * BigInt(2) + BigInt(35);
           return toRpcSig(
-            BigInt(rv - cv),
+            Number(rv - cv),
             hexToBuffer(result.r),
             hexToBuffer(result.s),
           );
         }
         return toRpcSig(
-          BigInt(`0x${result.v}`),
+          Number(`0x${result.v}`),
           hexToBuffer(result.r),
           hexToBuffer(result.s),
         );
@@ -253,7 +253,7 @@ class LedgerEthereum implements HWWalletProvider {
         bufferToHex(messageHash),
       )
       .then((result) => {
-        const v = BigInt(result.v - 27);
+        const v = result.v - 27;
         return toRpcSig(v, hexToBuffer(result.r), hexToBuffer(result.s));
       });
   }

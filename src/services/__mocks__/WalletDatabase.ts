@@ -74,9 +74,9 @@ export class WalletDatabase {
       createdAt: walletData.createdAt ?? Date.now(),
       lastAccessedAt: walletData.lastAccessedAt ?? Date.now(),
       isActive: walletData.isActive ?? true,
-      publicKey: walletData.publicKey,
-      derivationPath: walletData.derivationPath,
-      metadata: walletData.metadata
+      ...(walletData.publicKey !== undefined && { publicKey: walletData.publicKey }),
+      ...(walletData.derivationPath !== undefined && { derivationPath: walletData.derivationPath }),
+      ...(walletData.metadata !== undefined && { metadata: walletData.metadata })
     };
 
     this.wallets.set(walletData.address, wallet);

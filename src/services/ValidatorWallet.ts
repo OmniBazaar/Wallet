@@ -4,9 +4,8 @@
  * Integrates wallet operations with the Validator service network
  */
 
-// Import the validator client from the Validator module
-// Using relative imports in monorepo structure
-import { OmniValidatorClient, createOmniValidatorClient } from '../../../Validator/src/client';
+import { OmniProvider } from '../core/providers/OmniProvider';
+import { ENSService } from '../core/ens/ENSService';
 import { ethers } from 'ethers';
 import { nanoid } from 'nanoid';
 import { ref, Ref } from 'vue';
@@ -120,7 +119,8 @@ export interface ENSResolution {
  * Provides account management, transactions, and backup functionality.
  */
 export class ValidatorWalletService {
-  private client: OmniValidatorClient;
+  private provider: OmniProvider;
+  private ensService: ENSService;
   private config: ValidatorWalletConfig;
   private accounts: Map<string, WalletAccount> = new Map();
   private activeAccountId: string | null = null;
@@ -139,13 +139,10 @@ export class ValidatorWalletService {
    */
   constructor(config: ValidatorWalletConfig) {
     this.config = config;
-    this.client = createOmniValidatorClient({
-      validatorEndpoint: config.validatorEndpoint,
-      ...(config.wsEndpoint !== undefined && { wsEndpoint: config.wsEndpoint }),
-      ...(config.apiKey !== undefined && { apiKey: config.apiKey }),
-      timeout: 30000,
-      retryAttempts: 3
-    });
+    // Use OmniProvider for validator communication
+    this.provider = new OmniProvider(config.userId);
+    // Use ENSService for name resolution
+    this.ensService = ENSService.getInstance();
   }
 
   /**
@@ -173,9 +170,10 @@ export class ValidatorWalletService {
    */
   async initialize(): Promise<void> {
     try {
-      // Check validator health
-      const status = await this.client.getStatus();
-      if (!status.isConnected) {
+      // Check provider connection by making a simple call
+      try {
+        await this.provider.getBlockNumber();
+      } catch (error) {
         throw new Error('Validator service is not connected');
       }
 
@@ -349,12 +347,12 @@ export class ValidatorWalletService {
         throw new Error('Account not found');
       }
 
-      // Get user info from validator (includes balance)
-      const userInfo = await this.client.getUser(account.address);
-      const balance = (userInfo?.stakingBalance !== undefined && userInfo.stakingBalance !== '') ? userInfo.stakingBalance : '0';
+      // Get balance from provider
+      const balance = await this.provider.getBalance(account.address);
+      const balanceString = balance.toString();
 
       // Update account balance
-      account.balance = balance;
+      account.balance = balanceString;
 
       // Update reactive balance
       this.balancesRef.value = {
@@ -430,9 +428,9 @@ export class ValidatorWalletService {
    */
   async resolveENS(ensName: string): Promise<ENSResolution | null> {
     try {
-      // Use validator's username resolution
-      const address = await this.client.resolveUsername(ensName);
-      
+      // Use ENSService for name resolution
+      const address = await this.ensService.resolveAddress(ensName);
+
       if (address === null || address === '') {
         return null;
       }

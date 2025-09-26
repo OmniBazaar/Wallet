@@ -17,7 +17,7 @@
  */
 
 import { ethers } from 'ethers';
-import { OmniValidatorClient, createOmniValidatorClient } from '../../../Validator/dist/client/index';
+import { OmniProvider } from '../core/providers/OmniProvider';
 
 /**
  * Participation score components
@@ -180,9 +180,9 @@ type ActivityUpdate = ReferralActivity | PublishingActivity | ForumActivity | Ma
  */
 export class ParticipationService {
   private provider: ethers.Provider;
+  private omniProvider: OmniProvider;
   private validatorEndpoint: string;
   private scoreCache = new Map<string, ParticipationScore>();
-  private validatorClient: OmniValidatorClient | undefined;
   
   // Decay configurations for time-sensitive components
   private readonly DECAY_CONFIGS: Record<string, DecayConfig> = {
@@ -228,18 +228,16 @@ export class ParticipationService {
   constructor(provider: ethers.Provider, validatorEndpoint?: string) {
     this.provider = provider;
     this.validatorEndpoint = validatorEndpoint ?? 'http://localhost:3001/api/participation';
+    // Initialize OmniProvider for validator communication
+    this.omniProvider = new OmniProvider('participation-service');
   }
-  
+
   /**
    * Initialize any resources.
    * @returns Promise that resolves when initialization is complete
    */
   initialize(): void {
-    // Initialize validator client
-    this.validatorClient = createOmniValidatorClient({
-      validatorEndpoint: this.validatorEndpoint.replace('/api/participation', ''),
-      wsEndpoint: this.validatorEndpoint.replace('http', 'ws').replace('/api/participation', '/graphql')
-    });
+    // OmniProvider initializes automatically
   }
   
   /**
@@ -256,7 +254,9 @@ export class ParticipationService {
     }
     
     try {
-      if (this.validatorClient !== undefined) {
+      // For now, compute scores locally
+      // In production, this would query the validator network via OmniProvider
+      {
         // Try to get participation score from validator
         // For now, we'll use a fallback to API until validator service is available
         const response = await fetch(`${this.validatorEndpoint}/score/${address}`);
@@ -784,16 +784,15 @@ export class ParticipationService {
    * @returns Staking amount as string
    */
   private async getStakingAmount(address: string): Promise<string> {
-    if (this.validatorClient !== undefined) {
-      try {
-        const balance = await this.validatorClient.getStakedBalance(address);
-        return balance.toString();
-      } catch (error) {
-        // Log error internally but return default value
-        return '0';
-      }
+    try {
+      // For now, check balance via provider
+      // In production, would query staking contract via OmniProvider
+      const balance = await this.omniProvider.getBalance(address);
+      return balance.toString();
+    } catch (error) {
+      // Log error internally but return default value
+      return '0';
     }
-    return '0';
   }
   
   /**
@@ -802,29 +801,25 @@ export class ParticipationService {
    * @returns KYC verification status
    */
   private async checkKYCStatus(address: string): Promise<boolean> {
-    if (this.validatorClient !== undefined) {
-      try {
-        const kycData = await this.validatorClient.getKYCStatus(address);
-        // Check for top-tier verification (tier 3) with verified status
-        return kycData.tier === 3 && kycData.status === 'verified';
-      } catch (error) {
-        // Log error internally but return default value
-        return false;
-      }
+    try {
+      // For now, return false as KYC would be checked via validator network
+      // In production, this would query the KYC service via OmniProvider
+      // const kycService = new KYCService(...);
+      // const kycData = await kycService.getUserKYCStatus(address);
+      // return kycData.tier === 3 && kycData.status === 'verified';
+      return false;
+    } catch (error) {
+      // Log error internally but return default value
+      return false;
     }
-    return false;
   }
 
   /**
    * Cleanup resources and stop services
    */
   cleanup(): void {
-    if (this.validatorClient !== undefined) {
-      this.validatorClient.close();
-    }
-
+    this.omniProvider.disconnect();
     this.scoreCache.clear();
-    this.validatorClient = undefined;
   }
 }
 

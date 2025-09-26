@@ -112,9 +112,33 @@ export class WalletService {
         this.wallet = new WalletImpl(this.currentProvider);
       }
 
-      // Initialize transaction service
+      // Initialize transaction service with a wallet adapter
       if (this.wallet !== null) {
-        this.transactionService = new TransactionService(this.wallet);
+        // Create an adapter that matches WalletInterface
+        const walletAdapter = {
+          getAddress: () => this.wallet!.getAddress(),
+          ...(this.currentProvider && { provider: this.currentProvider as ethers.Provider }),
+          sendTransaction: async (request: {
+            to: string;
+            value: string;
+            data: string;
+            gasLimit: number;
+            gasPrice: string;
+          }) => {
+            // Convert the request to a Transaction object
+            const { Transaction } = await import('../core/wallet/Transaction');
+            const tx = new Transaction({
+              to: request.to,
+              value: BigInt(request.value),
+              data: request.data,
+              gasLimit: BigInt(request.gasLimit),
+              gasPrice: BigInt(request.gasPrice)
+            });
+            const response = await this.wallet!.sendTransaction(tx);
+            return { hash: response.hash };
+          }
+        };
+        this.transactionService = new TransactionService(walletAdapter);
       }
 
       // Initialize NFT service

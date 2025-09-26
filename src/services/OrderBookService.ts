@@ -9,24 +9,8 @@
 
 import { WalletService } from './WalletService';
 import { OmniProvider } from '../core/providers/OmniProvider';
-import { OmniValidatorClient, createOmniValidatorClient } from '../../../Validator/dist/client/index';
-import { ValidatorDEXService } from '../../../DEX/dist/services/ValidatorDEXService';
+import { DEXService } from './DEXService';
 
-/** Validator order data type */
-interface ValidatorOrderData {
-  orderId: string;
-  maker: string;
-  tokenPair: string;
-  type: 'BUY' | 'SELL';
-  amount: string;
-  filled: string;
-  remainingAmount?: string;
-  filledAmount?: string;
-  price: string;
-  status: 'OPEN' | 'FILLED' | 'CANCELLED' | 'EXPIRED';
-  timestamp: number;
-  txHash?: string;
-}
 
 /** Order types */
 export enum OrderType {
@@ -204,8 +188,7 @@ export interface OrderFillEvent {
 export class OrderBookService {
   private walletService?: WalletService;
   private provider?: OmniProvider;
-  private validatorClient?: OmniValidatorClient;
-  private validatorDEXService?: ValidatorDEXService;
+  private dexService?: DEXService;
   private isInitialized = false;
   private userOrders: Map<string, Order> = new Map();
   private orderSubscriptions: Map<string, (event: OrderFillEvent) => void> = new Map();
@@ -237,27 +220,15 @@ export class OrderBookService {
         await this.walletService.init();
       }
 
-      // Initialize validator client
+      // Initialize DEX service
       try {
-        this.validatorClient = createOmniValidatorClient({
-          validatorEndpoint: process.env['VALIDATOR_ENDPOINT'] !== undefined && process.env['VALIDATOR_ENDPOINT'] !== '' ? process.env['VALIDATOR_ENDPOINT'] : 'http://localhost:4000',
-          wsEndpoint: process.env['VALIDATOR_WS_ENDPOINT'] !== undefined && process.env['VALIDATOR_WS_ENDPOINT'] !== '' ? process.env['VALIDATOR_WS_ENDPOINT'] : 'ws://localhost:4000/graphql'
-        });
-        // Note: OmniValidatorClient doesn't have a connect() method - it connects automatically
-        this.validatorDEXService = new ValidatorDEXService({
-          validatorEndpoint: process.env['VALIDATOR_ENDPOINT'] !== undefined && process.env['VALIDATOR_ENDPOINT'] !== '' ? process.env['VALIDATOR_ENDPOINT'] : 'http://localhost:4000',
-          wsEndpoint: process.env['VALIDATOR_WS_ENDPOINT'] !== undefined && process.env['VALIDATOR_WS_ENDPOINT'] !== '' ? process.env['VALIDATOR_WS_ENDPOINT'] : 'ws://localhost:4000/graphql',
-          networkId: 'omni-testnet',
-          tradingPairs: ['XOM/USDT', 'XOM/ETH', 'XOM/BTC'],
-          feeStructure: {
-            maker: 0.001,
-            taker: 0.003
-          }
-        });
-        await this.validatorDEXService.initialize();
+        if (this.walletService !== undefined) {
+          this.dexService = new DEXService(this.walletService);
+          await this.dexService.initialize();
+        }
       } catch (error) {
-        console.warn('Failed to connect to validator client, order book features may be limited', error);
-        // Continue without validator client - some features may be unavailable
+        console.warn('Failed to initialize DEX service, order book features may be limited', error);
+        // Continue without DEX service - some features may be unavailable
       }
 
       // Get provider
@@ -287,7 +258,7 @@ export class OrderBookService {
 
     try {
       // In test environment, provide mock implementation
-      if ((this.validatorDEXService === null || this.validatorDEXService === undefined) && process.env['NODE_ENV'] === 'test') {
+      if ((this.dexService === null || this.dexService === undefined) && process.env['NODE_ENV'] === 'test') {
         // Mock implementation for testing
         const userAddress = await this.getUserAddress();
         const orderId = 'order-' + Date.now();
@@ -325,7 +296,7 @@ export class OrderBookService {
         };
       }
 
-      if (this.validatorDEXService === null || this.validatorDEXService === undefined) {
+      if (this.dexService === null || this.dexService === undefined) {
         throw new Error('DEX service not available');
       }
 
@@ -342,17 +313,17 @@ export class OrderBookService {
       const userAddress = await this.getUserAddress();
 
       // MEV protection is now handled by the validator
-      // Submit order through validator client
-      const tokenPair = `${params.tokenIn}/${params.tokenOut}`;
-      const orderResult = await this.validatorDEXService.placeOrder({
-        type: params.side === OrderSide.BUY ? 'BUY' : 'SELL',
-        tokenPair: tokenPair,
-        price: params.price.toString(),
-        amount: params.amountIn.toString(),
-        maker: userAddress
+      // Submit order through DEX service
+      const symbol = `${params.tokenIn}/${params.tokenOut}`;
+      const order = await this.dexService.placeOrder({
+        symbol: symbol,
+        side: params.side,
+        price: params.price,
+        quantity: params.amountIn,
+        expiresAt: params.deadline
       });
 
-      const orderId = orderResult.orderId;
+      const orderId = order.id;
       if (orderId !== '') {
         // Create order object
         const order: Order = {
@@ -411,7 +382,7 @@ export class OrderBookService {
 
     try {
       // In test environment, provide mock implementation
-      if ((this.validatorDEXService === null || this.validatorDEXService === undefined) && process.env['NODE_ENV'] === 'test') {
+      if ((this.dexService === null || this.dexService === undefined) && process.env['NODE_ENV'] === 'test') {
         // Mock implementation for testing
         const order = this.userOrders.get(orderId);
         if (order === undefined) {
@@ -435,7 +406,7 @@ export class OrderBookService {
         };
       }
 
-      if (this.validatorDEXService === null || this.validatorDEXService === undefined) {
+      if (this.dexService === null || this.dexService === undefined) {
         throw new Error('DEX service not available');
       }
 
@@ -450,7 +421,7 @@ export class OrderBookService {
       }
 
       // Cancel order through validator DEX service
-      const success = await this.validatorDEXService.cancelOrder(orderId, order.maker);
+      const success = await this.dexService.cancelOrder(orderId, order.maker);
 
       if (success) {
         // Update order status
@@ -585,7 +556,7 @@ export class OrderBookService {
 
     try {
       // In test environment, provide mock implementation
-      if ((this.validatorDEXService === null || this.validatorDEXService === undefined) && process.env['NODE_ENV'] === 'test') {
+      if ((this.dexService === null || this.dexService === undefined) && process.env['NODE_ENV'] === 'test') {
         // Mock implementation for testing
         const mockBids: DepthLevel[] = [
           { price: 0.95, amount: BigInt('1000000000000000000000'), orderCount: 2, cumulative: BigInt('1000000000000000000000') },
@@ -606,13 +577,13 @@ export class OrderBookService {
         };
       }
 
-      if (this.validatorDEXService === null || this.validatorDEXService === undefined) {
+      if (this.dexService === null || this.dexService === undefined) {
         throw new Error('DEX service not available');
       }
 
       // Get order book from validator
       const pair = `${tokenIn}/${tokenOut}`;
-      const orderBookData = await this.validatorDEXService.getOrderBook(pair, levels);
+      const orderBookData = await this.dexService.getOrderBook(pair, levels);
 
       // Convert to our format
       // Handle decimal amounts by converting to smallest units
@@ -709,36 +680,37 @@ export class OrderBookService {
         return cachedOrder;
       }
 
-      // Query from validator DEX service
-      if (this.validatorDEXService !== null && this.validatorDEXService !== undefined) {
+      // Query from DEX service
+      if (this.dexService !== null && this.dexService !== undefined) {
         try {
-          const orderData = await this.validatorDEXService.getOrder(orderId) as ValidatorOrderData | null;
+          const activeOrders = await this.dexService.getActiveOrders();
+          const orderData = activeOrders.find(o => o.id === orderId);
           if (orderData !== null && orderData !== undefined) {
-            // Map validator order to our Order format
+            // Map DEX order to our Order format
             // Parse token pair to get tokenIn and tokenOut
-            const [tokenIn, tokenOut] = orderData.tokenPair.split('/');
-            const amountIn = BigInt(orderData.amount);
-            const amountFilled = BigInt(orderData.filled);
+            const [tokenIn, tokenOut] = orderData.pair.symbol.split('/');
+            const amountIn = orderData.quantity;
+            const amountFilled = orderData.filledQuantity;
             const amountRemaining = amountIn - amountFilled;
 
             const order: Order = {
-              orderId: orderData.orderId,
-              maker: orderData.maker,
-              tokenIn: (orderData.type === 'SELL' ? tokenIn : tokenOut) ?? '0x0000000000000000000000000000000000000000',
-              tokenOut: (orderData.type === 'SELL' ? tokenOut : tokenIn) ?? '0x0000000000000000000000000000000000000000',
+              orderId: orderData.id,
+              maker: orderData.trader,
+              tokenIn: (orderData.side === OrderSide.SELL ? tokenIn : tokenOut) ?? '0x0000000000000000000000000000000000000000',
+              tokenOut: (orderData.side === OrderSide.SELL ? tokenOut : tokenIn) ?? '0x0000000000000000000000000000000000000000',
               amountIn,
               amountRemaining,
               amountFilled,
               amountOutMin: BigInt(0),
               type: OrderType.LIMIT,
-              side: orderData.type === 'BUY' ? OrderSide.BUY : OrderSide.SELL,
+              side: orderData.side,
               price: Number(orderData.price),
-              status: orderData.status === 'OPEN' ? OrderStatus.OPEN :
-                     orderData.status === 'FILLED' ? OrderStatus.FILLED :
-                     orderData.status === 'CANCELLED' ? OrderStatus.CANCELLED :
-                     orderData.status === 'EXPIRED' ? OrderStatus.EXPIRED : OrderStatus.PENDING,
+              status: orderData.status === OrderStatus.PENDING ? OrderStatus.OPEN :
+                     orderData.status === OrderStatus.FILLED ? OrderStatus.FILLED :
+                     orderData.status === OrderStatus.CANCELED ? OrderStatus.CANCELLED :
+                     OrderStatus.EXPIRED,
               timeInForce: TimeInForce.GTC,
-              createdAt: orderData.timestamp,
+              createdAt: orderData.createdAt,
               updatedAt: Date.now(),
               expiration: 0,
               txHash: orderData.txHash !== undefined && orderData.txHash !== null && orderData.txHash !== ''
@@ -815,23 +787,24 @@ export class OrderBookService {
    * @private
    */
   private subscribeToOrderEvents(orderId: string): void {
-    if (this.validatorDEXService !== null && this.validatorDEXService !== undefined) {
+    if (this.dexService !== null && this.dexService !== undefined) {
       // In production, would set up WebSocket subscription
       // For now, poll for updates
       const checkOrder = async (): Promise<void> => {
         try {
-          if (this.validatorDEXService === null || this.validatorDEXService === undefined) return;
-          const orderData = await this.validatorDEXService.getOrder(orderId) as ValidatorOrderData | null;
+          if (this.dexService === null || this.dexService === undefined) return;
+          const activeOrders = await this.dexService.getActiveOrders();
+          const orderData = activeOrders.find(o => o.id === orderId);
           if (orderData !== null && orderData !== undefined) {
             const order = this.userOrders.get(orderId);
             if (order !== undefined && orderData.status !== order.status) {
               // Update order
-              order.status = orderData.status === 'OPEN' ? OrderStatus.OPEN :
-                           orderData.status === 'FILLED' ? OrderStatus.FILLED :
-                           orderData.status === 'CANCELLED' ? OrderStatus.CANCELLED :
-                           orderData.status === 'EXPIRED' ? OrderStatus.EXPIRED : OrderStatus.PENDING;
-              order.amountRemaining = BigInt(orderData.remainingAmount !== undefined && orderData.remainingAmount !== null && orderData.remainingAmount !== '' ? orderData.remainingAmount : '0');
-              order.amountFilled = BigInt(orderData.filledAmount !== undefined && orderData.filledAmount !== null && orderData.filledAmount !== '' ? orderData.filledAmount : '0');
+              order.status = orderData.status === OrderStatus.PENDING ? OrderStatus.OPEN :
+                           orderData.status === OrderStatus.FILLED ? OrderStatus.FILLED :
+                           orderData.status === OrderStatus.CANCELED ? OrderStatus.CANCELLED :
+                           OrderStatus.EXPIRED;
+              order.amountRemaining = orderData.quantity - orderData.filledQuantity;
+              order.amountFilled = orderData.filledQuantity;
               order.updatedAt = Date.now();
               this.userOrders.set(orderId, order);
 

@@ -707,8 +707,7 @@ export class LiquidityService {
             token1: '', // Would need to get from pool
             amount0: position.amount0,
             amount1: position.amount1,
-            tickLower: undefined, // V3 tick info not in basic position
-            tickUpper: undefined, // V3 tick info not in basic position
+            // Don't assign optional properties when they're undefined
             liquidity: position.liquidity,
             fees0: BigInt(0), // Would need to calculate accumulated fees
             fees1: BigInt(0), // Would need to calculate accumulated fees
@@ -1094,6 +1093,10 @@ export class LiquidityService {
         throw new Error('AMM integration not available');
       }
 
+      if (this.poolManager === undefined) {
+        throw new Error('Pool manager not available');
+      }
+
       // Get pool information
       // According to the mock, getPool with one parameter returns pool info synchronously
       interface PoolInfo {
@@ -1101,13 +1104,16 @@ export class LiquidityService {
         liquidity: bigint;
         tick: number;
       }
-      const poolInfo = this.poolManager.getPool(poolAddress) as PoolInfo;
+      const poolInfo = this.poolManager.getPool(poolAddress);
       if (poolInfo === null || poolInfo === undefined) {
         throw new Error('Pool not found');
       }
 
+      // TypeScript now knows poolInfo is not null/undefined
+      const typedPoolInfo = poolInfo as PoolInfo;
+
       // Calculate prices from sqrtPriceX96
-      const sqrtPrice = Number(poolInfo.sqrtPriceX96) / (2 ** 96);
+      const sqrtPrice = Number(typedPoolInfo.sqrtPriceX96) / (2 ** 96);
       const price0 = sqrtPrice * sqrtPrice;
       const price1 = 1 / price0;
 
@@ -1116,7 +1122,7 @@ export class LiquidityService {
 
       // Calculate metrics
       // Calculate TVL from liquidity instead of reserves
-      const tvlUSD = Number(poolInfo.liquidity) * (price0 + price1) / 1e18;
+      const tvlUSD = Number(typedPoolInfo.liquidity) * (price0 + price1) / 1e18;
       const volume24h = 0; // Would need to track this from swap events
       const volume7d = 0; // Would need to track this from swap events
       const fees24h = volume24h * 0.003; // Assuming 0.3% fee tier
@@ -1134,7 +1140,7 @@ export class LiquidityService {
         fees24hUSD: fees24h,
         price0,
         price1,
-        tick: poolInfo.tick
+        tick: typedPoolInfo.tick
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';

@@ -179,7 +179,7 @@ class TrezorEthereum implements HWWalletProvider {
         const rv = BigInt(parseInt(typedResult.payload.v, 16));
         const cv = tx.common.chainId() * BigInt(2) + BigInt(35);
         return toRpcSig(
-          BigInt(rv - cv),
+          Number(rv - cv),
           hexToBuffer(typedResult.payload.r),
           hexToBuffer(typedResult.payload.s),
         );
@@ -198,7 +198,7 @@ class TrezorEthereum implements HWWalletProvider {
       const typedResult = result as { success: boolean; payload: { error?: string; v: string; r: string; s: string } };
       if (!typedResult.success) throw new Error(typedResult.payload.error !== null && typedResult.payload.error !== undefined && typedResult.payload.error !== '' ? typedResult.payload.error : 'Transaction failed');
       return toRpcSig(
-        BigInt(typedResult.payload.v),
+        Number(typedResult.payload.v),
         hexToBuffer(typedResult.payload.r),
         hexToBuffer(typedResult.payload.s),
       );
