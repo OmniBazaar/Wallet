@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/naming-convention */
 /**
  * Network names enum for blockchain networks
  * @enum {string}
@@ -24,12 +23,12 @@ export enum NetworkNames {
   Aurora = "Aurora",
   Zora = "Zora",
   Blast = "Blast",
-  
+
   // Bitcoin family
   Bitcoin = "Bitcoin",
   Litecoin = "Litecoin",
   Dogecoin = "Dogecoin",
-  
+
   // Other chains
   Solana = "Solana",
   Polkadot = "Polkadot",
@@ -48,8 +47,6 @@ export enum HWwalletCapabilities {
   eip1559 = "eip1559",
   typedMessage = "typedMessage",
 }
-/* eslint-enable @typescript-eslint/naming-convention */
-/* eslint-disable @typescript-eslint/naming-convention */
 
 /**
  * Re-export common utility functions used across the codebase

@@ -33,19 +33,23 @@ interface SolanaApp {
 
 // Dynamic import for optional Ledger Solana support
 let SolApp: (new (transport: Transport) => SolanaApp) | undefined;
-try {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  SolApp = require("@ledgerhq/hw-app-solana") as new (transport: Transport) => SolanaApp;
-} catch {
-  // Module is not available
-}
 
 /**
  * Creates a Solana App instance
  * @param transport - The transport to use
  * @returns A new SolanaApp instance
  */
-function createSolanaApp(transport: Transport): SolanaApp {
+async function createSolanaApp(transport: Transport): Promise<SolanaApp> {
+  // Load module on first use if not already loaded
+  if (SolApp === undefined) {
+    try {
+      const module = await import("@ledgerhq/hw-app-solana");
+      SolApp = module.default as new (transport: Transport) => SolanaApp;
+    } catch {
+      throw new Error("Ledger Solana support is not available. Please ensure @ledgerhq/hw-app-solana is installed.");
+    }
+  }
+
   // Runtime check for Ledger Solana support
   if (SolApp !== undefined) {
     return new SolApp(transport);
@@ -97,7 +101,7 @@ class LedgerSolana implements HWWalletProvider {
     if (this.transport === null)
       return Promise.reject(new Error("ledger-solana: Transport not initialized"));
     
-    const connection = createSolanaApp(this.transport);
+    const connection = await createSolanaApp(this.transport);
     return connection
       .getAddress(
         options.pathType.path.replace(`{index}`, options.pathIndex.toString()),
@@ -118,7 +122,7 @@ class LedgerSolana implements HWWalletProvider {
     if (this.transport === null)
       return Promise.reject(new Error("ledger-solana: Transport not initialized"));
     
-    const connection = createSolanaApp(this.transport);
+    const connection = await createSolanaApp(this.transport);
     return connection
       .signOffchainMessage(
         options.pathType.path.replace(`{index}`, options.pathIndex.toString()),
@@ -137,7 +141,7 @@ class LedgerSolana implements HWWalletProvider {
     if (this.transport === null)
       return Promise.reject(new Error("ledger-solana: Transport not initialized"));
     
-    const connection = createSolanaApp(this.transport);
+    const connection = await createSolanaApp(this.transport);
     return connection
       .signTransaction(
         options.pathType.path.replace(`{index}`, options.pathIndex.toString()),

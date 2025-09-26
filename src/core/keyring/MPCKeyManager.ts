@@ -80,8 +80,7 @@ class Database {
 import { randomBytes, createCipheriv, createDecipheriv, createHash, pbkdf2 } from 'crypto';
 import { promisify } from 'util';
 import * as secp256k1 from 'secp256k1';
-// @ts-expect-error - BN.js type definitions issue with esModuleInterop
-import BN from 'bn.js';
+import { default as BN } from 'bn.js';
 import { keccak256 } from 'js-sha3';
 
 const pbkdf2Async = promisify(pbkdf2);

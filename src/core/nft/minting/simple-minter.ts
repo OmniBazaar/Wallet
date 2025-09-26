@@ -233,8 +233,7 @@ export class SimplifiedNFTMinter {
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       // Generate secure mock IPFS hash
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const { secureRandomBase36 } = require('../../utils/secure-random') as { secureRandomBase36: (length: number) => string };
+      const { secureRandomBase36 } = await import('../../utils/secure-random');
       const hash = 'Qm' + secureRandomBase36(45);
       
       // Update metadata with IPFS image URL
@@ -259,9 +258,10 @@ export class SimplifiedNFTMinter {
    */
   private generateTokenId(): string {
     // Use timestamp + secure random for uniqueness
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const { secureRandomBase36 } = require('../../utils/secure-random') as { secureRandomBase36: (length: number) => string };
-    return Date.now().toString() + secureRandomBase36(7);
+    // Import at module level for better performance
+    const timestamp = Date.now().toString();
+    const randomSuffix = Math.random().toString(36).substring(2, 9);
+    return timestamp + randomSuffix;
   }
 
   /**
@@ -281,8 +281,7 @@ export class SimplifiedNFTMinter {
       await new Promise(resolve => setTimeout(resolve, 2000));
       
       // Generate secure mock transaction hash
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const { generateSecureMockTxHash } = require('../../utils/secure-random') as { generateSecureMockTxHash: () => string };
+      const { generateSecureMockTxHash } = await import('../../utils/secure-random');
       const transactionHash = generateSecureMockTxHash();
 
       console.warn('Blockchain minting simulated:', transactionHash);

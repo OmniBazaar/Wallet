@@ -347,8 +347,7 @@ export class NFTService {
       
       // In test environment, return mock transaction
       if (process.env['NODE_ENV'] === 'test') {
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const { generateSecureMockTxHash } = require('../utils/secure-random') as { generateSecureMockTxHash: () => string };
+        const { generateSecureMockTxHash } = await import('../utils/secure-random');
         const mockHash = generateSecureMockTxHash();
         
         // Get wallet address if available
@@ -466,10 +465,9 @@ export class NFTService {
     // This is a placeholder; real implementation would call provider/contract
     void params; // Mark as used
     const tokenId = `${Date.now()}`;
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const secureRandomModule = require('../utils/secure-random') as { generateSecureMockTxHash: () => string };
-    const transactionHash = secureRandomModule.generateSecureMockTxHash();
-    return await Promise.resolve({ success: true, tokenId, transactionHash });
+    const { generateSecureMockTxHash } = await import('../utils/secure-random');
+    const transactionHash = generateSecureMockTxHash();
+    return { success: true, tokenId, transactionHash };
   }
 
   /**
@@ -491,12 +489,11 @@ export class NFTService {
     void params; // Mark as used
 
     // This would integrate with the marketplace
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const secureRandomModule = require('../utils/secure-random') as { generateSecureMockTxHash: () => string };
-    return await Promise.resolve({
+    const { generateSecureMockTxHash } = await import('../utils/secure-random');
+    return {
       success: true,
-      txHash: secureRandomModule.generateSecureMockTxHash()
-    });
+      txHash: generateSecureMockTxHash()
+    };
   }
 
   /**

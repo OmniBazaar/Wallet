@@ -77,9 +77,8 @@ export class MarketplaceService {
    * @param _listingId - Listing ID (unused in mock)
    * @returns Promise resolving to transaction hash
    */
-  purchaseNFT(_listingId: string): Promise<PurchaseResult> {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const { generateSecureMockTxHash } = require('../../utils/secure-random') as { generateSecureMockTxHash: () => string };
-    return Promise.resolve({ hash: generateSecureMockTxHash() });
+  async purchaseNFT(_listingId: string): Promise<PurchaseResult> {
+    const { generateSecureMockTxHash } = await import('../../utils/secure-random');
+    return { hash: generateSecureMockTxHash() };
   }
 }

@@ -129,11 +129,9 @@ class LoggerImpl implements Logger {
       
       switch (level) {
         case LogLevel.DEBUG:
-          // eslint-disable-next-line no-console
           console.debug(...logData);
           break;
         case LogLevel.INFO:
-          // eslint-disable-next-line no-console
           console.info(...logData);
           break;
         case LogLevel.WARN:

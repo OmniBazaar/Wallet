@@ -15,8 +15,7 @@ const getTrezorConnect = async (): Promise<TrezorConnectType> => {
     'getPlatformInfo' in chrome.runtime;
 
   if (isExtension) {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const TrezorConnect = require("@trezor/connect-webextension") as {
+    const TrezorConnect = await import("@trezor/connect-webextension") as {
       default: TrezorConnectType & {
         init(config: {
           manifest: { email: string; appUrl: string };
@@ -26,7 +25,7 @@ const getTrezorConnect = async (): Promise<TrezorConnectType> => {
         }): Promise<void>;
       };
     };
-    
+
     await TrezorConnect.default.init({
       manifest: {
         email: "info@enkrypt.com",
@@ -38,8 +37,7 @@ const getTrezorConnect = async (): Promise<TrezorConnectType> => {
     });
     return TrezorConnect.default;
   } else {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const TrezorConnect = require("@trezor/connect-web") as {
+    const TrezorConnect = await import("@trezor/connect-web") as {
       default: {
         default: TrezorConnectType;
         init(config: {
@@ -48,7 +46,7 @@ const getTrezorConnect = async (): Promise<TrezorConnectType> => {
         }): Promise<void>;
       };
     };
-    
+
     await TrezorConnect.default.init({
       lazyLoad: true,
       manifest: {

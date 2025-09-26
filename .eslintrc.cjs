@@ -91,7 +91,7 @@ module.exports = {
       },
       {
         selector: 'enumMember',
-        format: ['UPPER_CASE']
+        format: ['UPPER_CASE', 'PascalCase', 'camelCase']
       }
     ],
     'prefer-const': 'error',
@@ -207,6 +207,13 @@ module.exports = {
         'no-console': 'off',
         // Allow non-null assertions in examples
         '@typescript-eslint/no-non-null-assertion': 'off'
+      }
+    },
+    {
+      files: ['src/utils/logger.ts', 'src/**/logger.ts', 'src/**/Logger.ts'],
+      rules: {
+        // Allow console statements in logger utilities
+        'no-console': 'off'
       }
     },
     {

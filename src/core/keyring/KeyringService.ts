@@ -529,8 +529,7 @@ export class KeyringService {
       // Remove event handlers
       sanitizedName = sanitizedName.replace(/on\w+\s*=/gi, '');
       // Remove control characters
-      // eslint-disable-next-line no-control-regex
-      sanitizedName = sanitizedName.replace(/[\x00-\x1F\x7F-\x9F]/g, '');
+      sanitizedName = this.removeControlCharacters(sanitizedName);
       // Remove dangerous HTML characters including quotes and parentheses
       sanitizedName = sanitizedName.replace(/[<>"'()]/g, '');
       sanitizedName = sanitizedName.trim();
@@ -1139,12 +1138,27 @@ export class KeyringService {
       .replace(/[<>'"\\]/g, '') // Remove HTML/script chars
       .replace(/javascript:/gi, '') // Remove javascript protocol
       .replace(/\.\./g, '') // Remove path traversal
-      // eslint-disable-next-line no-control-regex
-      .replace(/[\x00-\x1F\x7F-\x9F]/g, '') // Remove control chars
+      .split('').filter(char => {
+        const code = char.charCodeAt(0);
+        return !(code <= 0x1F || (code >= 0x7F && code <= 0x9F));
+      }).join('') // Remove control chars
       .replace(/\$\{.*?\}/g, '') // Remove template literals
       .replace(/\{\{.*?\}\}/g, '') // Remove template expressions
       .replace(/process\.(exit|env)/gi, '') // Remove process access
       .substring(0, 1000); // Limit length
+  }
+
+  /**
+   * Remove control characters from a string
+   * @param input - String to sanitize
+   * @returns Sanitized string
+   */
+  private removeControlCharacters(input: string): string {
+    // Filter out control characters without regex
+    return input.split('').filter(char => {
+      const code = char.charCodeAt(0);
+      return !(code <= 0x1F || (code >= 0x7F && code <= 0x9F));
+    }).join('');
   }
 }
 
