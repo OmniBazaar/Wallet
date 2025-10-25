@@ -25,12 +25,12 @@ export const OMNICOIN_ADDRESSES: Record<string, ContractAddresses> = {
   // ⚠️  CRITICAL: These addresses MUST match Coin/deployments/localhost.json
   // Last deployed: 2025-10-22T12:42:57.224Z
   hardhat: {
-    OmniCoin: '0x5FbDB2315678afecb367f032d93F642f64180aa3',
-    OmniCore: '0x5FC8d32690cc91D4c39d9d3abcBD16989F875707',
-    OmniGovernance: '0x0165878A594ca255338adfa4d48449f69242Eb8F',
+    OmniCoin: '0x36C02dA8a0983159322a80FFE9F24b1acfF8B570',
+    OmniCore: '0xb7278A61aa25c888815aFC32Ad3cC52fF24fE575',
+    OmniGovernance: '0xCD8a1C3ba11CF5ECfa6267617243239504a98d90',
     OmniBridge: '0x0000000000000000000000000000000000000000', // Not yet deployed
-    PrivateOmniCoin: '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0',
-    MinimalEscrow: '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9',
+    PrivateOmniCoin: '0x36C02dA8a0983159322a80FFE9F24b1acfF8B570',
+    MinimalEscrow: '0x5f3f1dBD7B74C6B46e8c44f98792A1dAf8d69154',
   },
 
   // COTI Testnet (chainId: 7082400)
