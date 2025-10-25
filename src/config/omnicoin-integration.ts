@@ -12,6 +12,7 @@ import { ethers } from 'ethers';
  * These should match the deployed addresses from the Coin module
  */
 interface ContractAddresses {
+  rpcUrl: string;
   OmniCoin: string;
   OmniCore: string;
   OmniGovernance: string;
@@ -25,6 +26,7 @@ export const OMNICOIN_ADDRESSES: Record<string, ContractAddresses> = {
   // ⚠️  CRITICAL: These addresses MUST match Coin/deployments/localhost.json
   // Last deployed: 2025-10-22T12:42:57.224Z
   hardhat: {
+    rpcUrl: 'http://localhost:8545',
     OmniCoin: '0x36C02dA8a0983159322a80FFE9F24b1acfF8B570',
     OmniCore: '0xb7278A61aa25c888815aFC32Ad3cC52fF24fE575',
     OmniGovernance: '0xCD8a1C3ba11CF5ECfa6267617243239504a98d90',
@@ -35,6 +37,7 @@ export const OMNICOIN_ADDRESSES: Record<string, ContractAddresses> = {
 
   // COTI Testnet (chainId: 7082400)
   'coti-testnet': {
+    rpcUrl: 'https://api.avax-test.network/ext/bc/C/rpc',
     OmniCoin: '0x0000000000000000000000000000000000000000', // To be deployed
     OmniCore: '0x0000000000000000000000000000000000000000',
     OmniGovernance: '0x0000000000000000000000000000000000000000',
@@ -45,6 +48,7 @@ export const OMNICOIN_ADDRESSES: Record<string, ContractAddresses> = {
 
   // COTI Mainnet (future)
   'coti-mainnet': {
+    rpcUrl: 'https://api.avax.network/ext/bc/C/rpc',
     OmniCoin: '0x0000000000000000000000000000000000000000',
     OmniCore: '0x0000000000000000000000000000000000000000',
     OmniGovernance: '0x0000000000000000000000000000000000000000',
