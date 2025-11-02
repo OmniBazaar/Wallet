@@ -65,14 +65,14 @@ export interface OmniCoinNetwork {
 export const OMNICOIN_NETWORKS = {
   mainnet: {
     name: 'OmniCoin Mainnet',
-    chainId: 999999, // Custom chain ID for OmniCoin
+    chainId: 0, // TBD - Mainnet not yet deployed
     rpcUrl: (process?.env?.['OMNICOIN_RPC_URL']) ?? 'https://api.omnibazaar.com/rpc',
     validatorUrl: (process?.env?.['VALIDATOR_URL']) ?? 'https://validator.omnibazaar.com',
     blockExplorer: 'https://explorer.omnibazaar.com',
     nativeCurrency: {
       name: 'OmniCoin',
       symbol: 'XOM',
-      decimals: 18 // Updated for EVM standard compatibility
+      decimals: 18 // EVM standard compatibility
     },
     features: {
       privacy: true,
@@ -81,14 +81,14 @@ export const OMNICOIN_NETWORKS = {
     }
   },
   testnet: {
-    name: 'OmniCoin Testnet',
-    chainId: 999998,
-    rpcUrl: (process?.env?.['OMNICOIN_TESTNET_RPC_URL']) ?? 'https://testnet-api.omnibazaar.com/rpc',
-    validatorUrl: (process?.env?.['VALIDATOR_TESTNET_URL']) ?? 'https://testnet-validator.omnibazaar.com',
-    blockExplorer: 'https://testnet-explorer.omnibazaar.com',
+    name: 'OmniCoin Fuji Testnet',
+    chainId: 131313, // Fuji Subnet-EVM chain ID
+    rpcUrl: (process?.env?.['OMNICOIN_TESTNET_RPC_URL']) ?? 'http://127.0.0.1:44969/ext/bc/wFWtK4stScGVipRgh9em1aqY7TZ94rRBdV95BbGkjQFwh6wCS/rpc',
+    validatorUrl: (process?.env?.['VALIDATOR_TESTNET_URL']) ?? 'http://localhost:3001',
+    blockExplorer: '', // No public explorer yet for Fuji
     nativeCurrency: {
       name: 'Test OmniCoin',
-      symbol: 'tXOM',
+      symbol: 'XOM', // Changed from tXOM to match deployed token
       decimals: 18
     },
     features: {
