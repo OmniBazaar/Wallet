@@ -26,13 +26,24 @@ export const OMNICOIN_ADDRESSES: Record<string, ContractAddresses> = {
   // ⚠️  CRITICAL: These addresses MUST match Coin/deployments/localhost.json
   // Last deployed: 2025-10-22T12:42:57.224Z
   hardhat: {
-    rpcUrl: 'http://localhost:8545',
-    OmniCoin: '0x36C02dA8a0983159322a80FFE9F24b1acfF8B570',
-    OmniCore: '0xb7278A61aa25c888815aFC32Ad3cC52fF24fE575',
-    OmniGovernance: '0xCD8a1C3ba11CF5ECfa6267617243239504a98d90',
+    rpcUrl: 'http://127.0.0.1:9650/ext/bc/2aBfaY6JaFSTfbZjHMTVYkuw9FCAGbguLwqvPxRDoTZgFncBhg/rpc',
+    OmniCoin: '0x8A791620dd6260079BF849Dc5567aDC3F2FdC318',
+    OmniCore: '0x0B306BF915C4d645ff596e518fAf3F9669b97016',
+    OmniGovernance: '0x959922bE3CAee4b8Cd9a407cc3ac1C251C2007B1',
     OmniBridge: '0x0000000000000000000000000000000000000000', // Not yet deployed
-    PrivateOmniCoin: '0x36C02dA8a0983159322a80FFE9F24b1acfF8B570',
-    MinimalEscrow: '0x5f3f1dBD7B74C6B46e8c44f98792A1dAf8d69154',
+    PrivateOmniCoin: '0x8A791620dd6260079BF849Dc5567aDC3F2FdC318',
+    MinimalEscrow: '0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82',
+  },
+
+  // OmniCoin Fuji Testnet Subnet-EVM (chainId: 131313)
+  fuji: {
+    rpcUrl: 'http://127.0.0.1:9650/ext/bc/2aBfaY6JaFSTfbZjHMTVYkuw9FCAGbguLwqvPxRDoTZgFncBhg/rpc',
+    OmniCoin: '0x8A791620dd6260079BF849Dc5567aDC3F2FdC318',
+    OmniCore: '0x0B306BF915C4d645ff596e518fAf3F9669b97016',
+    OmniGovernance: '0x959922bE3CAee4b8Cd9a407cc3ac1C251C2007B1',
+    OmniBridge: '0x0000000000000000000000000000000000000000',
+    PrivateOmniCoin: '0x8A791620dd6260079BF849Dc5567aDC3F2FdC318',
+    MinimalEscrow: '0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82',
   },
 
   // COTI Testnet (chainId: 7082400)
