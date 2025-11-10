@@ -19,6 +19,7 @@ interface ContractAddresses {
   OmniBridge: string;
   PrivateOmniCoin: string;
   MinimalEscrow: string;
+  LegacyBalanceClaim: string;
 }
 
 export const OMNICOIN_ADDRESSES: Record<string, ContractAddresses> = {
@@ -26,24 +27,26 @@ export const OMNICOIN_ADDRESSES: Record<string, ContractAddresses> = {
   // ⚠️  CRITICAL: These addresses MUST match Coin/deployments/localhost.json
   // Last deployed: 2025-10-22T12:42:57.224Z
   hardhat: {
-    rpcUrl: 'http://127.0.0.1:9650/ext/bc/2aBfaY6JaFSTfbZjHMTVYkuw9FCAGbguLwqvPxRDoTZgFncBhg/rpc',
-    OmniCoin: '0x8A791620dd6260079BF849Dc5567aDC3F2FdC318',
-    OmniCore: '0x0B306BF915C4d645ff596e518fAf3F9669b97016',
-    OmniGovernance: '0x959922bE3CAee4b8Cd9a407cc3ac1C251C2007B1',
+    rpcUrl: 'http://127.0.0.1:9650/ext/bc/2FYUT2FZenR4bUZUGjVaucXmQgqmDnKmrioLNdPEn7RqPwunMw/rpc',
+    OmniCoin: '0x5FC8d32690cc91D4c39d9d3abcBD16989F875707',
+    OmniCore: '0xB7f8BC63BbcaD18155201308C8f3540b07f84F5e',
+    OmniGovernance: '0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0',
     OmniBridge: '0x0000000000000000000000000000000000000000', // Not yet deployed
-    PrivateOmniCoin: '0x8A791620dd6260079BF849Dc5567aDC3F2FdC318',
-    MinimalEscrow: '0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82',
+    PrivateOmniCoin: '0x5FC8d32690cc91D4c39d9d3abcBD16989F875707',
+    MinimalEscrow: '0x8A791620dd6260079BF849Dc5567aDC3F2FdC318',
+    LegacyBalanceClaim: '0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE',
   },
 
   // OmniCoin Fuji Testnet Subnet-EVM (chainId: 131313)
   fuji: {
-    rpcUrl: 'http://127.0.0.1:9650/ext/bc/2aBfaY6JaFSTfbZjHMTVYkuw9FCAGbguLwqvPxRDoTZgFncBhg/rpc',
-    OmniCoin: '0x8A791620dd6260079BF849Dc5567aDC3F2FdC318',
-    OmniCore: '0x0B306BF915C4d645ff596e518fAf3F9669b97016',
-    OmniGovernance: '0x959922bE3CAee4b8Cd9a407cc3ac1C251C2007B1',
+    rpcUrl: 'http://127.0.0.1:9650/ext/bc/2FYUT2FZenR4bUZUGjVaucXmQgqmDnKmrioLNdPEn7RqPwunMw/rpc',
+    OmniCoin: '0x5FC8d32690cc91D4c39d9d3abcBD16989F875707',
+    OmniCore: '0xB7f8BC63BbcaD18155201308C8f3540b07f84F5e',
+    OmniGovernance: '0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0',
     OmniBridge: '0x0000000000000000000000000000000000000000',
-    PrivateOmniCoin: '0x8A791620dd6260079BF849Dc5567aDC3F2FdC318',
-    MinimalEscrow: '0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82',
+    PrivateOmniCoin: '0x5FC8d32690cc91D4c39d9d3abcBD16989F875707',
+    MinimalEscrow: '0x8A791620dd6260079BF849Dc5567aDC3F2FdC318',
+    LegacyBalanceClaim: '0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE',
   },
 
   // COTI Testnet (chainId: 7082400)
@@ -55,6 +58,7 @@ export const OMNICOIN_ADDRESSES: Record<string, ContractAddresses> = {
     OmniBridge: '0x0000000000000000000000000000000000000000',
     PrivateOmniCoin: '0x0000000000000000000000000000000000000000',
     MinimalEscrow: '0x0000000000000000000000000000000000000000',
+    LegacyBalanceClaim: '0x0000000000000000000000000000000000000000',
   },
 
   // COTI Mainnet (future)
@@ -66,8 +70,9 @@ export const OMNICOIN_ADDRESSES: Record<string, ContractAddresses> = {
     OmniBridge: '0x0000000000000000000000000000000000000000',
     PrivateOmniCoin: '0x0000000000000000000000000000000000000000',
     MinimalEscrow: '0x0000000000000000000000000000000000000000',
+    LegacyBalanceClaim: '0x0000000000000000000000000000000000000000',
   },
-} as const;
+} as const;;
 
 /**
  * OmniCoin token metadata
