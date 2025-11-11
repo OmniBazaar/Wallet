@@ -1,20 +1,21 @@
 /**
  * Faucet Service for Wallet
- * 
+ *
  * Provides testnet token distribution for users to test OmniCoin features.
  * Integrates with the Validator's decentralized faucet service with anti-sybil protection.
- * 
+ *
  * Features:
  * - One-click testnet token claims
  * - Anti-sybil verification (email, social media)
  * - Rate limiting and claim tracking
  * - Multiple testnet support (OmniCoin, ETH, COTI)
  * - Progressive trust system for increased claims
- * 
+ *
  * @module services/FaucetService
  */
 
 import { ethers } from 'ethers';
+import { getContractAddresses } from '../config/omnicoin-integration';
 
 /**
  * Supported testnets
@@ -179,7 +180,7 @@ export class FaucetService {
       maxClaims: 10,
       requiredVerification: [VerificationMethod.EMAIL],
       chainId: 31337,
-      rpcUrl: 'http://localhost:8545',
+      rpcUrl: getContractAddresses('hardhat').rpcUrl,
       explorerUrl: 'http://localhost:3000/explorer'
     }],
     [TestnetType.ETHEREUM_SEPOLIA, {

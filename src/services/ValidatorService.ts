@@ -6,6 +6,7 @@
 
 import { OmniValidatorClient, createOmniValidatorClient } from '../../../Validator/dist/client/index';
 import { ethers } from 'ethers';
+import { getContractAddresses } from '../config/omnicoin-integration';
 
 /**
  * Represents the status of a validator node
@@ -187,12 +188,15 @@ export class ValidatorService {
       });
 
       // Initialize ethers provider for on-chain operations
+      // REFACTORED (2025-11-10): Use omnicoin-integration.ts for configuration
+      const config = getContractAddresses();
       this.provider = new ethers.JsonRpcProvider(
-        process.env['VITE_RPC_URL'] ?? 'http://localhost:8545'
+        process.env['VITE_RPC_URL'] ?? config.rpcUrl
       );
 
       // Initialize staking contract
-      const stakingAddress = process.env['VITE_STAKING_CONTRACT'] ?? '0x5FbDB2315678afecb367f032d93F642f64180aa3';
+      // Note: Using OmniCore as staking contract (staking functionality is in OmniCore)
+      const stakingAddress = process.env['VITE_STAKING_CONTRACT'] ?? config.OmniCore;
       const stakingABI = [
         'function stake(uint256 amount) external',
         'function unstake(uint256 amount) external',
