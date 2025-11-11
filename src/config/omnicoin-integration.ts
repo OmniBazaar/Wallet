@@ -61,16 +61,32 @@ export const OMNICOIN_ADDRESSES: Record<string, ContractAddresses> = {
     LegacyBalanceClaim: '0x0000000000000000000000000000000000000000',
   },
 
-  // COTI Mainnet (future)
+  // Avalanche Mainnet Subnet-EVM (Production)
+  // ⚠️  PLACEHOLDER: Update when deploying to mainnet
+  // Will be synchronized from Coin/deployments/mainnet.json
+  mainnet: {
+    rpcUrl: 'https://mainnet-rpc.omnibazaar.com', // To be updated with actual RPC
+    OmniCoin: '0x0000000000000000000000000000000000000000', // To be deployed
+    OmniCore: '0x0000000000000000000000000000000000000000', // To be deployed
+    OmniGovernance: '0x0000000000000000000000000000000000000000', // To be deployed
+    OmniBridge: '0x0000000000000000000000000000000000000000', // To be deployed
+    PrivateOmniCoin: '0x0000000000000000000000000000000000000000', // To be deployed
+    MinimalEscrow: '0x0000000000000000000000000000000000000000', // To be deployed
+    LegacyBalanceClaim: '0x0000000000000000000000000000000000000000', // To be deployed
+  },
+
+  // COTI Mainnet (Privacy Layer - Future Integration)
+  // ⚠️  PLACEHOLDER: Update when COTI integration is ready
+  // Will be synchronized from Coin/deployments/coti-mainnet.json
   'coti-mainnet': {
-    rpcUrl: 'https://api.avax.network/ext/bc/C/rpc',
-    OmniCoin: '0x0000000000000000000000000000000000000000',
-    OmniCore: '0x0000000000000000000000000000000000000000',
-    OmniGovernance: '0x0000000000000000000000000000000000000000',
-    OmniBridge: '0x0000000000000000000000000000000000000000',
-    PrivateOmniCoin: '0x0000000000000000000000000000000000000000',
-    MinimalEscrow: '0x0000000000000000000000000000000000000000',
-    LegacyBalanceClaim: '0x0000000000000000000000000000000000000000',
+    rpcUrl: 'https://mainnet.coti.io', // COTI mainnet RPC
+    OmniCoin: '0x0000000000000000000000000000000000000000', // To be deployed
+    OmniCore: '0x0000000000000000000000000000000000000000', // To be deployed
+    OmniGovernance: '0x0000000000000000000000000000000000000000', // To be deployed
+    OmniBridge: '0x0000000000000000000000000000000000000000', // Cross-chain bridge
+    PrivateOmniCoin: '0x0000000000000000000000000000000000000000', // Privacy token (primary)
+    MinimalEscrow: '0x0000000000000000000000000000000000000000', // To be deployed
+    LegacyBalanceClaim: '0x0000000000000000000000000000000000000000', // Not applicable
   },
 } as const;;
 
